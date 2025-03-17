@@ -112,6 +112,23 @@ export const DATA = {
   ],
   projects: [
     {
+      title: 'HTTP1.1 Server',
+      href: 'https://github.com/0xanonydxck/http-server-rs',
+      dates: '2025',
+      active: true,
+      description: 'A simple HTTP/1.1 server that allows users to send and receive HTTP/1.1 requests and responses. It is built with Rust.',
+      technologies: ['Rust', 'Tokio'],
+      links: [
+        {
+          type: 'Github',
+          href: 'https://github.com/0xanonydxck/http-server-rs',
+          icon: <Icons.github className="size-3" />,
+        },
+      ],
+      image: '/project/http-server-rs.png',
+      video: '',
+    },
+    {
       title: 'Simple Trading Engine',
       href: 'https://github.com/0xanonydxck/simple-trading-engine',
       dates: '2024',
