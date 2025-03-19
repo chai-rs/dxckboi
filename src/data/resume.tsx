@@ -60,7 +60,7 @@ export const DATA = {
       href: 'https://krnl.xyz',
       badges: [],
       location: 'Remote',
-      title: 'Blockchain Software Engineer',
+      title: 'Software Engineer',
       logoUrl: '/work/krnl.jpeg',
       start: 'August 2024',
       end: 'Present',
