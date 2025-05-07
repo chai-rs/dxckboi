@@ -28,7 +28,7 @@ export const DATA = {
       },
       LinkedIn: {
         name: 'LinkedIn',
-        url: 'https://www.linkedin.com/in/thanatorn-kanthala/',
+        url: 'https://www.linkedin.com/in/tkthanatorn/',
         icon: Icons.linkedin,
         navbar: true,
       },
@@ -65,17 +65,6 @@ export const DATA = {
       start: 'August 2024',
       end: 'Present',
       description: "As a core developer at KRNL, I played a pivotal role in implementing a custom Ethereum node client to support the platform's execution-sharding system. This involved developing a robust JSON-RPC API service that orchestrates and verifies smart contract execution across multiple blockchain networks, enhancing scalability and efficiency. My responsibilities included architecting the core protocol codebase in Go, optimizing performance for high transaction volumes, and ensuring seamless integration of decentralized applications (dApps) with the KRNL Protocol. Through this work, I contributed to the development of a distributed runtime that determines transaction outcomes based on selected kernels across diverse environments, thereby improving dApp responsiveness and reducing time-to-market.",
-    },
-    {
-      company: 'Algo Alchemist',
-      href: 'https://alchemist.trading',
-      badges: [],
-      location: 'Remote',
-      title: 'Techincal Partner',
-      logoUrl: '/work/alchemist.png',
-      start: 'April 2024',
-      end: 'Present',
-      description: "As the lead developer for Alchemist Trading, I led the development of an innovative algorithmic trading marketplace. This platform connects traders with advanced, automated trading strategies, offering in-depth market research and consulting services. Leveraging over seven years of expertise in algorithmic trading, our team crafted high-performance strategies tailored for both Forex and Stock markets. I was responsible for architecting and implementing the platform's core functionalities, ensuring seamless integration of automated trading systems, and facilitating rigorous backtesting frameworks. Our methodical approach encompasses strategy development, market analysis, and performance validation, empowering traders to navigate complex markets with confidence.",
     },
     {
       company: 'Investic Analytic Studio',
