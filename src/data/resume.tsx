@@ -9,7 +9,7 @@ export const DATA = {
   location: 'Bangkok, Thailand',
   locationLink: 'https://www.google.com/maps/place/sanfrancisco',
   description: 'Software Engineer turned Entrepreneur. I love building things and helping people.',
-  summary: 'I am a driven and multifaceted individual with a passion for technology and entrepreneurship. My core strengths lie in backend development and full-stack engineering, where I have honed my skills through numerous self-initiated projects and hands-on experiences. Beyond technical proficiency, I am deeply interested in quantitative investment strategies, financial technology, and business operations.',
+  summary: 'I am a passionate and versatile technologist with a strong foundation in backend development and full-stack engineering, sharpened through self-driven projects, open-source contributions, and hands-on experience. I enjoy bridging technical innovation with entrepreneurial insight to drive meaningful impact.',
   avatarUrl: '/me.png',
   skills: ['Golang', 'Typescript', 'Rust', 'Python', 'React', 'Next.js', 'Tailwind CSS', 'Docker', 'PostgreSQL', 'Redis', 'MongoDB', 'MySQL', 'Git'],
   navbar: [
