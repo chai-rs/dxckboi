@@ -99,6 +99,23 @@ export const DATA = {
   ],
   projects: [
     {
+      title: 'Gin Template',
+      href: 'https://github.com/0xanonydxck/go-gin-template',
+      dates: '2025',
+      active: true,
+      description: 'A production-ready Go web application template built with the Gin framework, featuring user authentication, role-based access control, database integration, and containerization. Designed to jumpstart secure and scalable API development with best practices in mind.',
+      technologies: ['Go', 'Gin', 'Docker', 'Postgres', 'Redis', 'GORM', 'Casbin'],
+      links: [
+        {
+          type: 'Github',
+          href: 'https://github.com/0xanonydxck/go-gin-template',
+          icon: <Icons.github className="size-3" />,
+        },
+      ],
+      image: '/project/go-gin-template.webp',
+      video: '',
+    },
+    {
       title: 'HTTP1.1 Server',
       href: 'https://github.com/0xanonydxck/http-server-rs',
       dates: '2025',
