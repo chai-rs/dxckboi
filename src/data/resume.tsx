@@ -54,6 +54,17 @@ export const DATA = {
   },
   work: [
     {
+      company: 'Lodash Venture',
+      href: '',
+      badges: [],
+      location: 'Bangkok, Thailand',
+      title: 'Software Engineer',
+      logoUrl: '/work/lodash.png',
+      start: 'June 2025',
+      end: 'Present',
+      description: 'Building a search engine.',
+    },
+    {
       company: 'KRNL Labs',
       href: 'https://krnl.xyz',
       badges: [],
@@ -61,7 +72,7 @@ export const DATA = {
       title: 'Software Engineer',
       logoUrl: '/work/krnl.jpeg',
       start: 'August 2024',
-      end: 'Present',
+      end: 'May 2025',
       description: 'Architected and implemented critical protocol features for an Ethereum-based system, creating a high-performance GraphQL abstraction layer for the execution environment while designing a DAG-based workflow system using Azure libraries for scalable task management. Your contributions included developing a state machine for data access control, embedding an Expr-lang interpreter for runtime logic execution, and implementing a JSON-to-ABI encoding mechanism that enhanced cross-component communication. This comprehensive work spanned from concept to production, successfully integrating various open-source technologies directly with the Ethereum node architecture.',
     },
     {
