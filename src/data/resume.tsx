@@ -73,7 +73,7 @@ export const DATA = {
       logoUrl: '/work/krnl.jpeg',
       start: 'August 2024',
       end: 'May 2025',
-      description: 'Architected and implemented critical protocol features for an Ethereum-based system, creating a high-performance GraphQL abstraction layer for the execution environment while designing a DAG-based workflow system using Azure libraries for scalable task management. Your contributions included developing a state machine for data access control, embedding an Expr-lang interpreter for runtime logic execution, and implementing a JSON-to-ABI encoding mechanism that enhanced cross-component communication. This comprehensive work spanned from concept to production, successfully integrating various open-source technologies directly with the Ethereum node architecture.',
+      description: 'Architected and implemented critical protocol features for an Ethereum-based system, creating a high-performance GraphQL abstraction layer for the execution environment while designing a DAG-based workflow system using Azure\'s open-source libraries for scalable task management. My contributions included developing a state machine for data access control, embedding an Expr-lang interpreter for runtime logic execution, and implementing a JSON-to-ABI encoding mechanism that enhanced cross-component communication. This comprehensive work spanned from concept to production, successfully integrating various open-source technologies directly with the Ethereum node architecture.',
     },
     {
       company: 'Investic Analytic Studio',
@@ -84,7 +84,7 @@ export const DATA = {
       logoUrl: '/work/investic.jpeg',
       start: 'April 2023',
       end: 'July 2024',
-      description: 'Delivered comprehensive full-stack solutions spanning multiple domains, developing responsive React.js frontends that transformed complex designs into intuitive user experiences while engineering robust backend systems for marketplaces, payment processing, and automation. Your technical versatility extended to creating real-time ETL pipelines with TimescaleDB for financial data processing and implementing efficient DevOps automation using Jenkins, GCP Build, Terraform, and Docker. Additionally, you collaborated with a Quantitative Laboratory to develop GenAI-powered analytics that enhanced Gold OI trading strategies through sophisticated modeling techniques.',
+      description: 'Delivered comprehensive full-stack solutions spanning multiple domains, developing responsive React.js frontends that transformed complex designs into intuitive user experiences while engineering robust backend systems for marketplaces, payment processing, and automation. My technical versatility extended to creating real-time ETL pipelines with TimescaleDB for financial data processing and implementing efficient DevOps automation using Jenkins, GCP Build, Terraform, and Docker. Additionally, I collaborated with a Quantitative Laboratory to develop GenAI-powered analytics that enhanced Gold OI trading strategies through sophisticated modeling techniques.',
     },
     {
       company: 'Accenture',
@@ -95,7 +95,7 @@ export const DATA = {
       logoUrl: '/work/accenture.webp',
       start: 'November 2022',
       end: 'March 2023',
-      description: 'Engineered Go-based microservices for a scalable distributed platform, creating comprehensive unit and integration test suites that achieved high code coverage while ensuring system reliability. Throughout development, you implemented distributed systems best practices to optimize performance and enhance fault tolerance across the architecture.',
+      description: 'Engineered Go-based microservices for a scalable distributed platform, creating comprehensive unit and integration test suites that achieved high code coverage while ensuring system reliability. Throughout development, I implemented distributed systems best practices to optimize performance and enhance fault tolerance across the architecture.',
     },
   ],
   education: [
