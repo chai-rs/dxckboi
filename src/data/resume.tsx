@@ -62,7 +62,7 @@ export const DATA = {
       logoUrl: '/work/lodash.png',
       start: 'June 2025',
       end: 'Present',
-      description: 'Building a search engine.',
+      description: 'Building an intelligent search engine.',
     },
     {
       company: 'KRNL Labs',
