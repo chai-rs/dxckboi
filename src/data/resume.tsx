@@ -111,7 +111,7 @@ export const DATA = {
   projects: [
     {
       title: 'Gin Template',
-      href: 'https://github.com/0xanonydxck/go-gin-template',
+      href: 'https://github.com/chai-rs/go-gin-template',
       dates: '2025',
       active: true,
       description: 'A production-ready Go web application template built with the Gin framework, featuring user authentication, role-based access control, database integration, and containerization. Designed to jumpstart secure and scalable API development with best practices in mind.',
@@ -119,7 +119,7 @@ export const DATA = {
       links: [
         {
           type: 'Github',
-          href: 'https://github.com/0xanonydxck/go-gin-template',
+          href: 'https://github.com/chai-rs/go-gin-template',
           icon: <Icons.github className="size-3" />,
         },
       ],
@@ -128,7 +128,7 @@ export const DATA = {
     },
     {
       title: 'HTTP1.1 Server',
-      href: 'https://github.com/0xanonydxck/http-server-rs',
+      href: 'https://github.com/chai-rs/http-server-rs',
       dates: '2025',
       active: true,
       description: 'A simple HTTP/1.1 server that allows users to send and receive HTTP/1.1 requests and responses. It is built with Rust.',
@@ -136,7 +136,7 @@ export const DATA = {
       links: [
         {
           type: 'Github',
-          href: 'https://github.com/0xanonydxck/http-server-rs',
+          href: 'https://github.com/chai-rs/http-server-rs',
           icon: <Icons.github className="size-3" />,
         },
       ],
@@ -145,7 +145,7 @@ export const DATA = {
     },
     {
       title: 'Simple Trading Engine',
-      href: 'https://github.com/0xanonydxck/simple-trading-engine',
+      href: 'https://github.com/chai-rs/simple-trading-engine',
       dates: '2024',
       active: true,
       description: 'A simple trading engine that allows users to buy and sell stocks. It is built with Rust.',
@@ -153,7 +153,7 @@ export const DATA = {
       links: [
         {
           type: 'Github',
-          href: 'https://github.com/0xanonydxck/simple-trading-engine',
+          href: 'https://github.com/chai-rs/simple-trading-engine',
           icon: <Icons.github className="size-3" />,
         },
       ],
@@ -162,7 +162,7 @@ export const DATA = {
     },
     {
       title: 'Mini Binance Stats',
-      href: 'https://github.com/0xanonydxck/Mini-Binance-Stats',
+      href: 'https://github.com/chai-rs/Mini-Binance-Stats',
       dates: '2023',
       active: true,
       description: 'A stateless microservice that stores and aggregates Binance trading data, exposing a RESTful API for real-time market analytics and insights.',
@@ -170,7 +170,7 @@ export const DATA = {
       links: [
         {
           type: 'Github',
-          href: 'https://github.com/0xanonydxck/Mini-Binance-Stats',
+          href: 'https://github.com/chai-rs/Mini-Binance-Stats',
           icon: <Icons.github className="size-3" />,
         },
       ],
