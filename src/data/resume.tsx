@@ -11,7 +11,7 @@ export const DATA = {
   description: 'Software Engineer turned Entrepreneur. I love building things and helping people.',
   summary: 'I am a passionate and versatile technologist with a strong foundation in backend development and full-stack engineering, sharpened through self-driven projects, open-source contributions, and hands-on experience. I enjoy bridging technical innovation with entrepreneurial insight to drive meaningful impact.',
   avatarUrl: '/me.png',
-  skills: ['Golang', 'Typescript', 'Rust', 'Python', 'React', 'Next.js', 'Tailwind CSS', 'Docker', 'PostgreSQL', 'Redis', 'MongoDB', 'MySQL', 'Git'],
+  skills: ['Golang', 'Rust', 'Typescript', 'Python', 'React', 'Next.js', 'Tailwind CSS', 'Docker', 'PostgreSQL', 'Redis', 'MongoDB', 'MySQL', 'Git'],
   navbar: [
     { href: '/', icon: HomeIcon, label: 'Home' },
     // { href: '/blog', icon: NotebookIcon, label: 'Blog' },
@@ -115,7 +115,7 @@ export const DATA = {
       dates: '2025',
       active: true,
       description: 'A production-ready Go web application template built with the Gin framework, featuring user authentication, role-based access control, database integration, and containerization. Designed to jumpstart secure and scalable API development with best practices in mind.',
-      technologies: ['Go', 'Gin', 'Docker', 'Postgres', 'Redis', 'GORM', 'Casbin'],
+      technologies: ['Go', 'Gin', 'Docker', 'Postgres', 'Redis', 'GORM', 'Casbin', 'Dockertest'],
       links: [
         {
           type: 'Github',
