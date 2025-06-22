@@ -110,6 +110,23 @@ export const DATA = {
   ],
   projects: [
     {
+      title: 'Welder',
+      href: 'https://github.com/ideatru/welder',
+      dates: '2025',
+      active: true,
+      description: 'Welder bridges the gap between human-readable data formats like JSON and the low-level Application Binary Interface (ABI) required by Ethereum smart contracts. It handles complex nested structures and provides a high-level schema system to define your data, making contract interactions straightforward and type-safe.',
+      technologies: ['Go', 'Ethereum'],
+      links: [
+        {
+          type: 'Github',
+          href: 'https://github.com/ideatru/welder',
+          icon: <Icons.github className="size-3" />,
+        },
+      ],
+      image: '/project/welder.png',
+      video: '',
+    },
+    {
       title: 'Gin Template',
       href: 'https://github.com/chai-rs/go-gin-template',
       dates: '2025',
