@@ -73,7 +73,7 @@ export const DATA = {
       logoUrl: '/work/krnl.jpeg',
       start: 'August 2024',
       end: 'May 2025',
-      description: 'Architected and implemented critical protocol features for an Ethereum-based system, creating a high-performance GraphQL abstraction layer for the execution environment while designing a DAG-based workflow system using Azure\'s open-source libraries for scalable task management. My contributions included developing a state machine for data access control, embedding an Expr-lang interpreter for runtime logic execution, and implementing a JSON-to-ABI encoding mechanism that enhanced cross-component communication. This comprehensive work spanned from concept to production, successfully integrating various open-source technologies directly with the Ethereum node architecture.',
+      description: "Architected and implemented critical protocol features for an Ethereum-based system, creating a high-performance GraphQL abstraction layer for the execution environment while designing a DAG-based workflow system using Azure's open-source libraries for scalable task management. My contributions included developing a state machine for data access control, embedding an Expr-lang interpreter for runtime logic execution, and implementing a JSON-to-ABI encoding mechanism that enhanced cross-component communication. This comprehensive work spanned from concept to production, successfully integrating various open-source technologies directly with the Ethereum node architecture.",
     },
     {
       company: 'Investic Analytic Studio',
@@ -109,6 +109,17 @@ export const DATA = {
     },
   ],
   projects: [
+    {
+      title: 'Chative AI',
+      href: 'https://chative.ai',
+      dates: '2025',
+      active: true,
+      description: 'Chative is an LLM Agentic Business Chatbot targeting Thai SMEs with intent-driven action automation across LINE, Facebook, Instagram, TikTok, and web channels. Users manage multiple workspaces (clients/businesses) with one customizable chatbot per workspace.',
+      technologies: ['Go', 'Tanstack Start', 'TypeScript', 'React', 'PostgreSQL', 'Redis', 'Docker'],
+      links: [],
+      image: '/project/chative-ai.png',
+      video: '',
+    },
     {
       title: 'Welder',
       href: 'https://github.com/ideatru/welder',
