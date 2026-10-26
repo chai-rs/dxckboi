@@ -1,1165 +1,988 @@
 # Polymarket
 
-Founded in 2020, Polymarket is a decentralized prediction market platform where traders speculate
-on event outcomes by buying and selling outcome tokens.
+Polymarket ก่อตั้งในปี 2020 เป็นแพลตฟอร์ม prediction market แบบกระจายศูนย์ (decentralized) ที่ trader คาดการณ์ผลลัพธ์
+ของเหตุการณ์ต่าง ๆ ด้วยการซื้อขาย outcome token
 
-NautilusTrader provides a venue integration for data and execution via Polymarket's Central Limit
-Order Book (CLOB) API.
+NautilusTrader มี venue integration สำหรับ data และ execution ผ่าน Central Limit Order Book (CLOB) API ของ
+Polymarket
 
-The adapter is implemented in Rust and exposed to Python at `nautilus_trader.adapters.polymarket`. Thus, data,
-execution, signing, and WebSocket operations have the same behavior from Rust and Python.
+adapter นี้ implement ด้วย Rust ทั้งการทำงานด้าน data, execution, signing และ WebSocket
 
-The adapter handles order preparation and signing for several wallet configurations. This guide
-covers market data, trade execution, session key administration, and Deposit Wallet position operations.
+adapter จัดการการเตรียมและ sign order สำหรับ wallet หลายรูปแบบ คู่มือนี้ครอบคลุม market data, trade execution,
+การบริหาร session key และ position operation ของ Deposit Wallet
 
-The adapter supports Conditional Tokens Framework (CTF) markets with market protocol `v1`. This is
-separate from CLOB service version `2` and the `CTFExchangeV2` order format. Markets with protocol `v2`,
-a missing version, or an unknown version are unsupported, even with populated `clobTokenIds`.
-Instrument providers skip these markets; the historical data loader rejects them. Unsupported markets
-are not retried while [waiting for CLOB metadata](#markets-awaiting-clob-metadata). See the
-[Protocol V2 migration guide](https://docs.polymarket.com/migrate/polymarket-v2/api-integrations).
+adapter รองรับตลาด Conditional Tokens Framework (CTF) ที่ใช้ market protocol `v1` ซึ่งแยกจาก CLOB service version `2`
+และรูปแบบ order `CTFExchangeV2` ตลาดที่ใช้ protocol `v2`, ไม่มี version หรือมี version ที่ไม่รู้จัก จะไม่รองรับ แม้จะมี
+`clobTokenIds` อยู่ก็ตาม instrument provider จะข้ามตลาดเหล่านี้ และ historical data loader จะปฏิเสธ ตลาดที่ไม่รองรับจะ
+ไม่ถูก retry ระหว่าง[การรอ CLOB metadata](#markets-awaiting-clob-metadata) ดู
+[Protocol V2 migration guide](https://docs.polymarket.com/migrate/polymarket-v2/api-integrations)
 
-## Installation
+## การติดตั้ง {#installation}
 
-The Python package includes the Polymarket adapter. No adapter-specific extra is required.
+Polymarket adapter อยู่ใน crate `nautilus-polymarket` (`crates/adapters/polymarket`) ไม่ต้องติดตั้งส่วนเสริมเฉพาะ
+adapter เพิ่มเติม
 
-To install the latest pre-release build:
+สำหรับข้อกำหนดเบื้องต้นในการ build จาก source ดู[คู่มือการติดตั้ง](../getting_started/installation.md)
 
-```bash
-uv pip install --pre nautilus_trader
-```
+## ตัวอย่าง {#examples}
 
-To build the Python package from source, run from the repository root:
-
-```bash
-make build-debug
-```
-
-For development wheels and source-build prerequisites, see the
-[installation guide](../getting_started/installation.md).
-
-## Examples
-
-The maintained examples are available in
+ตัวอย่างที่ได้รับการดูแลสำหรับ Rust อยู่ใน
 [`crates/adapters/polymarket/examples`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/polymarket/examples)
-for Rust. For Python, use the Rust-native [data tester](https://github.com/nautechsystems/nautilus_trader/blob/develop/examples/live/polymarket/data_tester.py),
-[execution tester](https://github.com/nautechsystems/nautilus_trader/blob/develop/examples/live/polymarket/exec_tester.py),
-or [Up/Down smoke tester](https://github.com/nautechsystems/nautilus_trader/blob/develop/examples/live/polymarket/updown_smoke_tester.py).
-The exec tester configurations apply the
-[close precision](#exec-tester-close-residuals) needed for Polymarket market SELL orders.
+config ของ exec tester ใช้[close precision](#exec-tester-close-residuals) ที่จำเป็นสำหรับ market SELL order บน
+Polymarket
 
-## Binary options
+## Binary option {#binary-options}
 
-A [binary option](https://en.wikipedia.org/wiki/Binary_option) is a type of financial exotic option contract
-in which traders bet on the outcome of a yes-or-no proposition. If the prediction is correct, the trader
-receives a fixed payout. Otherwise, they receive nothing. NautilusTrader represents Polymarket outcome tokens
-as `BinaryOption` instruments.
+[binary option](https://en.wikipedia.org/wiki/Binary_option) คือสัญญา exotic option ทางการเงินประเภทหนึ่ง ที่ trader
+เดิมพันผลลัพธ์ของข้อเสนอแบบใช่หรือไม่ใช่ (yes-or-no) หากคาดการณ์ถูก trader จะได้รับเงินจ่ายคงที่ หากผิดจะไม่ได้รับอะไรเลย
+NautilusTrader แทน outcome token ของ Polymarket ด้วย instrument แบบ `BinaryOption`
 
-Polymarket uses [pUSD](#pusd) as the collateral token for trading.
+Polymarket ใช้ [pUSD](#pusd) เป็น collateral token สำหรับการเทรด
 
-## Polymarket documentation
+## เอกสารของ Polymarket {#polymarket-documentation}
 
-Use these Polymarket resources:
+ใช้แหล่งข้อมูลของ Polymarket เหล่านี้:
 
-- [Polymarket Learn](https://learn.polymarket.com/): User guides to the platform.
-- [Polymarket CLOB API](https://docs.polymarket.com/getting-started/api): Technical
-  documentation for developers interacting with the Polymarket CLOB API.
+- [Polymarket Learn](https://learn.polymarket.com/): คู่มือการใช้งานแพลตฟอร์มสำหรับผู้ใช้
+- [Polymarket CLOB API](https://docs.polymarket.com/getting-started/api): เอกสารทางเทคนิคสำหรับนักพัฒนาที่ทำงานกับ
+  Polymarket CLOB API
 
-## Overview
+## ภาพรวม {#overview}
 
-Use these Rust components together or separately for live market data and trade execution:
+ใช้ component ของ Rust เหล่านี้ร่วมกันหรือแยกกันสำหรับ live market data และ trade execution:
 
-- `PolymarketWebSocketClient`: Low-level WebSocket API connectivity built on the Nautilus Rust
-  `WebSocketClient`.
-- `PolymarketInstrumentProvider`: Parsing and loading of `BinaryOption` instruments.
-- `PolymarketDataClient`: A market data feed manager.
-- `PolymarketExecutionClient`: A trade execution gateway.
-- `PolymarketDataClientFactory`: Factory for Polymarket data clients (used by the live node
-  builder).
-- `PolymarketExecutionClientFactory`: Factory for Polymarket execution clients (used by the live
-  node builder).
-- `PolymarketPositionClient`: Deposit Wallet split, merge, and redeem operations.
-- `PolymarketSessionKeyClient`: Owner-operated session authorization, listing, and revocation.
+- `PolymarketWebSocketClient`: การเชื่อมต่อ WebSocket API ระดับล่าง สร้างบน `WebSocketClient` ของ Nautilus Rust
+- `PolymarketInstrumentProvider`: การ parse และโหลด instrument แบบ `BinaryOption`
+- `PolymarketDataClient`: ตัวจัดการ market data feed
+- `PolymarketExecutionClient`: gateway สำหรับ trade execution
+- `PolymarketDataClientFactory`: factory สำหรับ Polymarket data client (ใช้โดย live node builder)
+- `PolymarketExecutionClientFactory`: factory สำหรับ Polymarket execution client (ใช้โดย live node builder)
+- `PolymarketPositionClient`: operation split, merge และ redeem ของ Deposit Wallet
+- `PolymarketSessionKeyClient`: การอนุญาต, การแสดงรายการ และการเพิกถอน session ที่ดำเนินการโดยเจ้าของ
 
-:::note
-Python users configure live nodes through the exported configuration and factory classes, and call
-position operations through `PolymarketPositionClient` and session administration through
-`PolymarketSessionKeyClient`. The direct WebSocket, provider, data client, and execution client types
-are Rust-only implementation components.
-:::
+## pUSD {#pusd}
 
-## pUSD
+**pUSD** คือ collateral token ที่ใช้เทรดบน Polymarket เป็น ERC-20 token มาตรฐานบน Polygon ที่มี USDC หนุนหลัง
 
-**pUSD** is the collateral token used for trading on Polymarket. It is a standard ERC-20 token on
-Polygon, backed by USDC.
-
-The proxy contract address is
+ที่อยู่ของ proxy contract คือ
 [0xC011a7E12a19f7B1f670d46F03B03f3342E82DFB](https://polygonscan.com/address/0xC011a7E12a19f7B1f670d46F03B03f3342E82DFB)
-on Polygon. Direct on-chain funding wraps Polygon USDC.e (bridged USDC) into pUSD
-through the [CollateralOnramp](https://docs.polymarket.com/resources/contracts).
-The Bridge API can also deposit supported assets from other chains and credit pUSD
-after conversion.
+บน Polygon การเติมเงินโดยตรงแบบ on-chain จะ wrap Polygon USDC.e (USDC ที่ bridge มา) เป็น pUSD
+ผ่าน [CollateralOnramp](https://docs.polymarket.com/resources/contracts)
+Bridge API ยังสามารถฝาก asset ที่รองรับจาก chain อื่นและเครดิตเป็น pUSD หลังการแปลงได้ด้วย
 
-## Wallets and accounts
+## Wallet และ account {#wallets-and-accounts}
 
-To trade on Polymarket via NautilusTrader, use a Polygon-compatible wallet, such as MetaMask.
+หากต้องการเทรดบน Polymarket ผ่าน NautilusTrader ให้ใช้ wallet ที่รองรับ Polygon เช่น MetaMask
 
-### Signature types
+### Signature type {#signature-types}
 
-Polymarket supports multiple signature types for order signing and verification:
+Polymarket รองรับ signature type หลายแบบสำหรับการ sign และตรวจสอบ order:
 
-| Signature type | Wallet type                    | Description                                                               | Use case                                                                                       |
+| Signature type | ประเภท wallet                   | คำอธิบาย                                                                   | กรณีการใช้งาน                                                                                    |
 | -------------- | ------------------------------ | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `0`            | EOA (externally owned account) | Standard EIP-712 signatures from wallets with direct private key control. | **Adapter default.** Allowlisted EOA trading where the funder and signer are the same address. |
-| `1`            | Proxy Wallet                   | Legacy smart contract wallet created through email or social login.       | Requires the Proxy Wallet `funder` address.                                                    |
-| `2`            | Safe Wallet                    | Legacy Gnosis Safe wallet created with an external browser wallet.        | Requires the Safe Wallet `funder` address.                                                     |
-| `3`            | Deposit Wallet                 | ERC-1271 smart wallet used for new Polymarket account wallets.            | Requires the Deposit Wallet `funder`; API credentials stay bound to the signer.                |
+| `0`            | EOA (externally owned account) | signature มาตรฐาน EIP-712 จาก wallet ที่ควบคุม private key โดยตรง             | **ค่าเริ่มต้นของ adapter** การเทรดด้วย EOA ที่อยู่ใน allowlist โดย funder และ signer เป็น address เดียวกัน |
+| `1`            | Proxy Wallet                   | smart contract wallet แบบเดิมที่สร้างผ่านการ login ด้วย email หรือ social           | ต้องใช้ address `funder` ของ Proxy Wallet                                                       |
+| `2`            | Safe Wallet                    | Gnosis Safe wallet แบบเดิมที่สร้างด้วย browser wallet ภายนอก                   | ต้องใช้ address `funder` ของ Safe Wallet                                                        |
+| `3`            | Deposit Wallet                 | ERC-1271 smart wallet ที่ใช้สำหรับ account wallet ใหม่ของ Polymarket            | ต้องใช้ `funder` ของ Deposit Wallet โดย API credential ยังผูกกับ signer                           |
 
 :::info
-Polymarket uses Deposit Wallets for account wallets deployed on or after May 4, 2026. Direct EOA
-trading requires an allowlisted EOA. See the Polymarket
-[wallet and authentication guide](https://docs.polymarket.com/trading/wallets-auth) for the account
-types and setup flows.
+Polymarket ใช้ Deposit Wallet สำหรับ account wallet ที่ deploy ตั้งแต่วันที่ 4 พฤษภาคม 2026 เป็นต้นไป การเทรดด้วย EOA
+โดยตรงต้องใช้ EOA ที่อยู่ใน allowlist ดูประเภท account และขั้นตอนการตั้งค่าได้ใน
+[wallet and authentication guide](https://docs.polymarket.com/trading/wallets-auth) ของ Polymarket
 :::
 
-NautilusTrader defaults to signature type 0 (EOA). Set `signature_type` to use another supported
-wallet type. Proxy signature clients fail during construction unless `funder` is present and differs
-from the signing address.
+NautilusTrader ใช้ signature type 0 (EOA) เป็นค่าเริ่มต้น ตั้งค่า `signature_type` เพื่อใช้ wallet ประเภทอื่นที่รองรับ
+client ที่ใช้ proxy signature จะล้มเหลวตั้งแต่ตอนสร้าง เว้นแต่จะมี `funder` และ `funder` ต้องต่างจาก signing address
 
-Environment variables supply a single wallet address per trader instance. To use multiple wallets,
-configure separate execution client instances.
+environment variable ให้ wallet address ได้เพียงหนึ่ง address ต่อ trader instance หากต้องการใช้หลาย wallet ให้ตั้งค่า
+execution client instance แยกกัน
 
-Fund your wallet with pUSD before submitting orders. An unfunded wallet produces the
-"not enough balance or allowance" API error.
+เติม pUSD เข้า wallet ก่อนส่ง order wallet ที่ไม่มีเงินจะได้รับ API error "not enough balance or allowance"
 
-### Setting EOA allowances
+### การตั้ง allowance สำหรับ EOA {#setting-eoa-allowances}
 
-The adapter includes a direct on-chain allowance command for EOA accounts. Use it only when the
-funding wallet is the signer (`PolymarketSignatureType::Eoa`). Fund the EOA with POL for gas, set
-`POLYMARKET_PK`, and run:
+adapter มีคำสั่งสำหรับตั้ง allowance แบบ on-chain โดยตรงสำหรับ account แบบ EOA ใช้เฉพาะเมื่อ funding wallet คือ signer
+(`PolymarketSignatureType::Eoa`) เติม POL เข้า EOA สำหรับค่า gas ตั้งค่า `POLYMARKET_PK` แล้วรัน:
 
 ```bash
 cargo run -p nautilus-polymarket --bin polymarket-set-allowances
 ```
 
-The command grants maximum pUSD and CTF approvals to the CTF Exchange, Neg Risk CTF Exchange, and
-`NegRiskCtfCollateralAdapter`. It uses `https://polygon.drpc.org` by default. Set `POLYGON_RPC_URL` to use
-another Polygon RPC endpoint. Run it again if Polymarket changes the required contracts.
+คำสั่งนี้ให้ approval สูงสุดสำหรับ pUSD และ CTF แก่ CTF Exchange, Neg Risk CTF Exchange และ
+`NegRiskCtfCollateralAdapter` โดยใช้ `https://polygon.drpc.org` เป็นค่าเริ่มต้น ตั้งค่า `POLYGON_RPC_URL` เพื่อใช้
+Polygon RPC endpoint อื่น ให้รันอีกครั้งหาก Polymarket เปลี่ยน contract ที่จำเป็น
 
-The command grants approvals only. It does not revoke approvals for contracts that are no longer targets.
-Treat revocation as a separate on-chain operation. Before submitting it, confirm that no remaining redemption
-or settlement flow needs the legacy approval.
+คำสั่งนี้ให้ approval เท่านั้น ไม่ได้เพิกถอน approval ของ contract ที่ไม่ได้เป็นเป้าหมายแล้ว ให้ถือว่าการเพิกถอนเป็น
+operation on-chain แยกต่างหาก ก่อนส่ง ให้ยืนยันว่าไม่มี flow ด้าน redemption หรือ settlement ที่เหลืออยู่ซึ่งยังต้องใช้
+approval เดิม
 
-### Setting smart-wallet allowances
+### การตั้ง allowance สำหรับ smart wallet {#setting-smart-wallet-allowances}
 
-Do not run the EOA command for a proxy, Safe, or Deposit Wallet funder. It signs transactions from
-the EOA key and cannot grant approvals from a smart contract wallet.
+อย่ารันคำสั่งสำหรับ EOA กับ funder ที่เป็น proxy, Safe หรือ Deposit Wallet เพราะคำสั่งนี้ sign transaction ด้วย key
+ของ EOA และไม่สามารถให้ approval จาก smart contract wallet ได้
 
-Use Polymarket's [wallet and authentication flow](https://docs.polymarket.com/trading/wallets-auth)
-to submit the approvals from the account wallet. Deposit Wallet approvals use an ordered `WALLET`
-batch authorized by the signer and submitted through the Relayer. Safe and Proxy Wallet approvals
-need their wallet-specific SDK payloads.
+ใช้ [wallet and authentication flow](https://docs.polymarket.com/trading/wallets-auth) ของ Polymarket เพื่อส่ง
+approval จาก account wallet approval ของ Deposit Wallet ใช้ batch `WALLET` แบบเรียงลำดับที่ signer อนุญาตและส่งผ่าน
+Relayer ส่วน approval ของ Safe และ Proxy Wallet ต้องใช้ SDK payload เฉพาะของ wallet นั้น
 
-### Refreshing and verifying allowances
+### การ refresh และตรวจสอบ allowance {#refreshing-and-verifying-allowances}
 
-After the approval transaction confirms, refresh the CLOB cache. Rust callers can use
-`PolymarketClobHttpClient::update_balance_allowance` with `AssetType::Collateral` for pUSD. Use
-`AssetType::Conditional` with a conditional token ID for a conditional-token allowance. Both forms
-also need the account's signature type. The authenticated request maps to
-`GET /balance-allowance/update`. Use `PolymarketSignatureType::Poly1271` for a Deposit Wallet.
+หลังจาก approval transaction ได้รับการยืนยันแล้ว ให้ refresh CLOB cache ผู้เรียกจาก Rust ใช้
+`PolymarketClobHttpClient::update_balance_allowance` กับ `AssetType::Collateral` สำหรับ pUSD ได้ ใช้
+`AssetType::Conditional` พร้อม conditional token ID สำหรับ allowance ของ conditional token ทั้งสองแบบต้องระบุ
+signature type ของ account ด้วย request ที่ผ่านการยืนยันตัวตนนี้จะ map ไปยัง `GET /balance-allowance/update`
+ใช้ `PolymarketSignatureType::Poly1271` สำหรับ Deposit Wallet
 
-The balance-allowance endpoint has two decoding paths:
+endpoint balance-allowance มี decoding path สองแบบ:
 
-| Path                                              | Used for                                             | Allowance handling                                                                                                                                                             | Meaning of success                                                                 |
+| Path                                              | ใช้สำหรับ                                              | การจัดการ allowance                                                                                                                                                            | ความหมายเมื่อสำเร็จ                                                                     |
 | ------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
-| `PolymarketClobHttpClient::get_balance_allowance` | Reading spender allowance evidence.                  | Requires the plural `allowances` map; rejects a missing map, a non-null legacy singular value, malformed or non-canonical keys, and semantic duplicates such as case variants. | Balance plus an unambiguous map; required targets and amounts still need checking. |
-| Internal balance-only projection                  | Account state refresh and market-buy fee adjustment. | Ignores allowance fields; its return type cannot expose or grant approval authority.                                                                                           | Balance only; required CLOB spender approvals remain unproven.                     |
+| `PolymarketClobHttpClient::get_balance_allowance` | อ่านหลักฐาน allowance ของ spender                      | ต้องมี map `allowances` แบบพหูพจน์ และปฏิเสธเมื่อไม่มี map, มีค่าเอกพจน์แบบเดิมที่ไม่เป็น null, key ผิดรูปแบบหรือไม่ canonical และรายการซ้ำเชิงความหมาย เช่น ต่างกันแค่ตัวพิมพ์เล็กใหญ่ | balance พร้อม map ที่ไม่กำกวม แต่ยังต้องตรวจสอบเป้าหมายและจำนวนที่จำเป็น                         |
+| projection ภายในแบบ balance-only                  | refresh account state และปรับค่า fee ของ market-buy   | ไม่สนใจฟิลด์ allowance และ return type ไม่สามารถเปิดเผยหรือให้อำนาจ approval ได้                                                                                                   | balance เท่านั้น approval ของ CLOB spender ที่จำเป็นยังไม่ได้รับการพิสูจน์                          |
 
-Use the strict path whenever a decision depends on allowance evidence so ambiguous wire data cannot
-become approval authority.
+ให้ใช้ path แบบเข้มงวดทุกครั้งที่การตัดสินใจขึ้นกับหลักฐาน allowance เพื่อไม่ให้ข้อมูลที่กำกวมจาก wire กลายเป็นอำนาจ
+approval
 
-### Account balances
+### Account balance {#account-balances}
 
-#### Balance calculation
+#### การคำนวณ balance {#balance-calculation}
 
-Balance refreshes use the venue-reported pUSD total and derive locked collateral from the
-execution client's local state:
+การ refresh balance ใช้ยอดรวม pUSD ที่ venue รายงาน และคำนวณ locked collateral จาก local state ของ execution client:
 
-- Open BUY order reservations for its account, using cached limit prices and remaining quantities.
-- Its BUY fill notional and commission that the venue total may still include.
+- การสำรองของ BUY order ที่เปิดอยู่ของ account นั้น โดยใช้ limit price ที่ cache ไว้และ quantity ที่เหลือ
+- notional และ commission ของ BUY fill ของ account นั้น ที่ยอดรวมของ venue อาจยังรวมอยู่
 
-Reservations exclude submitted orders awaiting acceptance and orders absent from the execution cache.
-SELL orders reserve outcome tokens rather than pUSD and do not contribute to locked collateral.
+การสำรองไม่รวม order ที่ส่งแล้วแต่ยังรอการ accept และ order ที่ไม่มีใน execution cache SELL order สำรอง outcome token
+แทน pUSD จึงไม่นับรวมใน locked collateral
 
-**Unsettled BUY spend**: The next refresh after a known BUY fill subtracts its notional plus commission from
-free balance. It also subtracts other unsettled BUY spend measured against the same snapshot.
+**BUY spend ที่ยังไม่ settle**: การ refresh ครั้งถัดไปหลังจากทราบ BUY fill จะหัก notional บวก commission ของ fill นั้น
+ออกจาก free balance และยังหัก BUY spend อื่นที่ยังไม่ settle ซึ่งวัดเทียบกับ snapshot เดียวกันออกด้วย
 
-These amounts release together when the venue total has fallen by at least the combined amount since that
-snapshot. Thus, a drained total is not subtracted again. Until then, locked unsettled spend is only the part
-of the open spend that the decrease has not covered. A refresh whose venue total is unchanged keeps the open
-spend locked.
+ยอดเหล่านี้จะถูกปลดล็อกพร้อมกันเมื่อยอดรวมของ venue ลดลงอย่างน้อยเท่ากับยอดรวมทั้งหมดนั้นนับจาก snapshot ดังกล่าว
+ดังนั้นยอดรวมที่ถูกหักไปแล้วจะไม่ถูกหักซ้ำ จนกว่าจะถึงตอนนั้น spend ที่ยังไม่ settle ที่ถูกล็อกจะเป็นเพียงส่วนของ open
+spend ที่การลดลงยังไม่ครอบคลุม การ refresh ที่ยอดรวมของ venue ไม่เปลี่ยนจะคงการล็อก open spend ไว้
 
-**Voids**: A void removes that fill's spend from locked collateral immediately. Later void revisions
-are cumulative, so only the increase is removed. The voided amount still counts toward the decrease
-required to release other open spend. A void of a fill that was never locked does not raise that
-threshold. When no open spend remains, the next refresh releases the voided amount and moves the
-snapshot.
+**Void**: void จะลบ spend ของ fill นั้นออกจาก locked collateral ทันที revision ของ void ครั้งหลังเป็นแบบสะสม จึงลบเฉพาะ
+ส่วนที่เพิ่มขึ้น ยอดที่ถูก void ยังนับรวมในการลดลงที่จำเป็นต่อการปลดล็อก open spend อื่น void ของ fill ที่ไม่เคยถูกล็อก
+จะไม่เพิ่มเกณฑ์นั้น เมื่อไม่เหลือ open spend แล้ว การ refresh ครั้งถัดไปจะปลดยอดที่ถูก void และขยับ snapshot
 
-The adapter does not lock these BUY fills:
+adapter จะไม่ล็อก BUY fill เหล่านี้:
 
-- A fill first applied from terminal REST evidence, including a confirmed fill report, because that
-  evidence is admitted only after the trade is confirmed.
-- A reconciled fill more than 15 seconds older than the snapshot, or received before any snapshot.
+- fill ที่ถูกนำไปใช้ครั้งแรกจากหลักฐาน REST แบบ terminal รวมถึง fill report ที่ยืนยันแล้ว เพราะหลักฐานนั้นจะถูกรับเข้ามา
+  หลังจาก trade ได้รับการยืนยันแล้วเท่านั้น
+- fill ที่ reconcile แล้วซึ่งเก่ากว่า snapshot เกิน 15 วินาที หรือได้รับมาก่อนจะมี snapshot ใด ๆ
 
-Locked collateral is capped at the reported total, with free balance equal to total minus locked,
-following the [balance model](../concepts/accounting.md#balance-model).
+locked collateral ถูกจำกัดไว้ไม่เกินยอดรวมที่รายงาน โดย free balance เท่ากับยอดรวมลบ locked ตาม
+[balance model](../concepts/accounting.md#balance-model)
 
-#### Refresh timing
+#### จังหวะการ refresh {#refresh-timing}
 
-The adapter seeds reservations from the execution cache at connect. It updates reservations and unsettled BUY
-spend as the core processes order events, including reconciled events. A transport reconnect keeps unsettled
-BUY spend. Reset clears it. The initial balance refresh precedes startup reconciliation. Orders discovered
-during reconciliation affect balances on the next refresh.
+adapter ตั้งค่าเริ่มต้นของการสำรองจาก execution cache ตอน connect และอัปเดตการสำรองกับ BUY spend ที่ยังไม่ settle
+ขณะที่ core ประมวลผล order event รวมถึง event ที่ reconcile แล้ว การ reconnect ของ transport จะคง BUY spend ที่ยังไม่
+settle ไว้ ส่วนการ reset จะล้างทิ้ง การ refresh balance ครั้งแรกเกิดก่อน startup reconciliation order ที่พบระหว่าง
+reconciliation จะมีผลต่อ balance ในการ refresh ครั้งถัดไป
 
-Refreshes occur at connect, on account queries, after finalized trade updates, and on user WebSocket
-reconnect. A balance response that arrives after a newer refresh, after an execution-client reconnect, or
-after the client resets, is not applied. A user WebSocket reconnect does not discard an in-flight refresh. A
-newer refresh still wins. Account balances do not change on each order event. Balance refreshes do not request
-open orders.
+การ refresh เกิดขึ้นตอน connect, เมื่อมีการ query account, หลัง trade update ที่ finalize แล้ว และเมื่อ user WebSocket
+reconnect balance response ที่มาถึงหลังจากมีการ refresh ที่ใหม่กว่า, หลัง execution client reconnect หรือหลัง client
+reset จะไม่ถูกนำไปใช้ การ reconnect ของ user WebSocket ไม่ได้ทิ้งการ refresh ที่กำลังดำเนินอยู่ แต่การ refresh ที่ใหม่กว่า
+ยังคงชนะ account balance ไม่เปลี่ยนในทุก order event และการ refresh balance ไม่ได้ request open order
 
 :::warning
-**These balances are estimates.** HTTP balance responses and order events can reflect different
-points in time. They do not guarantee funds are reserved before submission.
+**balance เหล่านี้เป็นค่าประมาณ** HTTP balance response และ order event อาจสะท้อนจุดเวลาที่ต่างกัน และไม่ได้รับประกันว่า
+เงินจะถูกสำรองไว้ก่อนการส่ง order
 
-Timing effects include:
+ผลกระทบด้านจังหวะเวลารวมถึง:
 
-- A collateral credit, including own SELL settlement, can leave unsettled BUY spend locked after
-  the venue total already reflects the drain. That hold is limited to the amount the decrease has
-  not covered.
-- An unrelated debit can release that spend before the fill has drained.
-- A void whose amount never leaves the venue total can keep that uncovered shortfall locked while
-  other unsettled spend is still open.
-- A confirmation still inside the drain window can report terminal REST BUY spend as free until a
-  later refresh.
-- A refresh that applies before a queued fill is processed can leave that fill locked after the
-  total has already drained.
+- เครดิต collateral ซึ่งรวมถึง settlement ของ SELL ของตัวเอง อาจทำให้ BUY spend ที่ยังไม่ settle ถูกล็อกค้างไว้ หลังจาก
+  ยอดรวมของ venue สะท้อนการหักไปแล้ว การล็อกนั้นจำกัดไว้ที่ยอดที่การลดลงยังไม่ครอบคลุม
+- การหักเงินที่ไม่เกี่ยวข้องอาจปลดล็อก spend นั้นก่อนที่ fill จะถูกหักจริง
+- void ที่ยอดไม่เคยออกจากยอดรวมของ venue อาจทำให้ส่วนขาดที่ยังไม่ครอบคลุมนั้นถูกล็อกค้างไว้ ขณะที่ spend อื่นที่ยังไม่
+  settle ยังเปิดอยู่
+- การยืนยันที่ยังอยู่ใน drain window อาจรายงาน BUY spend จาก REST แบบ terminal ว่าเป็นเงินว่างจนกว่าจะมีการ refresh
+  ครั้งถัดไป
+- การ refresh ที่ถูกนำไปใช้ก่อนที่ fill ที่อยู่ในคิวจะถูกประมวลผล อาจทำให้ fill นั้นถูกล็อกค้างไว้หลังจากยอดรวมถูกหักไปแล้ว
 
-The adapter does not lock matched spend from another client on the same funder, or from a fill it
-has not yet received.
+adapter ไม่ได้ล็อก matched spend จาก client อื่นที่ใช้ funder เดียวกัน หรือจาก fill ที่ยังไม่ได้รับ
 :::
 
-## API keys
+## API key {#api-keys}
 
-### CLOB credentials
+### CLOB credential {#clob-credentials}
 
-The execution client requires CLOB L2 credentials. Create or derive them with Polymarket's
-[API authentication flow](https://docs.polymarket.com/getting-started/api#authentication). The
-adapter provides a command that reads `POLYMARKET_PK` and prints the created or derived credentials:
+execution client ต้องใช้ CLOB L2 credential สร้างหรือ derive ได้ด้วย
+[API authentication flow](https://docs.polymarket.com/getting-started/api#authentication) ของ Polymarket
+adapter มีคำสั่งที่อ่าน `POLYMARKET_PK` และพิมพ์ credential ที่สร้างหรือ derive ได้ออกมา:
 
 ```bash
 cargo run -p nautilus-polymarket --bin polymarket-create-api-key
 ```
 
-Set the returned values as:
+ตั้งค่าที่ได้เป็น:
 
 - `POLYMARKET_API_KEY`
 - `POLYMARKET_API_SECRET`
 - `POLYMARKET_PASSPHRASE`
 
-The credentials authenticate the private-key signer, not a proxy or Deposit Wallet funder. The data
-client requires them only for [PolyBolt reference-price subscriptions](#polybolt-reference-prices).
+credential เหล่านี้ยืนยันตัวตนของ signer ที่ถือ private key ไม่ใช่ funder ที่เป็น proxy หรือ Deposit Wallet data client
+ต้องใช้ credential เหล่านี้เฉพาะสำหรับ [PolyBolt reference-price subscription](#polybolt-reference-prices)
 
-### Relayer credentials
+### Relayer credential {#relayer-credentials}
 
-Deposit Wallet split, merge, and redeem operations also require a Relayer API key. Create one under
-Settings > API Keys > Relayer API Keys, as described in
-[Connect your account](https://docs.polymarket.com/trading/wallets-auth#connect-your-account), then set:
+operation split, merge และ redeem ของ Deposit Wallet ต้องใช้ Relayer API key ด้วย สร้างได้ที่
+Settings > API Keys > Relayer API Keys ตามที่อธิบายไว้ใน
+[Connect your account](https://docs.polymarket.com/trading/wallets-auth#connect-your-account) แล้วตั้งค่า:
 
 - `POLYMARKET_RELAYER_API_KEY`
 - `POLYMARKET_RELAYER_SIGNER_ADDRESS`
 
-`POLYMARKET_RELAYER_SIGNER_ADDRESS` is the signer address shown when the Relayer key is created.
-The position client also reads `POLYMARKET_PK` and `POLYMARKET_FUNDER`.
+`POLYMARKET_RELAYER_SIGNER_ADDRESS` คือ signer address ที่แสดงตอนสร้าง Relayer key
+position client ยังอ่าน `POLYMARKET_PK` และ `POLYMARKET_FUNDER` ด้วย
 
-### Builder credentials
+### Builder credential {#builder-credentials}
 
-Session authorization and revocation require Builder credentials approved for the session-key API.
-These are separate from the Relayer API key used for position operations. Follow Polymarket's
-[session-key requirements](https://docs.polymarket.com/trading/session-keys), and keep these values
-in the owner's administration environment:
+การอนุญาตและเพิกถอน session ต้องใช้ Builder credential ที่ได้รับอนุมัติสำหรับ session-key API ซึ่งแยกจาก Relayer API key
+ที่ใช้กับ position operation ทำตาม [session-key requirements](https://docs.polymarket.com/trading/session-keys)
+ของ Polymarket และเก็บค่าเหล่านี้ไว้ใน administration environment ของเจ้าของ:
 
 - `POLYMARKET_BUILDER_API_KEY`
 - `POLYMARKET_BUILDER_API_SECRET`
 - `POLYMARKET_BUILDER_PASSPHRASE`
 
-### Deposit Wallet verification
+### การตรวจสอบ Deposit Wallet {#deposit-wallet-verification}
 
-Construction fails when the funder equals the signing address. Before signing, the position client:
+การสร้าง client จะล้มเหลวเมื่อ funder เท่ากับ signing address ก่อนการ sign position client จะ:
 
-- Checks the current and legacy Deposit Wallet addresses predicted by the canonical Polygon factory.
-- Requires deployed wallet code and verifies that the signer owns the wallet.
-- Reads the signed nonce from the wallet's on-chain counter.
+- ตรวจสอบ Deposit Wallet address ทั้งแบบปัจจุบันและแบบเดิมที่ทำนายได้จาก canonical Polygon factory
+- กำหนดให้ต้องมี wallet code ที่ deploy แล้ว และตรวจสอบว่า signer เป็นเจ้าของ wallet
+- อ่าน signed nonce จาก counter on-chain ของ wallet
 
-Polygon RPC defaults to `https://polygon.drpc.org`. Pass `base_url_rpc` to the
-`PolymarketPositionClient` constructor to use another trusted Polygon endpoint.
+Polygon RPC มีค่าเริ่มต้นเป็น `https://polygon.drpc.org` ส่ง `base_url_rpc` ให้ constructor ของ
+`PolymarketPositionClient` เพื่อใช้ Polygon endpoint อื่นที่เชื่อถือได้
 
-## Session keys
+## Session key {#session-keys}
 
-Session keys let a separate signer trade for a Deposit Wallet without giving the trading runtime
-its owner's private key. The adapter supports CLOB-scoped authorization. See Polymarket's
-[session-key documentation](https://docs.polymarket.com/trading/session-keys) for venue eligibility
-and Builder approval requirements.
+session key ช่วยให้ signer อีกตัวเทรดแทน Deposit Wallet ได้ โดยไม่ต้องให้ private key ของเจ้าของแก่ trading runtime
+adapter รองรับการอนุญาตในขอบเขต CLOB ดูคุณสมบัติที่ venue กำหนดและข้อกำหนดการอนุมัติของ Builder ได้ใน
+[session-key documentation](https://docs.polymarket.com/trading/session-keys) ของ Polymarket
 
-### Administer access
+### การบริหารสิทธิ์การเข้าถึง {#administer-access}
 
-Run `PolymarketSessionKeyClient` in the **owner's administration environment**, using a single
-administration process per wallet. Before authorizing a session:
+รัน `PolymarketSessionKeyClient` ใน **administration environment ของเจ้าของ** โดยใช้ administration process เพียง
+process เดียวต่อหนึ่ง wallet ก่อนอนุญาต session:
 
-- Supply the owner private key, owner CLOB credentials, Builder credentials, and Deposit Wallet address
-  explicitly. The client does not read environment variables itself.
-- Generate and securely store the session keypair separately. Pass only its public address to the
-  authorization method.
+- ระบุ private key ของเจ้าของ, CLOB credential ของเจ้าของ, Builder credential และ Deposit Wallet address อย่างชัดเจน
+  client ไม่อ่าน environment variable เอง
+- สร้างและเก็บ session keypair แยกไว้อย่างปลอดภัย ส่งเฉพาะ public address ของมันให้ method สำหรับการอนุญาต
 
-The Python example reads credentials from the administration process's environment and passes them
-into the client:
+config เสริม:
 
-```python
-import os
+- `base_url_http` override CLOB endpoint ของ production
+- `base_url_relayer` override Relayer endpoint ของ production
+- `proxy_url` ตั้งค่า HTTP หรือ HTTPS proxy สำหรับ client ทั้งสอง
 
-from nautilus_trader.adapters.polymarket import PolymarketSessionKeyClient
-from nautilus_trader.adapters.polymarket import PolymarketSessionKeyClientConfig
-
-admin = PolymarketSessionKeyClient(
-    PolymarketSessionKeyClientConfig(
-        private_key=os.environ["POLYMARKET_PK"],
-        api_key=os.environ["POLYMARKET_API_KEY"],
-        api_secret=os.environ["POLYMARKET_API_SECRET"],
-        passphrase=os.environ["POLYMARKET_PASSPHRASE"],
-        builder_api_key=os.environ["POLYMARKET_BUILDER_API_KEY"],
-        builder_api_secret=os.environ["POLYMARKET_BUILDER_API_SECRET"],
-        builder_passphrase=os.environ["POLYMARKET_BUILDER_PASSPHRASE"],
-        funder=os.environ["POLYMARKET_FUNDER"],
-    ),
-)
-
-# Use the public address derived from the separately stored session private key.
-session_address = os.environ["SESSION_ADDRESS"]
-
-# Run these calls from an async function in the administration process.
-key = await admin.authorize_session_key(session_address)
-keys = await admin.list_session_keys()
-```
-
-Optional configuration:
-
-- `base_url_http` overrides the production CLOB endpoint.
-- `base_url_relayer` overrides the production Relayer endpoint.
-- `proxy_url` configures an HTTP or HTTPS proxy for both clients.
-
-The Rust example provides the same authorization and listing operations:
+ตัวอย่าง Rust มี operation สำหรับการอนุญาตและการแสดงรายการ:
 
 ```bash
 cargo run -p nautilus-polymarket --example polymarket-session-keys -- authorize "$SESSION_ADDRESS"
 cargo run -p nautilus-polymarket --example polymarket-session-keys -- list
 ```
 
-Each administration method has a specific completion condition:
+แต่ละ administration method มีเงื่อนไขการเสร็จสิ้นเฉพาะ:
 
-| Method                  | Successful return requires                                                      |
+| Method                  | การคืนค่าสำเร็จต้องอาศัย                                                             |
 | ----------------------- | ------------------------------------------------------------------------------- |
-| `authorize_session_key` | On-chain confirmation; registry matches the address, CLOB scope, and expiration |
-| `list_session_keys`     | Validated active, unexpired registry entries                                    |
-| `revoke_session_key`    | On-chain confirmation; key absent from the active registry                      |
+| `authorize_session_key` | การยืนยันแบบ on-chain และ registry ตรงกับ address, CLOB scope และวันหมดอายุ             |
+| `list_session_keys`     | รายการใน registry ที่ active, ยังไม่หมดอายุ และผ่านการตรวจสอบแล้ว                        |
+| `revoke_session_key`    | การยืนยันแบบ on-chain และ key ไม่อยู่ใน registry ที่ active แล้ว                         |
 
-#### Expiration
+#### การหมดอายุ {#expiration}
 
-Authorizations expire after 4,315 hours, matching the official SDK's wire value. Polymarket describes
-this period as 180 days, but its raw example and SDK use a value five hours shorter. The returned
-`valid_until` is the exact expiration in Unix seconds.
+การอนุญาตจะหมดอายุหลังจาก 4,315 ชั่วโมง ตรงกับค่าบน wire ของ SDK ทางการ Polymarket อธิบายช่วงเวลานี้ว่า 180 วัน
+แต่ตัวอย่างดิบและ SDK ของ Polymarket ใช้ค่าที่สั้นกว่าห้าชั่วโมง ค่า `valid_until` ที่คืนมาคือเวลาหมดอายุที่แน่นอน
+ในหน่วย Unix seconds
 
-#### Recover an interrupted operation
+#### การกู้คืน operation ที่ถูกขัดจังหวะ {#recover-an-interrupted-operation}
 
-After an authorization or revocation times out, encounters a transport failure, or is cancelled,
-retry with the **same operation, same address, and same client**. The client retains the signed
-request and idempotency key and rejects a different mutation until the pending operation resolves.
+หลังจากการอนุญาตหรือการเพิกถอน timeout, เจอ transport failure หรือถูกยกเลิก ให้ retry ด้วย **operation เดียวกัน,
+address เดียวกัน และ client เดียวกัน** client จะเก็บ signed request และ idempotency key ไว้ และปฏิเสธ mutation อื่น
+จนกว่า operation ที่ค้างอยู่จะได้ข้อยุติ
 
-Keep the client alive until the operation resolves: pending requests are held in memory.
-Unresolved-outcome errors include the idempotency key and any known transaction ID for diagnosis.
+ให้ client ทำงานอยู่จนกว่า operation จะได้ข้อยุติ เพราะ request ที่ค้างอยู่ถูกเก็บไว้ในหน่วยความจำ error แบบ
+unresolved-outcome จะมี idempotency key และ transaction ID ที่ทราบ (ถ้ามี) สำหรับการวินิจฉัย
 
 :::warning
-Signed batches have a **600-second deadline**. If an unaccepted request expires, retrying cannot
-create a fresh batch, and the client remains blocked. Reconcile the registry and Relayer outcome
-before creating a new client. The same reconciliation is required after a process restart.
+signed batch มี **deadline 600 วินาที** หาก request ที่ยังไม่ถูก accept หมดอายุ การ retry จะไม่สามารถสร้าง batch
+ใหม่ได้และ client จะยังถูก block อยู่ ให้ reconcile registry และผลลัพธ์จาก Relayer ก่อนสร้าง client ใหม่ หลังจาก
+process restart ก็ต้อง reconcile แบบเดียวกัน
 :::
 
-### Configure session trading
+### การตั้งค่าการเทรดแบบ session {#configure-session-trading}
 
-Create or derive CLOB credentials with the **session private key**, using the existing
-[CLOB credential workflow](#clob-credentials). Session mode requires:
+สร้างหรือ derive CLOB credential ด้วย **session private key** โดยใช้
+[CLOB credential workflow](#clob-credentials) ที่มีอยู่ session mode ต้องการ:
 
-- Explicit session credentials and `funder`. It does not fall back to owner credentials from the environment.
-- `PolymarketSignatureType.Poly1271`. Other wallet signature types are rejected.
+- session credential และ `funder` ที่ระบุอย่างชัดเจน โดยจะไม่ fallback ไปใช้ owner credential จาก environment
+- `PolymarketSignatureType.Poly1271` signature type ของ wallet แบบอื่นจะถูกปฏิเสธ
 
 :::info
-Keep owner and Builder credentials outside the trading runtime.
+เก็บ owner credential และ Builder credential ไว้นอก trading runtime
 :::
 
-In this example, `session_private_key` is the separately stored session key, and
-`session_api_key`, `session_api_secret`, and `session_passphrase` are its returned CLOB credentials:
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-```python
-from nautilus_trader.adapters.polymarket import PolymarketExecutionClientConfig
-from nautilus_trader.adapters.polymarket import PolymarketSignatureType
-from nautilus_trader.adapters.polymarket import PolymarketSignerType
+config ที่มีอยู่เดิมมีค่าเริ่มต้นเป็น `PolymarketSignerType.Owner`
 
-execution = PolymarketExecutionClientConfig(
-    signer_type=PolymarketSignerType.Session,
-    signature_type=PolymarketSignatureType.Poly1271,
-    private_key=session_private_key,
-    api_key=session_api_key,
-    api_secret=session_api_secret,
-    passphrase=session_passphrase,
-    funder=deposit_wallet_address,
-)
-```
+#### Reconciliation และการ restart {#reconciliation-and-restarts}
 
-Existing configurations default to `PolymarketSignerType.Owner`.
+order, trade และ notification ถูกจำกัดขอบเขตไว้ที่กิจกรรมของ session นั้น reconciliation ต้องให้ session API key ตรงกับ
+ความเป็นเจ้าของ order การใช้ wallet address ร่วมกันเพียงอย่างเดียวไม่ได้ยืนยันความเป็นเจ้าของ
 
-#### Reconciliation and restarts
+cancel-all ของ session จะยกเลิกตาม order ID ที่รู้จัก แทนที่จะใช้การยกเลิกตลาดทั้ง wallet mass status มี order และ
+fill ของ session แต่ไม่มี position ทั้ง wallet การ query position โดยตรงจะคืน error เพราะสินทรัพย์ที่ wallet ถืออยู่ไม่
+สามารถบอก position ของ session ได้
 
-Orders, trades, and notifications are scoped to the session's activity. Reconciliation requires the session
-API key to match order ownership. A shared wallet address alone does not establish ownership.
+ตั้งค่า node ให้สอดคล้อง:
 
-Session cancel-all cancels known order IDs rather than using wallet-wide market cancellation.
-Mass status contains session orders and fills but omits wallet-wide positions. Direct position queries
-return an error because wallet holdings cannot establish a session's position.
+- **Position check**: ตั้ง `LiveExecutionEngineConfig.position_check_interval_secs=None` เพื่อปิด position check
+  แบบเป็นรอบของ node
+- **ประวัติข้าม restart**: ตั้งค่า [cache database persistence](../concepts/cache.md#database-configuration)
+  และคง `load_cache=True` ไว้เพื่อเก็บประวัติ order และ fill
 
-Configure the node accordingly:
+### การเพิกถอนหรือหมุนเวียนสิทธิ์ {#revoke-or-rotate-access}
 
-- **Position checks**: Set `LiveExecutionEngineConfig.position_check_interval_secs=None` to disable
-  periodic position checks for the node.
-- **History across restarts**: Configure [cache database persistence](../concepts/cache.md#database-configuration)
-  and keep `load_cache=True` to retain order and fill history.
+หมุนเวียน key จาก administration environment ประสานงานเรื่อง order ที่ค้างอยู่และ reconciliation ก่อนเปลี่ยน
+credential: **session ใหม่จะไม่ได้รับการมองเห็น order ของ session เก่า**
 
-### Revoke or rotate access
-
-Rotate keys from the administration environment. Coordinate outstanding orders and reconciliation
-before switching credentials: **a new session does not inherit visibility into an old session's orders**.
-
-To revoke a key, use the administration client created above, from an async function:
-
-```python
-await admin.revoke_session_key(session_address)
-```
-
-Or run the Rust example:
+หากต้องการเพิกถอน key ให้รันตัวอย่าง Rust:
 
 ```bash
 cargo run -p nautilus-polymarket --example polymarket-session-keys -- revoke "$SESSION_ADDRESS"
 ```
 
 :::warning
-Expired or revoked permissions cause venue rejections. A live transport connection does not prove
-that authorization remains active.
+สิทธิ์ที่หมดอายุหรือถูกเพิกถอนจะทำให้ venue ปฏิเสธ การมี transport connection ที่ยังทำงานอยู่ไม่ได้พิสูจน์ว่าการอนุญาต
+ยัง active อยู่
 :::
 
-## Position operations
+## Position operation {#position-operations}
 
-`PolymarketPositionClient` splits pUSD into complete outcome-token sets, merges complete sets back
-to pUSD, and redeems resolved positions. The client supports Deposit Wallet (`PolymarketSignatureType::Poly1271`)
-only. Safe, Proxy, and EOA paths are not available. The client does not deploy wallets, batch
-unrelated calls, size a merge to `"max"`, or redeem positions automatically.
+`PolymarketPositionClient` split pUSD เป็นชุด outcome token ที่ครบชุด, merge ชุดที่ครบกลับเป็น pUSD และ redeem position
+ที่ได้ผลลัพธ์แล้ว client รองรับเฉพาะ Deposit Wallet (`PolymarketSignatureType::Poly1271`) ไม่มี path สำหรับ Safe,
+Proxy และ EOA client ไม่ deploy wallet, ไม่รวม call ที่ไม่เกี่ยวข้องเป็น batch, ไม่กำหนดขนาด merge เป็น `"max"` และไม่
+redeem position อัตโนมัติ
 
-### Inputs and approvals
+### Input และ approval {#inputs-and-approvals}
 
-Each operation looks up the market on the public CLOB by condition ID and requires market protocol `v1`
-and a present `neg_risk` value before encoding calldata. It then selects the canonical pUSD token and
-the standard or negative-risk collateral adapter. Callers pass a 0x-prefixed 32-byte condition ID and
-do not supply contract addresses.
+แต่ละ operation จะค้นหาตลาดบน public CLOB ด้วย condition ID และกำหนดให้ต้องเป็น market protocol `v1` และมีค่า
+`neg_risk` ก่อนจะ encode calldata จากนั้นจึงเลือก pUSD token แบบ canonical และ collateral adapter แบบมาตรฐานหรือ
+negative-risk ผู้เรียกส่ง condition ID ขนาด 32 byte ที่ขึ้นต้นด้วย 0x และไม่ต้องระบุ contract address
 
-- **Split and merge amounts**: Positive pUSD decimals exactly representable at six decimal places, with no
-  rounding. Amounts use pUSD units, never base units. `"max"` is not accepted.
-- **Redemption**: No amount argument. Redeems both binary index sets `[1, 2]`.
+- **จำนวนสำหรับ split และ merge**: ทศนิยม pUSD ที่เป็นบวกและแสดงได้พอดีที่ทศนิยมหกตำแหน่ง โดยไม่มีการปัดเศษ
+  จำนวนใช้หน่วย pUSD ไม่ใช่ base unit และไม่รับ `"max"`
+- **Redemption**: ไม่มี argument จำนวน redeem binary index set ทั้ง `[1, 2]`
 
-**Approvals are not submitted automatically.** Grant them from the Deposit Wallet before submitting:
+**approval จะไม่ถูกส่งอัตโนมัติ** ให้ grant จาก Deposit Wallet ก่อนส่ง:
 
-| Operation       | Required approval for the market's collateral adapter |
+| Operation       | approval ที่จำเป็นสำหรับ collateral adapter ของตลาด      |
 | --------------- | ----------------------------------------------------- |
-| Split           | Spend the wallet's pUSD                               |
-| Merge or redeem | Act as a Conditional Tokens operator                  |
+| Split           | ใช้จ่าย pUSD ของ wallet                                |
+| Merge หรือ redeem | ทำหน้าที่เป็น Conditional Tokens operator               |
 
-The standard collateral adapter is absent from the approval plan in `polymarket-set-allowances`. The
-negative-risk adapter is included. That command signs approvals from the EOA, so it cannot grant either
-approval for a Deposit Wallet. Use Polymarket's
-[wallet and authentication flow](https://docs.polymarket.com/trading/wallets-auth) to grant the
-position-operation approvals from the Deposit Wallet.
+collateral adapter แบบมาตรฐานไม่อยู่ใน approval plan ของ `polymarket-set-allowances` แต่ negative-risk adapter อยู่
+คำสั่งนั้น sign approval จาก EOA จึงไม่สามารถ grant approval ใดได้สำหรับ Deposit Wallet ใช้
+[wallet and authentication flow](https://docs.polymarket.com/trading/wallets-auth) ของ Polymarket เพื่อ grant
+approval สำหรับ position operation จาก Deposit Wallet
 
-### Submit and wait
+### Submit และรอผล {#submit-and-wait}
 
-The following example shows a split submission. Replace the illustrative condition ID with the
-market's actual condition ID before running it.
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-```python
-from decimal import Decimal
+`split_position` และ `merge_positions` รับ condition ID และ `Decimal` ของ pUSD ที่เป็นบวก ส่วน `redeem_positions` รับ
+เฉพาะ condition ID แต่ละ method คืน `PolymarketPositionTransaction` หลังจากส่งไปยัง Relayer แล้ว เรียก `wait()` หนึ่งครั้ง
+เพื่อ poll จนกว่าจะได้ `PolymarketPositionOutcome` handle จะเก็บ `transaction_id` ไว้หลังเริ่มรอ รวมถึงหลังการยกเลิก
+หรือเกิด error
 
-from nautilus_trader.adapters.polymarket import PolymarketPositionClient
+### Outcome และ error {#outcomes-and-errors}
 
-condition_id = "0x" + "11" * 32
-client = PolymarketPositionClient()
-transaction = await client.split_position(condition_id, Decimal("1"))
-outcome = await transaction.wait()
-```
-
-`split_position` and `merge_positions` take the condition ID and a positive pUSD `Decimal`.
-`redeem_positions` takes only the condition ID. Each method returns a
-`PolymarketPositionTransaction` after Relayer submission. Call `wait()` once to poll until a
-`PolymarketPositionOutcome` is available. A second `wait()` on the same Python handle raises. The
-handle retains its `transaction_id` after waiting starts, including after cancellation or an error.
-
-### Outcomes and errors
-
-| `PolymarketPositionOutcome.status` | Meaning                             |
+| `PolymarketPositionOutcome.status` | ความหมาย                             |
 | ---------------------------------- | ----------------------------------- |
-| `confirmed`                        | Relayer reported `STATE_CONFIRMED`. |
-| `failed`                           | Relayer reported `STATE_FAILED`.    |
-| `invalid`                          | Relayer reported `STATE_INVALID`.   |
+| `confirmed`                        | Relayer รายงาน `STATE_CONFIRMED`     |
+| `failed`                           | Relayer รายงาน `STATE_FAILED`        |
+| `invalid`                          | Relayer รายงาน `STATE_INVALID`       |
 
-Every outcome exposes `transaction_id`. Confirmed and failed outcomes expose `transaction_hash` when the
-Relayer supplies one. Invalid outcomes always return `None`. Failed and invalid outcomes also expose
-`error_msg` when the Relayer supplies one.
+ทุก outcome มี `transaction_id` outcome แบบ confirmed และ failed มี `transaction_hash` เมื่อ Relayer ส่งมา outcome แบบ
+invalid จะคืน `None` เสมอ outcome แบบ failed และ invalid ยังมี `error_msg` เมื่อ Relayer ส่งมาด้วย
 
-#### Submit errors
+#### Submit error {#submit-errors}
 
-An HTTP rejection raises before a transaction handle exists. A timed-out submit or a success response with no
-`transaction_id` also raises. The on-chain outcome is unknown.
+HTTP rejection จะเกิด error ก่อนที่จะมี transaction handle submit ที่ timeout หรือ response สำเร็จที่ไม่มี
+`transaction_id` ก็จะเกิด error เช่นกัน และผลลัพธ์ on-chain จะไม่ทราบ
 
-The client **does not retry submissions**.
+client **ไม่ retry การ submit**
 
-#### Wait timeout
+#### Wait timeout {#wait-timeout}
 
-The default is 120 seconds, checked between polling requests. An in-flight request or polling delay can extend
-the elapsed time. A timeout raises an error naming the Relayer transaction ID. The terminal state remains
-unknown. Python does not expose the Rust wait-timeout or poll-interval setters.
+ค่าเริ่มต้นคือ 120 วินาที ตรวจสอบระหว่าง polling request แต่ละครั้ง request ที่กำลังดำเนินอยู่หรือ polling delay อาจทำให้
+เวลาที่ผ่านไปยาวกว่านั้น timeout จะเกิด error ที่ระบุ Relayer transaction ID และสถานะ terminal จะยังไม่ทราบ ใน Rust
+สามารถปรับ wait timeout และ poll interval ได้ผ่าน setter
 
-#### Response validation
+#### การตรวจสอบ response {#response-validation}
 
-Relayer redirects are rejected, and polling rejects a response whose transaction ID differs from the
-submitted ID.
+Relayer redirect จะถูกปฏิเสธ และการ poll จะปฏิเสธ response ที่มี transaction ID ต่างจาก ID ที่ส่งไป
 
-### Submission coordination
+### การประสานงานการ submit {#submission-coordination}
 
-Clients in the same process share submission state for each wallet. A later operation requires a matching
-terminal Relayer result and an advanced wallet nonce. A failed or invalid operation that does not advance
-the nonce remains blocked.
+client ใน process เดียวกันใช้ submission state ร่วมกันสำหรับแต่ละ wallet operation ถัดไปต้องอาศัยผลลัพธ์ terminal จาก
+Relayer ที่ตรงกันและ wallet nonce ที่เลื่อนไปแล้ว operation ที่ failed หรือ invalid ซึ่งไม่ได้เลื่อน nonce จะยังถูก block
 
-After signing, the client records a reservation before sending the batch. An HTTP rejection, timeout,
-cancellation, or response without a transaction ID then blocks further operations for that wallet, even
-if the client is recreated. Failures before that reservation, such as invalid amounts or failed wallet
-verification, do not create a new block. An HTTP status alone does not prove that a signed batch cannot
-execute.
+หลังจาก sign แล้ว client จะบันทึก reservation ก่อนส่ง batch จากนั้น HTTP rejection, timeout, การยกเลิก หรือ response
+ที่ไม่มี transaction ID จะ block operation ต่อไปของ wallet นั้น แม้จะสร้าง client ใหม่ก็ตาม ความล้มเหลวก่อนจะมี
+reservation เช่น จำนวนไม่ถูกต้องหรือการตรวจสอบ wallet ล้มเหลว จะไม่สร้าง block ใหม่ HTTP status เพียงอย่างเดียวไม่ได้
+พิสูจน์ว่า signed batch จะ execute ไม่ได้
 
 :::warning
-Do not restart and blindly retry an unknown submission. A process restart clears local submission state but
-does not cancel a signed transaction. Use a single submitting process per wallet. Coordination does not extend
-across processes or external wallet tools.
+อย่า restart แล้ว retry การ submit ที่ไม่ทราบผลแบบไม่ไตร่ตรอง process restart จะล้าง submission state ภายในเครื่อง แต่ไม่ได้
+ยกเลิก signed transaction ให้ใช้ process ที่ submit เพียง process เดียวต่อ wallet การประสานงานนี้ไม่ครอบคลุมข้าม process
+หรือเครื่องมือ wallet ภายนอก
 :::
 
-### Recover an unknown submission
+### การกู้คืน submission ที่ไม่ทราบผล {#recover-an-unknown-submission}
 
-#### Retain the submission record
+#### เก็บ submission record {#retain-the-submission-record}
 
-Enable and retain INFO logs before submitting position operations. Before each submit request, the
-client emits a `Deposit Wallet submission` record containing:
+เปิดและเก็บ INFO log ไว้ก่อน submit position operation ก่อนทุก submit request client จะ emit record
+`Deposit Wallet submission` ที่มี:
 
-- Wallet address, reserved nonce, and signed deadline (Unix seconds).
-- Operation, target contract, and value.
-- Unsigned calldata identifying the condition and, for split or merge, the amount.
+- wallet address, nonce ที่สำรองไว้ และ signed deadline (Unix seconds)
+- operation, contract เป้าหมาย และ value
+- unsigned calldata ที่ระบุ condition และจำนวน (สำหรับ split หรือ merge)
 
-The record excludes signatures and credentials, but contains trading intent. Restrict access to retained logs.
-Keep the transaction ID from the returned handle when available.
+record ไม่มี signature และ credential แต่มีเจตนาในการเทรด ให้จำกัดการเข้าถึง log ที่เก็บไว้ และเก็บ transaction ID จาก
+handle ที่คืนมาไว้เมื่อมี
 
 :::warning
-Logging is not a durable transaction journal. Disabled logging or a process crash can leave no
-retained record, preventing safe recovery without further evidence.
+logging ไม่ใช่ transaction journal ที่ทนทาน การปิด logging หรือ process crash อาจทำให้ไม่มี record เหลืออยู่ ทำให้ไม่
+สามารถกู้คืนได้อย่างปลอดภัยหากไม่มีหลักฐานอื่น
 :::
 
-#### Reconcile before retrying
+#### Reconcile ก่อน retry {#reconcile-before-retrying}
 
-1. **Stop submissions.** Include other processes and external wallet tools using the wallet.
-1. **Establish whether the operation executed.** Find the submission record and any Relayer
-   transaction ID. Match the intended wallet, target, and calldata against finalized on-chain
-   transaction receipts and effects. A successful HTTP response, a Relayer failure, or an advanced
-   nonce alone does not establish whether the intended operation executed. If it executed, do not
-   repeat it.
-1. **Keep the wallet blocked while execution remains unknown.** To reconcile by expiry, perform all
-   the [expiry checks](#expiry-checks) below. If the nonce advanced, inspect the transaction that
-   consumed it instead of assuming failure.
-1. **Prove that retrying is safe before restarting.** Establish that the intended operation did not execute.
-   Also establish that the original signed batch can no longer execute. If the record is missing, the RPC
-   cannot provide consistent finalized state, or contract behavior is unverified, resolve the uncertainty with
-   Polymarket before retrying.
+1. **หยุดการ submit** รวมถึง process อื่นและเครื่องมือ wallet ภายนอกที่ใช้ wallet นั้น
+1. **ยืนยันว่า operation execute แล้วหรือไม่** หา submission record และ Relayer transaction ID (ถ้ามี) จับคู่ wallet,
+   เป้าหมาย และ calldata ที่ตั้งใจไว้กับ transaction receipt และผลลัพธ์ on-chain ที่ finalize แล้ว HTTP response ที่สำเร็จ,
+   Relayer failure หรือ nonce ที่เลื่อนไปเพียงอย่างเดียว ไม่ได้ยืนยันว่า operation ที่ตั้งใจ execute หรือไม่ หาก execute
+   แล้ว อย่าทำซ้ำ
+1. **block wallet ไว้ตราบที่ยังไม่ทราบผลการ execute** หากต้องการ reconcile ด้วยการหมดอายุ ให้ทำ
+   [expiry check](#expiry-checks) ทั้งหมดด้านล่าง หาก nonce เลื่อนไปแล้ว ให้ตรวจสอบ transaction ที่ใช้ nonce นั้นแทนการ
+   สันนิษฐานว่าล้มเหลว
+1. **พิสูจน์ว่าการ retry ปลอดภัยก่อน restart** ยืนยันว่า operation ที่ตั้งใจไม่ได้ execute และยืนยันว่า signed batch
+   เดิมไม่สามารถ execute ได้อีกแล้ว หาก record หายไป, RPC ไม่สามารถให้ state ที่ finalize แล้วอย่างสม่ำเสมอ หรือยังไม่ได้
+   ตรวจสอบพฤติกรรมของ contract ให้แก้ความไม่แน่นอนนั้นกับ Polymarket ก่อน retry
 
-#### Expiry checks
+#### Expiry check {#expiry-checks}
 
-The signed deadline is 1,800 seconds after signing by default. Rust callers can change this with
-`with_deadline_secs`. Longer deadlines delay expiry-based recovery. A `wait()` timeout does not shorten the
-signed deadline or cancel the batch.
+signed deadline มีค่าเริ่มต้นเป็น 1,800 วินาทีหลังการ sign ผู้เรียกจาก Rust เปลี่ยนค่านี้ได้ด้วย `with_deadline_secs`
+deadline ที่ยาวขึ้นจะทำให้การกู้คืนด้วยการหมดอายุช้าลง timeout ของ `wait()` ไม่ได้ทำให้ signed deadline สั้นลงหรือยกเลิก
+batch
 
-First verify that the deployed wallet contract enforces the signed deadline and consumes its nonce
-when a batch executes. Then read the wallet's `nonce()` with `eth_call` at a finalized Polygon block
-and obtain that same block's timestamp. Require both:
+ขั้นแรกให้ตรวจสอบว่า wallet contract ที่ deploy แล้วบังคับใช้ signed deadline และใช้ nonce เมื่อ batch execute จากนั้นอ่าน
+`nonce()` ของ wallet ด้วย `eth_call` ณ Polygon block ที่ finalize แล้ว และดึง timestamp ของ block เดียวกันนั้น ต้องเป็น
+จริงทั้งสองข้อ:
 
-- The nonce is unchanged from the reserved nonce.
-- The block timestamp is strictly after the signed deadline.
+- nonce ไม่เปลี่ยนจาก nonce ที่สำรองไว้
+- block timestamp อยู่หลัง signed deadline อย่างเคร่งครัด
 
-Elapsed local time is insufficient. An advanced nonce requires inspection of the transaction that consumed it.
-It does not establish failure.
+เวลาที่ผ่านไปในเครื่องไม่เพียงพอ nonce ที่เลื่อนไปแล้วต้องตรวจสอบ transaction ที่ใช้ nonce นั้น และไม่ได้ยืนยันว่าล้มเหลว
 
-The client does not perform these recovery checks or release a reservation automatically. Consult
-the [Polymarket contract registry](https://docs.polymarket.com/resources/contracts) when identifying
-the deployed contracts and the [JSON-RPC reference](https://ethereum.org/en/developers/docs/apis/json-rpc/)
-for block-specific calls.
+client ไม่ได้ทำ recovery check เหล่านี้หรือปลด reservation ให้อัตโนมัติ ดู
+[Polymarket contract registry](https://docs.polymarket.com/resources/contracts) เมื่อต้องการระบุ contract ที่ deploy
+แล้ว และ [JSON-RPC reference](https://ethereum.org/en/developers/docs/apis/json-rpc/) สำหรับ call ที่ระบุ block
 
-## Configuration
+## Configuration {#configuration}
 
-Configure signing and authentication through these parameters or their environment-variable fallbacks:
+ตั้งค่าการ sign และการยืนยันตัวตนผ่าน parameter เหล่านี้ หรือ environment variable ที่ใช้เป็น fallback:
 
-| Parameter     | Environment variable    | Purpose                                                      |
+| Parameter     | Environment variable    | วัตถุประสงค์                                                    |
 | ------------- | ----------------------- | ------------------------------------------------------------ |
-| `private_key` | `POLYMARKET_PK`         | Wallet key used to sign orders according to `signature_type` |
-| `funder`      | `POLYMARKET_FUNDER`     | pUSD funding wallet address                                  |
+| `private_key` | `POLYMARKET_PK`         | wallet key ที่ใช้ sign order ตาม `signature_type`              |
+| `funder`      | `POLYMARKET_FUNDER`     | address ของ wallet ที่ใช้เติม pUSD                               |
 | `api_key`     | `POLYMARKET_API_KEY`    | CLOB L2 API key                                              |
 | `api_secret`  | `POLYMARKET_API_SECRET` | CLOB L2 API secret                                           |
 | `passphrase`  | `POLYMARKET_PASSPHRASE` | CLOB L2 API passphrase                                       |
 
-In owner mode, when a parameter is not supplied explicitly, the client reads its environment variable. Session
-mode requires explicit credentials and a funder. CLOB L2 credentials authenticate the private-key signer. For
-`POLY_1271`, the Deposit Wallet remains the `funder`. It is not the L2 authentication address.
+ใน owner mode เมื่อไม่ได้ระบุ parameter อย่างชัดเจน client จะอ่านจาก environment variable ที่เกี่ยวข้อง session mode ต้องใช้
+credential และ funder ที่ระบุอย่างชัดเจน CLOB L2 credential ยืนยันตัวตนของ signer ที่ถือ private key สำหรับ `POLY_1271`
+Deposit Wallet ยังคงเป็น `funder` และไม่ใช่ address ที่ใช้ยืนยันตัวตน L2
 
 :::tip
-Use environment variables to supply credentials without embedding them in client configuration code.
+ใช้ environment variable เพื่อส่ง credential โดยไม่ต้องฝังไว้ใน code ที่ตั้งค่า client
 :::
 
-Instrument loading also has two common controls:
+การโหลด instrument ยังมีตัวควบคุมที่ใช้บ่อยอีกสองตัว:
 
-- `auto_load_missing_instruments` (default `True`): Subscribe and request commands for uncached
-  instruments trigger an ad-hoc Gamma API load. When disabled, subscribing to an uncached instrument
-  returns an error. See [Runtime instrument loading](#runtime-instrument-loading).
-- `auto_load_debounce_ms` (default `100`): Window in milliseconds for coalescing concurrent auto-load
-  requests into a single batched Gamma call.
+- `auto_load_missing_instruments` (ค่าเริ่มต้น `True`): command สำหรับ subscribe และ request ของ instrument ที่ไม่อยู่ใน
+  cache จะกระตุ้นการโหลด Gamma API แบบ ad-hoc เมื่อปิดไว้ การ subscribe instrument ที่ไม่อยู่ใน cache จะคืน error ดู
+  [Runtime instrument loading](#runtime-instrument-loading)
+- `auto_load_debounce_ms` (ค่าเริ่มต้น `100`): window เป็นมิลลิวินาทีสำหรับรวม auto-load request ที่เกิดพร้อมกันเป็น
+  Gamma call แบบ batch ครั้งเดียว
 
-## Data capability
+## ความสามารถด้าน data {#data-capability}
 
-Polymarket supports live `L2_MBP` order book deltas, quotes, trades, and resolution
-`InstrumentStatus`/`InstrumentClose` events. Instrument definitions are published by bootstrap,
-configured refreshes, on-demand loading, single-instrument requests, new-market discovery, and
-tick-size changes.
+Polymarket รองรับ live order book delta แบบ `L2_MBP`, quote, trade และ event `InstrumentStatus`/`InstrumentClose` ที่
+เกี่ยวกับการ resolve ตลาด instrument definition จะถูก publish จาก bootstrap, การ refresh ที่ตั้งค่าไว้, การโหลดตามต้องการ,
+request ของ instrument เดี่ยว, การค้นพบตลาดใหม่ และการเปลี่ยน tick size
 
-Implemented data hooks accept compatible instrument lists for subscribe and unsubscribe:
+data hook ที่ implement แล้วรับรายการ instrument ที่เข้ากันได้สำหรับ subscribe และ unsubscribe:
 
-- Intent and reconcile operations run per member.
-- Uncached IDs enter the debounced Gamma loader.
-- The WebSocket pool sends per token; list delivery does not reduce venue messages.
+- operation ด้าน intent และ reconcile ทำงานทีละ member
+- ID ที่ไม่อยู่ใน cache จะเข้าสู่ Gamma loader แบบ debounce
+- WebSocket pool ส่งทีละ token การส่งเป็นรายการไม่ได้ลดจำนวน message ไปยัง venue
 
-## Orders capability
+## ความสามารถด้าน order {#orders-capability}
 
-Polymarket supports the order types and instructions below.
+Polymarket รองรับ order type และ instruction ด้านล่าง
 
 :::tip
-For Polymarket live execution, set both the disconnection timeout and post-stop delay to 30
-seconds with `with_timeout_disconnection_secs(30)` and `with_delay_post_stop_secs(30)`. The delay
-allows residual order and cancellation events to arrive before disconnection. Execution disconnect
-finishes inside that timeout and does not wait out the HTTP timeout for an in-flight command.
+สำหรับ live execution บน Polymarket ให้ตั้งทั้ง disconnection timeout และ post-stop delay เป็น 30 วินาที ด้วย
+`with_timeout_disconnection_secs(30)` และ `with_delay_post_stop_secs(30)` delay นี้ทำให้ order event และ cancellation
+event ที่ค้างอยู่มาถึงก่อนการ disconnect การ disconnect ของ execution จะเสร็จภายใน timeout นั้น และไม่รอ HTTP timeout
+ของ command ที่กำลังดำเนินอยู่
 :::
 
-A cancel that is still in flight when disconnect finishes leaves the order `PENDING_CANCEL`. The
-adapter emits neither `OrderCanceled` nor `OrderCancelRejected`. The venue may or may not have
-applied the cancel. Startup reconciliation on the next run resolves it. A strategy cancel does not,
-because the order is already pending cancel. Other in-flight submit and modify commands stop on the
-same bound, and an unconfirmed one stays unresolved.
+cancel ที่ยังดำเนินอยู่ตอน disconnect เสร็จสิ้น จะทิ้ง order ไว้ในสถานะ `PENDING_CANCEL` adapter จะไม่ emit ทั้ง
+`OrderCanceled` และ `OrderCancelRejected` venue อาจนำ cancel ไปใช้แล้วหรือไม่ก็ได้ startup reconciliation ในรอบการรัน
+ถัดไปจะแก้ไขสถานะนี้ แต่ cancel จาก strategy จะแก้ไม่ได้ เพราะ order อยู่ในสถานะ pending cancel อยู่แล้ว command
+submit และ modify อื่นที่กำลังดำเนินอยู่จะหยุดที่ขอบเขตเดียวกัน และ command ที่ยังไม่ได้รับการยืนยันจะยังไม่ได้ข้อยุติ
 
-### Order types
+### Order type {#order-types}
 
-| Order type             | Binary options | Notes                                                                     |
+| Order type             | Binary options | หมายเหตุ                                                                    |
 | ---------------------- | -------------- | ------------------------------------------------------------------------- |
-| `MARKET`               | ✓              | **BUY orders require quote quantity**, SELL orders require base quantity. |
-| `LIMIT`                | ✓              | BUY orders accept base or quote quantity; SELL orders require base.       |
-| `STOP_MARKET`          | -              | *Not supported by Polymarket*.                                            |
-| `STOP_LIMIT`           | -              | *Not supported by Polymarket*.                                            |
-| `MARKET_IF_TOUCHED`    | -              | *Not supported by Polymarket*.                                            |
-| `LIMIT_IF_TOUCHED`     | -              | *Not supported by Polymarket*.                                            |
-| `TRAILING_STOP_MARKET` | -              | *Not supported by Polymarket*.                                            |
+| `MARKET`               | ✓              | **BUY order ต้องใช้ quote quantity** ส่วน SELL order ต้องใช้ base quantity     |
+| `LIMIT`                | ✓              | BUY order รับได้ทั้ง base และ quote quantity ส่วน SELL order ต้องใช้ base       |
+| `STOP_MARKET`          | -              | *Polymarket ไม่รองรับ*                                                     |
+| `STOP_LIMIT`           | -              | *Polymarket ไม่รองรับ*                                                     |
+| `MARKET_IF_TOUCHED`    | -              | *Polymarket ไม่รองรับ*                                                     |
+| `LIMIT_IF_TOUCHED`     | -              | *Polymarket ไม่รองรับ*                                                     |
+| `TRAILING_STOP_MARKET` | -              | *Polymarket ไม่รองรับ*                                                     |
 
-### Quantity semantics
+### ความหมายของ quantity {#quantity-semantics}
 
-Polymarket interprets order quantities differently depending on the order type, side, and
-`quote_quantity` setting:
+Polymarket ตีความ quantity ของ order ต่างกันตาม order type, ฝั่ง และค่า `quote_quantity`:
 
-- **Limit orders with `quote_quantity=False`** interpret `quantity` as the number of conditional
-  tokens (base units).
-- **Limit BUY orders with `quote_quantity=True`** interpret `quantity` as pUSD collateral.
-- **Market BUY** orders interpret `quantity` as quote notional in **pUSD**.
-- **Market SELL** orders use base-unit quantities.
+- **Limit order ที่ `quote_quantity=False`** ตีความ `quantity` เป็นจำนวน conditional token (base unit)
+- **Limit BUY order ที่ `quote_quantity=True`** ตีความ `quantity` เป็น collateral แบบ pUSD
+- **Market BUY** order ตีความ `quantity` เป็น quote notional ในหน่วย **pUSD**
+- **Market SELL** order ใช้ quantity แบบ base unit
 
-Quote-sized limit SELL orders are not supported. The adapter denies them before submission. It also
-denies any limit order whose base or quote quantity truncates to zero at the two-decimal signing
-boundary.
+ไม่รองรับ limit SELL order ที่กำหนดขนาดด้วย quote adapter จะปฏิเสธก่อนการส่ง และยังปฏิเสธ limit order ใด ๆ ที่ base หรือ
+quote quantity ถูกตัดเหลือศูนย์ที่ขอบเขตการ sign แบบทศนิยมสองตำแหน่ง
 
-#### Limit BUY example
+#### ตัวอย่าง Limit BUY {#limit-buy-example}
 
-For limit BUY orders with `quote_quantity=True`:
+สำหรับ limit BUY order ที่ `quote_quantity=True`:
 
-- The adapter truncates collateral to cents, signs it as the maker amount, and derives shares at
-  the market's amount precision.
-- It updates the local order to the signed share quantity before processing the venue response.
-- The signed amounts must preserve the limit price exactly. Otherwise, the adapter rejects the
-  order before HTTP. For example, 10.00 pUSD at 0.33 is not representable, while 9.90 pUSD at
-  0.33 produces exactly 30 shares.
+- adapter ตัด collateral ให้เหลือหน่วยเซนต์ sign เป็น maker amount และคำนวณจำนวน share ตาม amount precision ของตลาด
+- adapter อัปเดต local order เป็น share quantity ที่ sign แล้ว ก่อนประมวลผล response จาก venue
+- amount ที่ sign แล้วต้องรักษา limit price ไว้ได้พอดี มิฉะนั้น adapter จะปฏิเสธ order ก่อนส่ง HTTP เช่น 10.00 pUSD ที่
+  0.33 ไม่สามารถแสดงได้ ขณะที่ 9.90 pUSD ที่ 0.33 ได้ 30 share พอดี
 
-To cap a limit BUY by collateral, set `quote_quantity=True`:
+หากต้องการจำกัด limit BUY ด้วย collateral ให้ตั้ง `quote_quantity=True`
 
-```python
-# Limit BUY with quote quantity (spend $10 pUSD at a limit price of 0.50)
-order = strategy.order_factory.limit(
-    instrument_id=instrument_id,
-    order_side=OrderSide.BUY,
-    quantity=instrument.make_qty(10.0),
-    price=instrument.make_price(0.50),
-    time_in_force=TimeInForce.GTC,
-    quote_quantity=True,
-)
-strategy.submit_order(order)
-```
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-#### Market BUY example
+#### ตัวอย่าง Market BUY {#market-buy-example}
 
-For market BUY orders, **quote quantity is required**: set `quote_quantity=True`. The adapter converts
-the quote amount (pUSD) to the signed base-unit share amount before posting to the CLOB. The
-Polymarket execution client denies base-denominated market buys to
-prevent unintended fills. A market BUY submitted with a base-denominated quantity can execute far
-more size than intended.
+สำหรับ market BUY order **ต้องใช้ quote quantity** โดยตั้ง `quote_quantity=True` adapter จะแปลง quote amount (pUSD) เป็น
+จำนวน share แบบ base unit ที่ sign แล้วก่อน post ไปยัง CLOB Polymarket execution client จะปฏิเสธ market buy ที่กำหนดเป็น
+base เพื่อป้องกัน fill ที่ไม่ตั้งใจ market BUY ที่ส่งด้วย quantity แบบ base อาจ execute ได้ขนาดมากกว่าที่ตั้งใจไว้มาก
 
-```python
-# Market BUY with quote quantity (spend $10 pUSD)
-order = strategy.order_factory.market(
-    instrument_id=instrument_id,
-    order_side=OrderSide.BUY,
-    quantity=instrument.make_qty(10.0),
-    time_in_force=TimeInForce.IOC,  # Maps to Polymarket FAK
-    quote_quantity=True,  # Interpret as pUSD notional
-)
-strategy.submit_order(order)
-```
+### Execution instruction {#execution-instructions}
 
-### Execution instructions
-
-| Instruction   | Binary options | Notes                                                |
+| Instruction   | Binary options | หมายเหตุ                                               |
 | ------------- | -------------- | ---------------------------------------------------- |
-| `post_only`   | ✓              | Supported for limit orders with `GTC` or `GTD` only. |
-| `reduce_only` | -              | *Not supported by Polymarket*.                       |
+| `post_only`   | ✓              | รองรับเฉพาะ limit order ที่ใช้ `GTC` หรือ `GTD`          |
+| `reduce_only` | -              | *Polymarket ไม่รองรับ*                                |
 
-### Time-in-force options
+### ตัวเลือก time-in-force {#time-in-force-options}
 
-Polymarket calls the `POST /order` field `orderType`. In NautilusTrader, this maps to
-`TimeInForce`. The valid combinations depend on the Nautilus order type:
+Polymarket เรียกฟิลด์ใน `POST /order` ว่า `orderType` ซึ่งใน NautilusTrader จะ map ไปยัง `TimeInForce` ชุดค่าที่ใช้ได้
+ขึ้นอยู่กับ order type ของ Nautilus:
 
-| Nautilus TIF | Polymarket `orderType` | Nautilus order scope | Notes                                                     |
-| ------------ | ---------------------- | -------------------- | --------------------------------------------------------- |
-| `GTC`        | `GTC`                  | `LIMIT` only         | Good-Til-Cancelled; rests on the book.                    |
-| `GTD`        | `GTD`                  | `LIMIT` only         | Good-Til-Date; rests until expiration, fill, or cancel.   |
-| `FOK`        | `FOK`                  | `LIMIT` or `MARKET`  | Fill the full size immediately or cancel the whole order. |
-| `IOC`        | `FAK`                  | `LIMIT` or `MARKET`  | Fill available size immediately and cancel the remainder. |
+| Nautilus TIF | Polymarket `orderType` | ขอบเขต order ของ Nautilus | หมายเหตุ                                                    |
+| ------------ | ---------------------- | ----------------------- | --------------------------------------------------------- |
+| `GTC`        | `GTC`                  | `LIMIT` เท่านั้น           | Good-Til-Cancelled วางค้างใน book                          |
+| `GTD`        | `GTD`                  | `LIMIT` เท่านั้น           | Good-Til-Date วางค้างจนกว่าจะหมดอายุ, fill หรือถูก cancel       |
+| `FOK`        | `FOK`                  | `LIMIT` หรือ `MARKET`     | fill เต็มขนาดทันที มิฉะนั้นยกเลิกทั้ง order                       |
+| `IOC`        | `FAK`                  | `LIMIT` หรือ `MARKET`     | fill ขนาดที่มีทันทีและยกเลิกส่วนที่เหลือ                          |
 
-Polymarket uses `FAK` (Fill-And-Kill) for the semantics NautilusTrader calls `IOC` (Immediate or Cancel).
-Polymarket docs classify `FOK` and `FAK` as market order types, while `GTC` and `GTD` are limit order types.
-For Nautilus `MARKET` orders, the adapter accepts only `IOC` and `FOK`. `GTC` and `GTD` are valid for resting
-`LIMIT` orders only.
+Polymarket ใช้ `FAK` (Fill-And-Kill) สำหรับความหมายที่ NautilusTrader เรียกว่า `IOC` (Immediate or Cancel) เอกสาร
+ของ Polymarket จัด `FOK` และ `FAK` เป็น market order type ส่วน `GTC` และ `GTD` เป็น limit order type สำหรับ `MARKET`
+order ของ Nautilus adapter รับเฉพาะ `IOC` และ `FOK` ส่วน `GTC` และ `GTD` ใช้ได้เฉพาะกับ `LIMIT` order ที่วางค้างไว้
 
-#### GTD expiry
+#### การหมดอายุของ GTD {#gtd-expiry}
 
-Set `GTD` expiry at least three minutes after submission. The adapter denies a shorter expiry
-before signing. It uses whole Unix seconds and accepts the exact three-minute boundary.
+ตั้งเวลาหมดอายุของ `GTD` ให้ห่างจากเวลาส่งอย่างน้อยสามนาที adapter จะปฏิเสธเวลาหมดอายุที่สั้นกว่านั้นก่อนการ sign โดย
+ใช้หน่วย Unix seconds แบบเต็มวินาที และยอมรับขอบเขตสามนาทีพอดี
 
-Polymarket reports both a user cancel and a GTD expiry as `CANCELED`. It expires the order one
-minute before the supplied expiration, so the minimum effective lifetime is about two minutes. To
-request an effective lifetime of N seconds, supply `now + 60 + N`, still subject to the
-three-minute minimum.
+Polymarket รายงานทั้ง cancel จากผู้ใช้และการหมดอายุของ GTD เป็น `CANCELED` และจะทำให้ order หมดอายุก่อนเวลาที่ระบุหนึ่ง
+นาที ดังนั้นอายุที่มีผลจริงขั้นต่ำจึงประมาณสองนาที หากต้องการอายุที่มีผลจริง N วินาที ให้ระบุ `now + 60 + N` ซึ่งยังต้อง
+เป็นไปตามขั้นต่ำสามนาที
 
-On the user channel, a `CANCELED` event at or after that one-minute mark becomes `OrderExpired`.
-An earlier cancel stays `OrderCanceled`. A REST-recovered cancel also stays `OrderCanceled`. The
-open-order payload has an expiration, but no cancel time.
+บน user channel event `CANCELED` ที่เกิด ณ หรือหลังจุดหนึ่งนาทีนั้นจะกลายเป็น `OrderExpired` cancel ที่เกิดก่อนหน้านั้น
+ยังคงเป็น `OrderCanceled` cancel ที่กู้คืนจาก REST ก็ยังเป็น `OrderCanceled` เช่นกัน payload ของ open order มีเวลาหมดอายุ
+แต่ไม่มีเวลาที่ cancel
 
-Leave `manage_gtd_expiry` false. The strategy timer fires at the stated expiration and submits a cancel. It
-does not emit `OrderExpired`. A user-channel expiry already clears that timer.
+ให้ `manage_gtd_expiry` เป็น false ไว้ timer ของ strategy จะทำงานตามเวลาหมดอายุที่ระบุและส่ง cancel แต่ไม่ได้ emit
+`OrderExpired` การหมดอายุจาก user channel จะล้าง timer นั้นอยู่แล้ว
 
-If the expiry message was missed, the late cancel does not close the order. Reconciliation still has to. See
-[GTD orders](https://docs.polymarket.com/trading/place-orders#limit-orders).
+หาก message การหมดอายุหายไป cancel ที่มาช้าจะไม่ปิด order ยังต้องอาศัย reconciliation ดู
+[GTD orders](https://docs.polymarket.com/trading/place-orders#limit-orders)
 
-### Minimum order size
+### ขนาด order ขั้นต่ำ {#minimum-order-size}
 
-Read each market's `min_order_size` from its order book. Active markets commonly report five shares.
-Marketable orders can also be rejected below **1 pUSD** in notional value with
-`invalid amount for a marketable BUY order … min size: $1`.
+อ่าน `min_order_size` ของแต่ละตลาดจาก order book ของตลาดนั้น ตลาดที่ active มักรายงานห้า share order ที่ match ได้ทันที
+(marketable) อาจถูกปฏิเสธเมื่อมูลค่า notional ต่ำกว่า **1 pUSD** ด้วยข้อความ
+`invalid amount for a marketable BUY order … min size: $1`
 
-The adapter leaves instrument
-`min_quantity` unset because quote-sized BUY quantities use pUSD while base-sized orders use
-shares. Submit still sends an undersized order for the venue to reject. Modify checks the cached
-share minimum before and after cancellation. See [Order modification](#order-modification).
+adapter ไม่ได้ตั้งค่า `min_quantity` ของ instrument เพราะ BUY quantity ที่กำหนดด้วย quote ใช้หน่วย pUSD ขณะที่ order ที่
+กำหนดด้วย base ใช้หน่วย share การ submit ยังคงส่ง order ที่เล็กเกินไปเพื่อให้ venue ปฏิเสธ ส่วน modify จะตรวจขั้นต่ำของ
+share ที่ cache ไว้ทั้งก่อนและหลังการ cancel ดู [Order modification](#order-modification)
 
-### Advanced order features
+### ฟีเจอร์ order ขั้นสูง {#advanced-order-features}
 
-| Feature            | Binary options | Notes                                                   |
+| Feature            | Binary options | หมายเหตุ                                                  |
 | ------------------ | -------------- | ------------------------------------------------------- |
-| Order modification | ✓              | Adapter-managed cancel-replace for open `LIMIT` orders. |
-| Bracket/OCO orders | -              | *Not supported by Polymarket.*                          |
-| Iceberg orders     | -              | *Not supported by Polymarket.*                          |
+| Order modification | ✓              | cancel-replace ที่ adapter จัดการให้สำหรับ `LIMIT` order ที่เปิดอยู่ |
+| Bracket/OCO orders | -              | *Polymarket ไม่รองรับ*                                   |
+| Iceberg orders     | -              | *Polymarket ไม่รองรับ*                                   |
 
-#### Order modification
+#### Order modification {#order-modification}
 
-Polymarket has no in-place modify endpoint. The execution client cancels the current venue order,
-reconciles its final confirmed fills, and signs a replacement for the remaining quantity.
+Polymarket ไม่มี endpoint สำหรับ modify ในที่เดิม execution client จะ cancel venue order ปัจจุบัน reconcile fill สุดท้ายที่
+ยืนยันแล้ว และ sign order ทดแทนสำหรับ quantity ที่เหลือ
 
-##### Replacement quantity and identity
+##### Quantity และ identity ของ order ทดแทน {#replacement-quantity-and-identity}
 
-`ModifyOrder.quantity` sets the absolute target for the logical order, not the replacement leg.
-The replacement keeps the `ClientOrderId` and receives a new `VenueOrderId`.
+`ModifyOrder.quantity` กำหนดเป้าหมายแบบ absolute ของ logical order ไม่ใช่ของขาทดแทน order ทดแทนคง `ClientOrderId`
+เดิมไว้และได้รับ `VenueOrderId` ใหม่
 
-The logical quantity uses the exact signed base quantity after venue precision normalization,
-so it can be slightly lower than the requested target.
+logical quantity ใช้ base quantity ที่ sign แล้วพอดีหลังการ normalize ตาม precision ของ venue จึงอาจต่ำกว่าเป้าหมายที่
+ร้องขอเล็กน้อย
 
-##### Size checks
+##### การตรวจขนาด {#size-checks}
 
-Before canceling, the adapter subtracts filled quantity and quantity voided without reopening from
-the target. It rejects a replacement below 0.01 shares.
+ก่อน cancel adapter จะหัก quantity ที่ fill แล้วและ quantity ที่ถูก void โดยไม่ได้เปิดใหม่ออกจากเป้าหมาย และปฏิเสธ order
+ทดแทนที่ต่ำกว่า 0.01 share
 
-When cached instrument `info["min_order_size"]` is present, the adapter also rejects the modify if:
+เมื่อมี `info["min_order_size"]` ของ instrument ใน cache adapter จะปฏิเสธ modify ด้วยหาก:
 
-- The value is not a positive decimal string.
-- The signed replacement share quantity is below that minimum.
-- The signed amounts needed for the minimum check cannot be derived.
+- ค่านั้นไม่ใช่ decimal string ที่เป็นบวก
+- share quantity ของ order ทดแทนที่ sign แล้วต่ำกว่าขั้นต่ำนั้น
+- ไม่สามารถคำนวณ signed amount ที่จำเป็นสำหรับการตรวจขั้นต่ำได้
 
-A missing key skips the market minimum check. For a `FAK` or `FOK` BUY, the check uses shares
-derived from the cent-truncated pUSD budget.
+หากไม่มี key นี้จะข้ามการตรวจขั้นต่ำของตลาด สำหรับ BUY แบบ `FAK` หรือ `FOK` การตรวจจะใช้ share ที่คำนวณจาก budget
+pUSD ที่ตัดเหลือหน่วยเซนต์
 
-After cancellation, the adapter repeats the size checks on the remaining quantity. It uses the
-market minimum captured at modify start, without a fresh order-book read.
+หลังการ cancel adapter จะตรวจขนาดซ้ำกับ quantity ที่เหลือ โดยใช้ขั้นต่ำของตลาดที่เก็บไว้ตอนเริ่ม modify โดยไม่อ่าน order
+book ใหม่
 
-Fills during cancellation can leave an undersized remainder. The adapter does not post it: the
-modify is rejected and the order closes as canceled. A marketable replacement can still be rejected
-below 1 pUSD after cancellation.
+fill ที่เกิดระหว่างการ cancel อาจทำให้ส่วนที่เหลือเล็กเกินไป adapter จะไม่ post ส่วนนั้น modify จะถูกปฏิเสธและ order จะปิด
+ในสถานะ canceled order ทดแทนแบบ marketable ยังอาจถูกปฏิเสธได้หากต่ำกว่า 1 pUSD หลังการ cancel
 
-##### Ambiguous outcomes
+##### ผลลัพธ์ที่กำกวม {#ambiguous-outcomes}
 
-The adapter submits no replacement unless the cancel response, canceled order state, and confirmed
-trade totals agree.
+adapter จะไม่ส่ง order ทดแทน เว้นแต่ cancel response, สถานะ order ที่ถูก cancel และยอดรวม trade ที่ยืนยันแล้วจะสอดคล้องกัน
 
-- **Ambiguous cancel**: Emits `OrderModifyRejected`.
-- **Ambiguous replacement**: Stays in flight under its deterministic signed order hash. A later
-  order update, fill, or reconciliation can establish it without a second `OrderAccepted`.
-  Later modify and cancel commands remain blocked until then.
+- **Cancel ที่กำกวม**: emit `OrderModifyRejected`
+- **Order ทดแทนที่กำกวม**: คงสถานะกำลังดำเนินอยู่ภายใต้ signed order hash ที่เป็น deterministic order update, fill หรือ
+  reconciliation ที่เกิดภายหลังสามารถยืนยัน order นั้นได้โดยไม่ต้องมี `OrderAccepted` ครั้งที่สอง command modify และ
+  cancel ที่ตามมาจะถูก block จนกว่าจะถึงตอนนั้น
 
-Replacement recovery state does not persist across an execution-client process restart.
+state สำหรับการกู้คืน order ทดแทนจะไม่คงอยู่ข้ามการ restart process ของ execution client
 
-### Batch operations
+### Batch operation {#batch-operations}
 
-| Operation    | Binary options | Notes                                                                                                                               |
+| Operation    | Binary options | หมายเหตุ                                                                                                                              |
 | ------------ | -------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Batch submit | ✓              | The adapter uses `POST /orders` for independent limit-order batches (max 15 orders per request). See [Batch submit](#batch-submit). |
-| Batch modify | -              | *Not supported by Polymarket*.                                                                                                      |
-| Batch cancel | ✓              | The adapter uses `DELETE /orders`. See [Batch cancel](#batch-cancel).                                                               |
+| Batch submit | ✓              | adapter ใช้ `POST /orders` สำหรับ batch ของ limit order ที่เป็นอิสระต่อกัน (สูงสุด 15 order ต่อ request) ดู [Batch submit](#batch-submit) |
+| Batch modify | -              | *Polymarket ไม่รองรับ*                                                                                                               |
+| Batch cancel | ✓              | adapter ใช้ `DELETE /orders` ดู [Batch cancel](#batch-cancel)                                                                        |
 
-#### Batch submit
+#### Batch submit {#batch-submit}
 
-`SubmitOrderList` commands are routed to Polymarket's `POST /orders` endpoint. The endpoint accepts at most 15
-orders per request (`BATCH_ORDER_LIMIT`). Larger lists are split into sequential 15-order chunks.
+command `SubmitOrderList` จะถูกส่งไปยัง endpoint `POST /orders` ของ Polymarket ซึ่งรับได้สูงสุด 15 order ต่อ request
+(`BATCH_ORDER_LIMIT`) รายการที่ยาวกว่านั้นจะถูกแบ่งเป็น chunk ละ 15 order ตามลำดับ
 
-- Only `LIMIT` orders are batched. `MARKET` orders inside the list are routed to the
-  single-order path, which signs a marketable order and submits it with `FAK` or `FOK`
-  based on Nautilus `time_in_force`.
-- `reduce_only` orders, quote-sized SELL orders, and `post_only` with market TIF (`IOC` or `FOK`)
-  are denied before submission.
-- A single eligible order falls through to `POST /order` so it keeps the single-order retry semantics. The
-  batch path deliberately disables retry because the venue does not expose an idempotency key.
-- If the batch response omits a leg, that order stays submitted for reconciliation. The adapter
-  registers the signed order's expected hash so later WebSocket events and cancels still resolve to
-  the local order. An omitted response cannot prove that the venue rejected the order.
+- เฉพาะ `LIMIT` order เท่านั้นที่ถูกรวม batch `MARKET` order ในรายการจะถูกส่งไปทาง path แบบ order เดี่ยว ซึ่ง sign เป็น
+  marketable order และส่งด้วย `FAK` หรือ `FOK` ตาม `time_in_force` ของ Nautilus
+- order ที่เป็น `reduce_only`, SELL order ที่กำหนดขนาดด้วย quote และ `post_only` ที่ใช้ market TIF (`IOC` หรือ `FOK`)
+  จะถูกปฏิเสธก่อนการส่ง
+- order ที่ผ่านเกณฑ์เพียงตัวเดียวจะถูกส่งไปที่ `POST /order` เพื่อคงความหมายของการ retry แบบ order เดี่ยว path แบบ batch
+  ปิดการ retry โดยเจตนา เพราะ venue ไม่มี idempotency key
+- หาก batch response ไม่มีขาใดขาหนึ่ง order นั้นจะคงสถานะ submitted ไว้เพื่อรอ reconciliation adapter จะ register hash
+  ที่คาดไว้ของ signed order เพื่อให้ WebSocket event และ cancel ที่ตามมายังจับคู่กับ local order ได้ response ที่ขาดหายไป
+  ไม่สามารถพิสูจน์ได้ว่า venue ปฏิเสธ order นั้น
 
-#### Batch cancel
+#### Batch cancel {#batch-cancel}
 
-`BatchCancelOrders` commands with resolved venue order IDs use Polymarket's
-[`DELETE /orders`](https://docs.polymarket.com/api-reference/trade/cancel-multiple-orders)
-endpoint. The adapter sends sequential chunks and chooses each new chunk from the smaller of the
-endpoint's 1,000-ID limit and the signer's current cancellation burst. A signer starts with the
-Standard 120-token burst, and a tier reported by one response applies to the next new chunk.
+command `BatchCancelOrders` ที่มี venue order ID ที่ resolve แล้วจะใช้ endpoint
+[`DELETE /orders`](https://docs.polymarket.com/api-reference/trade/cancel-multiple-orders) ของ Polymarket adapter
+ส่งเป็น chunk ตามลำดับ และเลือกขนาดของ chunk ใหม่แต่ละ chunk จากค่าที่น้อยกว่าระหว่างขีดจำกัด 1,000 ID ของ endpoint กับ
+cancellation burst ปัจจุบันของ signer signer เริ่มต้นด้วย burst แบบ Standard ขนาด 120 token และ tier ที่รายงานมาจาก
+response หนึ่งจะมีผลกับ chunk ใหม่ถัดไป
 
-Each chunk retries independently with the same order IDs unless a lower reported tier requires smaller chunks.
-Confirmed cancellations override conflicting rejection reasons for the same ID.
+แต่ละ chunk retry แยกกันด้วย order ID ชุดเดิม เว้นแต่ tier ที่รายงานมาต่ำกว่าจะต้องใช้ chunk ที่เล็กลง cancellation ที่
+ยืนยันแล้วจะมีผลเหนือเหตุผลการปฏิเสธที่ขัดแย้งกันสำหรับ ID เดียวกัน
 
-If a chunk fails, results from earlier completed chunks still apply. For the remaining orders:
+หาก chunk หนึ่งล้มเหลว ผลจาก chunk ก่อนหน้าที่เสร็จแล้วยังมีผล สำหรับ order ที่เหลือ:
 
-- **Failed chunk**: Definitive failures emit `OrderCancelRejected`; ambiguous failures leave cancels in flight.
-- **Beyond the failed chunk**: Cancels stay in flight if an earlier, larger attempt included those orders.
-- **Never attempted**: Orders receive `OrderCancelRejected` with a local not-sent reason.
+- **chunk ที่ล้มเหลว**: ความล้มเหลวที่ชัดเจนจะ emit `OrderCancelRejected` ส่วนความล้มเหลวที่กำกวมจะทิ้ง cancel ไว้ใน
+  สถานะกำลังดำเนินอยู่
+- **ถัดจาก chunk ที่ล้มเหลว**: cancel จะคงสถานะกำลังดำเนินอยู่ หากความพยายามก่อนหน้าที่ใหญ่กว่ารวม order เหล่านั้นไว้
+- **ไม่เคยถูกส่ง**: order จะได้รับ `OrderCancelRejected` พร้อมเหตุผลภายในว่าไม่ได้ส่ง
 
-In-flight cancels await reconciliation. See [Retry classification](#retry-classification).
+cancel ที่กำลังดำเนินอยู่จะรอ reconciliation ดู [Retry classification](#retry-classification)
 
-Orders with adapter order context close from user-channel events. Orders without it, such as external orders,
-receive `OrderCanceled` from the HTTP response.
+order ที่มี adapter order context จะปิดจาก event ของ user channel ส่วน order ที่ไม่มี เช่น external order จะได้รับ
+`OrderCanceled` จาก HTTP response
 
-`CancelAllOrders` selects its cancellation scope as follows:
+`CancelAllOrders` เลือกขอบเขตการยกเลิกดังนี้:
 
-| Mode    | Side filter     | Scope                                                            | Endpoint                       |
+| Mode    | ตัวกรองฝั่ง        | ขอบเขต                                                            | Endpoint                       |
 | ------- | --------------- | ---------------------------------------------------------------- | ------------------------------ |
-| Owner   | None            | Selected outcome token across the execution account's strategies | `DELETE /cancel-market-orders` |
-| Owner   | `Buy` or `Sell` | Matching open orders in the local cache                          | Chunked `DELETE /orders`       |
-| Session | Any             | Matching open orders in the local cache                          | Chunked `DELETE /orders`       |
+| Owner   | ไม่มี             | outcome token ที่เลือก ครอบคลุมทุก strategy ของ execution account     | `DELETE /cancel-market-orders` |
+| Owner   | `Buy` หรือ `Sell` | open order ที่ตรงกันใน local cache                                  | `DELETE /orders` แบบแบ่ง chunk  |
+| Session | ใดก็ได้            | open order ที่ตรงกันใน local cache                                  | `DELETE /orders` แบบแบ่ง chunk  |
 
-The owner path without a side filter sends the instrument's raw token ID as `asset_id` to
-[`DELETE /cancel-market-orders`](https://docs.polymarket.com/api-reference/trade/cancel-orders-for-a-market),
-even when the cache has no matches. The ID-based paths send no request without matching cached orders.
-A matching order awaiting its venue order ID retains a pending cancellation, which the adapter
-sends after submission resolves.
+path ของ owner ที่ไม่มีตัวกรองฝั่งจะส่ง raw token ID ของ instrument เป็น `asset_id` ไปยัง
+[`DELETE /cancel-market-orders`](https://docs.polymarket.com/api-reference/trade/cancel-orders-for-a-market)
+แม้ cache จะไม่มีรายการที่ตรงกัน ส่วน path ที่อิง ID จะไม่ส่ง request หากไม่มี order ใน cache ที่ตรงกัน order ที่ตรงกันซึ่งยัง
+รอ venue order ID จะคง cancellation ที่ค้างไว้ และ adapter จะส่งหลังจากการ submit ได้ข้อยุติ
 
-### Submit response handling
+### การจัดการ submit response {#submit-response-handling}
 
-Polymarket's public documentation describes successful
-[`POST /order`](https://docs.polymarket.com/api-reference/trade/post-a-new-order) responses
-with `success`, `orderID`, `status`, and `errorMsg`, and documents
-[API errors](https://docs.polymarket.com/resources/error-codes) as structured error responses.
-It does not document statusless client exceptions or transport failures as venue rejections.
+เอกสารสาธารณะของ Polymarket อธิบาย response ที่สำเร็จของ
+[`POST /order`](https://docs.polymarket.com/api-reference/trade/post-a-new-order) ว่ามี `success`, `orderID`,
+`status` และ `errorMsg` และบันทึก [API errors](https://docs.polymarket.com/resources/error-codes) ไว้เป็น error
+response แบบมีโครงสร้าง เอกสารไม่ได้ระบุว่า client exception ที่ไม่มี status หรือ transport failure เป็นการปฏิเสธจาก venue
 
-#### Successful responses
+#### Response ที่สำเร็จ {#successful-responses}
 
-For a successful response with a non-empty `orderID`, the adapter uses `status` to choose the initial Nautilus
-state. For an order with `FOK` time-in-force, it also uses `status` to decide whether the five-second REST
-check is needed. The venue meanings follow Polymarket's
-[order lifecycle](https://docs.polymarket.com/concepts/order-lifecycle).
+สำหรับ response ที่สำเร็จและมี `orderID` ไม่ว่าง adapter ใช้ `status` เพื่อเลือกสถานะเริ่มต้นของ Nautilus สำหรับ order
+ที่ใช้ time-in-force แบบ `FOK` ยังใช้ `status` เพื่อตัดสินว่าจำเป็นต้องตรวจ REST ห้าวินาทีหรือไม่ ความหมายฝั่ง venue เป็นไป
+ตาม [order lifecycle](https://docs.polymarket.com/concepts/order-lifecycle) ของ Polymarket
 
-| Submit `status` | Venue meaning                                | Initial Nautilus state                                         | `FOK` REST check     |
+| Submit `status` | ความหมายฝั่ง venue                             | สถานะเริ่มต้นของ Nautilus                                          | การตรวจ REST ของ `FOK` |
 | --------------- | -------------------------------------------- | -------------------------------------------------------------- | -------------------- |
-| `live`          | Resting on the book                          | `Accepted`                                                     | Kept                 |
-| `matched`       | Matched immediately                          | `Accepted`                                                     | Skipped              |
-| `delayed`       | Matching delay in progress                   | `Submitted` until WebSocket or REST activity proves acceptance | Kept                 |
-| `unmatched`     | Delay completed without a match; now resting | `Accepted`                                                     | Kept                 |
-| Absent or empty | No status supplied                           | `Accepted` unless a proven FOK/FAK error rejects it            | Kept unless rejected |
+| `live`          | วางค้างอยู่ใน book                              | `Accepted`                                                     | คงไว้                 |
+| `matched`       | match ทันที                                   | `Accepted`                                                     | ข้าม                  |
+| `delayed`       | อยู่ระหว่าง matching delay                      | `Submitted` จนกว่ากิจกรรมจาก WebSocket หรือ REST จะพิสูจน์การ accept | คงไว้                 |
+| `unmatched`     | delay เสร็จโดยไม่มี match และตอนนี้วางค้างอยู่        | `Accepted`                                                     | คงไว้                 |
+| ไม่มีหรือว่าง      | ไม่ได้ส่ง status มา                              | `Accepted` เว้นแต่ error ของ FOK/FAK ที่พิสูจน์แล้วจะปฏิเสธ           | คงไว้ เว้นแต่ถูกปฏิเสธ     |
 
-Submit `status` describes the submission outcome. `delayed` is not a market configuration signal. The
-immediate match confirmed by `matched` makes the REST check unnecessary.
+submit `status` อธิบายผลลัพธ์ของการส่ง `delayed` ไม่ใช่สัญญาณของการตั้งค่าตลาด การ match ทันทีที่ยืนยันด้วย `matched`
+ทำให้ไม่จำเป็นต้องตรวจ REST
 
-An absent or empty status emits `OrderAccepted` for compatibility and keeps the REST check unless
-a proven unfilled `FOK` or no-match `FAK` response causes immediate rejection. For a successful
-response with a non-empty `orderID`, explicit `status` takes precedence over either error string.
+status ที่ไม่มีหรือว่างจะ emit `OrderAccepted` เพื่อความเข้ากันได้ และคงการตรวจ REST ไว้ เว้นแต่ response ของ `FOK` ที่
+พิสูจน์แล้วว่าไม่ถูก fill หรือ `FAK` ที่ไม่มี match จะทำให้ถูกปฏิเสธทันที สำหรับ response ที่สำเร็จและมี `orderID` ไม่ว่าง
+`status` ที่ระบุชัดเจนจะมีผลเหนือ error string ทั้งสองแบบ
 
-#### Delayed responses
+#### Response แบบ delayed {#delayed-responses}
 
-A `delayed` response:
+response แบบ `delayed` จะ:
 
-- Registers the venue order identity and fill tracking immediately and retains them independently of
-  bounded replay caches. Later order queries, WebSocket events, and reconciliation reports can then
-  resolve the local `ClientOrderId`.
-- Leaves the order `Submitted` until a fill, order update, or REST result proves acceptance.
-- Emits `OrderAccepted` before any fill, cancellation, expiry, or filled status that proves
-  acceptance.
-- Resolves an unfilled `FOK` directly as `OrderRejected` when REST returns `UNMATCHED`.
+- register identity ของ venue order และการติดตาม fill ทันที และเก็บไว้แยกจาก replay cache ที่มีขอบเขต ทำให้การ query
+  order, WebSocket event และ reconciliation report ที่ตามมาสามารถจับคู่กับ `ClientOrderId` ในเครื่องได้
+- คง order ไว้ในสถานะ `Submitted` จนกว่า fill, order update หรือผลลัพธ์จาก REST จะพิสูจน์การ accept
+- emit `OrderAccepted` ก่อน fill, cancellation, การหมดอายุ หรือสถานะ filled ใด ๆ ที่พิสูจน์การ accept
+- resolve `FOK` ที่ไม่ถูก fill เป็น `OrderRejected` โดยตรงเมื่อ REST คืนค่า `UNMATCHED`
 
-#### Definitive and ambiguous outcomes
+#### ผลลัพธ์ที่ชัดเจนและที่กำกวม {#definitive-and-ambiguous-outcomes}
 
-Polymarket applies the shared
-[command outcome policy](../concepts/execution/policies.md#command-outcomes) and
-the adapter guide's
-[diagnostic and strategy reason boundary](../developer_guide/adapters.md#separate-diagnostics-from-strategy-facing-reasons)
-at its execution boundary.
+Polymarket ใช้ [command outcome policy](../concepts/execution/policies.md#command-outcomes) ที่ใช้ร่วมกัน และ
+[ขอบเขตระหว่าง diagnostic กับเหตุผลที่ส่งให้ strategy](../developer_guide/adapters.md#separate-diagnostics-from-strategy-facing-reasons)
+จากคู่มือ adapter ที่ขอบเขต execution ของตัวเอง
 
-Ambiguous failures include:
+ความล้มเหลวที่กำกวมได้แก่:
 
-- Transport failures and timeouts.
-- Retry exhaustion after an attempt with an unknown outcome.
-- Response serialization or decoding failures.
-- Local I/O failures.
-- Server-side failures.
-- HTTP 425 responses.
-- HTTP 429 responses that lack CLOB signer-limiter headers.
+- transport failure และ timeout
+- retry หมดหลังจากความพยายามที่ไม่ทราบผล
+- การ serialize หรือ decode response ล้มเหลว
+- I/O failure ภายในเครื่อง
+- ความล้มเหลวฝั่ง server
+- HTTP 425 response
+- HTTP 429 response ที่ไม่มี header ของ CLOB signer-limiter
 
-| Outcome                                                                                   | Nautilus result             | Reason                                    |
+| ผลลัพธ์                                                                                      | ผลใน Nautilus                | เหตุผล                                     |
 | ----------------------------------------------------------------------------------------- | --------------------------- | ----------------------------------------- |
-| `success=false`, a documented processing error, or another non-retryable client/API error | `OrderRejected`             | The response proves rejection.            |
-| Single or batch `FOK`: `success=true`, no status, and the unfilled error                  | Immediate `OrderRejected`   | The venue proves it killed the order.     |
-| Single or batch `IOC`/`FAK`: `success=true`, no status, and the exact no-match error      | Immediate `OrderRejected`   | The venue proves no quantity matched.     |
-| Batch leg: `success=true`, empty `orderID`, and a populated `errorMsg`                    | `OrderRejected` with reason | The venue proves it rejected that leg.    |
-| No `orderID` and no reason                                                                | Remains `Submitted`         | The response does not prove rejection.    |
-| Any ambiguous failure                                                                     | Remains `Submitted`         | The adapter cannot determine the outcome. |
-| Definitive retry error after an earlier ambiguous attempt                                 | Remains `Submitted`         | The earlier attempt may have succeeded.   |
-| Local failure before `OrderSubmitted`, including market-order preparation                 | `OrderDenied`               | The adapter did not enter submission.     |
-| Local failure after `OrderSubmitted` proving no POST was sent                             | `OrderRejected`             | The adapter entered submission.           |
+| `success=false`, processing error ที่มีในเอกสาร หรือ client/API error อื่นที่ retry ไม่ได้          | `OrderRejected`             | response พิสูจน์การปฏิเสธ                     |
+| `FOK` เดี่ยวหรือ batch: `success=true`, ไม่มี status และมี error แบบ unfilled                   | `OrderRejected` ทันที        | venue พิสูจน์ว่า kill order แล้ว                |
+| `IOC`/`FAK` เดี่ยวหรือ batch: `success=true`, ไม่มี status และมี error แบบ no-match ตรงตัว      | `OrderRejected` ทันที        | venue พิสูจน์ว่าไม่มี quantity ที่ match           |
+| ขาของ batch: `success=true`, `orderID` ว่าง และมี `errorMsg`                                 | `OrderRejected` พร้อมเหตุผล   | venue พิสูจน์ว่าปฏิเสธขานั้น                     |
+| ไม่มี `orderID` และไม่มีเหตุผล                                                                | คงสถานะ `Submitted`          | response ไม่ได้พิสูจน์การปฏิเสธ                  |
+| ความล้มเหลวที่กำกวมใด ๆ                                                                       | คงสถานะ `Submitted`          | adapter ไม่สามารถระบุผลลัพธ์ได้                  |
+| retry error ที่ชัดเจนหลังจากความพยายามก่อนหน้าที่กำกวม                                              | คงสถานะ `Submitted`          | ความพยายามก่อนหน้าอาจสำเร็จแล้ว                  |
+| ความล้มเหลวภายในเครื่องก่อน `OrderSubmitted` รวมถึงการเตรียม market order                          | `OrderDenied`               | adapter ยังไม่ได้เข้าสู่การ submit               |
+| ความล้มเหลวภายในเครื่องหลัง `OrderSubmitted` ที่พิสูจน์ว่าไม่ได้ส่ง POST                               | `OrderRejected`             | adapter เข้าสู่การ submit แล้ว                 |
 
-Market-order preparation includes balance and book lookups, price and fee checks, signing, and order-ID
-calculation. Preparation failures emit `OrderDenied` without `OrderSubmitted` or `POST /order`. After
-preparation succeeds, the adapter emits `OrderSubmitted` before it attempts the POST.
+การเตรียม market order รวมถึงการ lookup balance และ book, การตรวจราคาและ fee, การ sign และการคำนวณ order ID
+ความล้มเหลวในการเตรียมจะ emit `OrderDenied` โดยไม่มี `OrderSubmitted` หรือ `POST /order` หลังจากเตรียมสำเร็จแล้ว
+adapter จะ emit `OrderSubmitted` ก่อนพยายาม POST
 
-Local denials format the strategy-facing reason from `OrderDeniedReason`. The leading token is the
-stable code, such as `VALIDATION_FAILED` or `UNSUPPORTED_ORDER_TYPE`.
+การปฏิเสธภายในเครื่องจะจัดรูปแบบเหตุผลที่ส่งให้ strategy จาก `OrderDeniedReason` token แรกคือ code ที่คงที่ เช่น
+`VALIDATION_FAILED` หรือ `UNSUPPORTED_ORDER_TYPE`
 
-The proven unfilled `FOK` and no-match `FAK` responses resolve as immediate rejections. The `FOK` response
-skips the REST check. After an ambiguous single-order attempt, a later HTTP error or decoded rejection does
-not prove that the first attempt failed. An accepted response carrying the matching valid order ID confirms
-the deterministic signed order. A rejection does not, even with a matching ID.
+response ของ `FOK` ที่พิสูจน์แล้วว่าไม่ถูก fill และ `FAK` ที่ไม่มี match จะถูก resolve เป็นการปฏิเสธทันที response ของ
+`FOK` จะข้ามการตรวจ REST หลังจากความพยายามส่ง order เดี่ยวที่กำกวม HTTP error หรือการปฏิเสธที่ decode ได้ในภายหลังไม่ได้
+พิสูจน์ว่าความพยายามแรกล้มเหลว response ที่ accept และมี order ID ที่ถูกต้องตรงกัน จะยืนยัน signed order ที่เป็น
+deterministic ได้ แต่การปฏิเสธยืนยันไม่ได้ แม้จะมี ID ตรงกันก็ตาม
 
-#### Error reasons
+#### เหตุผลของ error {#error-reasons}
 
-Diagnostic errors retain the HTTP status and transport or rate-limit context. Strategy-facing rejections use
-the venue reason for HTTP status, rate-limit, and exchange errors. Other failures use the bounded error
-description.
+diagnostic error จะเก็บ HTTP status และบริบทด้าน transport หรือ rate-limit ไว้ การปฏิเสธที่ส่งให้ strategy ใช้เหตุผลจาก
+venue สำหรับ HTTP status, rate-limit และ exchange error ความล้มเหลวอื่นใช้คำอธิบาย error ที่จำกัดความยาว
 
-The adapter normalizes response reasons as follows:
+adapter normalize เหตุผลใน response ดังนี้:
 
-- Reads the first non-blank string from `error`, then `errorMsg`.
-- Collapses whitespace and control characters, decoding invalid UTF-8 lossily first.
-- Uses `empty response body` for an empty body and a bounded fallback for plain-text or malformed responses.
-- Uses an HTML title when available, or visible text otherwise.
+- อ่าน string แรกที่ไม่ว่างจาก `error` แล้วจึง `errorMsg`
+- ยุบ whitespace และ control character โดย decode UTF-8 ที่ไม่ถูกต้องแบบ lossy ก่อน
+- ใช้ `empty response body` สำหรับ body ว่าง และใช้ fallback ที่จำกัดความยาวสำหรับ response แบบ plain-text หรือผิดรูปแบบ
+- ใช้ title ของ HTML เมื่อมี หรือใช้ข้อความที่มองเห็นได้ในกรณีอื่น
 
-Reasons are limited to 512 characters, including the literal `... [truncated]` marker and its
-preceding space.
+เหตุผลจำกัดไว้ที่ 512 ตัวอักษร รวม marker `... [truncated]` และช่องว่างที่นำหน้า
 
-On single and batch submit responses, the exact normalized reason `order_version_mismatch` becomes
-`Polymarket CLOB order format mismatch; expected CTFExchangeV2 orders`. Other submit response reasons
-remain unchanged after normalization.
+ใน submit response ทั้งแบบเดี่ยวและ batch เหตุผลที่ normalize แล้วซึ่งเป็น `order_version_mismatch` ตรงตัว จะกลายเป็น
+`Polymarket CLOB order format mismatch; expected CTFExchangeV2 orders` เหตุผลอื่นใน submit response จะคงเดิมหลังการ
+normalize
 
-The venue reports a post-only crossing as `invalid post-only order: order crosses book`. Only that exact
-normalized reason sets `OrderRejected.due_post_only=true`. Other post-only errors remain ordinary rejections.
+venue รายงาน post-only ที่ข้าม book เป็น `invalid post-only order: order crosses book` เฉพาะเหตุผลที่ normalize แล้วตรงตัว
+นี้เท่านั้นที่จะตั้ง `OrderRejected.due_post_only=true` error อื่นของ post-only ยังคงเป็นการปฏิเสธทั่วไป
 
-#### Retry classification
+#### การจำแนกการ retry {#retry-classification}
 
-Retry-managed single-order submit and cancel requests retry HTTP 425, 429, and 5xx responses with the
-configured backoff. After retries are exhausted, submit classification is:
+request สำหรับ submit และ cancel order เดี่ยวที่มีการจัดการ retry จะ retry HTTP 425, 429 และ 5xx ด้วย backoff ที่ตั้งค่าไว้
+หลังจาก retry หมดแล้ว การจำแนกผลของ submit เป็นดังนี้:
 
-| HTTP status                          | Retried | Submit result       | Notes                                                                                                                                |
+| HTTP status                          | Retry   | ผลของ submit        | หมายเหตุ                                                                                                                               |
 | ------------------------------------ | ------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| 425                                  | Yes     | Remains `Submitted` | Too Early does not prove rejection.                                                                                                  |
-| 429 with CLOB signer-limiter headers | Yes     | `OrderRejected`     | Requires `Poly-RateLimit-Remaining`, `Poly-RateLimit-Reset`, or `Poly-RateLimit-Tier`. An earlier unknown attempt stays `Submitted`. |
-| 429 without those headers            | Yes     | Remains `Submitted` | Cloudflare or another hop may have seen the request.                                                                                 |
-| 5xx                                  | Yes     | Remains `Submitted` | The command may already have been applied.                                                                                           |
-| 400, 401, 403, 404                   | No      | `OrderRejected`     | Non-retryable client or API error.                                                                                                   |
+| 425                                  | ใช่      | คงสถานะ `Submitted` | Too Early ไม่ได้พิสูจน์การปฏิเสธ                                                                                                         |
+| 429 ที่มี header ของ CLOB signer-limiter | ใช่      | `OrderRejected`     | ต้องมี `Poly-RateLimit-Remaining`, `Poly-RateLimit-Reset` หรือ `Poly-RateLimit-Tier` ความพยายามก่อนหน้าที่ไม่ทราบผลจะคงสถานะ `Submitted` |
+| 429 ที่ไม่มี header เหล่านั้น              | ใช่      | คงสถานะ `Submitted` | Cloudflare หรือ hop อื่นอาจเห็น request แล้ว                                                                                             |
+| 5xx                                  | ใช่      | คงสถานะ `Submitted` | command อาจถูกนำไปใช้แล้ว                                                                                                               |
+| 400, 401, 403, 404                   | ไม่      | `OrderRejected`     | client หรือ API error ที่ retry ไม่ได้                                                                                                   |
 
-A malformed successful submit response also remains unknown and enters reconciliation instead of
-becoming a terminal rejection.
+submit response ที่สำเร็จแต่ผิดรูปแบบก็ยังถือว่าไม่ทราบผล และเข้าสู่ reconciliation แทนการกลายเป็นการปฏิเสธแบบ terminal
 
-Cancel classification uses the same evidence classes. A non-retryable client or API error after the
-cancel is sent, or a local failure that proves the cancel was never transmitted, emits
-`OrderCancelRejected`. HTTP 425, headerless 429, and 5xx leave the cancel in flight.
+การจำแนกผลของ cancel ใช้ประเภทหลักฐานเดียวกัน client หรือ API error ที่ retry ไม่ได้หลังจากส่ง cancel แล้ว หรือความล้มเหลว
+ภายในเครื่องที่พิสูจน์ว่า cancel ไม่เคยถูกส่ง จะ emit `OrderCancelRejected` ส่วน HTTP 425, 429 ที่ไม่มี header และ 5xx
+จะทิ้ง cancel ไว้ในสถานะกำลังดำเนินอยู่
 
-#### Unknown-outcome reconciliation
+#### Reconciliation ของผลลัพธ์ที่ไม่ทราบ {#unknown-outcome-reconciliation}
 
-For an unknown outcome, the adapter:
+สำหรับผลลัพธ์ที่ไม่ทราบ adapter จะ:
 
-- Derives the expected Polymarket order hash from the signed EIP-712 order when possible and caches
-  it as the `VenueOrderId`. Later WebSocket events and reconciliation reports attach to the local
-  `ClientOrderId` instead of becoming external orders.
-- Applies the signed quote-to-base quantity update for a quote-quantity market BUY.
-- Defers a pending cancel until the expected venue order ID is known.
-- Registers fill tracking under that venue order ID.
+- คำนวณ Polymarket order hash ที่คาดไว้จาก signed EIP-712 order เมื่อทำได้ และ cache ไว้เป็น `VenueOrderId` ทำให้
+  WebSocket event และ reconciliation report ที่ตามมาผูกกับ `ClientOrderId` ในเครื่อง แทนการกลายเป็น external order
+- นำการอัปเดต quantity จาก quote เป็น base ที่ sign แล้วไปใช้กับ market BUY แบบ quote-quantity
+- เลื่อน cancel ที่ค้างอยู่ไว้จนกว่าจะทราบ venue order ID ที่คาดไว้
+- register การติดตาม fill ภายใต้ venue order ID นั้น
 
-##### Order and trade reads
+##### การอ่าน order และ trade {#order-and-trade-reads}
 
-The adapter reads the order and its trades from REST, retrying with backoff capped at 30 seconds
-until the venue state is known. Terminal trades apply through the settlement records first, then the
-order status accepts the order and releases its fills. The status waits while any trade is still
-provisional or while confirmed trades do not yet cover the venue's matched quantity.
+adapter อ่าน order และ trade ของ order นั้นจาก REST โดย retry ด้วย backoff ที่สูงสุด 30 วินาที จนกว่าจะทราบ state ของ venue
+trade แบบ terminal จะถูกนำไปใช้ผ่าน settlement record ก่อน จากนั้นสถานะ order จึง accept order และปล่อย fill ของมัน
+สถานะจะรอตราบที่ยังมี trade ที่เป็น provisional อยู่ หรือ trade ที่ยืนยันแล้วยังไม่ครอบคลุม matched quantity ของ venue
 
-`QueryOrder` commands made while a signed submission awaits acknowledgement use the same settlement path.
-They apply venue trade IDs directly, so buffered WebSocket trades and the later submit response do
-not repeat acceptance or count the same fill twice.
+command `QueryOrder` ที่เกิดขึ้นขณะที่ signed submission ยังรอ acknowledgement จะใช้ settlement path เดียวกัน โดยนำ venue
+trade ID ไปใช้โดยตรง ดังนั้น WebSocket trade ที่ buffer ไว้และ submit response ที่มาทีหลังจะไม่ทำให้ accept ซ้ำหรือนับ fill
+เดียวกันสองครั้ง
 
-##### Report gating
+##### การกั้น report {#report-gating}
 
-Reports that cover the order or its instrument fail until that read applies or reading stops, so
-reconciliation does not infer fills from partial venue state.
+report ที่ครอบคลุม order หรือ instrument ของ order นั้นจะล้มเหลวจนกว่าการอ่านนั้นจะถูกนำไปใช้หรือการอ่านหยุดลง เพื่อไม่ให้
+reconciliation อนุมาน fill จาก state ของ venue ที่ไม่ครบ
 
-##### Read timeout
+##### Read timeout {#read-timeout}
 
-Reading stops after 10 minutes without applying the venue state. The adapter logs a warning, lifts
-the report gate, and leaves the order `Submitted`.
+การอ่านจะหยุดหลังจาก 10 นาทีโดยไม่ได้นำ state ของ venue ไปใช้ adapter จะ log คำเตือน ยกเลิกการกั้น report และทิ้ง order
+ไว้ในสถานะ `Submitted`
 
-If the local order closes before recovery completes, the adapter cancels any venue order still
-reported as live or delayed. Recovery then requires a terminal order read and trade evidence covering
-its matched quantity. Cancellation alone does not establish that no fill occurred. Failed or empty
-reads and the 10-minute timeout do not end this recovery, even if a late fill reopens the local order.
+หาก local order ปิดก่อนการกู้คืนจะเสร็จ adapter จะ cancel venue order ใด ๆ ที่ยังรายงานเป็น live หรือ delayed จากนั้นการ
+กู้คืนต้องอาศัยการอ่าน order แบบ terminal และหลักฐาน trade ที่ครอบคลุม matched quantity ของ order นั้น การ cancel เพียง
+อย่างเดียวไม่ได้ยืนยันว่าไม่มี fill เกิดขึ้น การอ่านที่ล้มเหลวหรือว่างเปล่าและ timeout 10 นาทีจะไม่ทำให้การกู้คืนนี้สิ้นสุด
+แม้ fill ที่มาช้าจะเปิด local order ขึ้นมาใหม่ก็ตาม
 
 :::warning
-If the local order closes before submission recovery completes, an empty venue order lookup keeps its report
-gate closed indefinitely. This blocks reports for that order, its instrument, and the whole account while the
-venue keeps returning an empty lookup. Fills that the engine cannot apply remain visible through the
-settlement report gate.
+หาก local order ปิดก่อนการกู้คืน submission จะเสร็จ การ lookup venue order ที่ว่างเปล่าจะทำให้การกั้น report ของ order นั้น
+ปิดอยู่ไม่มีกำหนด ซึ่งจะ block report ของ order นั้น, instrument ของมัน และทั้ง account ตราบที่ venue ยังคืนผล lookup
+ว่างเปล่า fill ที่ engine นำไปใช้ไม่ได้ยังคงมองเห็นได้ผ่านการกั้น settlement report
 :::
 
-### Position management
+### การจัดการ position {#position-management}
 
-| Feature              | Binary options | Notes                                                                       |
+| Feature              | Binary options | หมายเหตุ                                                                      |
 | -------------------- | -------------- | --------------------------------------------------------------------------- |
-| Query positions      | ✓              | Data API user positions, excluding resolved balances.                       |
-| Split, merge, redeem | ✓              | Deposit Wallet operations; see [Position operations](#position-operations). |
-| Position mode        | -              | Binary outcome positions only.                                              |
-| Leverage control     | -              | No leverage available.                                                      |
-| Margin mode          | -              | No margin trading.                                                          |
+| Query positions      | ✓              | position ของผู้ใช้จาก Data API ไม่รวม balance ที่ resolve แล้ว                    |
+| Split, merge, redeem | ✓              | operation ของ Deposit Wallet ดู [Position operation](#position-operations)    |
+| Position mode        | -              | มีเฉพาะ position ของ binary outcome                                           |
+| Leverage control     | -              | ไม่มี leverage                                                               |
+| Margin mode          | -              | ไม่มีการเทรดแบบ margin                                                         |
 
-### Order querying
+### การ query order {#order-querying}
 
-| Feature              | Binary options | Notes                          |
+| Feature              | Binary options | หมายเหตุ                         |
 | -------------------- | -------------- | ------------------------------ |
-| Query open orders    | ✓              | Active orders only.            |
-| Query order history  | ✓              | Limited historical data.       |
-| Order status updates | ✓              | Real-time order state changes. |
-| Trade history        | ✓              | Execution and fill reports.    |
+| Query open orders    | ✓              | เฉพาะ order ที่ active           |
+| Query order history  | ✓              | ข้อมูลย้อนหลังมีจำกัด               |
+| Order status updates | ✓              | การเปลี่ยนสถานะ order แบบ real-time |
+| Trade history        | ✓              | execution report และ fill report |
 
-### Contingent orders
+### Contingent order {#contingent-orders}
 
-| Feature            | Binary options | Notes                                                                     |
+| Feature            | Binary options | หมายเหตุ                                                                    |
 | ------------------ | -------------- | ------------------------------------------------------------------------- |
-| Order lists        | -              | Independent order batches exist, but linked contingency semantics do not. |
-| OCO orders         | -              | *Not supported by Polymarket*.                                            |
-| Bracket orders     | -              | *Not supported by Polymarket*.                                            |
-| Conditional orders | -              | *Not supported by Polymarket*.                                            |
+| Order lists        | -              | มี batch ของ order ที่เป็นอิสระต่อกัน แต่ไม่มีความหมายแบบ contingency ที่ผูกกัน        |
+| OCO orders         | -              | *Polymarket ไม่รองรับ*                                                     |
+| Bracket orders     | -              | *Polymarket ไม่รองรับ*                                                     |
+| Conditional orders | -              | *Polymarket ไม่รองรับ*                                                     |
 
-### Precision limits
+### ขีดจำกัดของ precision {#precision-limits}
 
-Polymarket enforces different precision constraints based on tick size and `orderType`.
-Every Polymarket `BinaryOption` uses a canonical `price_precision` of 4, independent of its active
-tick size. The instrument's `price_increment` carries the active tick, and order signing derives
-the venue tick decimals from that increment.
+Polymarket บังคับใช้ข้อจำกัดด้าน precision ต่างกันตาม tick size และ `orderType` `BinaryOption` ทุกตัวของ Polymarket ใช้
+`price_precision` แบบ canonical เท่ากับ 4 ไม่ว่า tick size ที่ใช้อยู่จะเป็นเท่าใด `price_increment` ของ instrument เก็บ
+tick ที่ใช้อยู่ และการ sign order จะคำนวณจำนวนทศนิยมของ tick ฝั่ง venue จาก increment นั้น
 
-Binary option instruments typically support up to six decimal places for amounts with a 0.0001 tick size.
-The signing rules also depend on the venue order type.
+instrument แบบ binary option มักรองรับทศนิยมสูงสุดหกตำแหน่งสำหรับ amount เมื่อ tick size เป็น 0.0001 กฎการ sign ยังขึ้น
+อยู่กับ order type ฝั่ง venue ด้วย
 
-#### Market order types: FAK and FOK
+#### Market order type: FAK และ FOK {#market-order-types-fak-and-fok}
 
-The direct maker amount is limited to **two decimal places**. The computed taker amount uses the market tick
-decimals plus two size decimals. A limit order submitted with `FAK` or `FOK` must also satisfy this stricter
-market-order amount validation. The venue rejects values that are valid for a resting order but not for that
-market-order type.
+maker amount โดยตรงจำกัดไว้ที่ **ทศนิยมสองตำแหน่ง** taker amount ที่คำนวณได้ใช้จำนวนทศนิยมของ tick ของตลาดบวกทศนิยม
+ของขนาดอีกสองตำแหน่ง limit order ที่ส่งด้วย `FAK` หรือ `FOK` ต้องผ่านการตรวจ amount แบบ market order ที่เข้มงวดกว่านี้ด้วย
+venue จะปฏิเสธค่าที่ใช้ได้สำหรับ order ที่วางค้าง แต่ใช้ไม่ได้สำหรับ market order type นั้น
 
-##### Base-sized limit BUY orders
+##### Limit BUY order ที่กำหนดขนาดด้วย base {#base-sized-limit-buy-orders}
 
-`quantity` is the nominal share quantity at the limit price. With `FAK` or `FOK`, Polymarket spends
-a pUSD maker budget, so price improvement can return more shares.
+`quantity` คือจำนวน share ตามชื่อที่ limit price เมื่อใช้ `FAK` หรือ `FOK` Polymarket จะใช้ maker budget เป็น pUSD ดังนั้น
+การได้ราคาที่ดีกว่าอาจทำให้ได้ share มากขึ้น
 
-When `quantity * price` is not an exact cent amount, the adapter truncates that budget to two
-decimal places. It signs the share quantity derived from that budget, rounded up to the market
-amount precision, so the signed ratio does not exceed the limit price. It updates the local order
-to that signed quantity before posting. This applies to single and batch submissions.
+เมื่อ `quantity * price` ไม่ใช่จำนวนเซนต์พอดี adapter จะตัด budget นั้นเหลือทศนิยมสองตำแหน่ง แล้ว sign share quantity
+ที่คำนวณจาก budget นั้น โดยปัดขึ้นตาม amount precision ของตลาด เพื่อให้อัตราส่วนที่ sign แล้วไม่เกิน limit price และอัปเดต
+local order เป็น quantity ที่ sign แล้วก่อน post ทั้งนี้ใช้กับทั้งการส่งแบบเดี่ยวและแบบ batch
 
-A later fill can still raise the quantity to the actual matched size. A budget that truncates to
-zero is denied before signing.
+fill ที่ตามมายังอาจเพิ่ม quantity เป็นขนาดที่ match จริงได้ budget ที่ถูกตัดเหลือศูนย์จะถูกปฏิเสธก่อนการ sign
 
-##### Collateral-sized limit BUY orders
+##### Limit BUY order ที่กำหนดขนาดด้วย collateral {#collateral-sized-limit-buy-orders}
 
-The adapter truncates the direct maker amount to cents. The computed share amount uses the market tick
-decimals plus two size decimals. The signed integer amounts must preserve the requested limit price
-exactly after this quantization.
+adapter ตัด maker amount โดยตรงเหลือหน่วยเซนต์ share amount ที่คำนวณได้ใช้จำนวนทศนิยมของ tick ของตลาดบวกทศนิยมของ
+ขนาดอีกสองตำแหน่ง integer amount ที่ sign แล้วต้องรักษา limit price ที่ร้องขอไว้ได้พอดีหลังการ quantize นี้
 
-#### Resting limit order types: GTC and GTD
+#### Resting limit order type: GTC และ GTD {#resting-limit-order-types-gtc-and-gtd}
 
-Resting orders allow more flexible precision based on market tick size.
+order ที่วางค้างอนุญาต precision ที่ยืดหยุ่นกว่าตาม tick size ของตลาด
 
-### Tick size precision hierarchy
+### ลำดับชั้นของ precision ตาม tick size {#tick-size-precision-hierarchy}
 
 | Tick size | Tick decimals | Size decimals | Amount decimals |
 | --------- | ------------- | ------------- | --------------- |
@@ -1170,285 +993,256 @@ Resting orders allow more flexible precision based on market tick size.
 | 0.001     | 3             | 2             | 5               |
 | 0.0001    | 4             | 2             | 6               |
 
-#### Tick validation
+#### การตรวจ tick {#tick-validation}
 
-- The adapter validates tick size before signing. A base-sized limit `FAK` or `FOK` BUY whose cent
-  budget truncates to zero is denied before signing. See
-  [Base-sized limit BUY orders](#base-sized-limit-buy-orders).
-- The adapter requires instrument tick sizes to be exactly representable at four decimals. It rejects
-  instrument definitions and tick-size events that do not meet this requirement. A rejected event leaves the
-  current tick active.
-- Tick decimals control signing and amount precision. They do not change the instrument's canonical
-  four-decimal price precision.
-- Base-sized resting `GTC` and `GTD` limit orders and all SELL orders keep their tick-derived amount
-  precision. Collateral-sized limit BUYs use cents for the direct maker amount and tick-derived
-  precision for the computed share amount.
-- The adapter rejects limit prices outside the current market's `[tick_size, 1 - tick_size]`
-  interval before signing.
-- The published `BinaryOption` advertises `min_price` and `max_price` equal to `tick_size` and
-  `1 - tick_size`, so consumers that clamp to the instrument bounds stay within that accepted range.
-- Market-order precision limits include two decimals for the sell size plus tick-derived bounds
-  for the computed amount.
-- Tick sizes can change dynamically during market conditions, particularly when markets become one-sided.
+- adapter ตรวจ tick size ก่อนการ sign limit BUY แบบ `FAK` หรือ `FOK` ที่กำหนดขนาดด้วย base ซึ่ง budget เป็นเซนต์ถูกตัด
+  เหลือศูนย์จะถูกปฏิเสธก่อนการ sign ดู [Limit BUY order ที่กำหนดขนาดด้วย base](#base-sized-limit-buy-orders)
+- adapter กำหนดให้ tick size ของ instrument ต้องแสดงได้พอดีที่ทศนิยมสี่ตำแหน่ง และปฏิเสธ instrument definition และ
+  tick-size event ที่ไม่ตรงตามข้อกำหนดนี้ event ที่ถูกปฏิเสธจะทิ้ง tick ปัจจุบันไว้ใช้ต่อ
+- จำนวนทศนิยมของ tick ควบคุมการ sign และ amount precision แต่ไม่เปลี่ยน price precision แบบ canonical สี่ตำแหน่งของ
+  instrument
+- limit order แบบ `GTC` และ `GTD` ที่วางค้างและกำหนดขนาดด้วย base รวมถึง SELL order ทั้งหมด จะคง amount precision ที่
+  คำนวณจาก tick ไว้ limit BUY ที่กำหนดขนาดด้วย collateral ใช้หน่วยเซนต์สำหรับ maker amount โดยตรง และใช้ precision ที่
+  คำนวณจาก tick สำหรับ share amount ที่คำนวณได้
+- adapter ปฏิเสธ limit price ที่อยู่นอกช่วง `[tick_size, 1 - tick_size]` ของตลาดปัจจุบันก่อนการ sign
+- `BinaryOption` ที่ publish ออกไปประกาศ `min_price` และ `max_price` เท่ากับ `tick_size` และ `1 - tick_size` ดังนั้น
+  consumer ที่ clamp ตามขอบเขตของ instrument จะอยู่ในช่วงที่ยอมรับได้นั้น
+- ขีดจำกัด precision ของ market order รวมถึงทศนิยมสองตำแหน่งสำหรับขนาดการขาย บวกขอบเขตที่คำนวณจาก tick สำหรับ
+  amount ที่คำนวณได้
+- tick size อาจเปลี่ยนแบบ dynamic ตามสภาวะตลาด โดยเฉพาะเมื่อตลาดกลายเป็นฝั่งเดียว (one-sided)
 
-### Tick size change handling
+### การจัดการเมื่อ tick size เปลี่ยน {#tick-size-change-handling}
 
-When a market's tick size changes (`tick_size_change` WebSocket event), old
-book levels can be invalid on the new grid (for example `0.505` fits a `0.001`
-tick but not a `0.01` tick). To keep old-grid prices out of the new epoch, the
-adapter treats the change as a book epoch transition:
+เมื่อ tick size ของตลาดเปลี่ยน (WebSocket event `tick_size_change`) level เดิมใน book อาจไม่ถูกต้องบน grid ใหม่
+(เช่น `0.505` ใช้ได้กับ tick `0.001` แต่ใช้ไม่ได้กับ tick `0.01`) เพื่อไม่ให้ราคาจาก grid เดิมหลุดเข้าไปใน epoch ใหม่
+adapter จะถือว่าการเปลี่ยนนี้เป็นการเปลี่ยน epoch ของ book:
 
-1. Publish the updated `BinaryOption` with the new `price_increment`, canonical four-decimal
-   `price_precision`, and tick-relative `min_price`/`max_price` bounds.
-1. Drop the local order book for the instrument.
-1. Gate incremental `price_change` book deltas on a fresh snapshot and request recovery.
-1. Resubscribe the market until the venue replays a snapshot.
-1. Reseed the book from the snapshot and resume normal processing.
+1. publish `BinaryOption` ที่อัปเดตแล้ว พร้อม `price_increment` ใหม่, `price_precision` แบบ canonical สี่ตำแหน่ง และ
+   ขอบเขต `min_price`/`max_price` ที่สัมพันธ์กับ tick
+1. ทิ้ง local order book ของ instrument นั้น
+1. กั้น book delta แบบ incremental ของ `price_change` ไว้จนกว่าจะได้ snapshot ใหม่ และ request การกู้คืน
+1. subscribe ตลาดใหม่จนกว่า venue จะ replay snapshot
+1. ตั้งค่า book ใหม่จาก snapshot แล้วกลับสู่การประมวลผลตามปกติ
 
-Trade ticks and the instrument update flow through unchanged. Quote handling follows
-`drop_quotes_missing_side`: when enabled, quote ticks require both bid and ask prices. When disabled, missing
-sides use Polymarket boundary prices with zero size. The adapter can keep quotes flowing during the gap by
-reading `best_bid` and `best_ask` from each `price_change`.
+trade tick และการอัปเดต instrument ผ่านไปตามปกติ การจัดการ quote เป็นไปตาม `drop_quotes_missing_side`: เมื่อเปิดใช้
+quote tick ต้องมีทั้งราคา bid และ ask เมื่อปิด ฝั่งที่ขาดไปจะใช้ราคาขอบเขตของ Polymarket พร้อมขนาดศูนย์ adapter สามารถ
+ให้ quote ไหลต่อได้ในช่วงที่ขาดหายด้วยการอ่าน `best_bid` และ `best_ask` จากแต่ละ `price_change`
 
-Gamma instrument data supplies the active tick until the first `tick_size_change` for that token.
-The WebSocket tick then remains authoritative across later Gamma refreshes and instrument requests.
-The adapter ignores older tick-size events by venue timestamp. A data-client reset starts a new
-generation and allows Gamma to supply each token's tick again.
+ข้อมูล instrument จาก Gamma จะให้ tick ที่ใช้อยู่จนกว่าจะมี `tick_size_change` ครั้งแรกของ token นั้น จากนั้น tick จาก
+WebSocket จะเป็นแหล่งอ้างอิงหลักข้ามการ refresh ของ Gamma และ instrument request ที่ตามมา adapter ไม่สนใจ tick-size
+event ที่เก่ากว่าตาม venue timestamp การ reset data client จะเริ่ม generation ใหม่และอนุญาตให้ Gamma กำหนด tick ของ
+แต่ละ token ได้อีกครั้ง
 
-## Trades
+## Trade {#trades}
 
-Trades on Polymarket can have the following statuses:
+trade บน Polymarket มีสถานะต่อไปนี้ได้:
 
-- `MATCHED_NOT_BROADCASTED`: The orders matched before an on-chain transaction was broadcast.
-- `MATCHED`: Trade has been matched and sent to the executor service. The executor submits it as
-  a transaction to the Exchange contract.
-- `MINED`: Trade is observed to be mined into the chain, and no finality threshold is established.
-- `CONFIRMED`: Trade has achieved strong probabilistic finality and was successful.
-- `RETRYING`: Trade transaction has failed (revert or reorg) and is being retried/resubmitted by the operator.
-- `FAILED`: Trade has failed and is not being retried.
+- `MATCHED_NOT_BROADCASTED`: order match กันแล้วก่อนที่ transaction on-chain จะถูก broadcast
+- `MATCHED`: trade ถูก match และส่งไปยัง executor service แล้ว executor จะส่งเป็น transaction ไปยัง Exchange contract
+- `MINED`: พบว่า trade ถูก mine เข้า chain แล้ว แต่ยังไม่ถึงเกณฑ์ finality
+- `CONFIRMED`: trade บรรลุ probabilistic finality ที่แข็งแรงและสำเร็จ
+- `RETRYING`: transaction ของ trade ล้มเหลว (revert หรือ reorg) และ operator กำลัง retry/ส่งใหม่
+- `FAILED`: trade ล้มเหลวและไม่มีการ retry
 
-`CONFIRMED` and `FAILED` are terminal. The other statuses are provisional: the trade can still
-succeed or fail.
+`CONFIRMED` และ `FAILED` เป็นสถานะ terminal สถานะอื่นเป็น provisional คือ trade ยังอาจสำเร็จหรือล้มเหลวได้
 
-### Taker fill prices
+### ราคา fill ของ taker {#taker-fill-prices}
 
-When a taker trade includes a complete `maker_orders` collection, the adapter combines the
-executions into one taker fill with the original trade ID. It derives the fill price from the
-quantity-weighted average of the executions rather than applying the top-level trade price to
-the whole quantity. The same calculation applies to REST fill reports and user WebSocket fills.
+เมื่อ taker trade มี collection `maker_orders` ที่ครบถ้วน adapter จะรวม execution ทั้งหมดเป็น taker fill เดียวด้วย trade ID
+เดิม และคำนวณราคา fill จากค่าเฉลี่ยถ่วงน้ำหนักด้วย quantity ของ execution แทนการใช้ราคา trade ระดับบนสุดกับ quantity
+ทั้งหมด การคำนวณเดียวกันนี้ใช้กับ REST fill report และ fill จาก user WebSocket
 
-Same-token matches use the maker price directly. For complementary outcomes in the same binary
-market, a maker price `p` corresponds to a taker price of `1 - p`: BUY No can match BUY Yes through
-minting, and SELL No can match SELL Yes through merging.
+การ match ใน token เดียวกันใช้ราคาของ maker โดยตรง สำหรับ outcome ที่เป็นคู่ตรงข้ามกันในตลาด binary เดียวกัน ราคา maker `p`
+จะสอดคล้องกับราคา taker `1 - p`: BUY No สามารถ match กับ BUY Yes ได้ผ่านการ mint และ SELL No สามารถ match กับ SELL Yes
+ได้ผ่านการ merge
 
-For example, buying 40 No shares against 35 Yes shares at `0.008` and 5 Yes shares at `0.006`
-gives effective No prices of `0.992` and `0.994`:
+ตัวอย่างเช่น การซื้อ 40 No share เทียบกับ 35 Yes share ที่ `0.008` และ 5 Yes share ที่ `0.006` จะได้ราคา No ที่มีผลจริง
+เป็น `0.992` และ `0.994`:
 
 ```text
 notional = 35 * 0.992 + 5 * 0.994 = 39.690
 average fill price = 39.690 / 40 = 0.99225
 ```
 
-The reported price can therefore carry more decimal places than the instrument's order price
-precision. This represents historical executions and does not change the tick size for new orders.
-See [Numeric precision](#numeric-precision) for the settlement amount check.
+ราคาที่รายงานจึงอาจมีทศนิยมมากกว่า price precision ของ order ของ instrument ซึ่งเป็นตัวแทนของ execution ในอดีต และไม่ได้
+เปลี่ยน tick size สำหรับ order ใหม่ ดูการตรวจ settlement amount ได้ที่ [Numeric precision](#numeric-precision)
 
-If `maker_orders` is empty, the adapter uses the existing top-level size and price calculation.
-A nonempty collection must account for the complete taker quantity and contain consistent
-counterparty evidence; invalid evidence does not fall back to the top-level price.
+หาก `maker_orders` ว่าง adapter จะใช้การคำนวณขนาดและราคาระดับบนสุดแบบเดิม collection ที่ไม่ว่างต้องครอบคลุม taker
+quantity ทั้งหมดและมีหลักฐานของ counterparty ที่สอดคล้องกัน หลักฐานที่ไม่ถูกต้องจะไม่ fallback ไปใช้ราคาระดับบนสุด
 
-### Settlement updates
+### การอัปเดต settlement {#settlement-updates}
 
-Once a trade is initially matched, subsequent status updates arrive through the user WebSocket. The execution
-adapter tracks each trade's venue settlement separately from whether the engine has applied each of the
-account's fills. It emits each fill and each correction at most once.
+เมื่อ trade ถูก match ในครั้งแรกแล้ว การอัปเดตสถานะที่ตามมาจะมาทาง user WebSocket execution adapter ติดตาม settlement
+ฝั่ง venue ของแต่ละ trade แยกจากการที่ engine นำแต่ละ fill ของ account ไปใช้แล้วหรือไม่ และ emit แต่ละ fill และแต่ละการ
+แก้ไขอย่างมากหนึ่งครั้ง
 
-For an order this client submitted in the current WebSocket session, the adapter emits one
-`OrderFilled` at the first provisional status it receives, usually `MATCHED`. It treats later
-provisional statuses as settlement updates without emitting another fill. `CONFIRMED` records
-finality and refreshes the account. Matched WebSocket fills retain the raw trade fields in the
-`info` field of the `OrderFilled` event.
+สำหรับ order ที่ client นี้ส่งใน WebSocket session ปัจจุบัน adapter จะ emit `OrderFilled` หนึ่งครั้งเมื่อได้รับสถานะ
+provisional ครั้งแรก ซึ่งมักเป็น `MATCHED` และถือว่าสถานะ provisional ที่ตามมาเป็นการอัปเดต settlement โดยไม่ emit fill
+เพิ่ม `CONFIRMED` บันทึก finality และ refresh account fill ที่ match จาก WebSocket จะเก็บฟิลด์ trade ดิบไว้ในฟิลด์ `info`
+ของ event `OrderFilled`
 
-#### Failed trades and REST resolution
+#### Trade ที่ล้มเหลวและการ resolve ผ่าน REST {#failed-trades-and-rest-resolution}
 
-A WebSocket `FAILED` update never voids a fill by itself. The adapter quarantines a trade and reads
-it by ID from the authenticated REST trades endpoint (`GET /data/trades`) when:
+การอัปเดต `FAILED` จาก WebSocket จะไม่ void fill ด้วยตัวเองเลย adapter จะกักกัน (quarantine) trade และอ่าน trade นั้น
+ด้วย ID จาก authenticated REST trades endpoint (`GET /data/trades`) เมื่อ:
 
-- The WebSocket reports `FAILED`.
-- WebSocket evidence contradicts a fill the engine has not applied, such as changed fill values or a
-  missing owned order.
-- A trade message fails validation.
+- WebSocket รายงาน `FAILED`
+- หลักฐานจาก WebSocket ขัดแย้งกับ fill ที่ engine ยังไม่ได้นำไปใช้ เช่น ค่าของ fill เปลี่ยนไป หรือไม่มี order ที่เป็นของ
+  account
+- trade message ไม่ผ่านการตรวจสอบ
 
-The first read starts immediately. Until REST returns a terminal status, the adapter retries after
-500 ms, doubling the delay up to 30 seconds, so a long `RETRYING` period leaves the trade quarantined.
+การอ่านครั้งแรกเริ่มทันที จนกว่า REST จะคืนสถานะ terminal adapter จะ retry หลัง 500 ms และเพิ่ม delay เป็นสองเท่า
+จนถึง 30 วินาที ดังนั้นช่วง `RETRYING` ที่ยาวนานจะทำให้ trade ถูกกักกันไว้
 
-The first terminal REST result is final. Another REST read starts for a contradictory WebSocket status or new
-or changed evidence for fills the engine has not applied. It never reverses the first result.
+ผลลัพธ์ terminal แรกจาก REST ถือเป็นที่สิ้นสุด การอ่าน REST ครั้งใหม่จะเริ่มเมื่อมีสถานะจาก WebSocket ที่ขัดแย้ง หรือมี
+หลักฐานใหม่หรือที่เปลี่ยนไปสำหรับ fill ที่ engine ยังไม่ได้นำไปใช้ แต่จะไม่กลับผลลัพธ์แรกเลย
 
-##### REST `FAILED` result
+##### ผลลัพธ์ REST `FAILED` {#rest-failed-result}
 
-The adapter emits one `OrderFillVoided` for each fill the engine applied, including a fill the engine
-applies after the result arrives, and refreshes the account. Fills the adapter had not yet emitted
-are never emitted. The correction does not relist the failed quantity, but it preserves any
-maker-order remainder that was already working. An execution-complete order becomes `VOIDED`.
+adapter จะ emit `OrderFillVoided` หนึ่งครั้งสำหรับแต่ละ fill ที่ engine นำไปใช้แล้ว รวมถึง fill ที่ engine นำไปใช้หลังจาก
+ผลลัพธ์มาถึง และ refresh account fill ที่ adapter ยังไม่ได้ emit จะไม่ถูก emit เลย การแก้ไขนี้ไม่ได้นำ quantity ที่ล้มเหลว
+กลับไปวางใหม่ แต่จะรักษาส่วนที่เหลือของ maker order ที่ทำงานอยู่แล้วไว้ order ที่ execute ครบแล้วจะกลายเป็น `VOIDED`
 
-##### REST `CONFIRMED` result
+##### ผลลัพธ์ REST `CONFIRMED` {#rest-confirmed-result}
 
-The adapter emits any of the account's fills that the engine has not applied, using the REST trade
-values, and refreshes the account.
+adapter จะ emit fill ของ account ที่ engine ยังไม่ได้นำไปใช้ โดยใช้ค่าของ trade จาก REST และ refresh account
 
-#### Reconnects and restarts
+#### Reconnect และ restart {#reconnects-and-restarts}
 
-A provisional status applies a fill only when the trade and all of the account's orders in it
-belong to the current uninterrupted WebSocket session. The stream does not replay updates missed
-while disconnected, so after a reconnect the adapter reads from REST:
+สถานะ provisional จะนำ fill ไปใช้เฉพาะเมื่อ trade และทุก order ของ account ใน trade นั้นอยู่ใน WebSocket session
+ปัจจุบันที่ไม่ถูกขัดจังหวะ stream ไม่ replay การอัปเดตที่พลาดไประหว่าง disconnect ดังนั้นหลัง reconnect adapter จะอ่าน
+จาก REST:
 
-- **New trades on existing orders**: the adapter quarantines them until REST reports `CONFIRMED` or
-  `FAILED`. This also applies after a restart to orders restored from the cache, so fills on a
-  resting order can lag the venue until on-chain confirmation.
-- **Provisionally applied trades**: the adapter reads each by ID. `CONFIRMED` keeps the fill and
-  `FAILED` voids it. Reports touching these trades fail until the read returns.
-- **Trades matched while disconnected**: the adapter reads each open order it submitted or restored from the
-  cache, and each order whose submit was in flight and succeeds after the reconnect. It reads the order and
-  the account's trades in its market. It applies each unseen trade exactly once with the REST values. It
-  leaves the order status to the WebSocket and reconciliation. Orders adopted from the venue are not read.
-  Their fills arrive through reconciliation.
+- **trade ใหม่บน order ที่มีอยู่**: adapter กักกันไว้จนกว่า REST จะรายงาน `CONFIRMED` หรือ `FAILED` ซึ่งใช้กับ order ที่
+  กู้คืนจาก cache หลัง restart ด้วย ดังนั้น fill บน order ที่วางค้างอาจช้ากว่า venue จนกว่าจะได้รับการยืนยัน on-chain
+- **trade ที่นำไปใช้แบบ provisional แล้ว**: adapter อ่านแต่ละรายการด้วย ID `CONFIRMED` จะคง fill ไว้ และ `FAILED` จะ void
+  fill นั้น report ที่เกี่ยวข้องกับ trade เหล่านี้จะล้มเหลวจนกว่าการอ่านจะคืนผล
+- **trade ที่ match ระหว่าง disconnect**: adapter อ่านแต่ละ open order ที่ตัวเองส่งหรือกู้คืนจาก cache และแต่ละ order ที่
+  การ submit กำลังดำเนินอยู่และสำเร็จหลัง reconnect โดยอ่าน order และ trade ของ account ในตลาดของ order นั้น แล้วนำแต่ละ
+  trade ที่ยังไม่เคยเห็นไปใช้ครั้งเดียวด้วยค่าจาก REST สถานะของ order ปล่อยให้ WebSocket และ reconciliation จัดการ order
+  ที่รับมาจาก venue จะไม่ถูกอ่าน fill ของ order เหล่านั้นจะมาทาง reconciliation
 
-The adapter reads at most 10 orders per resolution pass, retrying each with backoff capped at 30
-seconds. Reports touching an order fail until none of its trades is provisional and confirmed trades
-cover the venue's matched quantity. Reading stops after 10 minutes without that evidence, which also
-lifts the report gate.
+adapter อ่านได้สูงสุด 10 order ต่อรอบการ resolve โดย retry แต่ละรายการด้วย backoff สูงสุด 30 วินาที report ที่เกี่ยวข้อง
+กับ order จะล้มเหลวจนกว่าจะไม่มี trade ใดของ order นั้นเป็น provisional และ trade ที่ยืนยันแล้วครอบคลุม matched quantity
+ของ venue การอ่านจะหยุดหลังจาก 10 นาทีโดยไม่มีหลักฐานนั้น ซึ่งจะยกเลิกการกั้น report ด้วย
 
-On connect, the adapter rebuilds applied fills and voids from the cached order events, so a replayed
-trade does not produce a second fill. Those rebuilt fills are not read again.
+ตอน connect adapter จะสร้าง fill และ void ที่นำไปใช้แล้วขึ้นใหม่จาก order event ใน cache ดังนั้น trade ที่ถูก replay จะไม่
+สร้าง fill ครั้งที่สอง fill ที่สร้างขึ้นใหม่เหล่านั้นจะไม่ถูกอ่านซ้ำ
 
-#### Settlement faults
+#### Settlement fault {#settlement-faults}
 
-A trade enters a hard fault when its venue outcome and the engine's state cannot be reconciled:
+trade จะเข้าสู่ hard fault เมื่อผลลัพธ์ฝั่ง venue กับ state ของ engine ไม่สามารถ reconcile กันได้:
 
-- A later terminal REST result differs from the first one.
-- The engine declines a fill the adapter emitted, unless REST already reported `FAILED`.
-- The engine declines a correction void, so the applied fill cannot be reversed.
-- REST `CONFIRMED` values contradict an applied fill, or the terminal REST result omits one of the
-  account's fills that the engine applied.
+- ผลลัพธ์ terminal จาก REST ที่มาทีหลังต่างจากครั้งแรก
+- engine ปฏิเสธ fill ที่ adapter emit ออกไป เว้นแต่ REST จะรายงาน `FAILED` แล้ว
+- engine ปฏิเสธ correction void ทำให้ไม่สามารถกลับ fill ที่นำไปใช้แล้วได้
+- ค่า `CONFIRMED` จาก REST ขัดแย้งกับ fill ที่นำไปใช้แล้ว หรือผลลัพธ์ terminal จาก REST ไม่มี fill ของ account ที่ engine
+  นำไปใช้แล้ว
 
-##### Fills and reconciliation
+##### Fill และ reconciliation {#fills-and-reconciliation}
 
-A hard-faulted trade admits no further fills or voids, except the one void owed for a fill applied
-after REST reported `FAILED`. The adapter logs the fault at error level, refreshes the account, and
-blocks reconciliation for the trade (see [settlement precedence](#settlement-precedence)) until the
-node restarts.
+trade ที่เกิด hard fault จะไม่รับ fill หรือ void เพิ่มอีก ยกเว้น void หนึ่งครั้งที่ค้างอยู่สำหรับ fill ที่นำไปใช้หลังจาก REST
+รายงาน `FAILED` adapter จะ log fault ที่ระดับ error, refresh account และ block reconciliation ของ trade นั้น (ดู
+[settlement precedence](#settlement-precedence)) จนกว่า node จะ restart
 
-##### Quantity and cancellation
+##### Quantity และการ cancel {#quantity-and-cancellation}
 
-A hard fault withholds the quantity normalization and FAK remainder cancellation that confirmation would
-authorize, including the fully matched `associate_trades` update. The confirmed venue outcome stays in place,
-and an applied fill keeps its quantity, price, and commission apart from that owed void. A cancellation,
-expiry, or rejection that the venue reports still applies. One inferred from a `MATCHED` underfill does not.
+hard fault จะระงับการ normalize quantity และการ cancel ส่วนที่เหลือของ FAK ที่การยืนยันจะอนุญาต รวมถึงการอัปเดต
+`associate_trades` แบบ match ครบ ผลลัพธ์ฝั่ง venue ที่ยืนยันแล้วยังคงอยู่ และ fill ที่นำไปใช้แล้วจะคง quantity, ราคา และ
+commission ไว้ นอกเหนือจาก void ที่ค้างอยู่นั้น cancellation, การหมดอายุ หรือการปฏิเสธที่ venue รายงานยังคงมีผล แต่ที่
+อนุมานจาก underfill ของ `MATCHED` จะไม่มีผล
 
-##### Settlement records
+##### Settlement record {#settlement-records}
 
-The adapter keeps settlement records for the lifetime of the execution client. If more than 100,000
-records accumulate after connect, the client faults closed: it reports disconnected and refuses new
-commands until restart. Records rebuilt from the cache on connect do not count toward this limit.
+adapter เก็บ settlement record ไว้ตลอดอายุของ execution client หากมี record สะสมมากกว่า 100,000 รายการหลัง connect
+client จะ fault แบบปิด คือรายงานว่า disconnected และปฏิเสธ command ใหม่จนกว่าจะ restart record ที่สร้างขึ้นใหม่จาก cache
+ตอน connect ไม่นับรวมในขีดจำกัดนี้
 
-### Trade ID derivation
+### การคำนวณ trade ID {#trade-id-derivation}
 
-Polymarket does not publish a trade ID on `last_trade_price` market-data events.
-The adapter derives a deterministic `TradeId` from the asset ID, side, price,
-size, and timestamp via the Rust `determine_trade_id` function using FNV-1a.
+Polymarket ไม่ได้ publish trade ID ใน market-data event `last_trade_price` adapter จะคำนวณ `TradeId` แบบ deterministic
+จาก asset ID, ฝั่ง, ราคา, ขนาด และ timestamp ผ่าน function `determine_trade_id` ของ Rust ที่ใช้ FNV-1a
 
-Execution fills use the same IDs in REST reconciliation and the user WebSocket, so fills deduplicate
-across sources and replays:
+execution fill ใช้ ID เดียวกันทั้งใน REST reconciliation และ user WebSocket ดังนั้น fill จึง deduplicate ข้ามแหล่งที่มาและ
+การ replay ได้:
 
-- **Taker fills**: Use the venue's trade `id`.
-- **Maker fills**: Combine the venue trade ID with the maker venue order ID, because one trade can
-  fill several of the user's resting orders.
+- **Taker fill**: ใช้ trade `id` ของ venue
+- **Maker fill**: รวม venue trade ID เข้ากับ venue order ID ของ maker เพราะ trade หนึ่งรายการอาจ fill order ที่วางค้างของ
+  ผู้ใช้หลายรายการ
 
-For historical Data API trades, the loader uses
-`{transaction_hash[-24:]}-{token_id[-4:]}-{seq:06d}` to distinguish fills in one transaction.
+สำหรับ trade ย้อนหลังจาก Data API loader จะใช้ `{transaction_hash[-24:]}-{token_id[-4:]}-{seq:06d}` เพื่อแยก fill
+ภายใน transaction เดียวกัน
 
-## Instrument metadata
+## Instrument metadata {#instrument-metadata}
 
-`BinaryOption.event_id` contains the Gamma parent event ID. The provider's
-[event-based discovery](#instrument-provider-options) and `PolymarketDataLoader.from_event_slug` use the
-enclosing event. Direct market loading uses the unique ID in the market's `events` array. Missing or ambiguous
-relationships leave `event_id` unset. Both outcome instruments share the same event ID.
+`BinaryOption.event_id` เก็บ ID ของ parent event ใน Gamma [event-based discovery](#instrument-provider-options) ของ
+provider และ `PolymarketDataLoader.from_event_slug` ใช้ event ที่ครอบอยู่ การโหลดตลาดโดยตรงใช้ ID ที่ไม่ซ้ำใน array
+`events` ของตลาด ความสัมพันธ์ที่ขาดหายหรือกำกวมจะทำให้ `event_id` ไม่ถูกตั้งค่า instrument ของ outcome ทั้งสองใช้ event
+ID เดียวกัน
 
-### Live metadata
+### Live metadata {#live-metadata}
 
-Live instruments retain the complete received Gamma market JSON string in `info["gamma_market"]`, including
-unknown fields and nested events, tags, and series when returned by Gamma. Event-based discovery also
-retains the enclosing response in `info["gamma_event"]`, including its full `markets` array.
+live instrument เก็บ JSON string ของ Gamma market ที่ได้รับมาทั้งหมดไว้ใน `info["gamma_market"]` รวมถึงฟิลด์ที่ไม่รู้จัก และ
+event, tag และ series ที่ซ้อนอยู่เมื่อ Gamma ส่งมา event-based discovery ยังเก็บ response ที่ครอบอยู่ไว้ใน
+`info["gamma_event"]` รวมถึง array `markets` ทั้งหมด
 
-Outcome instruments discovered from the same event snapshot share its JSON allocation, including across cache clones.
-Rust callers can borrow the string with `info.get_str("gamma_event")` and iterate with `info.borrowed_entries()`.
-Indexing, `&Params` iteration, and the read-only `IndexMap` interface materialize and cache owned values.
-Python values and serialized contents stay the same; deserialization does not retain allocation sharing.
-Normalized metadata includes `market_version`, `token_id`, `condition_id`, `market_id`, and `event_id`
-when known. `market_version` records the accepted market protocol, `v1`.
+instrument ของ outcome ที่ค้นพบจาก event snapshot เดียวกันจะใช้ JSON allocation ร่วมกัน รวมถึงข้าม cache clone ด้วย
+ผู้เรียกจาก Rust สามารถ borrow string ด้วย `info.get_str("gamma_event")` และ iterate ด้วย `info.borrowed_entries()`
+การ index, การ iterate ผ่าน `&Params` และ interface `IndexMap` แบบอ่านอย่างเดียวจะ materialize และ cache ค่าแบบ owned
+เนื้อหาที่ serialize ยังคงเหมือนเดิม แต่ deserialization จะไม่คงการแชร์ allocation ไว้ metadata ที่ normalize แล้วรวม
+`market_version`, `token_id`, `condition_id`, `market_id` และ `event_id` เมื่อทราบ `market_version` บันทึก market
+protocol ที่ยอมรับ คือ `v1`
 
-These strings contain the received JSON objects before enrichment. Tick-size updates preserve them. Use the
-instrument's typed price increment for the current tick size. The adapter does not fetch additional related
-resources solely to populate metadata. Storing the original JSON strings preserves unknown fields and numeric
-precision across serialization formats. Decode them when needed:
+string เหล่านี้เก็บ JSON object ที่ได้รับมาก่อนการ enrich การอัปเดต tick size จะคงไว้ตามเดิม ให้ใช้ price increment แบบมี
+type ของ instrument สำหรับ tick size ปัจจุบัน adapter จะไม่ดึง resource ที่เกี่ยวข้องเพิ่มเติมเพียงเพื่อเติม metadata การเก็บ
+JSON string ดั้งเดิมไว้ช่วยรักษาฟิลด์ที่ไม่รู้จักและ numeric precision ข้ามรูปแบบการ serialize ได้ ให้ decode เมื่อจำเป็น
 
-```python
-import json
-from decimal import Decimal
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-market = json.loads(instrument.info["gamma_market"], parse_float=Decimal)
-```
+### Historical metadata {#historical-metadata}
 
-### Historical metadata
+`PolymarketDataLoader` สำหรับข้อมูลย้อนหลังเก็บ JSON string เหล่านี้ไว้ใน `resolution_metadata["gamma_market"]` แทน
+`instrument.info` สำหรับการโหลด event ยังเก็บ `resolution_metadata["gamma_event"]` ด้วย response ที่ดึงมาอาจมีผลลัพธ์
+terminal ที่ยังไม่ทราบในช่วงเวลาย้อนหลังนั้น loader จึงเก็บไว้ใน resolution metadata ให้ decode string เหล่านี้เมื่อจำเป็น
+string เหล่านี้มาก่อนการ enrich จาก CLOB ดังนั้น raw token ID และป้ายชื่อ outcome อาจต่างจาก instrument ที่สร้างขึ้น
 
-The historical `PolymarketDataLoader` retains these JSON strings under `resolution_metadata["gamma_market"]`
-instead of `instrument.info`. For event loading, it also retains `resolution_metadata["gamma_event"]`. Fetched
-responses can contain terminal outcomes unknown during the historical period, so the loader keeps them in
-resolution metadata. Decode these strings with `json.loads` as above. They precede CLOB enrichment, so the raw
-token IDs and outcome labels can differ from the constructed instrument.
+## Numeric precision {#numeric-precision}
 
-## Numeric precision
+ค่าทางการเงินบน wire จะถูก decode เป็นทศนิยมโดยตรง ค่าที่อยู่นอกช่วงของทศนิยมหรือ domain type ที่รองรับจะทำให้การ
+decode HTTP หรือการสร้าง report ล้มเหลว handler ของ WebSocket และ PolyBolt จะ log และข้ามการอัปเดตที่ไม่ถูกต้อง การ
+สร้าง report จะไม่ใช้ศูนย์แทนราคาหรือ quantity ที่ไม่ถูกต้อง
 
-Financial wire values are decoded directly as decimals. Values outside the supported decimal or
-domain-type range fail HTTP decoding or report construction. WebSocket and PolyBolt handlers log and
-skip invalid updates. Report construction does not substitute zero for an invalid price or quantity.
+สำหรับ taker fill ที่รวมกัน ราคาที่รายงานคูณด้วย fill quantity ต้องรักษาผลรวมของ notional ของ execution ไว้ได้ หลังจาก
+ปัดทั้งสองจำนวนเป็นทศนิยมหกตำแหน่ง adapter จะตรวจราคาเฉลี่ยข้างเคียงที่แสดงได้ เมื่อการปัดค่าเฉลี่ยจะเปลี่ยน settlement
+amount นั้น execution ที่ราคาเท่ากันก็ผ่านการตรวจนี้เช่นกัน ก่อนที่ adapter จะยอมรับราคาที่ปัดให้ตรงกับ precision ของ
+instrument
 
-For an aggregated taker fill, the reported price multiplied by the fill quantity must preserve
-the sum of execution notionals after rounding both amounts to six decimal places. The adapter
-checks neighboring representable average prices when rounding the average would change that
-settlement amount. Equal-price executions also undergo this check before the adapter accepts a
-price snapped to instrument precision.
+build แบบ standard-precision รองรับทศนิยมสูงสุดเก้าตำแหน่งสำหรับราคา ส่วน build แบบ high-precision รองรับสูงสุดสิบหก
+ตำแหน่ง ใน standard precision execution บางชุดไม่สามารถแสดงด้วยราคาเฉลี่ยเดียวที่รักษา settlement cash ไว้ได้ โดยเฉพาะ
+เมื่อ quantity มีขนาดใหญ่ adapter จะปฏิเสธ fill เหล่านั้นด้วย `taker matched average cannot preserve the settlement notional`
+แทนการรายงานจำนวนที่ไม่ถูกต้อง การตรวจเดียวกันนี้ใช้ใน high precision ด้วย
 
-Standard-precision builds support up to nine decimal places for prices; high-precision builds
-support up to sixteen. In standard precision, some executions cannot be represented by one
-average price that preserves settlement cash, especially for large quantities. The adapter
-rejects those fills with `taker matched average cannot preserve the settlement notional` rather
-than reporting an inaccurate amount. The same check applies in high precision.
+นี่คือ error ในการรับ fill ภายในเครื่อง ไม่ใช่การปฏิเสธหรือยกเลิก order จาก venue: trade อาจ execute ไปแล้ว adapter จะ log
+หลักฐานจาก WebSocket ที่ไม่ถูกต้อง ไม่นำไปใช้เป็น fill และกักกัน trade ไว้เพื่อ resolve ผ่าน REST การสร้าง REST fill report
+จะคืน error อย่าตีความการไม่มี fill ที่นำไปใช้ว่าเป็นหลักฐานว่า order ไม่ได้เทรด
 
-This is a local fill-admission error, not a venue order rejection or cancellation: the trade may
-already have executed. The adapter logs invalid WebSocket evidence, does not apply it as a fill,
-and quarantines the trade for REST resolution. REST fill report construction returns an error.
-Do not interpret the absence of an applied fill as proof that the order did not trade.
+## Fee {#fees}
 
-## Fees
+instrument provider และ historical data loader ใช้ `feeSchedule.rate` ของ Gamma เป็น taker rate ระหว่างการโหลดของ
+provider หรือการโหลดข้อมูลย้อนหลัง ตลาดที่เปิดใช้ fee แต่ไม่มี rate หรือ rate เป็นศูนย์จะใช้ศูนย์และ log คำเตือน การโหลด
+instrument อัตโนมัติขณะ runtime ก็ใช้ศูนย์สำหรับ rate ที่ไม่มีหรือเป็นศูนย์เช่นกัน แต่ไม่ log คำเตือนนี้ `base_fee` ใน response
+ของ CLOB `/fee-rate` เป็น base fee แบบเดิมและไม่ได้ให้ taker rate ที่มีผลจริง
 
-The instrument provider and historical data loader use Gamma's `feeSchedule.rate` as the taker rate.
-During provider or historical loading, a fee-enabled market with a missing or zero rate uses zero and logs a warning.
-Runtime automatic instrument loading also uses zero for a missing or zero rate, but does not log this warning.
-The CLOB `/fee-rate` response's `base_fee` is a legacy base fee and does not supply the effective taker rate.
-
-The adapter reads each instrument's `fee_schedule` and applies its `rate` and `exponent` as:
+adapter อ่าน `fee_schedule` ของแต่ละ instrument และใช้ `rate` กับ `exponent` ดังนี้:
 
 ```text
 platform fee = shares * rate * (price * (1 - price)) ^ exponent
 ```
 
-The current public schedule uses exponent `1`, which is Polymarket's published
-`C * feeRate * p * (1 - p)` formula. Platform fees peak at `p = 0.50`, decrease
-symmetrically toward the extremes, and apply only to taker fills.
+schedule สาธารณะปัจจุบันใช้ exponent `1` ซึ่งตรงกับสูตร `C * feeRate * p * (1 - p)` ที่ Polymarket เผยแพร่ platform fee
+สูงสุดที่ `p = 0.50` ลดลงแบบสมมาตรไปทางค่าสุดขั้ว และใช้กับ taker fill เท่านั้น
 
-| Category        | Taker `feeRate` | Maker `feeRate` | Maker rebate |
+| หมวดหมู่          | Taker `feeRate` | Maker `feeRate` | Maker rebate |
 | --------------- | --------------- | --------------- | ------------ |
 | Crypto          | 0.07            | 0               | 20%          |
 | Sports          | 0.05            | 0               | 15%          |
@@ -1462,77 +1256,69 @@ symmetrically toward the extremes, and apply only to taker fills.
 | Tech            | 0.04            | 0               | 25%          |
 | Geopolitics     | 0               | 0               | -            |
 
-Every order signed by the adapter carries the hard-coded Nautilus builder code. Its builder fee
-rate is fixed at zero and is not configurable.
+ทุก order ที่ adapter sign จะมี Nautilus builder code ที่ hard-code ไว้ builder fee rate ของ code นี้กำหนดไว้ที่ศูนย์และ
+ตั้งค่าไม่ได้
 
-### Fill commission handling
+### การจัดการ commission ของ fill {#fill-commission-handling}
 
-Instrument `fee_schedule` metadata stores decimal parameters as strings. Readers also accept legacy numeric
-metadata.
+metadata `fee_schedule` ของ instrument เก็บ parameter ทศนิยมเป็น string ตัวอ่านยังรับ metadata แบบตัวเลขรูปแบบเดิมได้ด้วย
 
-For the latest public schedule, see Polymarket's
-[Fees](https://docs.polymarket.com/trading/fees) documentation.
+ดู schedule สาธารณะล่าสุดได้ในเอกสาร [Fees](https://docs.polymarket.com/trading/fees) ของ Polymarket
 
-The live fee curve uses exact decimal arithmetic, so the exponent must be a whole number. Negative
-rates, fractional or negative exponents, and arithmetic overflow return errors.
+fee curve ของ live ใช้การคำนวณทศนิยมแบบแม่นยำ exponent จึงต้องเป็นจำนวนเต็ม rate ติดลบ, exponent ที่เป็นเศษส่วนหรือ
+ติดลบ และ arithmetic overflow จะคืน error
 
-`FillReport.commission` is denominated in pUSD. For a taker trade with maker execution evidence,
-the adapter evaluates the fee curve for each execution's matched quantity and effective taker
-price, sums the unrounded fees, then floors the total to five decimal places once per trade.
-It does not evaluate the nonlinear fee curve at the average fill price or floor each execution
-fee separately. Without maker execution evidence, it uses the top-level wire size and price.
-Neither path uses a price snapped to instrument precision for the fee calculation.
+`FillReport.commission` มีหน่วยเป็น pUSD สำหรับ taker trade ที่มีหลักฐาน execution ของ maker adapter จะคำนวณ fee curve
+สำหรับ matched quantity และราคา taker ที่มีผลจริงของแต่ละ execution รวม fee ที่ยังไม่ปัด แล้วปัดลงยอดรวมเป็นทศนิยมห้า
+ตำแหน่งครั้งเดียวต่อ trade adapter ไม่ได้คำนวณ fee curve ที่ไม่เป็นเชิงเส้นที่ราคา fill เฉลี่ย หรือปัดลง fee ของแต่ละ
+execution แยกกัน หากไม่มีหลักฐาน execution ของ maker จะใช้ขนาดและราคาระดับบนสุดจาก wire ทั้งสอง path ไม่ใช้ราคาที่ปัด
+ให้ตรงกับ precision ของ instrument ในการคำนวณ fee
 
-Commission is an estimate from the instrument's fee metadata, not a venue-reported charge.
-The venue adds BUY taker fees to the pUSD spend and deducts SELL taker fees from the pUSD proceeds,
-so the position quantity equals the shares filled. Maker commission remains zero.
+commission เป็นค่าประมาณจาก fee metadata ของ instrument ไม่ใช่ค่าธรรมเนียมที่ venue รายงาน venue บวก taker fee ของ BUY
+เข้ากับ pUSD ที่จ่าย และหัก taker fee ของ SELL ออกจาก pUSD ที่ได้รับ ดังนั้น position quantity จึงเท่ากับจำนวน share ที่
+fill ได้ maker commission ยังคงเป็นศูนย์
 
-If the exact result cannot be represented as `Money`, the adapter returns an error instead of using
-zero or a generic commission. See the
-[commission failure contract](../developer_guide/adapters.md#commission-failure-handling).
+หากผลลัพธ์ที่แม่นยำไม่สามารถแสดงเป็น `Money` ได้ adapter จะคืน error แทนการใช้ศูนย์หรือ commission ทั่วไป ดู
+[commission failure contract](../developer_guide/adapters.md#commission-failure-handling)
 
-#### Fee basis across instrument updates
+#### Fee basis ข้ามการอัปเดต instrument {#fee-basis-across-instrument-updates}
 
-A taker fill first received on the user WebSocket or from a targeted REST read retains its fee rate and
-exponent for the execution client's lifetime. A client reset clears those records. A trade first received
-after a schedule refresh uses the refreshed schedule.
+taker fill ที่ได้รับครั้งแรกจาก user WebSocket หรือจากการอ่าน REST แบบเจาะจง จะเก็บ fee rate และ exponent ไว้ตลอดอายุของ
+execution client การ reset client จะล้าง record เหล่านั้น trade ที่ได้รับครั้งแรกหลังการ refresh schedule จะใช้ schedule ที่
+refresh แล้ว
 
-Later confirmation and fill reports for a retained trade recompute commission from that basis and
-the incoming execution evidence, using individual maker matches when present. They do not use
-fee schedules loaded after admission.
+การยืนยันและ fill report ที่ตามมาสำหรับ trade ที่เก็บไว้จะคำนวณ commission ใหม่จาก basis นั้นและหลักฐาน execution ที่
+เข้ามา โดยใช้ maker match แต่ละรายการเมื่อมี และจะไม่ใช้ fee schedule ที่โหลดหลังจากการรับ fill
 
-When venue evidence is otherwise unchanged, the applied fill keeps its original quantity, price,
-and commission. The trade is neither quarantined nor hard-faulted.
+เมื่อหลักฐานจาก venue ไม่เปลี่ยนแปลงในด้านอื่น fill ที่นำไปใช้แล้วจะคง quantity, ราคา และ commission เดิมไว้ trade จะไม่ถูก
+กักกันและไม่เกิด hard fault
 
-The retained basis is local instrument metadata, not a venue-reported fee. It does not prove the
-venue charged that amount. A schedule that was missing or wrong at first admission stays on that
-fill.
+basis ที่เก็บไว้เป็น metadata ของ instrument ภายในเครื่อง ไม่ใช่ fee ที่ venue รายงาน จึงไม่ได้พิสูจน์ว่า venue เรียกเก็บจำนวน
+นั้นจริง schedule ที่ขาดหายหรือผิดตอนรับ fill ครั้งแรกจะติดอยู่กับ fill นั้น
 
 :::warning
-Fills applied from reconciliation reports, and fills rebuilt from the cache, have no retained
-basis. A later fee-schedule change can still conflict with their applied commission. The adapter
-does not store the basis in the cache.
+fill ที่นำไปใช้จาก reconciliation report และ fill ที่สร้างขึ้นใหม่จาก cache ไม่มี basis ที่เก็บไว้ การเปลี่ยน fee schedule ใน
+ภายหลังยังอาจขัดแย้งกับ commission ที่นำไปใช้แล้วได้ adapter ไม่ได้เก็บ basis ไว้ใน cache
 :::
 
-#### Commission errors
+#### Commission error {#commission-errors}
 
-A commission construction error fails a direct fill report request, terminal trade-history recovery,
-or complete mass status. Startup returns a mass-status error without applying that client's reports.
+error ในการสร้าง commission จะทำให้ request fill report โดยตรง, การกู้คืนประวัติ trade แบบ terminal หรือ mass status
+แบบสมบูรณ์ล้มเหลว startup จะคืน mass-status error โดยไม่นำ report ของ client นั้นไปใช้
 
-When an active order's trade-history request fails, the adapter logs the error and caps matched
-quantity to fills already applied in core. Reconciliation then defers any unsupported residual
-quantity. Commission construction and settlement validation errors instead fail the report request.
+เมื่อ request ประวัติ trade ของ active order ล้มเหลว adapter จะ log error และจำกัด matched quantity ไว้ที่ fill ที่ core นำไปใช้
+แล้ว จากนั้น reconciliation จะเลื่อน quantity ส่วนที่เหลือที่ไม่มีหลักฐานรองรับออกไป ส่วน error ในการสร้าง commission และการ
+ตรวจ settlement จะทำให้ report request ล้มเหลวแทน
 
-The adapter does not drop a failed fill while returning an order or position report that could
-recreate its quantity without the Polymarket commission.
+adapter จะไม่ทิ้ง fill ที่ล้มเหลวขณะคืน order report หรือ position report ที่อาจสร้าง quantity ของ fill นั้นขึ้นใหม่โดยไม่มี
+commission ของ Polymarket
 
-### Backtest fee model
+### Fee model สำหรับ backtest {#backtest-fee-model}
 
-Use `PolymarketFeeModel` for backtests that include taker fees and maker rebates. The model reads `rate`,
-`rebateRate`, `exponent`, and `takerOnly` from each binary option instrument's `fee_schedule`. It requires a
-maker or taker liquidity side, a fill price in `[0, 1]`, and a taker-only schedule with exponent `1`.
-Unsupported instruments and invalid inputs return an error. An instrument without a fee schedule produces zero
-commission.
+ใช้ `PolymarketFeeModel` สำหรับ backtest ที่รวม taker fee และ maker rebate model จะอ่าน `rate`, `rebateRate`, `exponent`
+และ `takerOnly` จาก `fee_schedule` ของ instrument แบบ binary option แต่ละตัว โดยต้องมี liquidity side เป็น maker หรือ
+taker, ราคา fill อยู่ใน `[0, 1]` และ schedule แบบ taker-only ที่มี exponent `1` instrument ที่ไม่รองรับและ input ที่ไม่ถูกต้อง
+จะคืน error instrument ที่ไม่มี fee schedule จะได้ commission เป็นศูนย์
 
 ```rust tab="Rust"
 use nautilus_execution::models::fee::FeeModelHandle;
@@ -1541,574 +1327,510 @@ use nautilus_polymarket::models::PolymarketFeeModel;
 let fee_model = FeeModelHandle::new(PolymarketFeeModel);
 ```
 
-```python tab="Python"
-from nautilus_trader.adapters.polymarket import PolymarketFeeModel
+ส่ง handle ของ Rust ผ่าน `nautilus_backtest::config::SimulatedVenueConfig::builder().fee_model(...)`
 
-fee_model = PolymarketFeeModel()
-```
+#### การประมาณ maker rebate {#maker-rebate-approximation}
 
-Pass the Rust handle through
-`nautilus_backtest::config::SimulatedVenueConfig::builder().fee_model(...)`. In Python, pass the model
-to `BacktestEngine.add_venue` as `fee_model` or set it on `BacktestVenueConfig.fee_model`.
+สำหรับ maker fill `fee_equivalent` คือสูตร platform fee ด้านบนที่ใช้ taker `rate` ของ schedule model จะเครดิต
+`fee_equivalent * rebateRate` เป็น commission ติดลบ ซึ่งเป็นการประมาณการจัดสรร pool รายวันของ Polymarket เพราะ backtest
+ไม่ทราบ fee equivalent รวมจาก maker รายอื่นในตลาดนั้น
 
-#### Maker rebate approximation
+maker fill ใน live มี commission เป็นศูนย์ Polymarket จ่าย rebate จริงเป็น pUSD แยกต่างหากทุกวัน model ไม่ได้แทนการจ่ายนั้น
+เป็น event แยก และไม่ได้จำลองการแข่งขันระหว่าง maker, การรวมรายวัน หรือเกณฑ์การจ่ายขั้นต่ำ ดูสูตรของ venue ได้ที่
+[Maker Rebates Program](https://docs.polymarket.com/programs/maker-rebates) ของ Polymarket
 
-For maker fills, `fee_equivalent` is the platform fee formula above using the schedule's taker
-`rate`. The model credits `fee_equivalent * rebateRate` as negative commission. This approximates
-Polymarket's daily pool allocation because a backtest does not know the total fee equivalent from
-other makers in that market.
+## Reconciliation {#reconciliation}
 
-Live maker fills have zero commission. Polymarket pays the actual pUSD rebate separately each day. The model
-does not represent that payment as a separate event, and it does not model competition between makers, daily
-aggregation, or the minimum payout threshold. See Polymarket's
-[Maker Rebates Program](https://docs.polymarket.com/programs/maker-rebates) for the venue formula.
+Polymarket API คืนค่า order ที่ active (เปิดอยู่) ทั้งหมด หรือ order ที่ระบุเมื่อ query ด้วย Polymarket order ID
+(`venue_order_id`) ขั้นตอน execution reconciliation สำหรับ Polymarket เป็นดังนี้:
 
-## Reconciliation
+- สร้าง order report สำหรับทุก instrument ที่มี order ที่ active (เปิดอยู่) ตามที่ Polymarket รายงาน
+- สร้าง filled order report จาก trade ที่ยืนยันแล้ว สำหรับ order ที่ปิดไปก่อน startup และไม่อยู่ใน cache เพื่อให้ fill
+  ของ order เหล่านั้นถูกนำไปใช้ด้วย quantity และ commission ของ venue สำหรับ instrument ที่มี position report fill ต้อง
+  อธิบาย position นั้นได้ ดู [report precision](#report-precision) หากไม่มี lookback window จะมีเฉพาะ instrument
+  เหล่านั้นที่ผ่านเกณฑ์ เพราะ fill ไม่ครอบคลุมการเปลี่ยนแปลง balance เช่น redemption ดู [missing reports](#missing-reports)
+- ใน owner mode สร้าง position report จาก position ปัจจุบันของผู้ใช้ที่ Data API ของ Polymarket รายงาน session mode
+  จะไม่มี position ระดับ wallet เหล่านี้ ดู [session key](#session-keys)
+- เปรียบเทียบ report เหล่านี้กับ execution state ของ Nautilus
+- สร้าง order ที่ขาดหายไปเพื่อให้ execution state ของ Nautilus สอดคล้องกับ position ที่ Polymarket รายงาน
 
-The Polymarket API returns either all active (open) orders or specific orders when queried by
-the Polymarket order ID (`venue_order_id`). The execution reconciliation procedure for Polymarket
-is as follows:
+### Position report {#position-reports}
 
-- Generate order reports for all instruments with active (open) orders, as reported by Polymarket.
-- Generate filled order reports from confirmed trades for orders that closed before startup and are not in the
-  cache, so their fills apply with the venue quantity and commission. For an instrument with a position
-  report, the fills must explain that position. See [report precision](#report-precision). Without a lookback
-  window, only those instruments qualify, because fills miss balance changes such as redemption. See
-  [missing reports](#missing-reports).
-- In owner mode, generate position reports from current user positions reported by Polymarket's Data API.
-  Session mode omits these wallet-wide positions. See [session keys](#session-keys).
-- Compare these reports with Nautilus execution state.
-- Generate missing orders to bring Nautilus execution state in line with positions reported by
-  Polymarket.
+#### Report precision {#report-precision}
 
-### Position reports
+Data API รายงานขนาด position และราคาเฉลี่ยเป็นทศนิยมสี่ตำแหน่ง position report จะใช้ quantity และ average entry price
+จาก fill ของ mass status ที่ยืนยันแล้วแทน เมื่อ:
 
-#### Report precision
+- fill เหล่านั้นสร้าง long position หนึ่งรายการจากศูนย์โดยไม่กลับไปเป็น flat
+- quantity ของ fill ต่างจากขนาดที่รายงานน้อยกว่า `0.0001`
+- ไม่มี buy และ sell ที่มีเวลา match เดียวกัน ซึ่งจะทำให้ลำดับกำกวม
 
-The Data API reports position size and average price to four decimal places. A position report
-instead uses the quantity and average entry price from confirmed mass-status fills when:
+startup จะนำ fill ที่ผ่านเกณฑ์ไปใช้โดยไม่มี synthetic rounding adjustment
 
-- The fills build one long position from zero without returning to flat.
-- Their quantity differs from the reported size by less than `0.0001`.
-- No buy and sell have the same match time, which would make their order ambiguous.
+ในกรณีอื่น รวมถึงเมื่อ cache เก็บ open position ที่ trade อื่นสร้างไว้ report จะคงค่าจาก Data API และ fill ของ order ที่ปิดแล้ว
+ใน instrument นั้นจะไม่ถูกรายงาน report เหล่านี้ตั้ง `avg_px_open_precision` เป็น 4 ดังนั้น position ที่เก็บไว้ซึ่ง fill
+อยู่นอก lookback ที่มีขอบเขตยังผ่านการตรวจ entry price ตอน startup เทียบกับค่าเฉลี่ยที่ถูกตัดได้ ดู
+[reported entry averages](../concepts/execution/reconciliation.md#reported-entry-averages)
 
-Startup applies qualifying fills without a synthetic rounding adjustment.
+#### Balance ที่ resolve แล้ว {#resolved-balances}
 
-Otherwise, including when the cache retains an open position that other trades built, the report
-keeps the Data API values, and the fills of closed orders in that instrument are not reported.
-These reports set `avg_px_open_precision` to 4, so a retained position whose fills fell outside a
-bounded lookback still passes the startup entry-price check against the truncated average. See [reported entry averages](../concepts/execution/reconciliation.md#reported-entry-averages).
+position report จะไม่รวม balance ที่ resolve แล้ว:
 
-#### Resolved balances
+- balance ใน instrument ที่ Nautilus settle จาก `InstrumentClose` แล้วจะไม่ถูกรวมเสมอ เพื่อไม่ให้ reconciliation เปิด
+  exposure ที่ settle แล้วขึ้นมาใหม่
+- balance ที่ Data API ทำเครื่องหมาย `redeemable` จะไม่ถูกรวมเมื่อ account ไม่มี open position ของ Nautilus ใน
+  instrument นั้น ขณะที่ open position ยังถืออยู่ balance จะยังถูกรายงานจนกว่า settlement จะปิด position
 
-Position reports omit resolved balances:
+adapter ทิ้ง balance เหล่านี้ก่อนการ map instrument ดังนั้น instrument ที่หมดอายุและไม่ได้โหลดแล้วจะไม่ทำให้
+reconciliation ล้มเหลว outcome token จะยังอยู่ใน wallet จนกว่าจะถูก redeem
 
-- A balance in an instrument that Nautilus settled from an `InstrumentClose` is always omitted, so
-  reconciliation cannot reopen settled exposure.
-- A balance that the Data API marks `redeemable` is omitted when the account has no open Nautilus
-  position in that instrument. While an open position still holds it, the balance stays reported
-  until settlement closes the position.
+#### Report ที่ขาดหาย {#missing-reports}
 
-The adapter drops these balances before instrument mapping, so an expired instrument that is no
-longer loaded does not fail reconciliation. The outcome tokens stay in the wallet until redeemed.
+position report ที่ขาดหายไม่ใช่หลักฐานว่า position เป็น flat redemption ลบ balance ออกจาก Data API โดยไม่มี trade และ
+Polymarket อาจ redeem token ที่ชนะให้อัตโนมัติไม่นานหลังการ resolve ดังนั้น position check แบบต่อเนื่องจะไม่ปิด position
+ที่ Data API ไม่รายงานแล้วเลย open position จะปิดผ่าน fill หรือ settlement
 
-#### Missing reports
+### ลำดับความสำคัญของ settlement {#settlement-precedence}
 
-A missing position report is not evidence of a flat position. Redemption removes a balance from the Data API
-without a trade, and Polymarket can redeem winning tokens automatically shortly after resolution. Continuous
-position checks therefore never close a position that the Data API no longer reports. Open positions close
-through fills or settlement.
+report ของ order status, fill, position status และ mass status จะล้มเหลวแทนการคืน coverage ที่ reconciliation อาจใช้
+อนุมาน fill ในขณะที่:
 
-### Settlement precedence
+- trade ถูกกักกัน, เกิด hard fault, รอการอ่าน REST หลัง reconnect หรือรอให้ engine นำ fill หรือ void ไปใช้
+- adapter กำลังอ่าน order ที่ส่งแล้วแต่ไม่ทราบผล หรือ trade ของ order ที่ live อยู่ระหว่าง WebSocket disconnect
+- adapter กำลังสร้าง settlement record ขึ้นใหม่ตอน connect
 
-Order status, fill, position status, and mass-status reports fail instead of returning coverage
-that reconciliation could use to infer fills while:
+mass status ตรวจทั้ง account ส่วน report อื่นตรวจ instrument หรือ order ที่ร้องขอ หาก trade ที่ถูกกักกันเพราะ message
+ไม่ผ่านการตรวจสอบไม่มีขาที่ถูกรับเข้ามาก่อนหน้า trade นั้นจะ block ทุก report มิฉะนั้นจะใช้ขอบเขตของ order และ
+instrument ของขาเหล่านั้น ดูวิธี resolve trade ได้ที่ [settlement updates](#settlement-updates)
 
-- A trade is quarantined, hard-faulted, awaiting a REST read after a reconnect, or waiting for the
-  engine to apply a fill or void.
-- The adapter reads a submitted order with an unknown outcome, or the trades of an order that was
-  live during a WebSocket disconnect.
-- The adapter rebuilds its settlement records on connect.
+`QueryOrder` ตรวจ settlement ทั้งก่อนและหลังการอ่านจาก venue หากหลักฐาน settlement ของ order ยังไม่ได้ข้อยุติ query จะไม่
+emit status report และคง local order ไว้ตามเดิม query สำหรับ submission ที่ยังไม่ได้รับ acknowledgement ยังใช้
+[unknown-outcome reconciliation](#unknown-outcome-reconciliation)
 
-Mass status checks the whole account. The other reports check the requested instrument or order. If a trade
-quarantined for message validation failure has no earlier admitted legs, it blocks every report. Otherwise the
-order and instrument scope of those legs applies. See [settlement updates](#settlement-updates) for how trades
-resolve.
+การสร้าง fill report จะตรวจผลลัพธ์ settlement ที่เก็บไว้ และปฏิเสธแถว trade แบบ `CONFIRMED` ที่:
 
-`QueryOrder` checks settlement before and after its venue reads. If settlement evidence for the
-order remains unresolved, the query emits no status report and leaves the local order unchanged.
-Queries for an unacknowledged submission still use
-[unknown-outcome reconciliation](#unknown-outcome-reconciliation).
+- เป็นของ trade ที่ settle เป็น `FAILED` แล้ว
+- ขัดแย้งกับขา terminal ที่เก็บไว้
+- เพิ่มขาให้ trade แบบ terminal ที่เก็บไว้
 
-Fill-report generation checks retained settlement outcomes and rejects a `CONFIRMED` trade row that:
+การปฏิเสธจะทำให้ report request ล้มเหลวโดยไม่สร้าง fill หรือเปลี่ยนผลลัพธ์ที่เก็บไว้ หลักฐานจาก report ที่มีขอบเขตไม่สามารถ
+ยืนยันผลลัพธ์ terminal ของ trade ทั้งหมดได้ มีเพียง [การอ่าน REST แบบ terminal ที่เจาะจง](#failed-trades-and-rest-resolution)
+เท่านั้นที่ทำได้ ค่าของ fill ที่นำไปใช้แล้วมีความสำคัญเหนือสำเนาจาก REST ที่ยังไม่ terminal
 
-- Belongs to a trade already settled as `FAILED`.
-- Contradicts a retained terminal leg.
-- Adds a leg to a retained terminal trade.
+order report จำกัด `filled_qty` ด้วย fill ที่ core นำไปใช้แล้วและ fill report ที่ผ่านการตรวจ settlement โดยนับแต่ละ fill
+ครั้งเดียว ขีดจำกัดนี้ใช้ทั้งเมื่อมีและไม่มี lookback window
 
-Rejection fails the report request without creating a fill or changing the retained outcome. Scoped report
-evidence cannot establish a terminal outcome for the complete trade. Only the
-[targeted terminal REST read](#failed-trades-and-rest-resolution) can do that. Applied fill values take
-precedence over non-terminal REST copies.
+### Order ที่ขาดหายและความล่าช้าของ API {#missing-orders-and-api-lag}
 
-Order reports cap `filled_qty` using fills already applied in core and fill reports that pass
-settlement validation, counting each fill once. This cap applies with or without a lookback window.
+#### การตรวจ open order {#open-order-checks}
 
-### Missing orders and API lag
+การตรวจ open order แบบเป็นรอบถูกปิดไว้โดยค่าเริ่มต้น (`open_check_interval_secs=None`) ตั้งค่าการตรวจเหล่านี้ที่
+`LiveExecutionEngineConfig` ของ node แยกจาก Polymarket client startup reconciliation และการประมวลผล WebSocket ไม่ได้
+ขึ้นกับการเปิด timer นี้
 
-#### Open-order checks
+เมื่อใช้ค่าเริ่มต้น `open_check_open_only=True` การไม่ปรากฏใน open-order response จะ **ไม่** เพิ่มตัวนับการ retry ของ
+order ที่ขาดหาย หรือปิด order ใน cache response แบบ open-only อาจไม่มี order ที่เพิ่ง fill หรือเพิ่งถูก cancel ดังนั้นการ
+เปิด interval เพียงอย่างเดียวจึงไม่ได้แก้ทุก cancellation ฝั่ง venue ที่ WebSocket พลาดไป
 
-Periodic open-order checks are disabled by default (`open_check_interval_secs=None`). Configure
-these checks on the node's `LiveExecutionEngineConfig`, separately from the Polymarket client.
-Startup reconciliation and WebSocket processing do not depend on enabling this timer.
+เมื่อใช้ `open_check_open_only=False` path ของ order ที่ขาดหายจะทำงานดังนี้:
 
-With the default `open_check_open_only=True`, absence from an open-order response does **not**
-advance the missing-order retry counter or close a cached order. An open-only response can omit
-an order that has just filled or been canceled. Enabling the interval alone therefore does not
-resolve every venue-side cancellation missed by the WebSocket.
+1. เลื่อนการดำเนินการระหว่างที่มีกิจกรรมของ local order เมื่อเร็ว ๆ นี้ `open_check_threshold_ms=5000` เป็น settling
+   window นับจากกิจกรรมภายในเครื่อง ไม่ใช่แค่อายุขั้นต่ำนับจากการส่ง
+1. นับจำนวนครั้งที่ขาดหายติดต่อกันที่ผ่านเกณฑ์ จาก report ที่สำเร็จซึ่งครอบคลุม client ที่รับผิดชอบ order report ที่พบ
+   order จะ reset ตัวนับ order ที่อยู่นอก lookback ที่ตั้งค่าไว้และ coverage ของ client ที่ไม่ครบ ไม่ได้ยืนยันว่า order
+   ขาดหาย
+1. เมื่อถึง `open_check_missing_retries=5` จะตั้งเวลา query สถานะ order แบบเจาะจง โดยขึ้นกับขีดจำกัดการ query ต่อรอบและ
+   throttling นี่คือการขาดหายที่ผ่านเกณฑ์ครั้งที่ห้า ไม่ใช่ query เพิ่มอีกห้าครั้ง
+1. reconcile report ที่คืนมาพร้อม fill ของมัน query แบบเจาะจงที่ล้มเหลวหรือไม่ครบจะเลื่อนการ resolve ออกไป หาก coverage
+   แบบเจาะจงที่ครบถ้วนไม่คืน report ใดเลย engine จะคง submission ของ Polymarket ที่ยังไม่ได้รับ acknowledgement ไว้
+   และ resolve `ACCEPTED` เป็น `REJECTED` และ `PARTIALLY_FILLED` เป็น `CANCELED` สถานะ pending update หรือ cancel
+   ยังคงกำลังดำเนินอยู่
 
-With `open_check_open_only=False`, the missing-order path works as follows:
-
-1. Defer action during recent local order activity. `open_check_threshold_ms=5000` is a settling
-   window since local activity, not simply a minimum age since submission.
-1. Count consecutive eligible misses from successful reports covering the responsible client.
-   A positive order report resets the counter. Orders outside a configured lookback and incomplete
-   client coverage do not establish that an order is missing.
-1. At `open_check_missing_retries=5`, schedule a targeted order-status query, subject to per-cycle
-   query limits and throttling. This is the fifth eligible miss, not five additional queries.
-1. Reconcile a returned report with its fills. A failed or incomplete targeted query defers
-   resolution. If complete targeted coverage returns no report, the engine retains unacknowledged
-   Polymarket submissions. It resolves `ACCEPTED` as `REJECTED`, and `PARTIALLY_FILLED` as `CANCELED`.
-   Pending update or cancel states remain in flight.
-
-Polymarket first attempts [single-order recovery from trades](#single-order-recovery-from-trades) when its
-order lookup is empty. For a previously accepted cached order, empty trade history produces a `CANCELED`
-report with `ORDER_NOT_FOUND_AT_VENUE`. An order that was never accepted remains unresolved. Pending trades
-instead preserve a non-terminal state.
+Polymarket จะลอง [single-order recovery from trades](#single-order-recovery-from-trades) ก่อนเมื่อการ lookup order
+ว่างเปล่า สำหรับ order ใน cache ที่เคยถูก accept แล้ว ประวัติ trade ที่ว่างเปล่าจะได้ report `CANCELED` พร้อม
+`ORDER_NOT_FOUND_AT_VENUE` order ที่ไม่เคยถูก accept จะยังไม่ได้ข้อยุติ trade ที่ยัง pending จะคงสถานะที่ไม่ใช่ terminal
+ไว้แทน
 
 :::warning
-A successful empty order lookup plus empty trade history cannot distinguish venue cancellation from replica
-lag. The fallback can therefore close a previously accepted local order during sustained lag. The settling
-window and retry count reduce this risk. They do not prove that an order no longer exists.
+การ lookup order ที่สำเร็จแต่ว่างเปล่า บวกกับประวัติ trade ที่ว่างเปล่า ไม่สามารถแยกการ cancel ฝั่ง venue ออกจากความล่าช้า
+ของ replica ได้ fallback จึงอาจปิด local order ที่เคยถูก accept แล้วในช่วงที่ล่าช้าต่อเนื่อง settling window และจำนวน
+retry ช่วยลดความเสี่ยงนี้ แต่ไม่ได้พิสูจน์ว่า order ไม่มีอยู่แล้ว
 :::
 
-#### Position checks
+#### การตรวจ position {#position-checks}
 
-Position checks have their own `position_check_interval_secs`, also disabled by default. Open-order checks do
-not poll wallet positions. Owner-mode position reports come from the Data API and can reflect a different
-point in time from CLOB orders and trades. Session mode omits wallet-wide position reports.
+การตรวจ position มี `position_check_interval_secs` ของตัวเอง ซึ่งปิดไว้โดยค่าเริ่มต้นเช่นกัน การตรวจ open order ไม่ได้
+poll position ของ wallet position report ใน owner mode มาจาก Data API และอาจสะท้อนจุดเวลาที่ต่างจาก order และ trade
+ของ CLOB session mode ไม่มี position report ระดับ wallet
 
-Treat an apparent position mismatch as requiring reconciliation, not as proof that a particular fill is false.
-A position the Data API no longer reports stays open until a fill or settlement closes it. See
-[missing reports](#missing-reports).
+ให้ถือว่า position ที่ดูเหมือนไม่ตรงกันเป็นสิ่งที่ต้อง reconcile ไม่ใช่หลักฐานว่า fill ใด fill หนึ่งเป็นเท็จ position ที่
+Data API ไม่รายงานแล้วจะเปิดอยู่จนกว่า fill หรือ settlement จะปิด ดู [missing reports](#missing-reports)
 
-### Mass-status reconciliation
+### Mass-status reconciliation {#mass-status-reconciliation}
 
-Mass-status reconciliation pairs each order report with its venue fill reports. It applies the real fills
-first to preserve trade IDs and commissions, then infers only any residual quantity needed to reach the
-venue-reported status.
+mass-status reconciliation จับคู่ order report แต่ละรายการกับ venue fill report ของมัน โดยนำ fill จริงไปใช้ก่อนเพื่อรักษา
+trade ID และ commission แล้วจึงอนุมานเฉพาะ quantity ส่วนที่เหลือที่จำเป็นเพื่อให้ถึงสถานะที่ venue รายงาน
 
-Mass status caps REST matched quantity using fills already applied in core and authenticated
-`CONFIRMED` fill reports that pass settlement validation, counting each fill once. This prevents
-pending settlement from creating an inferred fill, with or without a lookback window. Applied fills
-outside the lookback window still contribute to the cap.
+mass status จำกัด matched quantity จาก REST ด้วย fill ที่ core นำไปใช้แล้วและ fill report แบบ `CONFIRMED` ที่ผ่านการ
+ยืนยันตัวตนและการตรวจ settlement โดยนับแต่ละ fill ครั้งเดียว วิธีนี้ป้องกันไม่ให้ settlement ที่ยัง pending สร้าง inferred
+fill ทั้งเมื่อมีและไม่มี lookback window fill ที่นำไปใช้แล้วซึ่งอยู่นอก lookback window ยังนับรวมในขีดจำกัดนี้
 
-#### Recovering fills outside the lookback
+#### การกู้คืน fill ที่อยู่นอก lookback {#recovering-fills-outside-the-lookback}
 
-For a bounded lookback, the adapter recovers unapplied trades referenced by each in-scope open
-order's `associate_trades`:
+สำหรับ lookback ที่มีขอบเขต adapter จะกู้คืน trade ที่ยังไม่ได้นำไปใช้ซึ่งถูกอ้างถึงใน `associate_trades` ของแต่ละ open
+order ที่อยู่ในขอบเขต:
 
-- Reuses trades returned within the window and fetches missing references by trade ID without a
-  time filter.
-- Validates the trade ID, order leg, ownership, instrument, and side before admitting a confirmed
-  fill. Duplicate references and overlapping history produce one fill per order leg and trade ID.
-- Skips lookups for references already applied to the cached venue order. Their quantities, trade
-  IDs, and commissions remain in its history and are not appended again. Applied fills returned
-  within the window still pass through position reconciliation.
+- ใช้ trade ที่คืนมาภายใน window ซ้ำ และดึง reference ที่ขาดหายด้วย trade ID โดยไม่มีตัวกรองเวลา
+- ตรวจสอบ trade ID, ขาของ order, ความเป็นเจ้าของ, instrument และฝั่ง ก่อนรับ fill ที่ยืนยันแล้ว reference ที่ซ้ำกันและ
+  ประวัติที่ทับซ้อนกันจะได้ fill หนึ่งรายการต่อขาของ order และ trade ID
+- ข้ามการ lookup reference ที่นำไปใช้กับ venue order ใน cache แล้ว quantity, trade ID และ commission ของ reference
+  เหล่านั้นยังอยู่ในประวัติและจะไม่ถูกเพิ่มซ้ำ fill ที่นำไปใช้แล้วซึ่งคืนมาภายใน window ยังผ่าน position reconciliation
 
-Missing uncached references require serial requests and can exceed the node's `timeout_reconciliation`
-(30 seconds by default), failing startup. Increase the timeout when restoring orders with many
-older references.
+reference ที่ขาดหายและไม่อยู่ใน cache ต้องใช้ request แบบเรียงลำดับ และอาจเกิน `timeout_reconciliation` ของ node
+(ค่าเริ่มต้น 30 วินาที) จนทำให้ startup ล้มเหลว ให้เพิ่ม timeout เมื่อกู้คืน order ที่มี reference เก่าจำนวนมาก
 
-Missing unapplied references, contradictory evidence, and request failures fail mass status rather
-than publish incomplete recovery.
+reference ที่ยังไม่ได้นำไปใช้แต่ขาดหาย, หลักฐานที่ขัดแย้งกัน และ request ที่ล้มเหลว จะทำให้ mass status ล้มเหลวแทนการ
+publish การกู้คืนที่ไม่ครบ
 
-References require validation regardless of the matched counter. Before capping a bounded
-open-order report, the adapter rejects a matched quantity below its
-combined confirmed and cached fill evidence, counting each fill once.
+reference ต้องผ่านการตรวจสอบโดยไม่ขึ้นกับตัวนับ matched ก่อนจำกัด open-order report ที่มีขอบเขต adapter จะปฏิเสธ
+matched quantity ที่ต่ำกว่าหลักฐาน fill ที่ยืนยันแล้วและที่อยู่ใน cache รวมกัน โดยนับแต่ละ fill ครั้งเดียว
 
-Recovery restores a resting BUY or SELL order's older partial fill with the same [trade ID as live
-fills](#trade-id-derivation), execution price, and reconstructed commission before later completion
-adds the remaining quantity. Wallet holdings do not establish which order filled. If the venue
-omits trade references, matched quantity stays capped to confirmed evidence and fills applied in core.
+การกู้คืนจะคืน partial fill ที่เก่ากว่าของ BUY หรือ SELL order ที่วางค้าง ด้วย [trade ID แบบเดียวกับ live
+fill](#trade-id-derivation), ราคา execution และ commission ที่สร้างขึ้นใหม่ ก่อนที่การ complete ในภายหลังจะเพิ่ม
+quantity ที่เหลือ สินทรัพย์ที่ wallet ถืออยู่ไม่ได้ยืนยันว่า order ใดถูก fill หาก venue ไม่ส่ง trade reference มา matched
+quantity จะยังถูกจำกัดไว้ที่หลักฐานที่ยืนยันแล้วและ fill ที่ core นำไปใช้
 
-Session mode uses the same recovery but omits wallet-wide positions. On an empty cache, startup
-restores historical order fills without opening a session position.
+session mode ใช้การกู้คืนแบบเดียวกันแต่ไม่มี position ระดับ wallet เมื่อ cache ว่าง startup จะคืน fill ของ order ในอดีต
+โดยไม่เปิด session position
 
-Recovered taker fills use the loaded instrument fee schedule unless the execution client retains
-a basis from first admission on the user WebSocket or a targeted REST read. The loaded schedule
-does not prove that fees are unchanged since an older execution. Maker commission remains zero.
-See [Fill commission handling](#fill-commission-handling).
+taker fill ที่กู้คืนมาจะใช้ fee schedule ของ instrument ที่โหลดไว้ เว้นแต่ execution client จะเก็บ basis จากการรับครั้งแรก
+บน user WebSocket หรือการอ่าน REST แบบเจาะจง schedule ที่โหลดไว้ไม่ได้พิสูจน์ว่า fee ไม่เปลี่ยนนับจาก execution ที่เก่ากว่า
+maker commission ยังคงเป็นศูนย์ ดู [การจัดการ commission ของ fill](#fill-commission-handling)
 
-#### Position alignment and cache history
+#### การจัดแนว position และประวัติใน cache {#position-alignment-and-cache-history}
 
-Position alignment first uses the combined window and recovered fills. If those fills do not align
-with a wallet position, the adapter tries the original window fills for that position. This preserves
-closed order reports, real trade IDs, and commissions supported by the bounded window. If incomplete
-position history requires a synthetic opening fill, realized PnL for reconstructed closed lifecycles
-is an estimate.
+การจัดแนว position ใช้ fill จาก window และ fill ที่กู้คืนมารวมกันก่อน หาก fill เหล่านั้นไม่สอดคล้องกับ position ของ
+wallet adapter จะลองใช้ fill จาก window เดิมสำหรับ position นั้น วิธีนี้รักษา closed order report, trade ID จริง และ
+commission ที่ window ที่มีขอบเขตรองรับไว้ หากประวัติ position ที่ไม่ครบต้องใช้ synthetic opening fill realized PnL
+ของ lifecycle ที่ปิดแล้วซึ่งสร้างขึ้นใหม่จะเป็นค่าประมาณ
 
-For instruments without a retained open position, bounded mass status checks that default position
-reconciliation preserves every unapplied open-order fill, including fills within the window. It
-fails if the adjustment discards history, for example when other orders close one position and open another.
+สำหรับ instrument ที่ไม่มี open position ที่เก็บไว้ mass status ที่มีขอบเขตจะตรวจว่า position reconciliation ตามค่าเริ่มต้น
+รักษา fill ของ open order ที่ยังไม่ได้นำไปใช้ทุกรายการไว้ รวมถึง fill ภายใน window และจะล้มเหลวหากการปรับทิ้งประวัติไป
+เช่น เมื่อ order อื่นปิด position หนึ่งและเปิดอีก position หนึ่ง
 
-Before retrying such a restart, restore a consistent cache containing the real order fills and
-their position history. Clearing the cache alone does not resolve discarded history. This check
-assumes default position reconciliation even if the node filters position reports or excludes the
-instrument from position reconciliation.
+ก่อน retry การ restart ลักษณะนี้ ให้กู้คืน cache ที่สอดคล้องกันซึ่งมี fill ของ order จริงและประวัติ position ของ fill
+เหล่านั้น การล้าง cache เพียงอย่างเดียวไม่ได้แก้ปัญหาประวัติที่ถูกทิ้ง การตรวจนี้สันนิษฐานว่าใช้ position reconciliation ตาม
+ค่าเริ่มต้น แม้ node จะกรอง position report หรือยกเว้น instrument ออกจาก position reconciliation ก็ตาม
 
 :::warning
-This recovery does not migrate cached inferred fills into venue fills. Before reusing orders and
-positions containing such fills, start with a clean cache or migrate them with a custom script that
-preserves their history. The cache's in-session purge methods skip open orders and positions.
-[Cache database configuration](../concepts/cache.md#database-configuration) describes restart settings:
-`CacheConfig.flush_on_start = true` clears all of the trader's cached state, including data for other adapters.
+การกู้คืนนี้ไม่ได้ย้าย inferred fill ใน cache ไปเป็น venue fill ก่อนนำ order และ position ที่มี fill ดังกล่าวกลับมาใช้ ให้
+เริ่มด้วย cache ที่สะอาด หรือย้ายด้วย script ที่เขียนเองซึ่งรักษาประวัติไว้ method สำหรับ purge ภายใน session ของ cache
+จะข้าม open order และ position [Cache database configuration](../concepts/cache.md#database-configuration) อธิบายการ
+ตั้งค่าสำหรับ restart: `CacheConfig.flush_on_start = true` จะล้าง state ใน cache ทั้งหมดของ trader รวมถึงข้อมูลของ
+adapter อื่นด้วย
 :::
 
-#### Completeness checks
+#### การตรวจความครบถ้วน {#completeness-checks}
 
-A bounded mass status is complete only when:
+mass status ที่มีขอบเขตจะถือว่าครบถ้วนเฉพาะเมื่อ:
 
-- Every in-scope historical fill maps to an instrument.
-- Every in-window confirmed maker trade has an owned maker order.
-- Every in-scope confirmed trade has an event time.
-- Every fill is backed by an order report or an eligible cached order.
+- historical fill ทุกรายการในขอบเขต map ไปยัง instrument ได้
+- maker trade ที่ยืนยันแล้วทุกรายการภายใน window มี maker order ที่เป็นของ account
+- trade ที่ยืนยันแล้วทุกรายการในขอบเขตมีเวลาของ event
+- fill ทุกรายการมี order report หรือ order ใน cache ที่ผ่านเกณฑ์รองรับ
 
-An eligible cached order must match the fill's account and instrument and carry its venue order ID.
-An earlier ID from an [order modification](#order-modification) counts only if the fill is already
-on that order. When `instrument_config.load_ids` is non-empty, the instrument must also be listed.
-Cached orders do not offset unmapped, unowned maker, or untimestamped trades.
+order ใน cache ที่ผ่านเกณฑ์ต้องตรงกับ account และ instrument ของ fill และมี venue order ID ของ fill นั้น ID ก่อนหน้าจาก
+[order modification](#order-modification) จะนับเฉพาะเมื่อ fill อยู่บน order นั้นแล้ว เมื่อ `instrument_config.load_ids`
+ไม่ว่าง instrument ต้องอยู่ในรายการด้วย order ใน cache ไม่สามารถชดเชย trade ที่ map ไม่ได้, maker ที่ไม่ใช่ของ account หรือ
+trade ที่ไม่มี timestamp
 
-Unsupported-market open orders and holdings are skipped, but confirmed trades still participate in
-these completeness checks. With no `load_ids` scope, an unmapped trade on an unsupported market makes
-the bounded window incomplete.
+open order และสินทรัพย์ที่ถือในตลาดที่ไม่รองรับจะถูกข้าม แต่ trade ที่ยืนยันแล้วยังเข้าร่วมการตรวจความครบถ้วนเหล่านี้ หาก
+ไม่มีขอบเขต `load_ids` trade ที่ map ไม่ได้ในตลาดที่ไม่รองรับจะทำให้ window ที่มีขอบเขตไม่ครบถ้วน
 
-For an incomplete window, the adapter logs a warning listing each failing condition before the
-engine logs its incomplete-report warning. It emits no additional report for a cached closed order, so
-reconciliation does not apply that order's quantity or commission again.
+สำหรับ window ที่ไม่ครบถ้วน adapter จะ log คำเตือนที่แสดงทุกเงื่อนไขที่ไม่ผ่าน ก่อนที่ engine จะ log คำเตือนเรื่อง report ที่
+ไม่ครบ และจะไม่ emit report เพิ่มสำหรับ closed order ใน cache เพื่อไม่ให้ reconciliation นำ quantity หรือ commission ของ
+order นั้นไปใช้ซ้ำ
 
-#### Runtime checks and report failures
+#### การตรวจขณะ runtime และ report ที่ล้มเหลว {#runtime-checks-and-report-failures}
 
-Runtime order checks fetch confirmed trade history when the venue's matched quantity exceeds the
-local order's applied fill quantity. Unpaired fill reports retain the normal fill-only path.
+การตรวจ order ขณะ runtime จะดึงประวัติ trade ที่ยืนยันแล้วเมื่อ matched quantity ของ venue เกิน fill quantity ที่นำไปใช้แล้ว
+ของ local order fill report ที่ไม่มีคู่ยังคงใช้ path แบบ fill-only ตามปกติ
 
-A commission construction error fails the complete REST report request. Startup returns the error without
-applying a mass status. Periodic and targeted reconciliation defer the affected work. The adapter does not
-drop the failed fill because an order or position report could then recreate its quantity without the
-Polymarket commission.
+error ในการสร้าง commission จะทำให้ REST report request ทั้งหมดล้มเหลว startup จะคืน error โดยไม่นำ mass status ไปใช้
+reconciliation แบบเป็นรอบและแบบเจาะจงจะเลื่อนงานที่ได้รับผลกระทบออกไป adapter ไม่ทิ้ง fill ที่ล้มเหลว เพราะ order report
+หรือ position report อาจสร้าง quantity ของ fill นั้นขึ้นใหม่โดยไม่มี commission ของ Polymarket
 
-### Single-order recovery from trades
+### Single-order recovery จาก trade {#single-order-recovery-from-trades}
 
-`/data/order/{id}` can return live or terminal orders. When it returns no order for a known ID,
-`generate_order_status_report` falls back to `/data/trades` and filters the returned trades by the venue order
-ID. This recovers a cached order whose terminal WebSocket update was missed. It prevents the engine from
-resolving a local `ACCEPTED` order as `REJECTED`. That false rejection would discard fills that already
-happened at the venue.
+`/data/order/{id}` อาจคืน order ที่ live หรือ terminal เมื่อไม่คืน order ใดสำหรับ ID ที่รู้จัก
+`generate_order_status_report` จะ fallback ไปใช้ `/data/trades` และกรอง trade ที่คืนมาด้วย venue order ID วิธีนี้กู้คืน
+order ใน cache ที่พลาดการอัปเดต terminal จาก WebSocket ไป และป้องกันไม่ให้ engine resolve local order ที่เป็น `ACCEPTED`
+เป็น `REJECTED` การปฏิเสธที่ผิดพลาดนั้นจะทิ้ง fill ที่เกิดขึ้นแล้วบน venue
 
-Only `CONFIRMED` trades contribute to recovered fills. Pending and failed settlement states do not.
+มีเพียง trade ที่ `CONFIRMED` เท่านั้นที่นับรวมใน fill ที่กู้คืน สถานะ settlement ที่ pending และ failed จะไม่นับ
 
-The cached order is resolved via `client_order_id`, falling back to the cache's `venue_order_id` index when
-only the venue ID is known. When the request supplies or resolves to a `client_order_id`, the cached order
-must be a base-denominated `LIMIT` order. Otherwise the request returns an error. An unassociated venue-order
-request without a cached order defers to the engine rather than synthesizing an external order from trade
-history alone:
+order ใน cache จะถูก resolve ผ่าน `client_order_id` และ fallback ไปใช้ index `venue_order_id` ของ cache เมื่อทราบเพียง
+venue ID เมื่อ request ระบุหรือ resolve ได้เป็น `client_order_id` order ใน cache ต้องเป็น `LIMIT` order ที่กำหนดเป็น
+base มิฉะนั้น request จะคืน error request ด้วย venue order ที่ไม่มีความเชื่อมโยงและไม่มี order ใน cache จะส่งต่อให้ engine
+แทนการสังเคราะห์ external order จากประวัติ trade เพียงอย่างเดียว:
 
-- Cached order + recovered fills covering the cached quantity: returns `Filled`. Non-IOC orders
-  also return `Filled` when the positive remainder is less than 0.01 shares.
-- Cached IOC/FAK order + any positive remainder, or another order with a remainder of at least
-  0.01 shares:
-  returns `Canceled` with the recovered `filled_qty`. Targeted reconciliation applies the associated
-  fill reports before closing the remainder. If terminal quantity is still unaccounted for, the
-  engine defers the terminal transition rather than discarding the missing fills.
-- Previously accepted cached order, no trades: returns `Canceled` with
-  `cancel_reason="ORDER_NOT_FOUND_AT_VENUE"`.
-- Cached order that was never accepted, no trades: returns `None`, preserving its unresolved state.
-- Cached order with any `MATCHED`, `MINED`, or `RETRYING` trade: a singular order query preserves
-  the locally applied matched quantity while terminal REST recovery waits for `CONFIRMED` or
-  `FAILED`.
-- No cached order and no known client association (regardless of trades): returns `None`. The engine's
-  not-found-at-venue path resolves the local entry.
+- order ใน cache + fill ที่กู้คืนครอบคลุม quantity ใน cache: คืน `Filled` order ที่ไม่ใช่ IOC ก็คืน `Filled` เช่นกันเมื่อ
+  ส่วนที่เหลือที่เป็นบวกน้อยกว่า 0.01 share
+- order แบบ IOC/FAK ใน cache + ส่วนที่เหลือที่เป็นบวกใด ๆ หรือ order อื่นที่มีส่วนที่เหลืออย่างน้อย 0.01 share:
+  คืน `Canceled` พร้อม `filled_qty` ที่กู้คืนได้ targeted reconciliation จะนำ fill report ที่เกี่ยวข้องไปใช้ก่อนปิดส่วน
+  ที่เหลือ หากยังมี quantity แบบ terminal ที่ไม่มีหลักฐาน engine จะเลื่อนการเปลี่ยนเป็น terminal ออกไปแทนการทิ้ง fill ที่
+  ขาดหาย
+- order ใน cache ที่เคยถูก accept แล้ว และไม่มี trade: คืน `Canceled` พร้อม
+  `cancel_reason="ORDER_NOT_FOUND_AT_VENUE"`
+- order ใน cache ที่ไม่เคยถูก accept และไม่มี trade: คืน `None` เพื่อคงสถานะที่ยังไม่ได้ข้อยุติไว้
+- order ใน cache ที่มี trade แบบ `MATCHED`, `MINED` หรือ `RETRYING`: query order เดี่ยวจะคง matched quantity ที่นำไป
+  ใช้ภายในเครื่องไว้ ขณะที่การกู้คืนผ่าน REST แบบ terminal รอ `CONFIRMED` หรือ `FAILED`
+- ไม่มี order ใน cache และไม่ทราบความเชื่อมโยงกับ client (ไม่ว่าจะมี trade หรือไม่): คืน `None` path not-found-at-venue
+  ของ engine จะ resolve รายการในเครื่อง
 
-The bulk open-order response does not itself perform this per-order recovery. With
-`open_check_open_only=False`, the engine requests it after the missing-order retry threshold. With the default
-`True`, absent orders remain open for later reconciliation. See
-[missing orders and API lag](#missing-orders-and-api-lag).
+open-order response แบบ bulk ไม่ได้ทำการกู้คืนราย order นี้เอง เมื่อใช้ `open_check_open_only=False` engine จะ request
+หลังจากถึงเกณฑ์การ retry ของ order ที่ขาดหาย เมื่อใช้ค่าเริ่มต้น `True` order ที่ไม่ปรากฏจะยังเปิดอยู่เพื่อรอ reconciliation
+ในภายหลัง ดู [missing orders and API lag](#missing-orders-and-api-lag)
 
-### Ghost fills and cumulative quantities
+### Ghost fill และ quantity แบบสะสม {#ghost-fills-and-cumulative-quantities}
 
-Duplicate delivery, failed settlement, and delayed REST snapshots require different handling.
+การส่งซ้ำ, settlement ที่ล้มเหลว และ REST snapshot ที่ล่าช้า ต้องจัดการต่างกัน
 
-#### Duplicate fills
+#### Fill ซ้ำ {#duplicate-fills}
 
-The adapter tracks each venue trade ID and emits each of the account's fills at most once, so a
-replayed trade message does not emit again. Individual execution fills use the venue trade ID for
-takers and a composite of trade ID and maker order ID for makers. REST and WebSocket use the same
-fill identifiers, so replaying the same fill does not add its quantity again. See [trade ID
-derivation](#trade-id-derivation) and [fill recovery and
-deduplication](#fill-recovery-and-deduplication).
+adapter ติดตาม venue trade ID แต่ละรายการและ emit fill ของ account แต่ละรายการอย่างมากหนึ่งครั้ง ดังนั้น trade message ที่
+ถูก replay จะไม่ emit ซ้ำ execution fill แต่ละรายการใช้ venue trade ID สำหรับ taker และใช้ค่าผสมของ trade ID กับ maker
+order ID สำหรับ maker REST และ WebSocket ใช้ fill identifier เดียวกัน ดังนั้นการ replay fill เดิมจะไม่เพิ่ม quantity ซ้ำ
+ดู [trade ID derivation](#trade-id-derivation) และ [fill recovery and deduplication](#fill-recovery-and-deduplication)
 
-#### Failed settlement
+#### Settlement ที่ล้มเหลว {#failed-settlement}
 
-For orders submitted in the current WebSocket session, `MATCHED` emits a fill before final settlement. `MINED`
-and `RETRYING` do not emit another fill. `CONFIRMED` can recover a fill whose earlier update was missed. A
-WebSocket `FAILED` quarantines the trade. Only a targeted REST `FAILED` result voids locally applied fills and
-suppresses buffered fills for that trade.
+สำหรับ order ที่ส่งใน WebSocket session ปัจจุบัน `MATCHED` จะ emit fill ก่อน settlement สุดท้าย `MINED` และ `RETRYING`
+จะไม่ emit fill เพิ่ม `CONFIRMED` สามารถกู้คืน fill ที่พลาดการอัปเดตก่อนหน้าไปได้ `FAILED` จาก WebSocket จะกักกัน trade
+มีเพียงผลลัพธ์ `FAILED` จาก REST แบบเจาะจงเท่านั้นที่จะ void fill ที่นำไปใช้ภายในเครื่องและระงับ fill ที่ buffer ไว้ของ trade
+นั้น
 
-Exposure can therefore change before finality: for current-session orders the adapter does not wait
-for confirmation. After a reconnect or restart, fills on existing orders wait for a terminal REST
-result. See [settlement updates](#settlement-updates).
+exposure จึงอาจเปลี่ยนก่อนถึง finality: สำหรับ order ใน session ปัจจุบัน adapter ไม่รอการยืนยัน หลัง reconnect หรือ
+restart fill บน order ที่มีอยู่จะรอผลลัพธ์ terminal จาก REST ดู [settlement updates](#settlement-updates)
 
-#### Cumulative reports
+#### Report แบบสะสม {#cumulative-reports}
 
-`filled_qty` is an order total, not a position delta. Reconciliation applies unseen fills and, where
-permitted, infers only the remaining positive difference. For example, a total of 7 against 5 already
-applied contributes at most the missing 2, not 7.
+`filled_qty` คือยอดรวมของ order ไม่ใช่ position delta reconciliation จะนำ fill ที่ยังไม่เคยเห็นไปใช้ และอนุมานเฉพาะ
+ส่วนต่างที่เป็นบวกที่เหลือเมื่อได้รับอนุญาต เช่น ยอดรวม 7 เทียบกับ 5 ที่นำไปใช้แล้ว จะเพิ่มได้อย่างมากเพียง 2 ที่ขาดไป
+ไม่ใช่ 7
 
-A lower continuous order report does not by itself reverse applied fills. Fill void events and startup
-snapshot reconciliation provide correction paths, so the local total is not an irreversible floor.
+order report แบบต่อเนื่องที่ต่ำกว่าไม่ได้กลับ fill ที่นำไปใช้แล้วด้วยตัวเอง event fill void และ startup snapshot
+reconciliation เป็นช่องทางการแก้ไข ดังนั้นยอดรวมภายในเครื่องจึงไม่ใช่ขั้นต่ำที่ย้อนกลับไม่ได้
 
-#### REST evidence and cache state
+#### หลักฐานจาก REST และ state ใน cache {#rest-evidence-and-cache-state}
 
-For runtime order checks, the adapter caps REST matched quantity at
-`min(venue_matched, max(local_applied, settlement_validated_quantity))`.
+สำหรับการตรวจ order ขณะ runtime adapter จะจำกัด matched quantity จาก REST ไว้ที่
+`min(venue_matched, max(local_applied, settlement_validated_quantity))`
 
-The validated quantity combines effective fills in cached order history with fill reports that pass
-settlement validation:
+validated quantity รวม effective fill ในประวัติ order ใน cache เข้ากับ fill report ที่ผ่านการตรวจ settlement:
 
-- Each venue fill ID counts once across applied fills and report rows.
-- Inferred core fills provide a floor rather than additional venue evidence. A later venue report
-  for the same quantity cannot inflate the total.
-- Cumulative fill voids remove only the corrected quantity. An older report cannot restore that
-  quantity through the cap.
+- venue fill ID แต่ละรายการนับครั้งเดียวทั้งใน fill ที่นำไปใช้แล้วและแถวของ report
+- inferred fill ใน core เป็นขั้นต่ำ ไม่ใช่หลักฐานจาก venue เพิ่มเติม venue report ที่มาทีหลังสำหรับ quantity เดียวกันไม่
+  สามารถทำให้ยอดรวมสูงขึ้นได้
+- fill void แบบสะสมจะลบเฉพาะ quantity ที่ถูกแก้ไข report ที่เก่ากว่าไม่สามารถคืน quantity นั้นผ่านขีดจำกัดได้
 
-If core still retains quantity for a leg whose targeted REST settlement is `FAILED`, report generation
-fails closed rather than preserving that failed exposure through the cap.
+หาก core ยังคง quantity ไว้สำหรับขาที่ REST settlement แบบเจาะจงเป็น `FAILED` การสร้าง report จะล้มเหลวแบบปิด แทนการ
+รักษา exposure ที่ล้มเหลวนั้นไว้ผ่านขีดจำกัด
 
-WebSocket fills awaiting core processing do not raise the local applied-fill floor. This prevents an
-unsupported increase in REST `size_matched` from becoming an inferred fill while preserving applied fills.
-Mass status uses the same validated quantity with or without a lookback window. See
-[mass-status reconciliation](#mass-status-reconciliation).
+WebSocket fill ที่ยังรอ core ประมวลผลไม่ได้ยกขั้นต่ำของ fill ที่นำไปใช้ภายในเครื่อง ซึ่งป้องกันไม่ให้ `size_matched` จาก
+REST ที่เพิ่มขึ้นโดยไม่มีหลักฐานกลายเป็น inferred fill ขณะที่ยังรักษา fill ที่นำไปใช้แล้วไว้ mass status ใช้ validated
+quantity เดียวกันทั้งเมื่อมีและไม่มี lookback window ดู [mass-status reconciliation](#mass-status-reconciliation)
 
-The cache retains order identity, applied fills, and correction history used for replay handling. It is
-not an unconditional override of venue state, and missing or lagging venue evidence cannot establish
-settlement finality.
+cache เก็บ identity ของ order, fill ที่นำไปใช้แล้ว และประวัติการแก้ไขที่ใช้ในการจัดการ replay แต่ไม่ได้มีผลเหนือ state ของ
+venue โดยไม่มีเงื่อนไข และหลักฐานจาก venue ที่ขาดหายหรือล่าช้าไม่สามารถยืนยัน settlement finality ได้
 
-## Fill quantity normalization
+## การ normalize fill quantity {#fill-quantity-normalization}
 
-Polymarket wire amounts use six-decimal fixed-point mantissas. Market SELL signing truncates the
-share-denominated `makerAmount` to two decimal places, while market BUY quote conversion can leave a few
-microshares of drift between the registered and filled quantities. Every fill keeps the venue quantity.
-Truncation is fixed in absolute share terms, so for underfill the adapter uses
-`DUST_SNAP_THRESHOLD_DEC = 0.01` shares. A shortfall at or above that threshold remains a real partial fill.
+amount บน wire ของ Polymarket ใช้ mantissa แบบ fixed-point ทศนิยมหกตำแหน่ง การ sign market SELL จะตัด `makerAmount`
+ที่มีหน่วยเป็น share ให้เหลือทศนิยมสองตำแหน่ง ขณะที่การแปลง quote ของ market BUY อาจทิ้งความคลาดเคลื่อนไม่กี่ microshare
+ระหว่าง quantity ที่ register ไว้กับที่ fill จริง ทุก fill คง quantity ของ venue ไว้ การตัดมีขนาดคงที่ในหน่วย share แบบ
+absolute ดังนั้นสำหรับ underfill adapter จะใช้ `DUST_SNAP_THRESHOLD_DEC = 0.01` share ส่วนที่ขาดซึ่งเท่ากับหรือมากกว่า
+เกณฑ์นั้นยังถือเป็น partial fill จริง
 
-| Direction | Source                                         | Adapter behavior                             |
+| ทิศทาง     | ที่มา                                            | พฤติกรรมของ adapter                              |
 | --------- | ---------------------------------------------- | -------------------------------------------- |
-| Overfill  | BUY filled below its limit, or quote drift     | Raise the BUY order quantity to the fill     |
-| Underfill | Signed or venue quantity truncation (`< 0.01`) | Normalize atomic FOK; cancel a FAK remainder |
+| Overfill  | BUY ที่ fill ต่ำกว่า limit หรือ quote drift          | ยก quantity ของ BUY order ขึ้นให้เท่ากับ fill        |
+| Underfill | การตัด quantity ที่ sign แล้วหรือของ venue (`< 0.01`) | normalize FOK แบบ atomic และ cancel ส่วนที่เหลือของ FAK |
 
-A hard-faulted trade that touches the order withholds that normalization and the FAK remainder
-cancellation. See [Settlement faults](#settlement-faults).
+trade ที่เกิด hard fault และเกี่ยวข้องกับ order นั้นจะระงับการ normalize และการ cancel ส่วนที่เหลือของ FAK ดู
+[Settlement fault](#settlement-faults)
 
-See [BUY overfills](#buy-overfills) for how a BUY can receive more shares than it signed.
+ดู [BUY overfill](#buy-overfills) สำหรับวิธีที่ BUY อาจได้รับ share มากกว่าที่ sign ไว้
 
-### BUY overfills
+### BUY overfill {#buy-overfills}
 
-A Polymarket BUY is sized by the pUSD it spends, so it can receive more shares than it signed. A
-limit BUY is converted to signed shares before posting. A market BUY is posted in pUSD and updated
-to signed shares when the submit succeeds or its outcome is unknown. The adapter then keeps the
-venue fill quantity and raises the order to match. A SELL is sized in shares, and the venue does
-not credit more than signed.
+BUY ของ Polymarket กำหนดขนาดด้วย pUSD ที่ใช้จ่าย จึงอาจได้รับ share มากกว่าที่ sign ไว้ limit BUY จะถูกแปลงเป็น share
+ที่ sign แล้วก่อน post ส่วน market BUY จะ post เป็น pUSD และอัปเดตเป็น share ที่ sign แล้วเมื่อ submit สำเร็จหรือไม่ทราบผล
+จากนั้น adapter จะคง fill quantity ของ venue ไว้และยก order ขึ้นให้ตรงกัน SELL กำหนดขนาดเป็น share และ venue จะไม่เครดิต
+มากกว่าที่ sign ไว้
 
 :::info
-A BUY order's quantity can increase after submission, through an `OrderUpdated` event. Treat its
-filled quantity, or the position quantity, as the shares held.
+quantity ของ BUY order อาจเพิ่มขึ้นหลังการส่งผ่าน event `OrderUpdated` ให้ถือว่า filled quantity หรือ position quantity
+คือจำนวน share ที่ถืออยู่
 :::
 
-#### Why a BUY receives extra shares
+#### ทำไม BUY จึงได้รับ share เพิ่ม {#why-a-buy-receives-extra-shares}
 
-The signed order sets `makerAmount` (pUSD to spend) and `takerAmount` (shares to receive). The
-exchange guarantees at least that ratio of shares per pUSD for whatever part executes, then credits
-the shares actually delivered. A partial execution spends less and receives proportionally fewer
-shares. A full execution receives more than `takerAmount` in two cases:
+signed order กำหนด `makerAmount` (pUSD ที่จะจ่าย) และ `takerAmount` (share ที่จะได้รับ) exchange รับประกันอัตราส่วน
+share ต่อ pUSD อย่างน้อยเท่านั้นสำหรับส่วนที่ execute แล้วเครดิต share ที่ส่งมอบจริง การ execute บางส่วนจะใช้จ่ายน้อยลงและ
+ได้ share น้อยลงตามสัดส่วน การ execute เต็มจำนวนจะได้มากกว่า `takerAmount` ในสองกรณี:
 
-- Price improvement: a limit BUY of 9 shares at 0.58 commits 5.22 pUSD. Filled entirely at 0.56, it
-  receives 9.321429 shares.
-- Signing precision: a market BUY signs shares truncated to the tick's decimal places plus two,
-  while settlement uses six. A 5 pUSD market BUY at 0.66 signs 7.5757 shares and receives 7.575758.
+- การได้ราคาที่ดีกว่า: limit BUY 9 share ที่ 0.58 จะผูก 5.22 pUSD หาก fill ทั้งหมดที่ 0.56 จะได้ 9.321429 share
+- precision ของการ sign: market BUY จะ sign share ที่ตัดเหลือจำนวนทศนิยมของ tick บวกสอง ขณะที่ settlement ใช้หก
+  ตำแหน่ง market BUY 5 pUSD ที่ 0.66 จะ sign 7.5757 share และได้รับ 7.575758
 
-#### How the adapter raises the order quantity
+#### วิธีที่ adapter ยก quantity ของ order {#how-the-adapter-raises-the-order-quantity}
 
-The execution engine rejects a fill past the order quantity by default, so the quantity rises
-first through an `OrderUpdated` event:
+execution engine ปฏิเสธ fill ที่เกิน order quantity โดยค่าเริ่มต้น ดังนั้น quantity จะถูกยกขึ้นก่อนผ่าน event
+`OrderUpdated`:
 
-| Path                                                         | Raises when                                                                              | Quantity                                                                |
+| Path                                                         | ยกขึ้นเมื่อ                                                                                 | Quantity                                                                |
 | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| WebSocket fill                                               | The adapter holds the order, including a trade found after a user-stream gap             | Cumulative filled quantity                                              |
-| REST report with fills, or an execution-engine status report | The filled quantity exceeds the local order, including during a pending cancel or modify | Evidence-capped filled quantity, plus quantity voided without reopening |
-| Standalone fill report                                       | The order is not already filled                                                          | Filled quantity plus that fill                                          |
+| WebSocket fill                                               | adapter ถือ order นั้นอยู่ รวมถึง trade ที่พบหลังช่องว่างของ user stream                        | filled quantity สะสม                                                     |
+| REST report ที่มี fill หรือ status report ของ execution engine     | filled quantity เกิน local order รวมถึงระหว่าง pending cancel หรือ modify                    | filled quantity ที่จำกัดด้วยหลักฐาน บวก quantity ที่ถูก void โดยไม่ได้เปิดใหม่       |
+| Fill report แบบเดี่ยว                                          | order ยังไม่ถูก fill ครบ                                                                     | filled quantity บวก fill นั้น                                              |
 
-A standalone fill keeps its trade ID and commission, and a replay does not apply it again. It
-covers a position-check fill and a fill reported with no captured order context. A status report
-for a modified order also includes quantity voided without reopening on earlier venue orders. A
-standalone report does not.
+fill แบบเดี่ยวคง trade ID และ commission ไว้ และการ replay จะไม่นำไปใช้ซ้ำ ครอบคลุม fill จาก position check และ fill ที่
+รายงานโดยไม่มี order context ที่เก็บไว้ status report ของ order ที่ถูก modify ยังรวม quantity ที่ถูก void โดยไม่ได้เปิดใหม่บน
+venue order ก่อนหน้า แต่ report แบบเดี่ยวไม่รวม
 
-Commission uses the venue fill quantity. Leave `LiveExecutionEngineConfig.allow_overfills`
-disabled. Enabling it skips the standalone raise and applies that fill past the order quantity.
+commission ใช้ fill quantity ของ venue ให้ปิด `LiveExecutionEngineConfig.allow_overfills` ไว้ การเปิดจะข้ามการยกแบบ
+เดี่ยวและนำ fill นั้นไปใช้เกิน order quantity
 
-#### Recovery limitations
+#### ข้อจำกัดของการกู้คืน {#recovery-limitations}
 
-The engine rejects:
+engine ปฏิเสธ:
 
-- A SELL fill past the signed quantity.
-- A BUY that is quote-sized locally.
-- A fill whose venue order ID is not one of the order's.
-- A later fill on an already filled order.
+- SELL fill ที่เกิน quantity ที่ sign ไว้
+- BUY ที่กำหนดขนาดด้วย quote ภายในเครื่อง
+- fill ที่ venue order ID ไม่ใช่ของ order นั้น
+- fill ที่ตามมาบน order ที่ fill ครบแล้ว
 
-These fills are rejected without a quantity raise:
+fill เหล่านี้ถูกปฏิเสธโดยไม่มีการยก quantity:
 
-- A startup fill for a cached order with no matching order report. The live manager applies it as
-  an order fill.
-- A position-check fill for an earlier venue order ID of a modified order. The manager holds it
-  back because it does not match the order's current venue order ID.
-- A status-only report from the live manager.
-- A pending `Filled` report whose filled quantity does not exceed the local order. The fills apply
-  against the unchanged quantity.
+- fill ตอน startup ของ order ใน cache ที่ไม่มี order report ที่ตรงกัน live manager จะนำไปใช้เป็น order fill
+- fill จาก position check สำหรับ venue order ID ก่อนหน้าของ order ที่ถูก modify manager จะกันไว้เพราะไม่ตรงกับ venue
+  order ID ปัจจุบันของ order
+- report ที่มีเฉพาะสถานะจาก live manager
+- report `Filled` ที่ยัง pending ซึ่ง filled quantity ไม่เกิน local order fill จะถูกนำไปใช้กับ quantity ที่ไม่เปลี่ยน
 
-An unmatched fill in a runtime mass-status report sent to the execution engine uses the standalone
-raise.
+fill ที่ไม่มีคู่ใน runtime mass-status report ที่ส่งไปยัง execution engine จะใช้การยกแบบเดี่ยว
 
-If the position check cannot apply a fill, it holds position reconciliation until
-`position_check_threshold_ms` passes. A later check then synthesizes a correcting fill, without the
-venue commission, when `generate_missing_orders` is enabled.
+หาก position check นำ fill ไปใช้ไม่ได้ จะกัน position reconciliation ไว้จนกว่า `position_check_threshold_ms` จะผ่านไป จาก
+นั้นการตรวจครั้งถัดไปจะสังเคราะห์ fill เพื่อแก้ไขโดยไม่มี commission ของ venue เมื่อเปิด `generate_missing_orders`
 
-### Terminal order handling
+### การจัดการ order แบบ terminal {#terminal-order-handling}
 
-Terminal quantity normalization triggers from the `MATCHED` order update for resting maker
-orders, or directly on the confirming taker trade for atomic FOK orders. It emits a reconciliation
-`OrderUpdated` which lowers the order quantity to the cumulative venue fill. It does not emit a
-fill and does not change positions, balances, or commissions.
+การ normalize quantity แบบ terminal จะเริ่มจาก order update `MATCHED` สำหรับ maker order ที่วางค้าง หรือเริ่มโดยตรงที่
+taker trade ที่ยืนยันสำหรับ FOK order แบบ atomic โดยจะ emit `OrderUpdated` แบบ reconciliation ที่ลด order quantity ลง
+เท่ากับ fill สะสมของ venue ไม่ได้ emit fill และไม่เปลี่ยน position, balance หรือ commission
 
-IOC maps to venue FAK. Once a taker trade confirms, every positive difference between
-`original_size` and `size_matched` is an unfilled remainder which the venue has killed. The adapter
-therefore emits `OrderCanceled` after the real fills instead of normalizing quantity or leaving the
-order partially filled. REST reports apply the same rule when a `MATCHED` FAK has
-`size_matched < original_size`.
+IOC map ไปยัง FAK ของ venue เมื่อ taker trade ยืนยันแล้ว ส่วนต่างที่เป็นบวกทุกจำนวนระหว่าง `original_size` กับ
+`size_matched` คือส่วนที่เหลือที่ไม่ถูก fill ซึ่ง venue kill ไปแล้ว adapter จึง emit `OrderCanceled` หลัง fill จริง แทนการ
+normalize quantity หรือทิ้ง order ไว้ในสถานะ partially filled REST report ใช้กฎเดียวกันเมื่อ FAK ที่ `MATCHED` มี
+`size_matched < original_size`
 
-When a confirmed trade arrives before the submit response, the same handling runs after buffered
-fills drain. A buffered `Canceled`, `Expired`, or `Rejected` report takes precedence.
+เมื่อ trade ที่ยืนยันแล้วมาถึงก่อน submit response การจัดการเดียวกันจะทำงานหลังจาก fill ที่ buffer ไว้ถูก drain report
+`Canceled`, `Expired` หรือ `Rejected` ที่ buffer ไว้จะมีความสำคัญกว่า
 
-A hard-faulted trade that touches the order withholds this handling, including after buffered fills drain.
-Healthy confirmation emits the update or the cancellation once. A later drain or the same evidence does not
-emit it again. See [Settlement faults](#settlement-faults).
+trade ที่เกิด hard fault และเกี่ยวข้องกับ order จะระงับการจัดการนี้ รวมถึงหลังจาก fill ที่ buffer ไว้ถูก drain การยืนยันที่
+ปกติจะ emit การอัปเดตหรือการ cancel ครั้งเดียว การ drain ภายหลังหรือหลักฐานเดิมจะไม่ emit ซ้ำ ดู
+[Settlement fault](#settlement-faults)
 
-### Commissions and tracking scope
+### Commission และขอบเขตการติดตาม {#commissions-and-tracking-scope}
 
-`FillReport.commission` is computed from the venue-reported fill size, the same quantity the fill
-carries.
+`FillReport.commission` คำนวณจากขนาด fill ที่ venue รายงาน ซึ่งเป็น quantity เดียวกับที่ fill มี
 
-The fill tracker is keyed by `venue_order_id`. It registers orders on accept and restores cached open orders
-on startup, so the WebSocket overfill raise applies only to orders it tracks. `DUST_SNAP_THRESHOLD_DEC` is not
-configurable per-strategy. It lives in `nautilus_polymarket::common::consts`.
+fill tracker ใช้ `venue_order_id` เป็น key โดย register order ตอน accept และกู้คืน open order ใน cache ตอน startup ดังนั้น
+การยก overfill จาก WebSocket จึงใช้กับ order ที่ tracker ติดตามอยู่เท่านั้น `DUST_SNAP_THRESHOLD_DEC` ตั้งค่าราย strategy
+ไม่ได้ โดยอยู่ใน `nautilus_polymarket::common::consts`
 
-### Order message size denomination
+### หน่วยของขนาดใน order message {#order-message-size-denomination}
 
-The user channel reports `original_size` on an `order` message as the signed `makerAmount`. For a
-market order type (`FAK` or `FOK`) BUY that amount is the pUSD budget rather than a share count, so
-a BUY of 100 shares at 0.01 reports `1`. The adapter divides by the order price when it must express
-that venue amount as shares in an order status report. Locally submitted quote-sized limit BUYs use
-the share quantity derived during signing as their authoritative fill-tracker quantity.
+user channel รายงาน `original_size` ใน message `order` เป็น `makerAmount` ที่ sign แล้ว สำหรับ BUY ที่เป็น market order
+type (`FAK` หรือ `FOK`) amount นั้นคือ budget pUSD ไม่ใช่จำนวน share ดังนั้น BUY 100 share ที่ 0.01 จะรายงานเป็น `1`
+adapter จะหารด้วยราคาของ order เมื่อต้องแสดง amount ของ venue นั้นเป็น share ใน order status report limit BUY ที่กำหนด
+ขนาดด้วย quote และส่งจากภายในเครื่องจะใช้ share quantity ที่คำนวณระหว่างการ sign เป็น quantity หลักของ fill tracker
 
-A SELL signs shares as its maker amount and needs no conversion. Resting types (`GTC` and `GTD`)
-pass through unchanged: their denomination is unconfirmed, and converting a share-denominated size
-would misreport every externally-managed resting order.
+SELL sign share เป็น maker amount จึงไม่ต้องแปลง type ที่วางค้าง (`GTC` และ `GTD`) จะผ่านไปโดยไม่เปลี่ยน เพราะยังไม่ยืนยัน
+หน่วย และการแปลงขนาดที่เป็นหน่วย share จะทำให้รายงาน resting order ที่จัดการจากภายนอกทุกรายการผิด
 
-### Exec tester close residuals
+### ส่วนที่เหลือจากการปิดของ exec tester {#exec-tester-close-residuals}
 
-`close_positions_qty_precision` is an `ExecTesterConfig` option. It defaults to `None`, which submits the full
-position quantity. The Rust and Python Polymarket examples set it to `2` because
-[market order maker amounts allow two decimals](#precision-limits). The examples also set
-`close_positions_time_in_force=IOC`. Custom configurations must use `IOC` or `FOK` because Polymarket rejects
-`GTC` market orders.
+`close_positions_qty_precision` เป็นตัวเลือกของ `ExecTesterConfig` ค่าเริ่มต้นคือ `None` ซึ่งจะส่ง position quantity
+ทั้งหมด ตัวอย่างของ Polymarket ตั้งค่าเป็น `2` เพราะ [maker amount ของ market order รองรับทศนิยมสองตำแหน่ง](#precision-limits)
+ตัวอย่างยังตั้ง `close_positions_time_in_force=IOC` ด้วย config ที่กำหนดเองต้องใช้ `IOC` หรือ `FOK` เพราะ Polymarket
+ปฏิเสธ market order แบบ `GTC`
 
-On stop, the tester truncates only the submitted market SELL quantity to the configured decimal
-precision and logs the exact difference at WARN level. It does not round the position state or
-create a synthetic fill.
+เมื่อหยุดทำงาน tester จะตัดเฉพาะ quantity ของ market SELL ที่ส่งให้เหลือ precision ทศนิยมที่ตั้งค่าไว้ และ log ส่วนต่างที่แน่นอน
+ที่ระดับ WARN โดยไม่ปัด position state หรือสร้าง synthetic fill
 
-A 5 pUSD BUY that fills 5.1975 shares therefore submits a 5.19-share close. After the venue fills
-that order, the position remains open at exactly 0.0075 shares.
+BUY 5 pUSD ที่ fill ได้ 5.1975 share จึงส่งการปิด 5.19 share หลังจาก venue fill order นั้นแล้ว position จะยังเปิดอยู่ที่ 0.0075
+share พอดี
 
-- If the whole position is below 0.01 shares, the tester warns and submits no zero-quantity order.
-- A non-zero close must satisfy the venue's order constraints. Rejection leaves the full position open.
+- หาก position ทั้งหมดต่ำกว่า 0.01 share tester จะเตือนและไม่ส่ง order ที่มี quantity เป็นศูนย์
+- การปิดที่ไม่เป็นศูนย์ต้องเป็นไปตามข้อจำกัด order ของ venue การปฏิเสธจะทิ้ง position ทั้งหมดไว้เปิดอยู่
 
-Treat close-on-stop as best-effort. Check the position and warning before assuming the account is
-flat. See the [position reporting limitation](#limitations-and-considerations) for sub-0.01-share venue reports.
+ให้ถือว่า close-on-stop เป็นแบบ best-effort ตรวจ position และคำเตือนก่อนจะสันนิษฐานว่า account เป็น flat ดู
+[ข้อจำกัดด้านการรายงาน position](#limitations-and-considerations) สำหรับ venue report ที่ต่ำกว่า 0.01 share
 
-## WebSockets
+## WebSocket {#websockets}
 
-`PolymarketWebSocketClient` uses the Nautilus Rust `WebSocketClient`.
+`PolymarketWebSocketClient` ใช้ `WebSocketClient` ของ Nautilus Rust
 
-### Data
+### Data {#data}
 
-The data adapter opens `market` subscriptions dynamically as instruments are requested. It spreads
-those subscriptions across a pool of market WebSocket connections so that no single connection
-carries more than `ws_max_subscriptions` assets. The pool grows lazily (a universe below the cap
-stays on one connection) and closes a secondary connection once it owns no assets.
+data adapter เปิด subscription `market` แบบ dynamic เมื่อมีการ request instrument โดยกระจาย subscription เหล่านั้นไปยัง
+pool ของ market WebSocket connection เพื่อไม่ให้ connection ใดรับ asset เกิน `ws_max_subscriptions` pool จะขยายแบบ
+lazy (universe ที่ต่ำกว่าเพดานจะอยู่บน connection เดียว) และปิด connection รองเมื่อไม่มี asset แล้ว
 
-The pool does not open a connection when the data client connects, unless `subscribe_new_markets`
-is set. That setting opens the primary connection for new-market discovery. Otherwise the first
-asset subscription opens a connection.
+pool จะไม่เปิด connection ตอน data client connect เว้นแต่จะตั้ง `subscribe_new_markets` ค่านั้นจะเปิด primary
+connection สำหรับการค้นพบตลาดใหม่ มิฉะนั้น asset subscription แรกจะเป็นตัวเปิด connection
 
-Each connection replays only its own assets on reconnect. A shard reconnect clears its local books and
-gates book deltas and book-derived `best_bid_ask` tops until fresh snapshots arrive.
+แต่ละ connection replay เฉพาะ asset ของตัวเองเมื่อ reconnect การ reconnect ของ shard จะล้าง local book และกั้น book delta
+และ top แบบ `best_bid_ask` ที่คำนวณจาก book ไว้จนกว่า snapshot ใหม่จะมาถึง
 
-Fresh book subscriptions and reconnects arm a one-shot `book_snapshot_timeout_secs` monitor. If the initial
-snapshot is lost, this deadline starts recovery even without venue updates. While armed, early updates and rejected
-snapshots leave the book gated until a valid snapshot arrives or recovery starts.
+book subscription ใหม่และการ reconnect จะตั้ง monitor `book_snapshot_timeout_secs` แบบครั้งเดียว หาก snapshot แรกหาย
+deadline นี้จะเริ่มการกู้คืนแม้ไม่มีการอัปเดตจาก venue ระหว่างที่ตั้งไว้ การอัปเดตที่มาก่อนและ snapshot ที่ถูกปฏิเสธจะทำให้
+book ยังถูกกั้นไว้จนกว่าจะมี snapshot ที่ถูกต้องหรือเริ่มการกู้คืน
 
-A zero timeout disables initial and reconnect deadlines, plus per-attempt snapshot deadlines
-within the 180-second retry budget. The budget still ends a pending attempt; later attempts time out after one minute.
+timeout ที่เป็นศูนย์จะปิด deadline ทั้งตอนเริ่มต้นและตอน reconnect รวมถึง snapshot deadline รายครั้งภายใน retry budget
+180 วินาที budget ยังคงจบความพยายามที่ค้างอยู่ ความพยายามครั้งถัดไปจะ timeout หลังจากหนึ่งนาที
 
-The venue sends a `book` snapshot on first subscribe and ignores duplicate subscribes. A book-delta
-subscription can join an asset held by quotes, trades, or resolution watches. Without an accepted
-snapshot, it starts recovery unless an armed deadline or running recovery already covers the book.
-Recovery cycles the asset's subscription until a valid snapshot arrives.
+venue ส่ง snapshot `book` ในการ subscribe ครั้งแรกและไม่สนใจการ subscribe ซ้ำ book-delta subscription สามารถเข้าร่วม
+asset ที่ถูกถือโดย quote, trade หรือ resolution watch ได้ หากไม่มี snapshot ที่ยอมรับ จะเริ่มการกู้คืน เว้นแต่ deadline ที่ตั้ง
+ไว้หรือการกู้คืนที่ทำงานอยู่ครอบคลุม book แล้ว การกู้คืนจะวน subscription ของ asset จนกว่าจะมี snapshot ที่ถูกต้อง
 
-A single `price_change` payload can contain interleaved updates for several assets. The adapter
-groups book updates by instrument, then splits consecutive updates by hash. Quote processing remains
-in venue payload order.
-Each hash group emits its own [normalized book delta batch](#price-change-bursts).
+payload `price_change` เดียวอาจมีการอัปเดตของหลาย asset สลับกันอยู่ adapter จะจัดกลุ่ม book update ตาม instrument แล้ว
+แบ่งการอัปเดตที่ต่อเนื่องกันตาม hash การประมวลผล quote ยังคงเป็นไปตามลำดับใน payload ของ venue แต่ละกลุ่ม hash จะ
+emit [batch ของ book delta ที่ normalize แล้ว](#price-change-bursts) ของตัวเอง
 
-Both book output modes reject input older than a retained timestamp mark. Incremental input advances
-it even while gated; snapshots advance it only after validation and acceptance.
+output ของ book ทั้งสองโหมดจะปฏิเสธ input ที่เก่ากว่า timestamp mark ที่เก็บไว้ input แบบ incremental จะเลื่อน mark ไป
+แม้ระหว่างถูกกั้น ส่วน snapshot จะเลื่อนเฉพาะหลังผ่านการตรวจสอบและได้รับการยอมรับ
 
-- Book-delta unsubscribe, shard reconnect, and tick-size changes reset the mark.
-- Recovery subscription cycles retain it.
-- Disconnect clears it. A retained published book can still reject older snapshots.
+- การ unsubscribe book delta, การ reconnect ของ shard และการเปลี่ยน tick size จะ reset mark
+- การวน subscription เพื่อกู้คืนจะคง mark ไว้
+- การ disconnect จะล้าง mark book ที่ publish ไว้แล้วยังอาจปฏิเสธ snapshot ที่เก่ากว่าได้
 
-Equal millisecond timestamps do not establish source order.
+timestamp ที่เท่ากันในระดับมิลลิวินาทีไม่ได้ยืนยันลำดับจากต้นทาง
 
-#### Quote ticks
+#### Quote tick {#quote-ticks}
 
-The adapter exposes one quote tick subscription type. It does not expose separate subscriptions for
-snapshot-derived, price-change-derived, and `best_bid_ask` quotes. Quote, book delta, and trade subscriptions
-for the same instrument share one asset-scoped `market` WebSocket subscription. A book delta subscription
-alone does not emit quote ticks. Quote output remains gated by an active quote subscription.
+adapter มี subscription type สำหรับ quote tick เพียงแบบเดียว ไม่ได้แยก subscription สำหรับ quote ที่ได้จาก snapshot, จาก
+price change และจาก `best_bid_ask` subscription ของ quote, book delta และ trade สำหรับ instrument เดียวกันใช้ WebSocket
+subscription `market` ระดับ asset ร่วมกัน book delta subscription เพียงอย่างเดียวจะไม่ emit quote tick output ของ quote
+ยังถูกกั้นด้วย quote subscription ที่ active
 
-| Venue message  | Trigger                                      | Price source                      | Size source                                                           |
+| Venue message  | ตัวกระตุ้น                                      | แหล่งราคา                          | แหล่งขนาด                                                              |
 | -------------- | -------------------------------------------- | --------------------------------- | --------------------------------------------------------------------- |
-| `book`         | Book snapshot                                | Snapshot best bid and ask         | Snapshot best-level sizes                                             |
-| `price_change` | Subscribed level update                      | Message `best_bid` and `best_ask` | Changed best-level size; prior size only at matching price, else zero |
-| `best_bid_ask` | Top move with `subscribe_new_markets = true` | Direct message best bid and ask   | Maintained-book top or prior quote, depending on book state           |
+| `book`         | Book snapshot                                | best bid และ ask ของ snapshot       | ขนาดของ best level ใน snapshot                                         |
+| `price_change` | การอัปเดต level ที่ subscribe ไว้                  | `best_bid` และ `best_ask` ใน message | ขนาด best level ที่เปลี่ยน ใช้ขนาดก่อนหน้าเฉพาะเมื่อราคาตรงกัน มิฉะนั้นเป็นศูนย์       |
+| `best_bid_ask` | top ขยับเมื่อ `subscribe_new_markets = true`    | best bid และ ask จาก message โดยตรง   | top ของ book ที่ดูแลไว้หรือ quote ก่อนหน้า ขึ้นอยู่กับสถานะของ book              |
 
 ```mermaid
 flowchart LR
@@ -2124,322 +1846,280 @@ flowchart LR
     D --> T[QuoteTick]
 ```
 
-All three venue message paths converge on the same quote tick stream. Deduplication compares prices
-and sizes with the cached quote regardless of which message type produced it. An unchanged
-`book` or `price_change` quote updates the cached timestamp without publication, so older quotes
-are rejected, including for quote-only subscriptions.
+path ของ venue message ทั้งสามรวมกันเป็น quote tick stream เดียวกัน การ deduplicate จะเปรียบเทียบราคาและขนาดกับ
+quote ใน cache ไม่ว่า message type ใดเป็นผู้สร้าง quote จาก `book` หรือ `price_change` ที่ไม่เปลี่ยนจะอัปเดต timestamp
+ใน cache โดยไม่ publish ดังนั้น quote ที่เก่ากว่าจะถูกปฏิเสธ รวมถึงสำหรับ subscription แบบ quote-only
 
-##### `best_bid_ask` handling
+##### การจัดการ `best_bid_ask` {#best_bid_ask-handling}
 
-With `subscribe_new_markets` enabled, the venue also sends `best_bid_ask` events when an asset's top of book
-moves. Every market connection requests these asset-scoped events. Only the primary connection forwards global
-new-market and resolution events. The payload carries prices only, so the adapter selects each side's size as
-follows:
+เมื่อเปิด `subscribe_new_markets` venue จะส่ง event `best_bid_ask` เมื่อ top of book ของ asset ขยับด้วย ทุก market
+connection request event ระดับ asset เหล่านี้ มีเพียง primary connection เท่านั้นที่ส่งต่อ event ระดับ global ของตลาดใหม่
+และการ resolve payload มีเฉพาะราคา adapter จึงเลือกขนาดของแต่ละฝั่งดังนี้:
 
-- With [effective deltas](#effective-deltas), an active book delta subscription, and book updates not
-  gated pending a valid snapshot, a side takes its size from the maintained local book when its top
-  price matches. Before the first snapshot, or when the top does not match, its size is zero.
-- Without effective deltas, or while book updates are gated pending a valid snapshot, a side
-  keeps the previous quote size when its top price matches. A moved or unknown side has zero size.
+- เมื่อมี [effective deltas](#effective-deltas), มี book delta subscription ที่ active และ book update ไม่ได้ถูกกั้นเพื่อรอ
+  snapshot ที่ถูกต้อง ฝั่งนั้นจะใช้ขนาดจาก local book ที่ดูแลไว้เมื่อราคา top ตรงกัน ก่อน snapshot แรก หรือเมื่อ top ไม่
+  ตรงกัน ขนาดจะเป็นศูนย์
+- เมื่อไม่มี effective deltas หรือขณะที่ book update ถูกกั้นเพื่อรอ snapshot ที่ถูกต้อง ฝั่งนั้นจะคงขนาด quote ก่อนหน้าไว้
+  เมื่อราคา top ตรงกัน ฝั่งที่ขยับหรือไม่ทราบจะมีขนาดเป็นศูนย์
 
-An unchanged `best_bid_ask` quote does not advance the cached timestamp. Its sizes come from older
-messages, so a size update with a slightly earlier venue timestamp is still accepted.
+quote จาก `best_bid_ask` ที่ไม่เปลี่ยนจะไม่เลื่อน timestamp ใน cache ขนาดของ quote มาจาก message ที่เก่ากว่า ดังนั้นการ
+อัปเดตขนาดที่มี venue timestamp เร็วกว่าเล็กน้อยยังได้รับการยอมรับ
 
-The adapter ignores events older than the cached quote or, with effective deltas, the local
-book. It also rejects locked, crossed, out-of-range, and off-grid events.
+adapter ไม่สนใจ event ที่เก่ากว่า quote ใน cache หรือ local book (เมื่อมี effective deltas) และปฏิเสธ event ที่ locked,
+crossed, อยู่นอกช่วง และไม่ตรง grid
 
-With a book delta subscription, both modes also discard snapshots older than the book's retained
-timestamp mark before quote processing. A snapshot rejected by book hash validation emits no quote.
+เมื่อมี book delta subscription ทั้งสองโหมดจะทิ้ง snapshot ที่เก่ากว่า timestamp mark ของ book ก่อนการประมวลผล quote
+ด้วย snapshot ที่ถูกปฏิเสธจากการตรวจ book hash จะไม่ emit quote
 
-An empty price, a bid at or below zero, or an ask at or above one is a missing side. By default,
-`drop_quotes_missing_side` drops the event. When missing sides are allowed, the missing price uses
-the current tick-relative venue bound and its size is zero.
+ราคาว่าง, bid ที่ต่ำกว่าหรือเท่ากับศูนย์ หรือ ask ที่สูงกว่าหรือเท่ากับหนึ่ง ถือเป็นฝั่งที่ขาดหาย โดยค่าเริ่มต้น
+`drop_quotes_missing_side` จะทิ้ง event เมื่ออนุญาตให้มีฝั่งที่ขาดหาย ราคาที่ขาดจะใช้ขอบเขตของ venue ที่สัมพันธ์กับ tick
+ปัจจุบัน และขนาดเป็นศูนย์
 
-#### Book snapshot validation
+#### การตรวจ book snapshot {#book-snapshot-validation}
 
-When a `book` snapshot includes a hash and its full preimage, the adapter reproduces it from the
-exact wire values and level order. It logs and rejects a mismatch before the snapshot can:
+เมื่อ snapshot `book` มี hash และ preimage ครบ adapter จะสร้าง hash ขึ้นใหม่จากค่าบน wire และลำดับ level ที่ตรงตัว และจะ
+log และปฏิเสธเมื่อไม่ตรงกัน ก่อนที่ snapshot จะ:
 
-- Install the snapshot levels as a new baseline.
-- Emit snapshot-derived deltas or quotes.
-- Resume gated book deltas.
+- ติดตั้ง level ของ snapshot เป็น baseline ใหม่
+- emit delta หรือ quote ที่ได้จาก snapshot
+- ให้ book delta ที่ถูกกั้นกลับมาทำงาน
 
-For book-delta subscribers, a hash rejection drops the comparison book and gates `price_change` deltas:
+สำหรับผู้ subscribe book-delta การปฏิเสธจาก hash จะทิ้ง book ที่ใช้เปรียบเทียบและกั้น delta ของ `price_change`:
 
-- An armed initial or reconnect deadline starts recovery at expiry.
-- During recovery, a mismatch fails the attempt and resubscribes immediately, without waiting for its snapshot deadline.
-- Otherwise, recovery starts immediately.
+- deadline ตอนเริ่มต้นหรือตอน reconnect ที่ตั้งไว้จะเริ่มการกู้คืนเมื่อหมดเวลา
+- ระหว่างการกู้คืน การไม่ตรงกันจะทำให้ความพยายามนั้นล้มเหลวและ resubscribe ทันที โดยไม่รอ snapshot deadline
+- ในกรณีอื่น การกู้คืนจะเริ่มทันที
 
-The next accepted snapshot emits a full `CLEAR` reseed, including with effective deltas.
+snapshot ถัดไปที่ได้รับการยอมรับจะ emit การ reseed แบบ `CLEAR` เต็มรูปแบบ รวมถึงเมื่อมี effective deltas
 
-After exhausting its retry budget, recovery retries at intervals that double from one to fifteen minutes.
+หลังจาก retry budget หมด การกู้คืนจะ retry ตามช่วงเวลาที่เพิ่มเป็นสองเท่าจากหนึ่งถึงสิบห้านาที
 
-[Polymarket book messages](https://docs.polymarket.com/market-data/realtime-data) can omit hash inputs
-such as `tick_size` and `last_trade_price`. Instrument metadata supplies missing `min_order_size` and
-`neg_risk`. If the hash or any required input remains unavailable, the adapter accepts the snapshot
-without verification, including after a verified baseline. It does not fill missing mutable inputs
-from earlier snapshots: a mismatch against stale metadata does not prove corrupt depth.
+[Polymarket book messages](https://docs.polymarket.com/market-data/realtime-data) อาจไม่มี input ของ hash เช่น
+`tick_size` และ `last_trade_price` instrument metadata จะเติม `min_order_size` และ `neg_risk` ที่ขาดไป หาก hash หรือ
+input ที่จำเป็นใดยังไม่มี adapter จะยอมรับ snapshot โดยไม่ตรวจสอบ รวมถึงหลังจากมี baseline ที่ตรวจสอบแล้ว adapter ไม่
+เติม input ที่เปลี่ยนแปลงได้ซึ่งขาดหายจาก snapshot ก่อนหน้า เพราะการไม่ตรงกันกับ metadata ที่ล้าสมัยไม่ได้พิสูจน์ว่า depth
+เสียหาย
 
-An accepted snapshot can resume gated book output even when its hash is unverifiable. Complete-input
-hash mismatches still require recovery, which pauses book output; independent `price_change` quotes
-remain available.
+snapshot ที่ได้รับการยอมรับสามารถทำให้ output ของ book ที่ถูกกั้นกลับมาทำงานได้ แม้ hash จะตรวจสอบไม่ได้ hash ที่ไม่ตรงกัน
+เมื่อ input ครบยังต้องกู้คืน ซึ่งจะหยุด output ของ book ชั่วคราว ส่วน quote จาก `price_change` ที่เป็นอิสระยังใช้งานได้
 
-#### Price change bursts
+#### Price change burst {#price-change-bursts}
 
-A match can span `price_change` messages with one timestamp. When the taker leaves a resting remainder,
-it arrives first, followed by one removal per consumed opposite-side level. A `book` event closes the burst.
-Each message's `best_bid` and `best_ask` describe the completed match, so intermediate updates can cross
-the book until the consumed levels are removed.
+การ match หนึ่งครั้งอาจกินเวลาหลาย message `price_change` ที่มี timestamp เดียวกัน เมื่อ taker ทิ้งส่วนที่เหลือที่วางค้างไว้
+ส่วนนั้นจะมาก่อน ตามด้วยการลบหนึ่งครั้งต่อหนึ่ง level ฝั่งตรงข้ามที่ถูกกิน event `book` จะปิด burst `best_bid` และ
+`best_ask` ของแต่ละ message อธิบาย match ที่เสร็จสมบูรณ์ ดังนั้นการอัปเดตระหว่างทางอาจทำให้ book crossed จนกว่า level
+ที่ถูกกินจะถูกลบ
 
-A book delta subscription keeps a local book from its first accepted snapshot. When a
-`price_change` batch leaves that book crossed, with a bid above an ask, the adapter appends deletes
-for the bids above that asset's `best_bid` and the asks below its `best_ask`. The emitted batch then
-leaves the book uncrossed, and the venue's later removals of those levels delete nothing. Batches
-that leave the book uncrossed, including a book locked at one price, pass through unchanged.
+book delta subscription จะเก็บ local book ตั้งแต่ snapshot แรกที่ได้รับการยอมรับ เมื่อ batch ของ `price_change` ทำให้ book
+นั้น crossed คือมี bid สูงกว่า ask adapter จะเพิ่มการลบสำหรับ bid ที่สูงกว่า `best_bid` ของ asset นั้นและ ask ที่ต่ำกว่า
+`best_ask` จากนั้น batch ที่ emit ออกไปจะทำให้ book ไม่ crossed และการลบ level เหล่านั้นของ venue ในภายหลังจะไม่ลบอะไร
+batch ที่ทำให้ book ไม่ crossed รวมถึง book ที่ locked ที่ราคาเดียว จะผ่านไปโดยไม่เปลี่ยน
 
-A missing `best_bid` or `best_ask` leaves its side unpruned, and an invalid one skips pruning. The
-adapter logs a warning whenever normalization leaves the local book crossed.
+`best_bid` หรือ `best_ask` ที่ขาดหายจะทำให้ฝั่งนั้นไม่ถูกตัด และค่าที่ไม่ถูกต้องจะข้ามการตัด adapter จะ log คำเตือนทุกครั้ง
+ที่การ normalize ทิ้ง local book ไว้ในสถานะ crossed
 
-Incremental messages omit mutable hash inputs, so both output modes process them without hash
-verification or buffering. Each consecutive hash group emits its normalized deltas with `F_LAST` on
-its final record. Hash changes and empty incremental hashes do not trigger recovery.
+message แบบ incremental ไม่มี input ของ hash ที่เปลี่ยนแปลงได้ ทั้งสองโหมด output จึงประมวลผลโดยไม่ตรวจ hash หรือ buffer
+แต่ละกลุ่ม hash ที่ต่อเนื่องกันจะ emit delta ที่ normalize แล้วโดยมี `F_LAST` ที่ record สุดท้าย การเปลี่ยน hash และ hash
+แบบ incremental ที่ว่างเปล่าจะไม่กระตุ้นการกู้คืน
 
-Polymarket supplies no sequence linking these updates. Missing depth can therefore remain undetected
-until a fresh snapshot replaces it; timestamp filtering and crossed-book normalization do not prove
-complete incremental integrity.
+Polymarket ไม่มี sequence ที่เชื่อมการอัปเดตเหล่านี้ไว้ depth ที่ขาดหายจึงอาจไม่ถูกตรวจพบจนกว่า snapshot ใหม่จะมาแทนที่
+การกรองด้วย timestamp และการ normalize book ที่ crossed ไม่ได้พิสูจน์ว่าการอัปเดตแบบ incremental ครบถ้วนสมบูรณ์
 
-#### Live recovery validation
+#### การตรวจสอบการกู้คืนแบบ live {#live-recovery-validation}
 
-The `polymarket-book-stress` harness is a development tool for changes to book synchronization and
-recovery. It uses Polymarket public market data, submits no orders, and subscribes one outcome token
-from each of the six open, order-accepting markets with the highest 24-hour volume. Each book has
-its own connection (`ws_max_subscriptions` is 1).
+harness `polymarket-book-stress` เป็นเครื่องมือสำหรับนักพัฒนาที่ใช้กับการเปลี่ยนแปลงด้าน book synchronization และการกู้คืน
+ใช้ public market data ของ Polymarket ไม่ส่ง order ใด ๆ และ subscribe outcome token หนึ่งตัวจากแต่ละตลาดหกตลาดที่เปิดอยู่
+รับ order และมี volume 24 ชั่วโมงสูงสุด แต่ละ book มี connection ของตัวเอง (`ws_max_subscriptions` เป็น 1)
 
-The harness checks each batch against the book stream contract. Two oracles compare the best 20 levels:
+harness ตรวจแต่ละ batch เทียบกับ book stream contract โดยมี oracle สองตัวที่เปรียบเทียบ 20 level ที่ดีที่สุด:
 
-- **Same connection**: reconstructs the raw feed. Polymarket has no sequence, so retained source events
-  align `book` snapshots and `price_change` updates by timestamp. Unaligned batches are skipped.
-- **Separate connections**: compare full venue snapshots with emitted states at matching hashes and timestamps.
-  A later comparable incremental batch completes the preceding burst; snapshots and skipped batches discard
-  unfinished incremental state. Intermediate batches can share the final hash and are not compared with that final state.
+- **Connection เดียวกัน**: สร้าง raw feed ขึ้นใหม่ Polymarket ไม่มี sequence ดังนั้น source event ที่เก็บไว้จะจัดแนว
+  snapshot `book` และการอัปเดต `price_change` ตาม timestamp batch ที่จัดแนวไม่ได้จะถูกข้าม
+- **Connection แยกกัน**: เปรียบเทียบ snapshot เต็มของ venue กับ state ที่ emit ออกมาที่ hash และ timestamp ที่ตรงกัน batch
+  แบบ incremental ที่เปรียบเทียบได้ในภายหลังจะปิด burst ก่อนหน้า ส่วน snapshot และ batch ที่ถูกข้ามจะทิ้ง incremental state
+  ที่ยังไม่เสร็จ batch ระหว่างทางอาจมี hash เดียวกับ hash สุดท้ายและจะไม่ถูกเปรียบเทียบกับ state สุดท้ายนั้น
 
-Both oracles skip conflicting raw states with the same event kind and timestamp as ambiguous;
-identical replays remain comparable.
+oracle ทั้งสองข้าม raw state ที่ขัดแย้งกันซึ่งมีชนิด event และ timestamp เดียวกัน โดยถือว่ากำกวม ส่วนการ replay ที่เหมือนกัน
+ทุกประการยังเปรียบเทียบได้
 
-The raw oracle records timestamp regressions even for dropped events, including gated updates before
-an older initial snapshot. Independent incremental comparisons resume only after a current snapshot
-restores the baseline; `oracle_skipped` counts skipped incremental states.
+raw oracle บันทึก timestamp ที่ถอยหลังแม้กับ event ที่ถูกทิ้ง รวมถึงการอัปเดตที่ถูกกั้นก่อน snapshot แรกที่เก่ากว่า การ
+เปรียบเทียบ incremental แบบอิสระจะกลับมาทำงานเฉพาะหลังจาก snapshot ปัจจุบันคืน baseline แล้ว `oracle_skipped` นับ
+incremental state ที่ถูกข้าม
 
-Each book needs at least one aligned independent comparison per session. Before restart or stop,
-the harness waits up to 120 seconds for missing samples, then fails if any remain missing.
-A session also fails if a book emits no incremental updates while the venue sends at least 10
-`price_change` events newer than its first snapshot that passes the same-connection check.
+แต่ละ book ต้องมีการเปรียบเทียบแบบอิสระที่จัดแนวได้อย่างน้อยหนึ่งครั้งต่อ session ก่อน restart หรือ stop harness จะรอ
+sample ที่ขาดอยู่ได้สูงสุด 120 วินาที แล้วจะล้มเหลวหากยังขาดอยู่ session จะล้มเหลวด้วยหาก book ไม่ emit การอัปเดตแบบ
+incremental เลย ขณะที่ venue ส่ง event `price_change` อย่างน้อย 10 ครั้งที่ใหม่กว่า snapshot แรกที่ผ่านการตรวจแบบ
+connection เดียวกัน
 
-A quiet book counts as recovered once its snapshot passes the same-connection check. This requires
-neither a second venue event nor an independent comparison at that point.
+book ที่เงียบจะนับว่ากู้คืนแล้วเมื่อ snapshot ผ่านการตรวจแบบ connection เดียวกัน ซึ่งไม่ต้องการ event ที่สองจาก venue หรือ
+การเปรียบเทียบแบบอิสระ ณ จุดนั้น
 
-Run it from a network location Polymarket serves. From the repository root, run:
+ให้รันจากตำแหน่ง network ที่ Polymarket ให้บริการ จาก root ของ repository ให้รัน:
 
 ```bash
 CARGO_BUILD_JOBS=16 bash scripts/strip-adapter-env.bash \
   cargo test -p nautilus-polymarket --features examples --test polymarket-book-stress -- --timeout 10 --rounds 12
 ```
 
-`--scenario` selects the run:
+`--scenario` ใช้เลือกการรัน:
 
-- `churn` (default): one phase per round: a broken snapshot hash, a dropped initial snapshot, a
-  reconnect while a recovering book is held, dropped snapshots after a reconnect, and a restart
-  during recovery.
-- `boundaries`: holds a recovering book through the retry budget, then checks the retry ceiling, a
-  reconnect at the ceiling, unsubscribe during recovery, held-frame release after unsubscribe, and
-  shutdown during a reconnect.
-- `disabled`: requires `--timeout 0`, drops each book's resubscription snapshot, checks that a silent book
-  does not retry on a snapshot deadline, then restores it with an explicit resubscribe.
-- `auto-load`: starts without instrument bootstrap, drops each automatically loaded book's first snapshot,
-  and checks that each book recovers. Books without venue updates isolate deadline-driven recovery;
-  include quiet books with `--tokens`. Requires a positive `--timeout`.
+- `churn` (ค่าเริ่มต้น): หนึ่ง phase ต่อหนึ่งรอบ ได้แก่ snapshot hash ที่เสีย, snapshot แรกที่ถูกทิ้ง, การ reconnect ขณะที่
+  ถือ book ที่กำลังกู้คืน, snapshot ที่ถูกทิ้งหลัง reconnect และการ restart ระหว่างการกู้คืน
+- `boundaries`: ถือ book ที่กำลังกู้คืนไว้จนหมด retry budget แล้วตรวจเพดานการ retry, การ reconnect ที่เพดาน, การ
+  unsubscribe ระหว่างการกู้คืน, การปล่อย frame ที่ถือไว้หลัง unsubscribe และการ shutdown ระหว่าง reconnect
+- `disabled`: ต้องใช้ `--timeout 0` ทิ้ง resubscription snapshot ของแต่ละ book ตรวจว่า book ที่เงียบจะไม่ retry เมื่อถึง
+  snapshot deadline แล้วกู้คืนด้วยการ resubscribe อย่างชัดเจน
+- `auto-load`: เริ่มโดยไม่มี instrument bootstrap ทิ้ง snapshot แรกของแต่ละ book ที่โหลดอัตโนมัติ และตรวจว่าแต่ละ book
+  กู้คืนได้ book ที่ไม่มีการอัปเดตจาก venue จะแยกการกู้คืนที่ขับเคลื่อนด้วย deadline ออกมา ใส่ book ที่เงียบด้วย `--tokens`
+  ต้องใช้ `--timeout` ที่เป็นบวก
 
-`--timeout` sets snapshot deadlines in seconds; `0` disables them. `--rounds` defaults to 12.
-Use `--tokens` with comma-separated outcome IDs from six distinct open, order-accepting markets instead
-of the most traded markets. Include populated quiet books and empty books to cover recovery without ongoing traffic.
+`--timeout` กำหนด snapshot deadline เป็นวินาที โดย `0` จะปิด `--rounds` มีค่าเริ่มต้นเป็น 12 ใช้ `--tokens` พร้อม outcome
+ID ที่คั่นด้วย comma จากหกตลาดที่ต่างกัน เปิดอยู่ และรับ order แทนตลาดที่เทรดมากที่สุด ใส่ทั้ง book ที่เงียบแต่มีข้อมูลและ
+book ที่ว่างเพื่อครอบคลุมการกู้คืนโดยไม่มี traffic ต่อเนื่อง
 
-Two venue behaviors limit what the harness can force:
+พฤติกรรมของ venue สองประการจำกัดสิ่งที่ harness บังคับได้:
 
-- Polymarket never rejects a subscription. An unverifiable `book` event can complete recovery
-  before a corrupted replacement arrives. The harness therefore withholds replacement snapshots instead.
-- Reconnect replay also resubscribes a recovering book, so the ceiling reconnect check shows prompt
-  recovery without isolating the ceiling wake.
+- Polymarket ไม่เคยปฏิเสธ subscription event `book` ที่ตรวจสอบไม่ได้อาจทำให้การกู้คืนเสร็จก่อนที่ snapshot ทดแทนที่เสีย
+  จะมาถึง harness จึงกัน snapshot ทดแทนไว้แทน
+- การ replay ตอน reconnect จะ resubscribe book ที่กำลังกู้คืนด้วย ดังนั้นการตรวจ reconnect ที่เพดานจะแสดงการกู้คืนที่รวดเร็ว
+  โดยไม่ได้แยกการปลุกที่เพดานออกมา
 
-The harness requires the market WebSocket channel, the Gamma markets API, and the CLOB API. See
-[Stress harnesses](../developer_guide/spec_data_testing.md#stress-harnesses) for the shared flags
-and output format.
+harness ต้องใช้ market WebSocket channel, Gamma markets API และ CLOB API ดู flag ที่ใช้ร่วมกันและรูปแบบ output ได้ที่
+[Stress harnesses](../developer_guide/spec_data_testing.md#stress-harnesses)
 
-#### Effective deltas
+#### Effective delta {#effective-deltas}
 
-`compute_effective_deltas` defaults to `false`. Enable it to trade extra processing for smaller
-snapshot batches (see [Data client options](#data-client-options)):
+`compute_effective_deltas` มีค่าเริ่มต้นเป็น `false` เปิดใช้เพื่อแลกการประมวลผลเพิ่มกับ snapshot batch ที่เล็กลง (ดู
+[Data client options](#data-client-options)):
 
-- With published comparison state, snapshots emit only net changes: `ADD` for new levels,
-  `UPDATE` for resized levels, and `DELETE` with the last known size for removed levels. No-op snapshots emit
-  nothing; the final record carries `F_LAST`.
-- Without a usable comparison baseline, the adapter emits the full snapshot with `CLEAR` and `F_SNAPSHOT`.
-  This includes initial subscription, a shard reconnect, a book-delta unsubscribe, and a
-  [tick size change](#tick-size-change-handling). A complete-input snapshot hash mismatch or an
-  incremental parsing error while the latest accepted snapshot is verified also removes the baseline.
-- Incremental `price_change` batches follow [price change bursts](#price-change-bursts) handling
-  and update the local comparison state.
-- When book deltas are subscribed, the maintained comparison book can supply matching sizes to
-  `best_bid_ask` quote ticks. This can change those quote sizes and their unchanged-quote
-  suppression, and the carried sizes can affect later `price_change` quotes. Trades are unchanged.
+- เมื่อมี comparison state ที่ publish แล้ว snapshot จะ emit เฉพาะการเปลี่ยนแปลงสุทธิ: `ADD` สำหรับ level ใหม่, `UPDATE`
+  สำหรับ level ที่เปลี่ยนขนาด และ `DELETE` พร้อมขนาดล่าสุดที่ทราบสำหรับ level ที่ถูกลบ snapshot ที่ไม่มีการเปลี่ยนแปลงจะไม่
+  emit อะไร record สุดท้ายมี `F_LAST`
+- เมื่อไม่มี comparison baseline ที่ใช้ได้ adapter จะ emit snapshot เต็มพร้อม `CLEAR` และ `F_SNAPSHOT` ซึ่งรวมถึงการ
+  subscribe ครั้งแรก, การ reconnect ของ shard, การ unsubscribe book-delta และ[การเปลี่ยน tick size](#tick-size-change-handling)
+  snapshot hash ที่ไม่ตรงกันเมื่อ input ครบ หรือ error ในการ parse incremental ขณะที่ snapshot ล่าสุดที่ยอมรับได้รับการ
+  ตรวจสอบแล้ว ก็จะลบ baseline เช่นกัน
+- batch ของ `price_change` แบบ incremental เป็นไปตามการจัดการ [price change burst](#price-change-bursts) และอัปเดต
+  comparison state ภายในเครื่อง
+- เมื่อ subscribe book delta ไว้ comparison book ที่ดูแลไว้สามารถให้ขนาดที่ตรงกันแก่ quote tick ของ `best_bid_ask` ได้ ซึ่ง
+  อาจเปลี่ยนขนาดของ quote เหล่านั้นและการระงับ quote ที่ไม่เปลี่ยน และขนาดที่ส่งต่อมาอาจส่งผลต่อ quote จาก
+  `price_change` ในภายหลัง trade ไม่เปลี่ยน
 
-#### PolyBolt reference prices
+#### PolyBolt reference price {#polybolt-reference-prices}
 
-The data client also supports Polymarket's PolyBolt reference-price channels: crypto spot
-(`price.crypto`), 60-second Chainlink crypto TWAP (`price.crypto.twap`), and equity, ETF, forex,
-metal, and commodity prices (`price.equity`). PolyBolt replaced the legacy RTDS price topics in
-October 2026.
+data client ยังรองรับ reference-price channel ของ PolyBolt จาก Polymarket ได้แก่ crypto spot (`price.crypto`), Chainlink
+crypto TWAP 60 วินาที (`price.crypto.twap`) และราคาหุ้น, ETF, forex, โลหะ และสินค้าโภคภัณฑ์ (`price.equity`) PolyBolt
+เข้ามาแทน RTDS price topic แบบเดิมในเดือนตุลาคม 2026
 
-PolyBolt requires CLOB L2 API credentials. Set `api_key`, `api_secret`, and `passphrase` on
-`PolymarketDataClientConfig`, or export `POLYMARKET_API_KEY`, `POLYMARKET_API_SECRET`, and
-`POLYMARKET_PASSPHRASE`. Credentials are optional when no price subscriptions are used.
+PolyBolt ต้องใช้ CLOB L2 API credential ตั้ง `api_key`, `api_secret` และ `passphrase` บน `PolymarketDataClientConfig`
+หรือ export `POLYMARKET_API_KEY`, `POLYMARKET_API_SECRET` และ `POLYMARKET_PASSPHRASE` credential ไม่จำเป็นเมื่อไม่ได้ใช้
+price subscription
 
-Explicit credentials and a complete environment set are validated when the data client is constructed.
-Malformed credentials fail construction. A partial environment set is ignored with a warning. A price
-subscription without credentials is rejected with a configuration error.
+credential ที่ระบุอย่างชัดเจนและชุด environment ที่ครบจะถูกตรวจสอบตอนสร้าง data client credential ที่ผิดรูปแบบจะทำให้การ
+สร้างล้มเหลว ชุด environment ที่ไม่ครบจะถูกเพิกเฉยพร้อมคำเตือน price subscription ที่ไม่มี credential จะถูกปฏิเสธด้วย
+configuration error
 
-Subscribe through generic custom data with a required, non-empty `symbol` metadata value. TWAP
-subscriptions also require `window_seconds` equal to `60`, the only window PolyBolt serves:
+subscribe ผ่าน generic custom data โดยต้องมีค่า metadata `symbol` ที่ไม่ว่าง subscription แบบ TWAP ยังต้องมี
+`window_seconds` เท่ากับ `60` ซึ่งเป็น window เดียวที่ PolyBolt ให้บริการ
 
-```python
-from nautilus_trader.adapters.polymarket import POLYMARKET_CLIENT_ID
-from nautilus_trader.adapters.polymarket import PolymarketCryptoPrice
-from nautilus_trader.adapters.polymarket import PolymarketCryptoTwap
-from nautilus_trader.adapters.polymarket import PolymarketEquityPrice
-from nautilus_trader.model import DataType
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-crypto_type = DataType(
-    PolymarketCryptoPrice.__name__,
-    metadata={"symbol": "btcusd"},
-)
-equity_type = DataType(
-    PolymarketEquityPrice.__name__,
-    metadata={"symbol": "aapl"},
-)
-twap_type = DataType(
-    PolymarketCryptoTwap.__name__,
-    metadata={"symbol": "btcusd", "window_seconds": 60},
-)
+##### Symbol และค่า {#symbols-and-values}
 
-strategy.subscribe_data(crypto_type, client_id=POLYMARKET_CLIENT_ID)
-strategy.subscribe_data(equity_type, client_id=POLYMARKET_CLIENT_ID)
-strategy.subscribe_data(twap_type, client_id=POLYMARKET_CLIENT_ID)
-```
+symbol เป็นตัวพิมพ์เล็กและ quote เป็น USD เช่น `btcusd`, `ethusd`, `aapl`, `eurusd` หรือ `xauusd` การจับคู่ไม่สนใจตัวพิมพ์
+เล็กใหญ่ และ symbol ที่ publish เป็นตัวพิมพ์เล็ก ตอน subscribe adapter จะปฏิเสธการสะกดแบบ RTDS เดิม `btcusdt` (Binance,
+quote เป็น USDT) และ `btc/usd` พร้อมคำแนะนำ เพราะ PolyBolt จะไม่ส่งอะไรให้แบบเงียบ ๆ และ `usdt` จะเปลี่ยน quote currency
+ตอนนี้ crypto spot ใช้ราคา Chainlink USD เป็นค่าเริ่มต้นแทน Binance USDT
 
-##### Symbols and values
+reference price ใช้ `Decimal` ของ Rust เพราะ `full_accuracy_value` ที่แม่นยำของ venue อาจมีทศนิยมได้ถึง 18 หลัก ซึ่งเกิน
+precision ของ `Price` channel แบบ spot จะใช้ `value` สำหรับแสดงผลเฉพาะเมื่อไม่มีฟิลด์ที่แม่นยำ ส่วน TWAP จะไม่ fallback เลย
 
-Symbols are lowercase and USD-quoted, for example `btcusd`, `ethusd`, `aapl`, `eurusd`, or `xauusd`. Matching
-is case-insensitive and published symbols are lowercase. At subscription time, the adapter rejects legacy RTDS
-spellings `btcusdt` (Binance, USDT-quoted) and `btc/usd` with a hint. PolyBolt would silently serve nothing
-for them, and `usdt` would change the quote currency. Crypto spot now defaults to Chainlink USD prices rather
-than Binance USDT.
+แต่ละ sample ยังมี:
 
-Reference prices use Rust `Decimal` because the venue's exact `full_accuracy_value` can carry up to 18
-fractional digits, beyond `Price` precision. Python receives the exact decimal string. Convert it with
-`decimal.Decimal`. Spot channels use the display `value` only when the exact field is absent. TWAP never falls
-back.
+- `source`: provider ที่ให้บริการ คือ `chainlink` หรือ `pyth` สำหรับ crypto และ `pyth`, `massive` หรือ `chainlink` สำหรับหุ้น
+- `message_timestamp_ms`: เวลาของ envelope ของ PolyBolt
 
-Each sample also carries:
+จุดใน equity snapshot ไม่มี metadata เรื่องเวลาที่ venue ได้รับและการยกค่าต่อมา adapter จะตั้ง `received_at_ms=None`
+และ `is_carried_forward=False` ค่าเริ่มต้นเหล่านี้ไม่ได้หมายความว่าเป็นค่าใหม่
 
-- `source`: The served provider, `chainlink` or `pyth` for crypto. `pyth`, `massive`, or `chainlink` for
-  equities.
-- `message_timestamp_ms`: The PolyBolt envelope time.
+##### Subscription, snapshot และ reconnect {#subscriptions-snapshots-and-reconnects}
 
-Equity snapshot points omit venue receipt and carried-forward metadata. The adapter sets `received_at_ms=None`
-and `is_carried_forward=False`. These defaults do not imply a fresh value.
+feed ยืนยันตัวตนหนึ่งครั้งต่อ connection รอ acknowledgement `authed` จาก venue แล้วจึงส่ง subscription หนึ่งรายการต่อ
+`(channel, symbol)` subscription ใหม่ทุกรายการจะได้รับ snapshot สองนาทีก่อน ซึ่ง emit ทีละจุดตามลำดับ แล้วจึงตามด้วย live
+update PolyBolt อนุญาต 64 subscription ต่อ connection `(channel, symbol)` ที่ไม่ซ้ำลำดับที่ 65 จะถูกปฏิเสธพร้อม error
 
-##### Subscriptions, snapshots, and reconnects
+##### การ replay ตอน reconnect {#reconnect-replay}
 
-The feed authenticates once per connection, waits for the venue's `authed` acknowledgement, and only then
-sends one subscription per `(channel, symbol)`. Every new subscription first receives a two-minute snapshot,
-emitted point by point in order, and then live updates. PolyBolt allows 64 subscriptions per connection. The
-65th distinct `(channel, symbol)` is rejected with an error.
+หลัง reconnect feed จะยืนยันตัวตนใหม่และ replay subscription ที่เก็บไว้ snapshot ใหม่สามารถเติมช่วงที่ disconnect ได้ภายใน
+ประวัติสองนาที consumer อาจได้รับ burst ที่มี event timestamp เดิม (`ts_event`) และ initialization timestamp ปัจจุบัน
+(`ts_init`)
 
-##### Reconnect replay
+การกู้คืนถูกจำกัดด้วยประวัติของ snapshot และกฎการรับ replay ไม่ได้รับประกันประวัติแบบไม่สูญหาย จุดที่อยู่ ณ หรือก่อน
+timestamp ที่ emit ล่าสุดจะถูกระงับ เพื่อป้องกันการ emit ซ้ำ
 
-After reconnecting, the feed re-authenticates and replays retained subscriptions. A fresh snapshot
-can backfill the disconnect interval within its two-minute history. Consumers may receive a burst
-with original event timestamps (`ts_event`) and current initialization timestamps (`ts_init`).
+replay guard ของ TWAP คงอยู่ข้าม reconnect:
 
-Recovery is bounded by snapshot history and replay-admission rules. It does not guarantee lossless history.
-Points at or before the last emitted timestamp are suppressed, preventing duplicate emission.
+- ระงับ observation ที่ซ้ำและที่เก่ากว่า
+- ปฏิเสธค่าที่ต่างกันที่ observation timestamp เดียวกัน และ log channel, symbol, timestamp, ค่าก่อนหน้า และค่าที่ได้รับ
+  ที่ระดับ error
+- ให้ observation ก่อนหน้าเป็นค่าหลัก และกลับมา emit ที่ observation ที่ใหม่กว่าใน frame ถัดไป
 
-The TWAP replay guard survives reconnects:
+การประมวลผล TWAP snapshot จะหยุดที่จุดแรกที่ขัดแย้งหรือไม่ถูกต้อง และทิ้งส่วนที่เหลือของ frame นั้น
 
-- Suppresses repeated and older observations.
-- Rejects a different value at the same observation timestamp and logs the channel, symbol,
-  timestamp, prior value, and received value at error level.
-- Keeps the prior observation authoritative and resumes emission at a newer observation in a subsequent frame.
+##### การยืนยันตัวตนล้มเหลว {#authentication-failures}
 
-TWAP snapshot processing stops at the first conflicting or invalid point and discards the rest of that frame.
-
-##### Authentication failures
-
-| Venue error                      | Adapter response                                                    |
+| Venue error                      | การตอบสนองของ adapter                                                |
 | -------------------------------- | ------------------------------------------------------------------- |
-| `auth_invalid` or `auth_expired` | Log an error, stop auth frames, and reject the handshake.           |
-| `auth_unavailable`               | Retry after a short delay, including during data-client connection. |
-| `auth_attempts`                  | Move to a fresh connection.                                         |
+| `auth_invalid` หรือ `auth_expired` | log error หยุดส่ง auth frame และปฏิเสธ handshake                      |
+| `auth_unavailable`               | retry หลัง delay สั้น ๆ รวมถึงระหว่างการ connect ของ data client          |
+| `auth_attempts`                  | ย้ายไปใช้ connection ใหม่                                              |
 
-A credential rejection during connect fails the connection and tears down the partial session,
-including its market socket. Credentials are resolved once at construction: recreate the client
-with corrected credentials, because reconnecting the same client retries the rejected ones.
+การปฏิเสธ credential ระหว่าง connect จะทำให้ connection ล้มเหลวและรื้อ session ที่สร้างไปบางส่วน รวมถึง market socket
+ของ session นั้น credential ถูก resolve ครั้งเดียวตอนสร้าง: ให้สร้าง client ใหม่ด้วย credential ที่แก้ไขแล้ว เพราะการ reconnect
+client เดิมจะ retry credential ที่ถูกปฏิเสธ
 
-A transient auth outage never takes down the market data socket. The venue allows eight auth frames
-per connection, so a prolonged outage moves to a fresh connection before the ninth frame.
+auth outage ชั่วคราวจะไม่ทำให้ market data socket ล่ม venue อนุญาต auth frame แปดครั้งต่อ connection ดังนั้น outage ที่
+ยาวนานจะย้ายไปใช้ connection ใหม่ก่อน frame ที่เก้า
 
-##### Sequence gap recovery
+##### การกู้คืนเมื่อ sequence ขาด {#sequence-gap-recovery}
 
-Every envelope carries a dense per-channel `seq` that resets on each connection. A gap,
-regression, or positive `dropped` count triggers a warning and a fresh snapshot: every subscription
-on that channel is unsubscribed and subscribed again. This also applies to a positive `dropped`
-count on the first envelope, before a previous sequence is known.
+ทุก envelope มี `seq` แบบต่อเนื่องราย channel ที่ reset ทุก connection ช่องว่าง, การถอยหลัง หรือค่า `dropped` ที่เป็นบวก
+จะกระตุ้นคำเตือนและ snapshot ใหม่: ทุก subscription บน channel นั้นจะถูก unsubscribe แล้ว subscribe ใหม่ ซึ่งใช้กับค่า
+`dropped` ที่เป็นบวกใน envelope แรกด้วย ก่อนที่จะทราบ sequence ก่อนหน้า
 
-The adapter resets sequence tracking on every reconnect.
+adapter reset การติดตาม sequence ทุกครั้งที่ reconnect
 
-The replay guard keeps backfill free of duplicates. The live envelope revealing a gap is still
-emitted, so missing points at or before that symbol's newly emitted timestamp are suppressed.
-The fresh snapshot can backfill other symbols whose timestamps have not advanced past the missing points.
+replay guard ทำให้การ backfill ไม่มีรายการซ้ำ live envelope ที่เผยให้เห็นช่องว่างยังถูก emit ดังนั้นจุดที่ขาดหายซึ่งอยู่ ณ
+หรือก่อน timestamp ที่เพิ่ง emit ของ symbol นั้นจะถูกระงับ snapshot ใหม่สามารถ backfill symbol อื่นที่ timestamp ยังไม่เลย
+จุดที่ขาดหายไปได้
 
-##### Request pacing and close codes
+##### จังหวะ request และ close code {#request-pacing-and-close-codes}
 
-Subscription and unsubscription requests share a quota that admits one frame every 53 ms,
-leaving room under the venue's combined 20-frame-per-second limit. The feed batches recovery for
-all affected channels. Multiple pending gaps on a channel coalesce into one resubscription.
-Gaps detected during an in-flight resubscription, including its quota wait, queue a follow-up
-resubscription for the affected channel.
+request สำหรับ subscribe และ unsubscribe ใช้ quota ร่วมกันที่อนุญาตหนึ่ง frame ทุก 53 ms ซึ่งเหลือช่องว่างภายใต้ขีดจำกัด
+รวม 20 frame ต่อวินาทีของ venue feed จะรวมการกู้คืนของทุก channel ที่ได้รับผลกระทบเป็น batch ช่องว่างที่ค้างอยู่หลายรายการ
+บน channel เดียวจะรวมเป็นการ resubscribe ครั้งเดียว ช่องว่างที่ตรวจพบระหว่างการ resubscribe ที่กำลังดำเนินอยู่ รวมถึงระหว่าง
+รอ quota จะเข้าคิวการ resubscribe ติดตามผลสำหรับ channel ที่ได้รับผลกระทบ
 
-Shutdown interrupts the server-drain reconnect delay, recovery retry delays, and quota waits.
+การ shutdown จะขัดจังหวะ reconnect delay จาก server-drain, delay ของการ retry เพื่อกู้คืน และการรอ quota
 
-The venue's close codes follow their documented recovery policies:
+close code ของ venue เป็นไปตามนโยบายการกู้คืนที่บันทึกไว้:
 
-- `4001` (authentication failed) stops automatic reconnects. Recreate the data client with
-  corrected CLOB API credentials.
-- `4002` (slow consumer) uses the shared client's reconnect policy: the first retry after a stable session is
-  immediate. Repeated unstable reconnects use exponential backoff and jitter.
-- `4003` (server draining) pauses recovery and reconnects once after a uniform random delay in
-  `[0, 10]` seconds.
-- `4008` (policy violation) logs an error and stops automatic reconnects. The adapter enforces
-  auth and subscription limits, so this close can indicate an adapter fault. Investigate and
-  correct the rejected request or limit violation before explicitly reconnecting the data client.
+- `4001` (authentication failed) หยุดการ reconnect อัตโนมัติ ให้สร้าง data client ใหม่ด้วย CLOB API credential ที่แก้ไขแล้ว
+- `4002` (slow consumer) ใช้ reconnect policy ของ shared client: การ retry ครั้งแรกหลัง session ที่เสถียรจะทำทันที การ
+  reconnect ที่ไม่เสถียรซ้ำ ๆ ใช้ exponential backoff และ jitter
+- `4003` (server draining) หยุดการกู้คืนชั่วคราวและ reconnect หนึ่งครั้งหลัง delay แบบสุ่มสม่ำเสมอใน `[0, 10]` วินาที
+- `4008` (policy violation) log error และหยุดการ reconnect อัตโนมัติ adapter บังคับใช้ขีดจำกัดด้าน auth และ subscription
+  อยู่แล้ว ดังนั้น close นี้อาจบ่งชี้ถึง fault ของ adapter ให้สืบสวนและแก้ไข request ที่ถูกปฏิเสธหรือการละเมิดขีดจำกัดก่อน
+  reconnect data client อย่างชัดเจน
 
-Other close codes reconnect with the shared client's backoff.
+close code อื่นจะ reconnect ด้วย backoff ของ shared client
 
-##### Migrating from RTDS
+##### การย้ายจาก RTDS {#migrating-from-rtds}
 
-The RTDS price transport and its public types were removed without compatibility aliases. Update
-code and serialized configurations to the new names:
+RTDS price transport และ public type ของมันถูกลบออกโดยไม่มี alias เพื่อความเข้ากันได้ ให้อัปเดต code และ config ที่
+serialize ไว้เป็นชื่อใหม่:
 
-| Previous name               | New name                      |
+| ชื่อเดิม                       | ชื่อใหม่                        |
 | --------------------------- | ----------------------------- |
 | `PolymarketRtdsCryptoPrice` | `PolymarketCryptoPrice`       |
 | `PolymarketRtdsCryptoTwap`  | `PolymarketCryptoTwap`        |
@@ -2447,42 +2127,39 @@ code and serialized configurations to the new names:
 | `base_url_rtds`             | `base_url_reference_prices`   |
 | `polymarket-rtds-streams`   | `polymarket-polybolt-streams` |
 
-Behavioral changes to account for:
+การเปลี่ยนแปลงด้านพฤติกรรมที่ต้องคำนึงถึง:
 
-- Reference-price subscriptions now require CLOB L2 credentials (`api_key`, `api_secret`, `passphrase`, or the
-  `POLYMARKET_*` environment variables). Explicit fields are validated strictly. Environment variables apply
-  only when all three are set. A partial set is ignored with a warning. Thus, clients that never subscribe to
-  reference prices still start.
-- Crypto symbols are lowercase USD pairs such as `btcusd`. `btcusdt` and `btc/usd` are rejected. Crypto spot
-  defaults to Chainlink USD prices rather than Binance USDT, and every sample carries the serving `source`.
-- The 30-second TWAP window was removed. `window_seconds` must be `60`. `30` is rejected rather than mapped.
-- `value` uses Rust `Decimal` in place of `Price` on crypto and equity samples. Python exposes a decimal
-  string on all three types. Equity no longer carries a separate `full_accuracy_value`.
+- reference-price subscription ต้องใช้ CLOB L2 credential แล้ว (`api_key`, `api_secret`, `passphrase` หรือ environment
+  variable `POLYMARKET_*`) ฟิลด์ที่ระบุอย่างชัดเจนจะถูกตรวจสอบอย่างเข้มงวด environment variable จะมีผลเฉพาะเมื่อตั้ง
+  ครบทั้งสามตัว ชุดที่ไม่ครบจะถูกเพิกเฉยพร้อมคำเตือน ดังนั้น client ที่ไม่เคย subscribe reference price ยังเริ่มทำงานได้
+- crypto symbol เป็นคู่ USD ตัวพิมพ์เล็ก เช่น `btcusd` ส่วน `btcusdt` และ `btc/usd` จะถูกปฏิเสธ crypto spot ใช้ราคา
+  Chainlink USD เป็นค่าเริ่มต้นแทน Binance USDT และทุก sample มี `source` ที่ให้บริการ
+- TWAP window 30 วินาทีถูกลบออก `window_seconds` ต้องเป็น `60` ส่วน `30` จะถูกปฏิเสธแทนการ map
+- `value` ใช้ `Decimal` ของ Rust แทน `Price` ใน sample ของ crypto และ equity equity ไม่มี `full_accuracy_value` แยกอีกต่อไป
 
-### Runtime instrument loading
+### การโหลด instrument ขณะ runtime {#runtime-instrument-loading}
 
-Polymarket lists thousands of active markets and new markets appear throughout the day, so preloading
-the full universe at startup is rarely practical. The data adapter auto-loads missing instruments on
-demand so that strategies can subscribe to markets that are not in the cache:
+Polymarket มีตลาดที่ active หลายพันตลาด และมีตลาดใหม่เกิดขึ้นตลอดวัน การ preload ทั้ง universe ตอน startup จึงแทบไม่
+เหมาะสม data adapter จะโหลด instrument ที่ขาดหายอัตโนมัติตามต้องการ เพื่อให้ strategy subscribe ตลาดที่ไม่อยู่ใน cache ได้:
 
-- For an uncached instrument, these strategy calls register a request with the adapter:
+- สำหรับ instrument ที่ไม่อยู่ใน cache การเรียกเหล่านี้จาก strategy จะ register request กับ adapter:
 
-  - `subscribe_quotes`, `subscribe_trades`, and `subscribe_book_deltas`.
-  - `subscribe_instrument_status` and `subscribe_instrument_close`.
-  - `request_instrument`.
+  - `subscribe_quotes`, `subscribe_trades` และ `subscribe_book_deltas`
+  - `subscribe_instrument_status` และ `subscribe_instrument_close`
+  - `request_instrument`
 
-  The adapter waits `auto_load_debounce_ms` (default 100 ms) so concurrent requests coalesce.
-- It then issues a single batched Gamma API call. Batches larger than the Gamma `condition_ids`
-  query ceiling (about 100) are split across multiple calls and merged.
-- Once the instruments are loaded, they are published to the data engine (populating the cache)
-  and the deferred subscriptions open their WebSocket subscriptions atomically. A strategy that
-  unsubscribes while the auto-load is in flight does not see a spurious subscription opened.
+  adapter จะรอ `auto_load_debounce_ms` (ค่าเริ่มต้น 100 ms) เพื่อรวม request ที่เกิดพร้อมกัน
+- จากนั้นจะเรียก Gamma API แบบ batch ครั้งเดียว batch ที่ใหญ่กว่าเพดาน query `condition_ids` ของ Gamma (ประมาณ 100)
+  จะถูกแบ่งเป็นหลาย call แล้วรวมผล
+- เมื่อโหลด instrument แล้ว จะ publish ไปยัง data engine (เติม cache) และ subscription ที่เลื่อนไว้จะเปิด WebSocket
+  subscription แบบ atomic strategy ที่ unsubscribe ระหว่างที่ auto-load กำลังดำเนินอยู่จะไม่เห็น subscription ที่เปิดขึ้น
+  โดยไม่ตั้งใจ
 
-#### Loading configuration
+#### การตั้งค่าการโหลด {#loading-configuration}
 
-The feature is enabled by default. Disable it by setting `auto_load_missing_instruments=False` on
-`PolymarketDataClientConfig`. To preload a known set of markets at startup instead, supply any of
-these on `PolymarketInstrumentProviderConfig`:
+ฟีเจอร์นี้เปิดอยู่โดยค่าเริ่มต้น ปิดได้ด้วยการตั้ง `auto_load_missing_instruments=False` บน `PolymarketDataClientConfig`
+หากต้องการ preload ชุดตลาดที่ทราบไว้ตอน startup แทน ให้ระบุอย่างใดอย่างหนึ่งต่อไปนี้บน
+`PolymarketInstrumentProviderConfig`:
 
 - `load_ids`
 - `filters`
@@ -2491,277 +2168,246 @@ these on `PolymarketInstrumentProviderConfig`:
 - `event_slug_builder`
 - `series_ids`
 
-These scopes compose rather than override each other: filter-driven queries run alongside any
-explicit slug or series scope, and `load_ids` loads additively on top. Only the unfiltered
-full-universe fetch is suppressed once an explicit scope is present.
+ขอบเขตเหล่านี้ประกอบเข้าด้วยกันแทนการ override กัน: query ที่ขับเคลื่อนด้วย filter จะรันควบคู่กับขอบเขต slug หรือ series
+ที่ระบุอย่างชัดเจน และ `load_ids` จะโหลดเพิ่มเติมซ้อนด้านบน มีเพียงการดึงทั้ง universe แบบไม่กรองเท่านั้นที่ถูกระงับเมื่อมี
+ขอบเขตที่ระบุอย่างชัดเจน
 
-The same composition applies to periodic refreshes driven by `update_instruments_interval_mins`.
-Scopes configured at startup keep refreshing for the client's lifetime, so bootstrap and refresh
-universes match.
+การประกอบแบบเดียวกันใช้กับการ refresh แบบเป็นรอบที่ขับเคลื่อนด้วย `update_instruments_interval_mins` ขอบเขตที่ตั้งค่าไว้
+ตอน startup จะ refresh ต่อไปตลอดอายุของ client ดังนั้น universe ของ bootstrap และ refresh จะตรงกัน
 
-#### Markets awaiting CLOB metadata
+#### ตลาดที่รอ CLOB metadata {#markets-awaiting-clob-metadata}
 
-Gamma can report a newly listed market before usable `clob_token_ids` are available, or omit it from a
-lookup. Auto-load retries these Gamma results and fetch failures with bounded exponential backoff plus
-jitter. It does not query CLOB `GET /markets/{cid}` to classify hydration.
+Gamma อาจรายงานตลาดที่เพิ่ง list ก่อนที่จะมี `clob_token_ids` ที่ใช้ได้ หรือไม่มีตลาดนั้นในผล lookup auto-load จะ retry ผล
+จาก Gamma เหล่านี้และการดึงที่ล้มเหลวด้วย exponential backoff ที่มีขอบเขตบวก jitter และไม่ query CLOB
+`GET /markets/{cid}` เพื่อจำแนกสถานะ hydration
 
-Only market protocol `v1` can enter this retry path. A market with protocol `v2`, a missing version,
-or an unknown version is skipped with a warning. Once identified as unsupported, it receives no further
-retry or closed-market probe. An initial closed-market probe can discover an unsupported market that
-the default Gamma lookup omits.
+มีเพียง market protocol `v1` ที่เข้าสู่ path การ retry นี้ได้ ตลาดที่ใช้ protocol `v2`, ไม่มี version หรือมี version ที่ไม่รู้จัก
+จะถูกข้ามพร้อมคำเตือน เมื่อระบุว่าไม่รองรับแล้วจะไม่มีการ retry หรือ closed-market probe อีก closed-market probe ครั้งแรก
+อาจพบตลาดที่ไม่รองรับซึ่ง Gamma lookup ตามค่าเริ่มต้นไม่ได้ส่งมา
 
-Tune the cadence with `auto_load_max_retries` (default 12), `auto_load_retry_delay_initial_secs` (default
-5.0), and `auto_load_retry_delay_max_secs` (default 15.0). The default retry delays total approximately three
-minutes. HTTP requests and rate-limit waits add to elapsed time. Set `auto_load_max_retries=0` to disable
-retry.
+ปรับจังหวะด้วย `auto_load_max_retries` (ค่าเริ่มต้น 12), `auto_load_retry_delay_initial_secs` (ค่าเริ่มต้น 5.0) และ
+`auto_load_retry_delay_max_secs` (ค่าเริ่มต้น 15.0) retry delay ตามค่าเริ่มต้นรวมแล้วประมาณสามนาที HTTP request และการรอ
+rate-limit จะเพิ่มเวลาที่ผ่านไป ตั้ง `auto_load_max_retries=0` เพื่อปิดการ retry
 
-Five-minute markets, such as Up/Down crypto markets, can expire before the venue supplies usable
-CLOB metadata. Account for that delay or raise the retry cap. After the retry budget is exhausted,
-the adapter logs a condition still missing on Gamma as a terminal miss. Resubscribe after the
-market becomes available.
+ตลาดห้านาที เช่น ตลาด crypto แบบ Up/Down อาจหมดอายุก่อนที่ venue จะให้ CLOB metadata ที่ใช้ได้ ให้คำนึงถึง delay นั้น
+หรือเพิ่มเพดานการ retry หลังจาก retry budget หมด adapter จะ log condition ที่ยังไม่มีใน Gamma ว่าเป็น terminal miss ให้
+resubscribe หลังจากตลาดพร้อมใช้งาน
 
-If the configured instrument filters reject an uncached instrument, auto-load drops its pending
-subscriptions without further retries or a terminal-miss error. It logs the rejection at DEBUG level.
+หาก instrument filter ที่ตั้งค่าไว้ปฏิเสธ instrument ที่ไม่อยู่ใน cache auto-load จะทิ้ง subscription ที่ค้างอยู่ของ instrument
+นั้นโดยไม่ retry อีกและไม่มี error แบบ terminal-miss และ log การปฏิเสธที่ระดับ DEBUG
 
-### Market resolution events
+### Market resolution event {#market-resolution-events}
 
-The Rust data client tracks Polymarket exposure by `condition_id` so both YES and NO legs
-close together when the venue resolves the market. Position events add open Polymarket binary
-option instruments to an internal watchlist. Data clients can also watch an instrument without a
-position by subscribing to `InstrumentStatus`, `InstrumentClose`, or both.
+data client ของ Rust ติดตาม exposure บน Polymarket ด้วย `condition_id` เพื่อให้ทั้งขา YES และ NO ปิดพร้อมกันเมื่อ venue
+resolve ตลาด position event จะเพิ่ม instrument แบบ binary option ของ Polymarket ที่เปิดอยู่เข้าไปใน watchlist ภายใน data
+client ยังสามารถเฝ้าดู instrument ที่ไม่มี position ได้ด้วยการ subscribe `InstrumentStatus`, `InstrumentClose` หรือทั้งคู่
 
-The subscriptions are independent: a status subscription emits only the status close, while a close
-subscription emits only the settlement price. Unsubscribing from one does not remove the other.
+subscription เหล่านี้เป็นอิสระต่อกัน: status subscription จะ emit เฉพาะการปิดสถานะ ส่วน close subscription จะ emit เฉพาะ
+settlement price การ unsubscribe ตัวหนึ่งไม่ได้ลบอีกตัว
 
-#### Subscription ownership and pending instruments
+#### ความเป็นเจ้าของ subscription และ instrument ที่ยัง pending {#subscription-ownership-and-pending-instruments}
 
-Cached instruments establish a watch when the subscription is accepted. Missing instruments first pass through
-auto-loading and the configured instrument filters. Unsubscribing removes only that data owner. Open positions
-retain their independent ownership. If loading cannot produce usable metadata, no automatic watch is created.
-An accepted unresolved intent can still be checked with an explicit manual resolution selector.
+instrument ใน cache จะเริ่มการเฝ้าดูเมื่อ subscription ได้รับการยอมรับ instrument ที่ขาดหายจะผ่าน auto-loading และ
+instrument filter ที่ตั้งค่าไว้ก่อน การ unsubscribe จะลบเฉพาะ data owner นั้น open position ยังคงความเป็นเจ้าของที่เป็นอิสระ
+ของตัวเอง หากการโหลดไม่สามารถให้ metadata ที่ใช้ได้ จะไม่มีการสร้างการเฝ้าดูอัตโนมัติ intent ที่ได้รับการยอมรับแต่ยังไม่
+resolve ยังตรวจได้ด้วย manual resolution selector ที่ระบุอย่างชัดเจน
 
-If an outcome arrives while a subscribed instrument is still loading, the client retains that outcome until
-its metadata passes the configured filters. Already admitted data and position owners settle immediately. A
-pending sibling does not delay them. Completing the pending subscription emits only its requested events and
-does not reopen ordinary market-data streams. Unsubscribing its last event type or rejecting its instrument
-filter discards the retained outcome.
+หาก outcome มาถึงขณะที่ instrument ที่ subscribe ไว้ยังโหลดอยู่ client จะเก็บ outcome นั้นไว้จนกว่า metadata จะผ่าน filter ที่
+ตั้งค่าไว้ data owner และ position owner ที่ถูกรับเข้ามาแล้วจะ settle ทันที sibling ที่ยัง pending ไม่ทำให้ล่าช้า การทำให้
+subscription ที่ค้างอยู่เสร็จสิ้นจะ emit เฉพาะ event ที่ร้องขอ และไม่เปิด market-data stream ปกติขึ้นใหม่ การ unsubscribe event
+type สุดท้ายหรือการถูก instrument filter ปฏิเสธจะทิ้ง outcome ที่เก็บไว้
 
-#### Automatic resolution paths
+#### Path การ resolve อัตโนมัติ {#automatic-resolution-paths}
 
-Once a watched condition expires, the data client waits `resolve_poll_grace_secs`, then polls Gamma
-every `resolve_poll_interval_secs` until the condition resolves or
-`resolve_poll_max_wait_secs` elapses.
+เมื่อ condition ที่เฝ้าดูหมดอายุ data client จะรอ `resolve_poll_grace_secs` แล้ว poll Gamma ทุก
+`resolve_poll_interval_secs` จนกว่า condition จะ resolve หรือ `resolve_poll_max_wait_secs` ผ่านไป
 
-| Delivery path         | Configuration and eligibility                                         | Release                                                      |
+| Delivery path         | การตั้งค่าและคุณสมบัติ                                                     | การปล่อย                                                       |
 | --------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Auto-load outcome.    | A strict outcome in a fetched Gamma payload, regardless of polling.   | Applied immediately; the auto-load task completes.           |
-| Gamma/CLOB polling.   | `resolve_poll_enabled=true`, within the expiration-based poll window. | Resolution, last owner removal, timeout, or shutdown.        |
-| Resolution WebSocket. | `subscribe_new_markets=true`, with an active, unpaused data watch.    | Resolution, last data owner removal, timeout, or shutdown.   |
-| Manual request.       | Any configuration, using explicit selectors or the watchlist rules.   | Request completion; successful resolution removes the watch. |
+| Auto-load outcome     | outcome แบบ strict ใน Gamma payload ที่ดึงมา ไม่ว่าจะ poll หรือไม่            | นำไปใช้ทันที และ auto-load task เสร็จสิ้น                         |
+| Gamma/CLOB polling    | `resolve_poll_enabled=true` ภายใน poll window ที่อิงเวลาหมดอายุ             | resolve, ลบ owner สุดท้าย, timeout หรือ shutdown                 |
+| Resolution WebSocket  | `subscribe_new_markets=true` พร้อม data watch ที่ active และไม่ถูกหยุดชั่วคราว | resolve, ลบ data owner สุดท้าย, timeout หรือ shutdown            |
+| Manual request        | config ใดก็ได้ โดยใช้ selector ที่ระบุอย่างชัดเจนหรือกฎของ watchlist            | request เสร็จสิ้น การ resolve สำเร็จจะลบการเฝ้าดู                    |
 
-The shipped defaults use polling, without a resolution-only WebSocket subscription. Disabling
-polling does not enable WebSocket resolution: that path requires `subscribe_new_markets=true`.
-With both disabled, later recovery requires a manual request.
+ค่าเริ่มต้นที่มากับระบบใช้ polling โดยไม่มี WebSocket subscription สำหรับ resolution อย่างเดียว การปิด polling ไม่ได้เปิด
+WebSocket resolution เพราะ path นั้นต้องใช้ `subscribe_new_markets=true` เมื่อปิดทั้งสองอย่าง การกู้คืนในภายหลังต้องใช้
+manual request
 
-These WebSocket ownership rules apply to the data subscription's token, not the independently
-configured venue-wide discovery feed. Releasing the token does not disconnect that feed. Valid
-resolutions received there still use the shared apply path for existing data and position owners.
+กฎความเป็นเจ้าของ WebSocket เหล่านี้ใช้กับ token ของ data subscription ไม่ใช่ discovery feed ระดับทั้ง venue ที่ตั้งค่าแยก
+ต่างหาก การปล่อย token ไม่ได้ disconnect feed นั้น resolution ที่ถูกต้องซึ่งได้รับจาก feed นั้นยังใช้ apply path ร่วมสำหรับ
+data owner และ position owner ที่มีอยู่
 
-#### Winner inference and settlement
+#### การอนุมานผู้ชนะและ settlement {#winner-inference-and-settlement}
 
-Resolution uses strict winner inference:
+การ resolve ใช้การอนุมานผู้ชนะแบบเข้มงวด:
 
-- Gamma must return a closed binary market with exactly two token IDs, two outcomes, and a binary
-  `outcomePrices` shape.
-- If Gamma does not provide a strict result for the condition, the client falls back to CLOB
-  `GET /markets/{condition_id}` and uses `tokens[].winner`.
-- Non-binary, ambiguous, malformed, or still-unresolved payloads are skipped. They remain on the
-  watchlist until the poll window times out or a manual request resolves them.
+- Gamma ต้องคืนตลาด binary ที่ปิดแล้ว ซึ่งมี token ID สองตัวพอดี, outcome สองตัว และ `outcomePrices` ในรูปแบบ binary
+- หาก Gamma ไม่ให้ผลลัพธ์แบบ strict สำหรับ condition นั้น client จะ fallback ไปใช้ CLOB `GET /markets/{condition_id}`
+  และใช้ `tokens[].winner`
+- payload ที่ไม่ใช่ binary, กำกวม, ผิดรูปแบบ หรือยังไม่ resolve จะถูกข้าม และยังอยู่ใน watchlist จนกว่า poll window จะ
+  timeout หรือ manual request จะ resolve
 
-Auto-loading applies a strict outcome from either its normal lookup or positive closure probe
-immediately. An expiration that is future, stale, or missing does not discard an outcome already
-obtained. Without a strict outcome, existing expiration deadlines still apply: late subscriptions
-do not receive a fresh polling window, and missing expiration does not cause indefinite polling.
+auto-loading นำ outcome แบบ strict จาก lookup ปกติหรือ closure probe ที่ให้ผลบวกไปใช้ทันที เวลาหมดอายุที่อยู่ในอนาคต,
+ล้าสมัย หรือไม่มี จะไม่ทิ้ง outcome ที่ได้มาแล้ว หากไม่มี outcome แบบ strict deadline ตามเวลาหมดอายุที่มีอยู่ยังมีผล:
+subscription ที่มาช้าจะไม่ได้ polling window ใหม่ และเวลาหมดอายุที่ไม่มีจะไม่ทำให้ poll ไปเรื่อย ๆ
 
-Resolution emits events by ownership:
+การ resolve จะ emit event ตามความเป็นเจ้าของ:
 
-- Position-owned legs emit one `InstrumentStatus` close and one `InstrumentClose`.
-- Data-only legs emit whichever event types have active subscriptions.
+- ขาที่ position เป็นเจ้าของจะ emit การปิด `InstrumentStatus` หนึ่งครั้งและ `InstrumentClose` หนึ่งครั้ง
+- ขาที่มีเฉพาะ data จะ emit event type ที่มี subscription active อยู่
 
-The winner closes at `1`, the loser at `0`, with close type `InstrumentCloseType.CONTRACT_EXPIRED`. In a live
-node, the execution engine settles each open position in the leg at that price. It emits one `PositionClosed`
-without an order or fill. The first close applied is authoritative (see
-[Settlement at contract expiration](../concepts/positions.md#settlement-at-contract-expiration)).
+ผู้ชนะปิดที่ `1` ผู้แพ้ปิดที่ `0` ด้วย close type `InstrumentCloseType.CONTRACT_EXPIRED` ใน live node execution engine จะ
+settle แต่ละ open position ในขานั้นที่ราคานั้น และ emit `PositionClosed` หนึ่งครั้งโดยไม่มี order หรือ fill การปิดครั้งแรกที่
+นำไปใช้ถือเป็นค่าหลัก (ดู [Settlement at contract expiration](../concepts/positions.md#settlement-at-contract-expiration))
 
-Settlement does not redeem tokens or claim funds on-chain. The pUSD balance includes the payout
-only after redemption, so account balances exclude unredeemed winnings until then. Deposit Wallet
-users can redeem winning tokens with [Position operations](#position-operations).
+settlement ไม่ได้ redeem token หรือรับเงินแบบ on-chain balance pUSD จะรวมเงินจ่ายเฉพาะหลังการ redeem ดังนั้น account
+balance จะไม่รวมเงินรางวัลที่ยังไม่ redeem จนกว่าจะถึงตอนนั้น ผู้ใช้ Deposit Wallet สามารถ redeem token ที่ชนะได้ด้วย
+[Position operation](#position-operations)
 
-#### Closure and subscription release
+#### การปิดตลาดและการปล่อย subscription {#closure-and-subscription-release}
 
-Gamma's positive `closed=true` evidence stops normal quote, trade, and book-delta streams for both outcome
-siblings, even when the payload cannot produce usable instruments. Closure alone does not establish a winner
-or emit settlement events. Existing resolution owners remain available for polling or manual recovery. An
-enabled, unpaused resolution WebSocket may remain until resolution or timeout. Later live subscriptions cannot
-reopen the closed condition.
+หลักฐาน `closed=true` ที่เป็นบวกจาก Gamma จะหยุด stream ของ quote, trade และ book-delta ปกติสำหรับ outcome ทั้งสองฝั่ง
+แม้ payload จะสร้าง instrument ที่ใช้ได้ไม่ได้ การปิดเพียงอย่างเดียวไม่ได้ระบุผู้ชนะหรือ emit settlement event resolution
+owner ที่มีอยู่ยังพร้อมสำหรับ polling หรือการกู้คืนแบบ manual resolution WebSocket ที่เปิดใช้และไม่ถูกหยุดชั่วคราวอาจยังอยู่
+จนกว่าจะ resolve หรือ timeout live subscription ที่ตามมาไม่สามารถเปิด condition ที่ปิดแล้วขึ้นใหม่ได้
 
-The same apply path handles auto-load outcomes, WebSocket `market_resolved` events, automatic polling, and
-manual requests. Successful resolution emits each admitted owner's event types once, removes those owners and
-the condition's watch, and releases its WebSocket subscriptions. Existing pending data intents retain their
-outcome until admission or cancellation. New subscriptions cannot re-enroll the resolved condition. Automatic
-delivery never bypasses instrument-filter admission.
+apply path เดียวกันจัดการ outcome จาก auto-load, event `market_resolved` จาก WebSocket, polling อัตโนมัติ และ manual
+request การ resolve ที่สำเร็จจะ emit event type ของแต่ละ owner ที่ถูกรับเข้ามาครั้งเดียว ลบ owner เหล่านั้นและการเฝ้าดู
+condition และปล่อย WebSocket subscription ของ condition นั้น data intent ที่ค้างอยู่จะเก็บ outcome ไว้จนกว่าจะถูกรับเข้าหรือ
+ยกเลิก subscription ใหม่ไม่สามารถลงทะเบียน condition ที่ resolve แล้วอีกได้ การส่งแบบอัตโนมัติไม่เคยข้ามการรับเข้าผ่าน
+instrument filter
 
-#### Timeout, reconnect, and reset
+#### Timeout, reconnect และ reset {#timeout-reconnect-and-reset}
 
-After `resolve_poll_max_wait_secs`, the watch pauses and releases resolution-only WebSocket ownership,
-including when polling is disabled. An open market's independent quote, trade, or book subscriptions are
-unaffected by this pause. The client retains settlement metadata and ownership for manual recovery. A manual
-request does not restart the automatic deadline.
+หลัง `resolve_poll_max_wait_secs` การเฝ้าดูจะหยุดชั่วคราวและปล่อยความเป็นเจ้าของ WebSocket สำหรับ resolution อย่างเดียว
+รวมถึงเมื่อปิด polling subscription ของ quote, trade หรือ book ที่เป็นอิสระของตลาดที่เปิดอยู่จะไม่ได้รับผลกระทบจากการหยุดนี้
+client เก็บ settlement metadata และความเป็นเจ้าของไว้สำหรับการกู้คืนแบบ manual manual request จะไม่เริ่ม deadline อัตโนมัติ
+ใหม่
 
-- **Disconnect**: Stops network work.
-- **Reconnect**: Resumes unfinished loading and replays cached, active resolution WebSocket subscriptions.
-- **Reset**: Discards retained ownership and outcomes. Requires fresh subscriptions.
+- **Disconnect**: หยุดงานด้าน network
+- **Reconnect**: ทำการโหลดที่ยังไม่เสร็จต่อ และ replay resolution WebSocket subscription ที่ active ใน cache
+- **Reset**: ทิ้งความเป็นเจ้าของและ outcome ที่เก็บไว้ ต้อง subscribe ใหม่
 
-#### Manual resolution requests
+#### Manual resolution request {#manual-resolution-requests}
 
-Use `request_data()` with data type `PolymarketResolveRequest` to force a resolution check. The
-request accepts any of these params:
+ใช้ `request_data()` กับ data type `PolymarketResolveRequest` เพื่อบังคับให้ตรวจ resolution request รับ param ใด ๆ ต่อไปนี้:
 
-| Param            | Type                 | Description                                                  |
+| Param            | Type                 | คำอธิบาย                                                      |
 | ---------------- | -------------------- | ------------------------------------------------------------ |
-| `condition_id`   | `str`                | Resolve one Polymarket condition.                            |
-| `condition_ids`  | `str` or `list[str]` | Resolve one or more Polymarket conditions.                   |
-| `instrument_ids` | `str` or `list[str]` | Resolve Polymarket instrument IDs; other venues are ignored. |
+| `condition_id`   | `str`                | resolve Polymarket condition หนึ่งรายการ                       |
+| `condition_ids`  | `str` or `list[str]` | resolve Polymarket condition หนึ่งรายการหรือมากกว่า               |
+| `instrument_ids` | `str` or `list[str]` | resolve Polymarket instrument ID โดย venue อื่นจะถูกเพิกเฉย       |
 
-If a request omits all selectors, the client uses the watchlist. With automatic polling enabled,
-the fallback selects paused or timed-out entries. With automatic polling disabled, it selects all
-expired eligible entries, so operators can run the recovery flow manually.
+หาก request ไม่ระบุ selector ใดเลย client จะใช้ watchlist เมื่อเปิด polling อัตโนมัติ fallback จะเลือกรายการที่หยุดชั่วคราว
+หรือ timeout แล้ว เมื่อปิด polling อัตโนมัติ จะเลือกรายการที่ผ่านเกณฑ์และหมดอายุแล้วทั้งหมด เพื่อให้ operator รัน flow การ
+กู้คืนเองได้
 
-The response payload is custom data with this dictionary shape:
+payload ของ response เป็น custom data ที่มีรูปแบบ dictionary ดังนี้:
 
-| Key                          | Meaning                                                                   |
+| Key                          | ความหมาย                                                                   |
 | ---------------------------- | ------------------------------------------------------------------------- |
-| `requested_condition_ids`    | Deduplicated condition IDs checked by the request.                        |
-| `fetched_markets`            | Gamma markets returned across the batched lookup.                         |
-| `resolved_markets`           | Conditions with a strict Gamma result or successful CLOB fallback result. |
-| `skipped_non_binary_markets` | Gamma markets skipped for non-binary or ambiguous resolution shape.       |
-| `clob_fallback_successes`    | Conditions resolved through the CLOB fallback path.                       |
-| `emitted_condition_ids`      | Conditions that emitted at least one `InstrumentClose`.                   |
-| `failed_condition_ids`       | Conditions where both Gamma and CLOB lookup failed.                       |
-| `used_watchlist_fallback`    | Whether the request selected conditions from the watchlist.               |
-| `timed_out_watchlist`        | Timed-out watchlist entries seen during fallback selection.               |
-| `error`                      | First summary error, if one occurred.                                     |
+| `requested_condition_ids`    | condition ID ที่ request ตรวจ โดยตัดรายการซ้ำแล้ว                                |
+| `fetched_markets`            | Gamma market ที่คืนมาจาก lookup แบบ batch                                    |
+| `resolved_markets`           | condition ที่มีผลลัพธ์แบบ strict จาก Gamma หรือผลลัพธ์จาก CLOB fallback ที่สำเร็จ     |
+| `skipped_non_binary_markets` | Gamma market ที่ถูกข้ามเพราะรูปแบบ resolution ไม่ใช่ binary หรือกำกวม               |
+| `clob_fallback_successes`    | condition ที่ resolve ผ่าน path ของ CLOB fallback                              |
+| `emitted_condition_ids`      | condition ที่ emit `InstrumentClose` อย่างน้อยหนึ่งครั้ง                           |
+| `failed_condition_ids`       | condition ที่ lookup ทั้ง Gamma และ CLOB ล้มเหลว                                |
+| `used_watchlist_fallback`    | request เลือก condition จาก watchlist หรือไม่                                 |
+| `timed_out_watchlist`        | รายการใน watchlist ที่ timeout แล้วซึ่งพบระหว่างการเลือกแบบ fallback                 |
+| `error`                      | error สรุปตัวแรก หากเกิดขึ้น                                                    |
 
-Redemption is a separate account or execution workflow. Do not extend the data client resolution path to claim
-funds. It only publishes market-outcome close events into Nautilus.
+redemption เป็น workflow ของ account หรือ execution แยกต่างหาก อย่าขยาย path การ resolve ของ data client เพื่อรับเงิน path
+นี้เพียง publish event การปิดตามผลลัพธ์ของตลาดเข้าสู่ Nautilus เท่านั้น
 
-### Purging instruments at runtime
+### การ purge instrument ขณะ runtime {#purging-instruments-at-runtime}
 
-Polymarket auto-loads instruments on demand, so a long-running session keeps growing the cache as
-markets resolve, new markets appear, and strategies cycle through events. Use `cache.purge_instrument`
-to drop markets the strategy no longer tracks. The call removes the instrument record and its
-cached market data (order book, quotes, trades, bars). Order and position history remains indexed
-until purged separately, preserving realized PnL reporting.
+Polymarket โหลด instrument อัตโนมัติตามต้องการ ดังนั้น session ที่รันนานจะทำให้ cache โตขึ้นเรื่อย ๆ เมื่อตลาด resolve, มี
+ตลาดใหม่เกิดขึ้น และ strategy หมุนเวียนไปตาม event ใช้ `cache.purge_instrument` เพื่อทิ้งตลาดที่ strategy ไม่ได้ติดตามแล้ว
+call นี้จะลบ record ของ instrument และ market data ใน cache (order book, quote, trade, bar) ประวัติ order และ position
+ยังคงถูก index ไว้จนกว่าจะ purge แยกต่างหาก เพื่อรักษาการรายงาน realized PnL
 
-```python
-class PolymarketHousekeeping(Strategy):
-    def on_position_closed(self, event: PositionClosed) -> None:
-        # Drop the market once the position is closed and you have no further interest.
-        instrument_id = event.instrument_id
-        self.unsubscribe_quotes(instrument_id)
-        self.unsubscribe_book_deltas(instrument_id)
-        self.cache.purge_instrument(instrument_id)
-```
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-Common triggers on Polymarket:
+ตัวกระตุ้นที่พบบ่อยบน Polymarket:
 
-- A market resolves and produces no further trades.
-- An event ends and the strategy rotates off its markets.
-- The strategy rotates a fixed-size watchlist and drops the oldest entry.
+- ตลาด resolve และไม่มี trade อีกต่อไป
+- event สิ้นสุดและ strategy หมุนออกจากตลาดของ event นั้น
+- strategy หมุนเวียน watchlist ขนาดคงที่และทิ้งรายการที่เก่าที่สุด
 
-The purge skips any instrument that still has non-terminal orders (initialized, submitted,
-accepted, emulated, released, or inflight) or non-closed positions, so it is safe to call without
-coordinating with the execution client. Active WebSocket subscriptions belong to the data engine.
-Unsubscribe before purging if you no longer want updates.
+การ purge จะข้าม instrument ที่ยังมี order ที่ไม่ใช่ terminal (initialized, submitted, accepted, emulated, released หรือ
+inflight) หรือ position ที่ยังไม่ปิด จึงเรียกได้อย่างปลอดภัยโดยไม่ต้องประสานกับ execution client WebSocket subscription ที่
+active เป็นของ data engine ให้ unsubscribe ก่อน purge หากไม่ต้องการการอัปเดตแล้ว
 
-The cache also exposes `purge_order`, `purge_position`, `purge_closed_orders`,
-`purge_closed_positions`, and `purge_account_events` for trimming closed execution state.
-For long-running Polymarket nodes, schedule the bulk purges from `LiveExecutionEngineConfig`
-(15 min interval, 60 min buffer is a sensible default). See
-[Cache: purging cached data](../concepts/cache.md#purging-cached-data) for the full set.
+cache ยังมี `purge_order`, `purge_position`, `purge_closed_orders`, `purge_closed_positions` และ
+`purge_account_events` สำหรับตัด execution state ที่ปิดแล้ว สำหรับ Polymarket node ที่รันนาน ให้ตั้งเวลา bulk purge จาก
+`LiveExecutionEngineConfig` (interval 15 นาที และ buffer 60 นาทีเป็นค่าเริ่มต้นที่สมเหตุสมผล) ดูทั้งหมดได้ที่
+[Cache: purging cached data](../concepts/cache.md#purging-cached-data)
 
 :::warning
-The caller decides when an instrument is no longer needed. Purging an instrument that another
-actor, strategy, or engine still relies on causes missing instrument lookups and loses market-data
-history.
+ผู้เรียกเป็นผู้ตัดสินใจว่าเมื่อใดที่ไม่ต้องการ instrument แล้ว การ purge instrument ที่ actor, strategy หรือ engine อื่นยังพึ่งพา
+อยู่จะทำให้การ lookup instrument หาไม่พบและสูญเสียประวัติ market data
 :::
 
-### Execution
+### Execution {#execution}
 
-Before starting its WebSocket or initializing account state, the execution client queries unauthenticated
-`GET /version`. Startup continues only when the venue reports numeric version `2`. Any other version stops
-startup with an unsupported-version error. A missing, malformed, or errored response stops startup with a
-version-query failure.
+ก่อนเริ่ม WebSocket หรือ initialize account state execution client จะ query `GET /version` แบบไม่ยืนยันตัวตน startup จะ
+ดำเนินต่อเฉพาะเมื่อ venue รายงาน version เป็นตัวเลข `2` version อื่นจะหยุด startup ด้วย error แบบ unsupported-version
+response ที่ไม่มี, ผิดรูปแบบ หรือเป็น error จะหยุด startup ด้วยความล้มเหลวในการ query version
 
-This service version is separate from the market protocol. Before submitting or modifying an order,
-the client requires instrument metadata `info["market_version"]` to be `"v1"`. Otherwise it emits
-`OrderDenied` for a submission or `OrderModifyRejected` for a modification. Reload instruments from
-discovery if cached instruments lack that metadata.
+service version นี้แยกจาก market protocol ก่อนส่งหรือ modify order client กำหนดให้ instrument metadata
+`info["market_version"]` ต้องเป็น `"v1"` มิฉะนั้นจะ emit `OrderDenied` สำหรับการส่ง หรือ `OrderModifyRejected` สำหรับการ
+modify ให้โหลด instrument ใหม่จาก discovery หาก instrument ใน cache ไม่มี metadata นั้น
 
-The execution adapter subscribes once to an account-wide `user` channel for order and trade events.
-It does not open market-channel subscriptions for instruments seen during trading.
+execution adapter subscribe channel `user` ระดับทั้ง account ครั้งเดียวสำหรับ order event และ trade event โดยไม่เปิด
+market-channel subscription สำหรับ instrument ที่พบระหว่างการเทรด
 
-The shared WebSocket client logs a peer close code and reason before reconnecting. Malformed payload
-warnings and venue rejection reasons use the same bounded text handling as HTTP responses. Order
-rejections received through WebSocket or reconciliation use the same exact post-only classification
-as submit responses.
+shared WebSocket client จะ log close code และเหตุผลจากอีกฝั่งก่อน reconnect คำเตือนเรื่อง payload ที่ผิดรูปแบบและเหตุผลการ
+ปฏิเสธจาก venue ใช้การจัดการข้อความแบบจำกัดความยาวเดียวกับ HTTP response order rejection ที่ได้รับผ่าน WebSocket หรือ
+reconciliation ใช้การจำแนก post-only แบบตรงตัวเดียวกับ submit response
 
-#### Fill recovery and deduplication
+#### การกู้คืนและ deduplicate fill {#fill-recovery-and-deduplication}
 
-Matched WebSocket fills and their corrections are restored from cached order history and
-deduplicated across reconnects. If a trade arrives before its instrument is available, the adapter
-leaves it out of the dedup state. A redelivered event or later REST reconciliation can apply it after
-instrument loading completes.
+WebSocket fill ที่ match แล้วและการแก้ไขของ fill เหล่านั้นจะถูกกู้คืนจากประวัติ order ใน cache และ deduplicate ข้าม
+reconnect หาก trade มาถึงก่อนที่ instrument จะพร้อมใช้ adapter จะไม่ใส่ trade นั้นใน dedup state event ที่ถูกส่งซ้ำหรือ REST
+reconciliation ในภายหลังสามารถนำไปใช้ได้หลังจากโหลด instrument เสร็จ
 
-The adapter also validates every owned leg of a trade, including its commission, before emitting any
-fill for it. If validation fails, it emits no fill for that trade and quarantines it, and a targeted
-terminal REST read settles it as described in
-[Failed trades and REST resolution](#failed-trades-and-rest-resolution). Replayed WebSocket updates do
-not retry a quarantined trade.
+adapter ยังตรวจทุกขาของ trade ที่เป็นของ account รวมถึง commission ก่อน emit fill ใด ๆ ของ trade นั้น หากการตรวจล้มเหลว
+จะไม่ emit fill ของ trade นั้นและกักกันไว้ แล้วการอ่าน REST แบบ terminal ที่เจาะจงจะ settle ตามที่อธิบายใน
+[Trade ที่ล้มเหลวและการ resolve ผ่าน REST](#failed-trades-and-rest-resolution) การอัปเดตจาก WebSocket ที่ replay จะไม่ retry
+trade ที่ถูกกักกัน
 
-#### Terminal quantity normalization
+#### การ normalize quantity แบบ terminal {#terminal-quantity-normalization}
 
-For a fully matched order, terminal quantity normalization waits for every trade ID in the order's
-`associate_trades` list to confirm before lowering the order quantity to its actual fills. A hard-faulted
-trade in that list does not release it. See [Settlement faults](#settlement-faults).
+สำหรับ order ที่ match ครบ การ normalize quantity แบบ terminal จะรอให้ทุก trade ID ในรายการ `associate_trades` ของ order
+ได้รับการยืนยันก่อนลด order quantity ลงเท่ากับ fill จริง trade ที่เกิด hard fault ในรายการนั้นจะไม่ปล่อยการ normalize ดู
+[Settlement fault](#settlement-faults)
 
-REST recovery of a confirmed trade after a WebSocket gap applies the same order-only normalization.
-If a `MATCHED` WebSocket update omits `associate_trades`, the adapter does not infer finality. The
-next REST reconciliation recovers the residual after the trade reaches `CONFIRMED`.
+การกู้คืนผ่าน REST ของ trade ที่ยืนยันแล้วหลังช่องว่างของ WebSocket ใช้การ normalize เฉพาะ order แบบเดียวกัน หากการอัปเดต
+`MATCHED` จาก WebSocket ไม่มี `associate_trades` adapter จะไม่อนุมาน finality REST reconciliation ครั้งถัดไปจะกู้คืน
+ส่วนที่เหลือหลังจาก trade ถึง `CONFIRMED`
 
-### Subscription limits
+### ขีดจำกัดของ subscription {#subscription-limits}
 
-Polymarket does not publish a WebSocket subscription cap in its current rate-limit documentation.
-`ws_max_subscriptions` (default 200) is therefore a conservative, self-chosen per-connection
-reliability bound rather than a venue-enforced limit: high per-connection subscription counts have
-been observed to silently stall a connection.
+Polymarket ไม่ได้เผยแพร่เพดาน WebSocket subscription ในเอกสาร rate-limit ปัจจุบัน `ws_max_subscriptions` (ค่าเริ่มต้น 200)
+จึงเป็นขอบเขตด้าน reliability ต่อ connection ที่เลือกเองอย่างระมัดระวัง ไม่ใช่ขีดจำกัดที่ venue บังคับ: เคยพบว่าจำนวน
+subscription ต่อ connection ที่สูงทำให้ connection ค้างแบบเงียบ ๆ
 
-The adapter enforces the bound by sharding asset subscriptions across a pool of market connections. It opens a
-connection only when the existing ones are full. It closes a secondary connection once it owns no assets.
+adapter บังคับใช้ขอบเขตนี้ด้วยการแบ่ง asset subscription (sharding) ไปยัง pool ของ market connection โดยเปิด connection ใหม่
+เฉพาะเมื่อ connection ที่มีอยู่เต็มแล้ว และปิด connection รองเมื่อไม่มี asset แล้ว
 
-## Rate limiting
+## Rate limiting {#rate-limiting}
 
-Polymarket applies Cloudflare IP limits to its APIs and separate per-signer token buckets to CLOB
-order and cancellation requests. The adapter enforces the signer limits in process. All clients
-for one signer use the same limiter, which has independent order and cancellation buckets.
+Polymarket ใช้ขีดจำกัด IP ของ Cloudflare กับ API ของตน และใช้ token bucket ราย signer แยกต่างหากกับ request สำหรับ order
+และการยกเลิกบน CLOB adapter บังคับใช้ขีดจำกัดราย signer ภายใน process client ทั้งหมดของ signer เดียวกันใช้ limiter ตัว
+เดียวกัน ซึ่งมี bucket สำหรับ order และสำหรับการยกเลิกแยกกัน
 
-### Per-signer CLOB trading limits
+### ขีดจำกัดการเทรดบน CLOB ราย signer {#per-signer-clob-trading-limits}
 
-The adapter starts each signer at the Standard tier. Polymarket determines tier eligibility from
-the maker wallet's cumulative 30-day trading volume, even when the maker differs from the signer,
-and refreshes assignments every three hours. The adapter does not calculate eligibility: a
-recognized `Poly-RateLimit-Tier` response header selects one of these encoded profiles and updates
-both buckets, while an unknown tier is logged and ignored.
+adapter เริ่มให้แต่ละ signer อยู่ที่ tier Standard Polymarket กำหนดคุณสมบัติของ tier จาก volume การเทรดสะสม 30 วันของ
+maker wallet แม้ maker จะต่างจาก signer และอัปเดตการกำหนดทุกสามชั่วโมง adapter ไม่ได้คำนวณคุณสมบัติเอง: header
+`Poly-RateLimit-Tier` ที่รู้จักใน response จะเลือก profile หนึ่งที่ encode ไว้และอัปเดตทั้งสอง bucket ส่วน tier ที่ไม่รู้จักจะถูก
+log และเพิกเฉย
 
 | Tier     | 30-day maker volume | Order rate (tokens/s) | Order burst | Cancel rate (tokens/s) | Cancel burst | Negative cancel balance |
 | -------- | ------------------- | --------------------: | ----------: | ---------------------: | -----------: | ----------------------- |
@@ -2774,236 +2420,220 @@ both buckets, while an unknown tier is logged and ignored.
 | Diamond  | $5M+                |                   525 |         787 |                  1,050 |        1,575 | No                      |
 | Elite    | $10M+               |                   600 |         900 |                  1,200 |        1,800 | No                      |
 
-#### Request token costs
+#### Token cost ของ request {#request-token-costs}
 
-Covered requests consume:
+request ที่ครอบคลุมจะใช้:
 
 | Bucket       | Request                        | Token cost                               |
 | ------------ | ------------------------------ | ---------------------------------------- |
 | Order        | `POST /order`                  | 1                                        |
-| Order        | `POST /orders`                 | Number of orders                         |
+| Order        | `POST /orders`                 | จำนวน order                              |
 | Cancellation | `DELETE /order`                | 1                                        |
-| Cancellation | `DELETE /orders`               | Number of submitted order IDs            |
-| Cancellation | `DELETE /cancel-all`           | 1 plus successful cancellations          |
-| Cancellation | `DELETE /cancel-market-orders` | 1 plus successful matching cancellations |
+| Cancellation | `DELETE /orders`               | จำนวน order ID ที่ส่ง                       |
+| Cancellation | `DELETE /cancel-all`           | 1 บวกจำนวนการยกเลิกที่สำเร็จ                  |
+| Cancellation | `DELETE /cancel-market-orders` | 1 บวกจำนวนการยกเลิกที่ตรงกันและสำเร็จ            |
 
-A request waits for its full token cost. The adapter rejects it locally only if that cost exceeds
-the current tier's burst.
+request จะรอจนได้ token ครบตาม cost adapter จะปฏิเสธภายในเครื่องเฉพาะเมื่อ cost นั้นเกิน burst ของ tier ปัจจุบัน
 
-- Before each new `DELETE /orders` chunk, the adapter caps its size at the smaller of 1,000 IDs and
-  the current tier's burst.
-- Cancel-all and cancel-market requests debit one token before the request, then each successful cancellation
-  after the response. Standard through Gold tiers can enter cancellation debt. Platinum through Elite tiers
-  floor the balance at zero.
+- ก่อน chunk ใหม่ของ `DELETE /orders` แต่ละครั้ง adapter จะจำกัดขนาดไว้ที่ค่าที่น้อยกว่าระหว่าง 1,000 ID กับ burst ของ tier
+  ปัจจุบัน
+- request แบบ cancel-all และ cancel-market จะหักหนึ่ง token ก่อน request แล้วหักตามจำนวนการยกเลิกที่สำเร็จหลังได้รับ
+  response tier Standard ถึง Gold อาจติดหนี้การยกเลิกได้ ส่วน tier Platinum ถึง Elite จะจำกัด balance ไว้ไม่ต่ำกว่าศูนย์
 
-#### Rate-limit responses
+#### Response ด้าน rate-limit {#rate-limit-responses}
 
-`Poly-RateLimit-Remaining` can lower the local balance, and `Poly-RateLimit-Reset` extends a rejected
-or indebted bucket's wait. The adapter logs `Poly-RateLimit-Warning` responses with the endpoint,
-token cost, tier, remaining balance, and reset time.
+`Poly-RateLimit-Remaining` สามารถลด balance ภายในเครื่องได้ และ `Poly-RateLimit-Reset` จะยืดเวลารอของ bucket ที่ถูก
+ปฏิเสธหรือติดหนี้ adapter จะ log response `Poly-RateLimit-Warning` พร้อม endpoint, token cost, tier, balance ที่เหลือ และ
+เวลา reset
 
-A `429 Too Many Requests` response with `Retry-After` blocks the applicable bucket for at least that
-delay before retry. Without `Retry-After`, the retry manager uses its configured exponential
-backoff. Submit classification of 425 and 429 is in
-[Definitive and ambiguous outcomes](#definitive-and-ambiguous-outcomes).
+response `429 Too Many Requests` ที่มี `Retry-After` จะ block bucket ที่เกี่ยวข้องอย่างน้อยเท่ากับ delay นั้นก่อน retry หาก
+ไม่มี `Retry-After` retry manager จะใช้ exponential backoff ที่ตั้งค่าไว้ การจำแนกผลของ submit สำหรับ 425 และ 429 อยู่ใน
+[ผลลัพธ์ที่ชัดเจนและที่กำกวม](#definitive-and-ambiguous-outcomes)
 
-### Selected IP-based REST limits
+### ขีดจำกัด REST ตาม IP ที่เลือกมา {#selected-ip-based-rest-limits}
 
-Polymarket changes these quotas over time. As of 2026-08-04, the official limits are:
+Polymarket เปลี่ยน quota เหล่านี้ตามเวลา ณ วันที่ 2026-08-04 ขีดจำกัดอย่างเป็นทางการคือ:
 
-| Endpoint                            | Burst (10s) | Sustained (10 min) | Notes                                       |
+| Endpoint                            | Burst (10s) | Sustained (10 min) | หมายเหตุ                                      |
 | ----------------------------------- | ----------- | ------------------ | ------------------------------------------- |
-| General rate limiting               | 15,000      | -                  | Global documented rate limit.               |
-| Health check (`/ok`)                | 100         | -                  | Health endpoint.                            |
-| CLOB general                        | 9,000       | -                  | Aggregate across CLOB endpoints.            |
-| CLOB `POST /order`                  | 5,000       | 120,000            | Single-order submit.                        |
-| CLOB `POST /orders`                 | 2,000       | 21,000             | Batch submit (up to 15 orders per request). |
-| CLOB `DELETE /order`                | 5,000       | 120,000            | Single-order cancel.                        |
-| CLOB `DELETE /orders`               | 2,000       | 15,000             | Batch cancel.                               |
-| CLOB `DELETE /cancel-all`           | 250         | 6,000              | Cancel all orders.                          |
-| CLOB `DELETE /cancel-market-orders` | 1,500       | 21,000             | Cancel orders for one market.               |
-| CLOB `GET /balance-allowance`       | 200         | -                  | Balance and allowance queries.              |
-| CLOB API key endpoints              | 100         | -                  | Key management.                             |
-| Gamma general                       | 4,000       | -                  | Aggregate across Gamma endpoints.           |
-| Gamma `/markets`                    | 300         | -                  | Market metadata.                            |
-| Gamma `/events`                     | 500         | -                  | Event metadata.                             |
-| Data general                        | 1,000       | -                  | Aggregate across Data API endpoints.        |
-| Data `/trades`                      | 200         | -                  | Trade history.                              |
-| Data `/positions`                   | 150         | -                  | Current positions.                          |
+| General rate limiting               | 15,000      | -                  | rate limit ระดับ global ที่บันทึกไว้              |
+| Health check (`/ok`)                | 100         | -                  | health endpoint                             |
+| CLOB general                        | 9,000       | -                  | รวมทุก CLOB endpoint                         |
+| CLOB `POST /order`                  | 5,000       | 120,000            | submit order เดี่ยว                           |
+| CLOB `POST /orders`                 | 2,000       | 21,000             | batch submit (สูงสุด 15 order ต่อ request)    |
+| CLOB `DELETE /order`                | 5,000       | 120,000            | cancel order เดี่ยว                           |
+| CLOB `DELETE /orders`               | 2,000       | 15,000             | batch cancel                                |
+| CLOB `DELETE /cancel-all`           | 250         | 6,000              | cancel ทุก order                             |
+| CLOB `DELETE /cancel-market-orders` | 1,500       | 21,000             | cancel order ของตลาดหนึ่ง                      |
+| CLOB `GET /balance-allowance`       | 200         | -                  | query balance และ allowance                 |
+| CLOB API key endpoints              | 100         | -                  | การจัดการ key                                |
+| Gamma general                       | 4,000       | -                  | รวมทุก Gamma endpoint                        |
+| Gamma `/markets`                    | 300         | -                  | market metadata                             |
+| Gamma `/events`                     | 500         | -                  | event metadata                              |
+| Data general                        | 1,000       | -                  | รวมทุก Data API endpoint                     |
+| Data `/trades`                      | 200         | -                  | ประวัติ trade                                 |
+| Data `/positions`                   | 150         | -                  | position ปัจจุบัน                              |
 
-### WebSocket limits
+### ขีดจำกัดของ WebSocket {#websocket-limits}
 
-The WebSocket quotas are not part of the published REST rate-limits table. The adapter enforces
-`ws_max_subscriptions` (default 200) by sharding subscriptions across a pool of market connections. The
-adapter also paces PolyBolt subscription and unsubscription requests under a shared quota. See
-[Subscriptions, snapshots, and reconnects](#subscriptions-snapshots-and-reconnects).
+quota ของ WebSocket ไม่ได้อยู่ในตาราง REST rate-limit ที่เผยแพร่ adapter บังคับใช้ `ws_max_subscriptions` (ค่าเริ่มต้น 200)
+ด้วยการแบ่ง subscription ไปยัง pool ของ market connection adapter ยังกำหนดจังหวะ request สำหรับ subscribe และ
+unsubscribe ของ PolyBolt ภายใต้ quota ร่วม ดู [Subscription, snapshot และ reconnect](#subscriptions-snapshots-and-reconnects)
 
 :::warning
-Exceeding the IP-based limits triggers Cloudflare throttling. Requests are queued using sliding
-windows rather than rejected immediately, but sustained overshoot can result in HTTP 429 responses
-or temporary blocking.
+การใช้เกินขีดจำกัดตาม IP จะกระตุ้น throttling ของ Cloudflare request จะถูกเข้าคิวด้วย sliding window แทนการปฏิเสธทันที
+แต่การใช้เกินอย่างต่อเนื่องอาจทำให้ได้ HTTP 429 หรือถูก block ชั่วคราว
 :::
 
-For the latest limits, see the official Polymarket
-[CLOB trading rate limits](https://docs.polymarket.com/api-reference/trading-rate-limits) and
-[general rate limits](https://docs.polymarket.com/api-reference/rate-limits).
+ดูขีดจำกัดล่าสุดได้ที่ [CLOB trading rate limits](https://docs.polymarket.com/api-reference/trading-rate-limits) และ
+[general rate limits](https://docs.polymarket.com/api-reference/rate-limits) อย่างเป็นทางการของ Polymarket
 
-## Limitations and considerations
+## ข้อจำกัดและข้อควรพิจารณา {#limitations-and-considerations}
 
-- Reduce-only orders are not supported.
-- Batch submit (`POST /orders`) accepts at most 15 orders per request. The adapter splits larger
-  `SubmitOrderList` commands into sequential 15-order chunks.
-- Batch cancel (`DELETE /orders`) accepts at most 1,000 order IDs per request. The adapter also limits each
-  new chunk to the signer's current cancellation burst. It recomputes that limit before each chunk.
-- Position reports omit balances below 0.01 shares. Do not treat an omitted report as proof that a dust
-  position is flat. A sub-minimum residual cannot be exited through the market's minimum order size. Active
-  markets commonly report a minimum of five shares. Position reconciliation therefore tolerates differences
-  through 0.009999 shares and reconciles differences of 0.01 shares or more.
+- ไม่รองรับ reduce-only order
+- batch submit (`POST /orders`) รับได้สูงสุด 15 order ต่อ request adapter จะแบ่ง command `SubmitOrderList` ที่ใหญ่กว่า
+  เป็น chunk ละ 15 order ตามลำดับ
+- batch cancel (`DELETE /orders`) รับ order ID ได้สูงสุด 1,000 รายการต่อ request adapter ยังจำกัด chunk ใหม่แต่ละ chunk
+  ไว้ที่ cancellation burst ปัจจุบันของ signer และคำนวณขีดจำกัดนั้นใหม่ก่อนทุก chunk
+- position report ไม่รวม balance ที่ต่ำกว่า 0.01 share อย่าถือว่า report ที่ขาดหายเป็นหลักฐานว่า dust position เป็น flat
+  ส่วนที่เหลือที่ต่ำกว่าขั้นต่ำไม่สามารถออกได้ผ่านขนาด order ขั้นต่ำของตลาด ตลาดที่ active มักรายงานขั้นต่ำห้า share
+  position reconciliation จึงยอมรับส่วนต่างได้ถึง 0.009999 share และจะ reconcile ส่วนต่างตั้งแต่ 0.01 share ขึ้นไป
 
-## Client configuration
+## Client configuration {#client-configuration}
 
-Rust structs and Python classes expose the same client configuration. The only Rust-only fields
-are the programmatic `filters` and `new_market_filter` trait objects on
-`PolymarketDataClientConfig`.
+client configuration อยู่ในรูปของ Rust struct โดย `PolymarketDataClientConfig` มีฟิลด์ `filters` และ
+`new_market_filter` ที่เป็น trait object แบบ programmatic
 
-### Data client options
+### ตัวเลือกของ data client {#data-client-options}
 
-Class/struct: `PolymarketDataClientConfig`.
+Struct: `PolymarketDataClientConfig`
 
-| Option                                | Default   | Description                                                                                   |
+| Option                                | Default   | คำอธิบาย                                                                                        |
 | ------------------------------------- | --------- | --------------------------------------------------------------------------------------------- |
-| `instrument_config`                   | `None`    | Bootstrap scope, passed as `PolymarketInstrumentProviderConfig`.                              |
-| `filters`                             | `[]`      | Rust-only instrument filters applied during loading and discovery.                            |
-| `base_url_http`, `base_url_ws`        | `None`    | Override the CLOB HTTP or WebSocket endpoint.                                                 |
-| `base_url_gamma`, `base_url_data_api` | `None`    | Override the Gamma or Data API endpoint.                                                      |
-| `base_url_reference_prices`           | `None`    | Override the PolyBolt reference-price endpoint.                                               |
-| `api_key`, `api_secret`, `passphrase` | `None`    | CLOB L2 credentials for PolyBolt price channels; fall back to `POLYMARKET_*` variables.       |
-| `proxy_url`                           | `None`    | HTTP or HTTPS proxy for every data transport.                                                 |
-| `http_timeout_secs`                   | `60`      | HTTP timeout in seconds.                                                                      |
-| `ws_timeout_secs`                     | `30`      | Positive WebSocket timeout in seconds per connection attempt, including reconnects.           |
-| `ws_max_subscriptions`                | `200`     | Per-connection subscription cap; the market pool shards across connections at this bound.     |
-| `update_instruments_interval_mins`    | `60`      | Instrument catalog refresh interval in minutes; pass `None` to disable it.                    |
-| `subscribe_new_markets`               | `false`   | Subscribe to discovery and resolution events; also enables `best_bid_ask` quote ticks.        |
-| `new_market_filter`                   | `None`    | Rust-only filter applied to newly discovered markets before instrument emission.              |
-| `new_market_fetch_max_concurrency`    | `8`       | Bound concurrent market fetches from discovery events.                                        |
-| `drop_quotes_missing_side`            | `true`    | Drop quotes that do not contain both a bid and an ask.                                        |
-| `compute_effective_deltas`            | `false`   | Emit net snapshot changes when prior book state exists.                                       |
-| `auto_load_missing_instruments`       | `true`    | Load unknown instruments for supported requests and subscriptions.                            |
-| `auto_load_debounce_ms`               | `100`     | Window in milliseconds for coalescing concurrent auto-load requests.                          |
-| `auto_load_max_retries`               | `12`      | Retry transient Gamma loads with missing CLOB metadata or fetch failures; `0` disables retry. |
-| `auto_load_retry_delay_initial_secs`  | `5.0`     | Initial auto-load retry delay in seconds.                                                     |
-| `auto_load_retry_delay_max_secs`      | `15.0`    | Maximum auto-load retry delay in seconds.                                                     |
-| `resolve_poll_enabled`                | `true`    | Poll expired watched conditions for resolution.                                               |
-| `resolve_poll_interval_secs`          | `30`      | Resolution polling interval in seconds.                                                       |
-| `resolve_poll_grace_secs`             | `10`      | Delay in seconds after expiry before polling begins.                                          |
-| `resolve_poll_max_wait_secs`          | `1,800`   | Pause automatic polling after this many seconds from expiration.                              |
-| `transport_backend`                   | `Sockudo` | WebSocket transport implementation.                                                           |
-| `book_snapshot_timeout_secs`          | `10`      | Snapshot wait in seconds; `0` disables these deadlines.                                       |
-| `book_stale_check_interval_secs`      | `5`       | Book feed staleness check interval in seconds.                                                |
-| `book_stale_threshold_secs`           | `0`       | Maximum book feed silence in seconds before reporting stale; `0` disables the monitor.        |
+| `instrument_config`                   | `None`    | ขอบเขตของ bootstrap ส่งเป็น `PolymarketInstrumentProviderConfig`                                 |
+| `filters`                             | `[]`      | instrument filter ที่ใช้ระหว่างการโหลดและการค้นพบ                                                   |
+| `base_url_http`, `base_url_ws`        | `None`    | override CLOB HTTP หรือ WebSocket endpoint                                                    |
+| `base_url_gamma`, `base_url_data_api` | `None`    | override Gamma หรือ Data API endpoint                                                         |
+| `base_url_reference_prices`           | `None`    | override PolyBolt reference-price endpoint                                                    |
+| `api_key`, `api_secret`, `passphrase` | `None`    | CLOB L2 credential สำหรับ PolyBolt price channel โดย fallback ไปใช้ตัวแปร `POLYMARKET_*`           |
+| `proxy_url`                           | `None`    | HTTP หรือ HTTPS proxy สำหรับทุก data transport                                                  |
+| `http_timeout_secs`                   | `60`      | HTTP timeout เป็นวินาที                                                                         |
+| `ws_timeout_secs`                     | `30`      | WebSocket timeout ที่เป็นบวก เป็นวินาทีต่อความพยายามเชื่อมต่อแต่ละครั้ง รวมถึงการ reconnect              |
+| `ws_max_subscriptions`                | `200`     | เพดาน subscription ต่อ connection โดย market pool จะแบ่งไปยังหลาย connection ที่ขอบเขตนี้             |
+| `update_instruments_interval_mins`    | `60`      | interval การ refresh instrument catalog เป็นนาที ส่ง `None` เพื่อปิด                                |
+| `subscribe_new_markets`               | `false`   | subscribe event การค้นพบและการ resolve และยังเปิด quote tick จาก `best_bid_ask` ด้วย               |
+| `new_market_filter`                   | `None`    | filter ที่ใช้กับตลาดที่เพิ่งค้นพบก่อน emit instrument                                                |
+| `new_market_fetch_max_concurrency`    | `8`       | จำกัดจำนวนการดึงตลาดพร้อมกันจาก discovery event                                                   |
+| `drop_quotes_missing_side`            | `true`    | ทิ้ง quote ที่ไม่มีทั้ง bid และ ask                                                                 |
+| `compute_effective_deltas`            | `false`   | emit การเปลี่ยนแปลงสุทธิของ snapshot เมื่อมี book state ก่อนหน้า                                       |
+| `auto_load_missing_instruments`       | `true`    | โหลด instrument ที่ไม่รู้จักสำหรับ request และ subscription ที่รองรับ                                  |
+| `auto_load_debounce_ms`               | `100`     | window เป็นมิลลิวินาทีสำหรับรวม auto-load request ที่เกิดพร้อมกัน                                       |
+| `auto_load_max_retries`               | `12`      | retry การโหลด Gamma ชั่วคราวที่ไม่มี CLOB metadata หรือการดึงล้มเหลว โดย `0` จะปิดการ retry            |
+| `auto_load_retry_delay_initial_secs`  | `5.0`     | retry delay เริ่มต้นของ auto-load เป็นวินาที                                                       |
+| `auto_load_retry_delay_max_secs`      | `15.0`    | retry delay สูงสุดของ auto-load เป็นวินาที                                                        |
+| `resolve_poll_enabled`                | `true`    | poll condition ที่เฝ้าดูและหมดอายุแล้วเพื่อหา resolution                                              |
+| `resolve_poll_interval_secs`          | `30`      | interval ของ resolution polling เป็นวินาที                                                       |
+| `resolve_poll_grace_secs`             | `10`      | delay เป็นวินาทีหลังหมดอายุก่อนเริ่ม poll                                                           |
+| `resolve_poll_max_wait_secs`          | `1,800`   | หยุด polling อัตโนมัติชั่วคราวหลังจากผ่านไปจำนวนวินาทีนี้นับจากเวลาหมดอายุ                                   |
+| `transport_backend`                   | `Sockudo` | implementation ของ WebSocket transport                                                        |
+| `book_snapshot_timeout_secs`          | `10`      | เวลารอ snapshot เป็นวินาที โดย `0` จะปิด deadline เหล่านี้                                          |
+| `book_stale_check_interval_secs`      | `5`       | interval การตรวจว่า book feed ค้างหรือไม่ เป็นวินาที                                                 |
+| `book_stale_threshold_secs`           | `0`       | ระยะเวลาเงียบสูงสุดของ book feed เป็นวินาทีก่อนรายงานว่าค้าง โดย `0` จะปิด monitor                        |
 
-`ws_timeout_secs` applies to market and PolyBolt WebSockets. It also bounds sends waiting for
-reconnection. Use a value above the 5-second maximum reconnect backoff. Each connection attempt
-starts a new timeout, so the total connection time can exceed this value.
+`ws_timeout_secs` ใช้กับ WebSocket ของ market และ PolyBolt และยังจำกัดการส่งที่รอการ reconnect ด้วย ให้ใช้ค่าที่สูงกว่า
+reconnect backoff สูงสุด 5 วินาที ความพยายามเชื่อมต่อแต่ละครั้งเริ่ม timeout ใหม่ ดังนั้นเวลาเชื่อมต่อรวมอาจเกินค่านี้
 
-### Execution client options
+### ตัวเลือกของ execution client {#execution-client-options}
 
-Class/struct: `PolymarketExecutionClientConfig`.
+Struct: `PolymarketExecutionClientConfig`
 
-| Option                                              | Default               | Description                                                                                                           |
+| Option                                              | Default               | คำอธิบาย                                                                                                                |
 | --------------------------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `account_id`                                        | `POLYMARKET-001`      | Account identifier for this execution client.                                                                         |
-| `private_key`                                       | `POLYMARKET_PK`       | EIP-712 signing key.                                                                                                  |
-| `api_key`, `api_secret`, `passphrase`               | environment variables | CLOB L2 authentication credentials.                                                                                   |
-| `funder`                                            | `POLYMARKET_FUNDER`   | Funding wallet; proxy and deposit-wallet signatures require it to differ from the signing address.                    |
-| `signature_type`                                    | `Eoa`                 | `Eoa`, `PolyProxy`, `PolyGnosisSafe`, or `Poly1271`.                                                                  |
-| `signer_type`                                       | `Owner`               | `Owner` or `Session`; sessions require explicit credentials and `Poly1271`.                                           |
-| `base_url_http`, `base_url_ws`, `base_url_data_api` | `None`                | Override the respective production endpoint.                                                                          |
-| `proxy_url`                                         | `None`                | HTTP or HTTPS proxy for every execution transport.                                                                    |
-| `http_timeout_secs`                                 | `60`                  | HTTP timeout in seconds.                                                                                              |
-| `max_retries`                                       | `3`                   | Retries for single-order submit/cancel requests and for each batch-cancel chunk.                                      |
-| `retry_delay_initial_ms`                            | `1,000`               | Initial retry delay in milliseconds.                                                                                  |
-| `retry_delay_max_ms`                                | `10,000`              | Maximum retry delay in milliseconds.                                                                                  |
-| `heartbeat_enabled`                                 | `false`               | Send an authenticated order-safety heartbeat immediately after execution readiness and every five seconds thereafter. |
-| `transport_backend`                                 | `Sockudo`             | WebSocket transport implementation.                                                                                   |
-| `instrument_config`                                 | `None`                | Same `PolymarketInstrumentProviderConfig` as the data client. Unmapped records use its `load_ids`.                    |
+| `account_id`                                        | `POLYMARKET-001`      | account identifier ของ execution client นี้                                                                            |
+| `private_key`                                       | `POLYMARKET_PK`       | signing key แบบ EIP-712                                                                                               |
+| `api_key`, `api_secret`, `passphrase`               | environment variables | CLOB L2 authentication credential                                                                                     |
+| `funder`                                            | `POLYMARKET_FUNDER`   | funding wallet โดย signature แบบ proxy และ deposit-wallet กำหนดให้ต้องต่างจาก signing address                              |
+| `signature_type`                                    | `Eoa`                 | `Eoa`, `PolyProxy`, `PolyGnosisSafe` หรือ `Poly1271`                                                                   |
+| `signer_type`                                       | `Owner`               | `Owner` หรือ `Session` โดย session ต้องใช้ credential ที่ระบุอย่างชัดเจนและ `Poly1271`                                       |
+| `base_url_http`, `base_url_ws`, `base_url_data_api` | `None`                | override production endpoint ที่เกี่ยวข้อง                                                                                |
+| `proxy_url`                                         | `None`                | HTTP หรือ HTTPS proxy สำหรับทุก execution transport                                                                     |
+| `http_timeout_secs`                                 | `60`                  | HTTP timeout เป็นวินาที                                                                                                 |
+| `max_retries`                                       | `3`                   | จำนวน retry สำหรับ request submit/cancel order เดี่ยว และสำหรับแต่ละ chunk ของ batch-cancel                                  |
+| `retry_delay_initial_ms`                            | `1,000`               | retry delay เริ่มต้นเป็นมิลลิวินาที                                                                                         |
+| `retry_delay_max_ms`                                | `10,000`              | retry delay สูงสุดเป็นมิลลิวินาที                                                                                          |
+| `heartbeat_enabled`                                 | `false`               | ส่ง order-safety heartbeat แบบยืนยันตัวตนทันทีหลัง execution พร้อม และทุกห้าวินาทีหลังจากนั้น                                       |
+| `transport_backend`                                 | `Sockudo`             | implementation ของ WebSocket transport                                                                                |
+| `instrument_config`                                 | `None`                | `PolymarketInstrumentProviderConfig` เดียวกับของ data client record ที่ map ไม่ได้จะใช้ `load_ids` ของ config นี้             |
 
-#### Order-safety heartbeats
+#### Order-safety heartbeat {#order-safety-heartbeats}
 
-Use `heartbeat_enabled` only for a dedicated automated execution process. Give each heartbeat-owning process
-dedicated CLOB API credentials. Enable it only if all orders under those credentials should be canceled when
-that process stops responding.
+ใช้ `heartbeat_enabled` เฉพาะกับ execution process แบบอัตโนมัติที่แยกไว้โดยเฉพาะ ให้ process ที่เป็นเจ้าของ heartbeat แต่ละ
+ตัวมี CLOB API credential ของตัวเอง เปิดใช้เฉพาะเมื่อต้องการให้ทุก order ภายใต้ credential เหล่านั้นถูก cancel เมื่อ process นั้น
+หยุดตอบสนอง
 
 :::warning
-A normal disconnect stops heartbeats and causes cancellation after the venue timeout. Leave
-`heartbeat_enabled` disabled when orders must survive client shutdown or another process uses the
-same CLOB API credentials.
+การ disconnect ตามปกติจะหยุด heartbeat และทำให้เกิดการ cancel หลังจาก timeout ของ venue ให้ปิด `heartbeat_enabled` ไว้
+เมื่อ order ต้องคงอยู่หลัง client shutdown หรือเมื่อมี process อื่นใช้ CLOB API credential เดียวกัน
 :::
 
-Enabling this option starts Polymarket's order-safety heartbeat contract for those credentials.
-Polymarket cancels their open orders when it does not receive a heartbeat within 10 seconds, with
-an additional 5-second buffer.
+การเปิดตัวเลือกนี้จะเริ่ม order-safety heartbeat contract ของ Polymarket สำหรับ credential เหล่านั้น Polymarket จะ cancel
+open order ของ credential นั้นเมื่อไม่ได้รับ heartbeat ภายใน 10 วินาที บวก buffer อีก 5 วินาที
 
-The adapter sends the first empty heartbeat ID, chains each returned ID, and uses a replacement ID
-from an HTTP 400 response to resynchronize. The execution client reports as disconnected until the
-first heartbeat is acknowledged. It also reports as disconnected after any of these failures:
+adapter ส่ง heartbeat ID แรกเป็นค่าว่าง ต่อ ID ที่คืนมาแต่ละครั้งเป็นลูกโซ่ และใช้ ID ทดแทนจาก response HTTP 400 เพื่อ
+resynchronize execution client จะรายงานว่า disconnected จนกว่า heartbeat แรกจะได้รับ acknowledgement และจะรายงานว่า
+disconnected หลังความล้มเหลวใด ๆ ต่อไปนี้ด้วย:
 
-- Authentication or venue rejection.
-- Two consecutive retryable request failures.
-- A request or retry delay that cannot finish with a one-second margin before the 10-second safety deadline.
+- การยืนยันตัวตนล้มเหลวหรือ venue ปฏิเสธ
+- request ที่ retry ได้ล้มเหลวติดต่อกันสองครั้ง
+- request หรือ retry delay ที่ไม่สามารถเสร็จได้โดยมีระยะเผื่อหนึ่งวินาทีก่อน safety deadline 10 วินาที
 
-After such a failure, explicitly disconnect and reconnect the client to restore heartbeats.
+หลังความล้มเหลวดังกล่าว ให้ disconnect และ reconnect client อย่างชัดเจนเพื่อกู้คืน heartbeat
 
-### Proxy routing
+### Proxy routing {#proxy-routing}
 
-Set `proxy_url` to apply one HTTP or HTTPS proxy to every transport owned by that client. The data
-client routes CLOB HTTP, Gamma HTTP, Data API HTTP, the market WebSocket pool, and PolyBolt through the
-proxy. The execution client routes authenticated CLOB HTTP, Data API HTTP, and the authenticated
-user WebSocket through it. Configure the same value on both clients when running data and execution
-together.
+ตั้ง `proxy_url` เพื่อใช้ HTTP หรือ HTTPS proxy ตัวเดียวกับทุก transport ที่ client นั้นเป็นเจ้าของ data client จะส่ง CLOB
+HTTP, Gamma HTTP, Data API HTTP, market WebSocket pool และ PolyBolt ผ่าน proxy ส่วน execution client จะส่ง authenticated
+CLOB HTTP, Data API HTTP และ authenticated user WebSocket ผ่าน proxy ให้ตั้งค่าเดียวกันบน client ทั้งสองเมื่อรัน data และ
+execution ร่วมกัน
 
-SOCKS URLs and malformed URLs fail configuration validation. When `proxy_url` is `None`, the adapter does not
-configure an explicit proxy: HTTP uses environment proxy settings and WebSockets connect directly. Treat
-credential-bearing proxy URLs as secrets because serialized configs contain the supplied URL. Python exposes
-only `has_proxy_url`. Configuration `Debug` output and transport diagnostics redact proxy credentials.
+SOCKS URL และ URL ที่ผิดรูปแบบจะไม่ผ่านการตรวจ config เมื่อ `proxy_url` เป็น `None` adapter จะไม่ตั้งค่า proxy อย่างชัดเจน:
+HTTP จะใช้การตั้งค่า proxy จาก environment และ WebSocket จะเชื่อมต่อโดยตรง ให้ถือว่า proxy URL ที่มี credential เป็นความลับ
+เพราะ config ที่ serialize แล้วมี URL ที่ระบุไว้ output ของ `Debug` ของ config และ diagnostic ของ transport จะปิดบัง credential
+ของ proxy
 
-### Instrument provider options
+### ตัวเลือกของ instrument provider {#instrument-provider-options}
 
-Pass the same `PolymarketInstrumentProviderConfig` as `instrument_config` on the data client
-config and the execution client config.
+ส่ง `PolymarketInstrumentProviderConfig` ตัวเดียวกันเป็น `instrument_config` บน config ของ data client และ execution client
 
-`load_ids` is the only reconciliation scope. When that set is non-empty, unmapped records
-outside it are expected absences. When `load_ids` is unset or empty, every open order and position
-is in scope.
+`load_ids` เป็นขอบเขตเดียวของ reconciliation เมื่อชุดนั้นไม่ว่าง record ที่ map ไม่ได้ซึ่งอยู่นอกชุดถือเป็นการขาดหายที่คาดไว้
+เมื่อ `load_ids` ไม่ได้ตั้งหรือว่าง ทุก open order และ position จะอยู่ในขอบเขต
 
-For unmapped open orders and positions inside either scope, the adapter checks the market protocol on
-CLOB after applying account ownership, instrument filters, and position dust and resolved-balance
-exclusions. It skips rows for unsupported markets with a warning. An unmapped market protocol `v1` row
-or a failed version lookup still fails the report request.
+สำหรับ open order และ position ที่ map ไม่ได้ซึ่งอยู่ในขอบเขตใดขอบเขตหนึ่ง adapter จะตรวจ market protocol บน CLOB หลังจาก
+ใช้ความเป็นเจ้าของ account, instrument filter และการยกเว้น dust ของ position และ balance ที่ resolve แล้ว และจะข้ามแถวของ
+ตลาดที่ไม่รองรับพร้อมคำเตือน แถวของ market protocol `v1` ที่ map ไม่ได้ หรือการ lookup version ที่ล้มเหลว ยังทำให้ report
+request ล้มเหลว
 
-`event_slugs`, `market_slugs`, `series_ids`, `filters`, and `event_slug_builder` discover instruments. They do
-not classify unmapped records. A node that scopes discovery with those fields and still wants scoped
-reconciliation must also set `load_ids`.
+`event_slugs`, `market_slugs`, `series_ids`, `filters` และ `event_slug_builder` ใช้ค้นพบ instrument แต่ไม่ได้จำแนก record ที่
+map ไม่ได้ node ที่จำกัดขอบเขตการค้นพบด้วยฟิลด์เหล่านั้นและยังต้องการ reconciliation แบบมีขอบเขต ต้องตั้ง `load_ids` ด้วย
 
-| Option               | Default | Description                                             |
+| Option               | Default | คำอธิบาย                                                 |
 | -------------------- | ------- | ------------------------------------------------------- |
-| `load_all`           | `false` | Load the full venue catalog at startup.                 |
-| `load_ids`           | `None`  | Load exact Nautilus instrument IDs.                     |
-| `filters`            | `None`  | Validated Gamma market keyset filters.                  |
-| `event_slugs`        | `None`  | Resolve all markets for the listed events at bootstrap. |
-| `market_slugs`       | `None`  | Load the listed Gamma market slugs at bootstrap.        |
-| `event_slug_builder` | `None`  | Rust-backed Up/Down event-slug generator.               |
-| `series_ids`         | `None`  | Load markets for the listed Gamma series at bootstrap.  |
-| `log_warnings`       | `true`  | Emit provider warnings.                                 |
-| `use_gamma_markets`  | `false` | Reserved compatibility field with no additional effect. |
+| `load_all`           | `false` | โหลด catalog ทั้งหมดของ venue ตอน startup                  |
+| `load_ids`           | `None`  | โหลด Nautilus instrument ID ที่ระบุตรงตัว                    |
+| `filters`            | `None`  | Gamma market keyset filter ที่ผ่านการตรวจสอบแล้ว             |
+| `event_slugs`        | `None`  | resolve ทุกตลาดของ event ที่ระบุตอน bootstrap               |
+| `market_slugs`       | `None`  | โหลด Gamma market slug ที่ระบุตอน bootstrap                |
+| `event_slug_builder` | `None`  | ตัวสร้าง event slug แบบ Up/Down ที่ implement ด้วย Rust      |
+| `series_ids`         | `None`  | โหลดตลาดของ Gamma series ที่ระบุตอน bootstrap              |
+| `log_warnings`       | `true`  | emit คำเตือนของ provider                                  |
+| `use_gamma_markets`  | `false` | ฟิลด์สำรองเพื่อความเข้ากันได้ ไม่มีผลเพิ่มเติม                    |
 
-#### Gamma query filters
+#### Gamma query filter {#gamma-query-filters}
 
-The adapter uses the Gamma market and event keyset endpoints. It validates filters before
-the first HTTP request, follows `next_cursor`, and applies the endpoint page ceilings of 100 markets
-and 500 events.
+adapter ใช้ keyset endpoint ของ Gamma สำหรับ market และ event โดยตรวจ filter ก่อน HTTP request แรก ตาม `next_cursor` และใช้
+เพดานต่อหน้าของ endpoint คือ 100 market และ 500 event
 
-##### Market keyset fields
+##### ฟิลด์ keyset ของ market {#market-keyset-fields}
 
 | Class         | Fields                                                                                                                                                                                                                                                                                                                    |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -3013,11 +2643,10 @@ and 500 events.
 | Alias         | `is_active`                                                                                                                                                                                                                                                                                                               |
 | Client only   | `offset`, `max_markets`                                                                                                                                                                                                                                                                                                   |
 
-The provider `filters` dictionary accepts only market fields. Rust callers configure event discovery with
-`EventParamsFilter` and `GetGammaEventsParams`. Event-only fields such as `live` or `tag_slug` are not valid
-provider dictionary keys.
+map `filters` ของ provider รับเฉพาะฟิลด์ของ market ผู้เรียกจาก Rust ตั้งค่าการค้นพบ event ด้วย `EventParamsFilter` และ
+`GetGammaEventsParams` ฟิลด์เฉพาะ event เช่น `live` หรือ `tag_slug` ไม่ใช่ key ที่ใช้ได้ใน map ของ provider
 
-##### Event keyset fields
+##### ฟิลด์ keyset ของ event {#event-keyset-fields}
 
 | Class         | Fields                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -3026,270 +2655,146 @@ provider dictionary keys.
 | Compatibility | `active`, `archived`                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | Client only   | `offset`, `max_events`                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
-##### Filter values and validation
+##### ค่าของ filter และการตรวจสอบ {#filter-values-and-validation}
 
-Repeated fields are sent as repeated query keys. `offset` is applied across returned keyset pages and is never
-sent to Gamma. `max_markets` caps markets locally, with each binary market normally producing two instruments.
-`max_events` caps events locally. Each event can contain many markets. `condition_ids` accepts at most 100
-values, and event `tag_id` values cannot overlap `exclude_tag_id` values.
+ฟิลด์แบบ repeated จะถูกส่งเป็น query key ซ้ำ `offset` ใช้ข้ามหน้า keyset ที่คืนมาและไม่ถูกส่งไปยัง Gamma `max_markets`
+จำกัดจำนวนตลาดภายในเครื่อง โดยแต่ละตลาด binary ปกติจะได้สอง instrument `max_events` จำกัดจำนวน event ภายในเครื่อง ซึ่ง
+แต่ละ event อาจมีหลายตลาด `condition_ids` รับได้สูงสุด 100 ค่า และค่า `tag_id` ของ event ต้องไม่ทับซ้อนกับค่า
+`exclude_tag_id`
 
-Native Rust provider `filters` entries must be strings. Mapping-shaped Python configs also accept `bool`,
-`int`, finite `float`, string, or lists of those scalars. Conversion ignores `None` entries.
+รายการใน `filters` ของ provider แบบ native Rust ต้องเป็น string
 
-`is_active=true` supplies `active=true`, `archived=false`, and `closed=false`. Explicit values override
-those defaults. Unknown keys, malformed values, empty lists, invalid date or numeric bounds, and
-invalid combinations raise `ValueError` during Python config conversion.
+`is_active=true` จะกำหนด `active=true`, `archived=false` และ `closed=false` ค่าที่ระบุอย่างชัดเจนจะ override ค่าเริ่มต้น
+เหล่านั้น key ที่ไม่รู้จัก, ค่าที่ผิดรูปแบบ, list ว่าง, ขอบเขตวันที่หรือตัวเลขที่ไม่ถูกต้อง และชุดค่าที่ไม่ถูกต้อง จะถูกปฏิเสธระหว่าง
+การตรวจสอบ
 
-See the official [market keyset](https://docs.polymarket.com/api-reference/markets/list-markets-keyset-pagination)
-and [event keyset](https://docs.polymarket.com/api-reference/events/list-events-keyset-pagination)
-references for the venue contract.
+ดู contract ของ venue ได้ที่ [market keyset](https://docs.polymarket.com/api-reference/markets/list-markets-keyset-pagination)
+และ [event keyset](https://docs.polymarket.com/api-reference/events/list-events-keyset-pagination) อย่างเป็นทางการ
 
-#### Filter scopes
+#### ขอบเขตของ filter {#filter-scopes}
 
-Filters come in two forms: the `filters` map on `PolymarketInstrumentProviderConfig`, and Rust
-`InstrumentFilter`s registered on the client. Registered filters take precedence: when both are
-present the `filters` map is ignored and the provider logs a warning.
+filter มีสองรูปแบบ: map `filters` บน `PolymarketInstrumentProviderConfig` และ `InstrumentFilter` ของ Rust ที่ register ไว้บน
+client filter ที่ register ไว้มีความสำคัญกว่า: เมื่อมีทั้งสองแบบ map `filters` จะถูกเพิกเฉยและ provider จะ log คำเตือน
 
-A filter that sources markets is a complete bootstrap scope on its own and does not need
-`load_all` or a slug or series scope alongside it. A registered filter sources markets when it
-supplies any of:
+filter ที่เป็นแหล่งของตลาดถือเป็นขอบเขต bootstrap ที่สมบูรณ์ในตัวเอง และไม่ต้องใช้ `load_all` หรือขอบเขต slug หรือ series
+ร่วมด้วย filter ที่ register ไว้จะเป็นแหล่งของตลาดเมื่อให้ข้อมูลใด ๆ ต่อไปนี้:
 
-- Market or event slugs
-- Gamma market query params
-- Gamma event params
-- Search params
+- market slug หรือ event slug
+- Gamma market query param
+- Gamma event param
+- search param
 
-A non-empty `filters` map qualifies on the same basis. A filter that only accepts or rejects
-instruments, such as `PredicateFilter`, refines another source's results and still needs one of
-those alongside it.
+map `filters` ที่ไม่ว่างก็ผ่านเกณฑ์บนพื้นฐานเดียวกัน filter ที่เพียงยอมรับหรือปฏิเสธ instrument เช่น `PredicateFilter` จะใช้
+กรองผลลัพธ์จากแหล่งอื่นให้ละเอียดขึ้น และยังต้องมีแหล่งใดแหล่งหนึ่งข้างต้นร่วมด้วย
 
-#### Event slug builder
+#### Event slug builder {#event-slug-builder}
 
-The adapter treats Python as a configuration, factory, and user strategy boundary. Provider, data, and
-execution operations run in Rust. `event_slug_builder` therefore accepts a Rust-backed
-`PolymarketUpDownEventSlugConfig`. It does not accept Python callable paths.
+provider, data และ execution operation ทำงานใน Rust `event_slug_builder` รับ `PolymarketUpDownEventSlugConfig`
 
-Use this for predictable Polymarket Up/Down event slugs without downloading the full venue
-catalog. The builder emits slugs with the pattern
-`{asset}-updown-{interval_mins}m-{unix_timestamp}` for the configured window of aligned periods.
+ใช้สำหรับ event slug แบบ Up/Down ของ Polymarket ที่คาดการณ์ได้ โดยไม่ต้องดาวน์โหลด catalog ทั้งหมดของ venue builder จะ
+emit slug ตามรูปแบบ `{asset}-updown-{interval_mins}m-{unix_timestamp}` สำหรับ window ของช่วงเวลาที่จัดแนวไว้ตามที่ตั้งค่า
 
-```python
-from nautilus_trader.adapters.polymarket import PolymarketInstrumentProviderConfig
-from nautilus_trader.adapters.polymarket import PolymarketUpDownEventSlugConfig
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-instrument_config = PolymarketInstrumentProviderConfig(
-    event_slug_builder=PolymarketUpDownEventSlugConfig(
-        assets=["btc"],
-        interval_mins=5,
-        periods=3,
-        start_offset_periods=0,
-    ),
-)
-```
+สำหรับรูปแบบ event ที่กำหนดเอง ให้ส่ง `event_slugs` อย่างชัดเจน, ส่ง `market_slugs` โดยตรง, จำกัดขอบเขตด้วย `series_ids`
+หรือเพิ่ม filter หรือ builder ที่เขียนด้วย Rust
 
-For custom event patterns, pass explicit `event_slugs`, pass direct `market_slugs`, scope by
-`series_ids`, or add a Rust filter or builder. The adapter rejects Python callable
-`event_slug_builder` values so adapter operations do not cross into Python during live trading.
+#### Series ID {#series-ids}
 
-#### Series IDs
+Gamma *series* จัดกลุ่มตระกูลตลาดที่เกิดซ้ำ เช่น ช่วงเวลา crypto แบบ Up/Down 5 นาที หรือตลาดสภาพอากาศรายวัน การจำกัด
+ขอบเขตด้วย `series_ids` จะโหลดตลาดของทุก event ที่ active และยังไม่ resolve ใน series เหล่านั้น ซึ่งช่วยให้ไม่ต้องสร้าง slug
+ใหม่ฝั่ง client ทุกครั้งที่ช่วงเวลาหมุนเวียน
 
-A Gamma *series* groups a recurring market family, such as the 5-minute Up/Down crypto intervals or
-a daily weather market. Scoping by `series_ids` loads the markets of every active, unresolved event
-in those series, which avoids reconstructing slugs client-side as each interval rolls over:
+provider จะ resolve แต่ละ series ผ่าน Gamma events endpoint ด้วย `active=true` และ `closed=false` แล้วโหลดตลาดของ event
+ที่ตรงกัน เนื่องจาก query ถูกประเมินใหม่ทุกครั้งที่ refresh การจับคู่ `series_ids` กับ `update_instruments_interval_mins` บน
+data client จะทำให้ตระกูลตลาดที่หมุนเวียนเป็นปัจจุบันอยู่เสมอโดยไม่ต้องคำนวณ slug
 
-```python
-from nautilus_trader.adapters.polymarket import PolymarketInstrumentProviderConfig
+หา series ID ของตระกูลตลาดได้จากฟิลด์ `series` ใน Gamma event payload
 
-instrument_config = PolymarketInstrumentProviderConfig(
-    series_ids=[10684, 10192],
-)
-```
+## การค้นพบและข้อมูลย้อนหลัง {#python-discovery-and-historical-data}
 
-The provider resolves each series through the Gamma events endpoint with `active=true` and
-`closed=false`, then loads the markets of the matching events. Because the query is re-evaluated on
-every refresh, pairing `series_ids` with `update_instruments_interval_mins` on the data client keeps
-a rolling family of markets current without any slug arithmetic.
+`PolymarketDataLoader` ใช้สำหรับการค้นพบแบบสาธารณะ, การสร้าง instrument และ trade ย้อนหลัง โดยใช้ Gamma, CLOB และ
+Data API client ของ Rust จึงไม่ต้องใช้ trading credential
 
-Find the series ID for a market family in the `series` field of its Gamma event payload.
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python สำหรับ loader นี้ จึงตัดออก
 
-## Python discovery and historical data
+### Resolution metadata {#resolution-metadata}
 
-The Python package exports a Rust-backed `PolymarketDataLoader` for public discovery,
-instrument construction, and historical trades. It uses the Rust Gamma, CLOB, and Data API clients,
-so it does not require trading credentials or run networking in Python.
+`instrument` ของ loader เป็น `BinaryOption` ที่ normalize แล้ว เมื่อมีฟิลด์ต้นทาง ข้อมูล resolution จะถูกเก็บไว้ดังนี้:
 
-### Market loading
-
-All network methods are asynchronous. Build a loader from a market slug and select its outcome token
-by index:
-
-```python
-from nautilus_trader.adapters.polymarket import PolymarketDataLoader
-
-loader = await PolymarketDataLoader.from_market_slug(
-    "will-jd-vance-win-the-2028-us-presidential-election",
-    token_index=0,
-)
-
-instrument = loader.instrument
-token_id = loader.token_id
-condition_id = loader.condition_id
-```
-
-### Resolution metadata
-
-`instrument` is a normalized `BinaryOption`. When the source fields are available, resolution data
-is retained as follows:
-
-| Data                       | `instrument.info`      | `resolution_metadata`                |
+| ข้อมูล                       | `instrument.info`      | `resolution_metadata`                |
 | -------------------------- | ---------------------- | ------------------------------------ |
-| Market description         | `description`          | -                                    |
-| Event start                | `event_start_time`     | -                                    |
-| Market end                 | `end_date`             | -                                    |
-| Resolution source          | `resolution_source`    | `resolutionSource`                   |
-| Crypto resolution config   | `crypto_market_config` | -                                    |
+| คำอธิบายตลาด                 | `description`          | -                                    |
+| เวลาเริ่ม event               | `event_start_time`     | -                                    |
+| เวลาสิ้นสุดตลาด               | `end_date`             | -                                    |
+| แหล่งที่มาของ resolution      | `resolution_source`    | `resolutionSource`                   |
+| config ของ crypto resolution | `crypto_market_config` | -                                    |
 | Raw Gamma market JSON      | -                      | `gamma_market`                       |
-| Raw Gamma event JSON       | -                      | `gamma_event` (event loading)        |
-| Closed state               | -                      | `closed`                             |
-| Closure time               | -                      | `closedTime`                         |
-| UMA resolution status      | -                      | `umaResolutionStatus`                |
-| Token outcome/winner state | -                      | `tokens` with `outcome` and `winner` |
+| Raw Gamma event JSON       | -                      | `gamma_event` (การโหลด event)        |
+| สถานะปิด                     | -                      | `closed`                             |
+| เวลาที่ปิด                    | -                      | `closedTime`                         |
+| สถานะ UMA resolution        | -                      | `umaResolutionStatus`                |
+| สถานะ outcome/ผู้ชนะของ token  | -                      | `tokens` พร้อม `outcome` และ `winner` |
 
-Read `resolution_metadata` after a backtest or simulation to inspect the lifecycle snapshot:
+อ่าน `resolution_metadata` หลัง backtest หรือ simulation เพื่อตรวจ snapshot ของ lifecycle
 
-```python
-metadata = loader.resolution_metadata
-winner = next(
-    (token["outcome"] for token in metadata["tokens"] if token["winner"]),
-    None,
-)
-```
+### การโหลด event {#event-loading}
 
-### Event loading
+event factory จะคืน loader หนึ่งตัวสำหรับแต่ละตลาดใน event ที่รองรับ
 
-An event factory returns one loader for each market in a supported event:
+token index ที่ติดลบหรือ index ที่อยู่นอกรายการ token ของตลาดจะเกิด error การสร้างยังล้มเหลวอย่างชัดเจนเมื่อ Gamma ไม่มี
+slug ที่ตรงกัน หรือ CLOB ยังไม่ได้เติม token ID ที่ใช้ได้ ทั้ง Gamma และ CLOB ต้องระบุว่าตลาดเป็น protocol `v1` หากตลาดใด
+ใน event ไม่รองรับ event factory จะเกิด error และไม่คืน loader ใดเลย
 
-```python
-loaders = await PolymarketDataLoader.from_event_slug(
-    "how-many-fed-rate-cuts-in-2026",
-    token_index=1,
-)
-```
+### การค้นพบแบบสาธารณะ {#public-discovery}
 
-A negative token index or an index outside a market's token list raises `ValueError`. Construction
-also fails clearly when Gamma has no matching slug or CLOB has not populated usable token IDs.
-Both Gamma and CLOB must identify the market as protocol `v1`. If any market in an event is
-unsupported, the event factory raises `ValueError` and returns no loaders.
+dictionary ของ filter สำหรับ market และ event ใช้ฟิลด์ที่แสดงไว้ใน [Gamma query filter](#gamma-query-filters) config ของ
+provider รับเฉพาะฟิลด์ของ market ขณะที่ `query_events` รับฟิลด์ของ event filter ที่ไม่รู้จักหรือผิดรูปแบบจะเกิด error ก่อนมี
+request ใด ๆ
 
-### Public discovery
+### Trade ย้อนหลัง {#historical-trades}
 
-Static query methods return stable Python mappings and lists while Rust owns validation and
-pagination. JSON values map to Python as follows:
+`load_trades` คืน object `TradeTick` ที่ normalize แล้วตามลำดับเวลา
 
-| JSON value        | Python value      | Scope                                                                    |
-| ----------------- | ----------------- | ------------------------------------------------------------------------ |
-| Fractional number | `decimal.Decimal` | Includes nested event markets, fee schedules, and CLOB rewards           |
-| Integer           | `int`             | A financial field can be `int` or `Decimal`, depending on its JSON token |
-| String            | `str`             | JSON-encoded strings such as `outcomePrices` are not parsed further      |
-| Null              | `None`            | Preserves absence                                                        |
+#### Time window และ pagination {#time-window-and-pagination}
 
-Use decimal operands when calculating with these values. Python does not mix `Decimal` and `float` arithmetic.
-The Gamma competitiveness score is returned as `Decimal` after an approximate Rust floating-point conversion.
+window เป็นแบบรวมขอบ Data API บันทึก timestamp ของ trade เป็นวินาทีเต็ม ดังนั้น Rust จะเก็บทุก trade ในวินาทีขอบเขตของ
+`start` และ `end`
 
-```python
-market = await PolymarketDataLoader.query_market_by_slug("some-market")
-details = await PolymarketDataLoader.query_market_details(market["conditionId"])
-event = await PolymarketDataLoader.query_event_by_slug("some-event")
+condition feed v2 ให้บริการ [window คงที่สามปี](https://data-api.polymarket.com/v2/docs) และไม่สนใจขอบเขต `start`/`end`
+adapter จึงไม่ส่งค่าเหล่านั้นและกรอง window ภายในเครื่องแทน feed ส่งหน้าจากใหม่ไปเก่า เมื่อมีขอบเขต `start` การไล่หน้าจะ
+ดำเนินต่อจนกว่าทั้งหน้าจะอยู่ก่อน `start`:
 
-markets = await PolymarketDataLoader.query_markets(
-    filters={
-        "is_active": True,
-        "tag_id": [21, 42],
-        "order": "volume",
-        "max_markets": 200,
-    },
-)
-events = await PolymarketDataLoader.query_events(
-    filters={
-        "active": True,
-        "closed": False,
-        "max_events": 100,
-    },
-)
-tags = await PolymarketDataLoader.query_tags()
-results = await PolymarketDataLoader.query_search(
-    "bitcoin",
-    events_status="active",
-    limit_per_type=20,
-)
-```
-
-Market and event filter dictionaries use the fields listed under
-[Gamma query filters](#gamma-query-filters). The provider config accepts only the market fields,
-while `query_events` accepts the event fields. Unknown or malformed filters raise `ValueError`
-before any request.
-
-### Historical trades
-
-`load_trades` returns normalized `TradeTick` objects in chronological order:
-
-```python
-from datetime import UTC, datetime, timedelta
-
-end = datetime.now(UTC)
-start = end - timedelta(days=1)
-
-trades = await loader.load_trades(
-    start=start,
-    end=end,
-    limit=1_000,
-)
-```
-
-#### Time window and pagination
-
-The window is inclusive. The Data API records trade timestamps in whole seconds, so Rust keeps all
-trades in the `start` and `end` boundary seconds.
-
-The v2 condition feed serves a [fixed three-year window](https://data-api.polymarket.com/v2/docs) and ignores
-`start`/`end` bounds, so the adapter never sends them and filters the window locally instead. The feed serves
-pages newest-first. With a `start` bound the walk continues until a whole page precedes `start`:
-
-| Request         | Meaning of `limit`                     | Walk termination                                                                                           |
+| Request         | ความหมายของ `limit`                    | การสิ้นสุดการไล่หน้า                                                                                            |
 | --------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| With `start`    | Earliest matching trades in the window | A whole page precedes `start`, or the cursor exhausts                                                      |
-| Without `start` | Most recent matching trades            | The matching-trade count reaches `limit`; without `limit`, the 10,000-row walk cap; or the cursor exhausts |
+| มี `start`       | trade ที่ตรงกันซึ่งเก่าที่สุดใน window        | ทั้งหน้าอยู่ก่อน `start` หรือ cursor หมด                                                                         |
+| ไม่มี `start`     | trade ที่ตรงกันล่าสุด                      | จำนวน trade ที่ตรงกันถึง `limit` หากไม่มี `limit` จะใช้เพดานการไล่ 10,000 แถว หรือ cursor หมด                         |
 
-#### Retention and request limits
+#### การเก็บรักษาข้อมูลและขีดจำกัดของ request {#retention-and-request-limits}
 
-When the cursor exhausts and `start` predates the approximate three-year retention horizon,
-Rust logs a warning that results may be incomplete. History outside the venue's retention window
-cannot be recovered through this feed.
+เมื่อ cursor หมดและ `start` เก่ากว่าขอบเขตการเก็บรักษาประมาณสามปี Rust จะ log คำเตือนว่าผลลัพธ์อาจไม่ครบ ประวัติที่อยู่นอก
+retention window ของ venue ไม่สามารถกู้คืนผ่าน feed นี้ได้
 
-A request with neither `start` nor `limit` stops after a page brings the retained count to at least 10,000
-window-matching rows. It returns the newest partial results with a logged warning. The final page can add up
-to 999 rows beyond that threshold.
+request ที่ไม่มีทั้ง `start` และ `limit` จะหยุดหลังจากหน้าหนึ่งทำให้จำนวนที่เก็บไว้ถึงอย่างน้อย 10,000 แถวที่ตรงกับ window และ
+คืนผลลัพธ์บางส่วนที่ใหม่ที่สุดพร้อม log คำเตือน หน้าสุดท้ายอาจเพิ่มได้อีกถึง 999 แถวเกินเกณฑ์นั้น
 
-An end-only request traverses all pages newer than `end` before collecting matching trades.
-Its duration therefore grows with the volume newer than `end`: the cap bounds retained history,
-not the number of requests.
+request ที่มีเฉพาะ end จะไล่ทุกหน้าที่ใหม่กว่า `end` ก่อนเก็บ trade ที่ตรงกัน ระยะเวลาจึงเพิ่มตาม volume ที่ใหม่กว่า `end`:
+เพดานจำกัดประวัติที่เก็บไว้ ไม่ได้จำกัดจำนวน request
 
-### Closed market cleanup
+### การล้างตลาดที่ปิดแล้ว {#closed-market-cleanup}
 
-Gamma `endDate` is a scheduled end, not proof that trading stopped. The client keeps cached
-instruments while Gamma reports `closed=false` and removes live state after a positive `closed=true`.
+`endDate` ของ Gamma เป็นเวลาสิ้นสุดตามกำหนด ไม่ใช่หลักฐานว่าการเทรดหยุดแล้ว client จะเก็บ instrument ใน cache ไว้ขณะที่
+Gamma รายงาน `closed=false` และลบ live state หลังจากได้ `closed=true` ที่เป็นบวก
 
-The closure check runs on every resolve-poll tick for expired cached instruments still reported
-open. It retries failed requests on the next tick, so request failures or delayed venue data can
-delay retirement beyond one cycle. A failed condition ID batch does not discard the closures
-confirmed by the other batches. If both Gamma lookups omit a market, the client keeps it because
-closure was not observed.
+การตรวจการปิดจะรันทุก tick ของ resolve-poll สำหรับ instrument ใน cache ที่หมดอายุแต่ยังรายงานว่าเปิดอยู่ โดย retry request ที่
+ล้มเหลวใน tick ถัดไป ดังนั้น request ที่ล้มเหลวหรือข้อมูลจาก venue ที่ล่าช้าอาจทำให้การปลดระวางช้ากว่าหนึ่งรอบ batch ของ
+condition ID ที่ล้มเหลวจะไม่ทิ้งการปิดที่ยืนยันแล้วจาก batch อื่น หาก lookup ของ Gamma ทั้งสองไม่มีตลาดนั้น client จะเก็บไว้
+เพราะยังไม่พบการปิด
 
-Only live instruments carry this state. The historical data loader reports terminal state through
-`resolution_metadata` instead, so a backtest cannot see a market's current closure through
-`instrument.info`.
+มีเพียง live instrument ที่มี state นี้ historical data loader รายงานสถานะ terminal ผ่าน `resolution_metadata` แทน ดังนั้น
+backtest จึงไม่เห็นการปิดปัจจุบันของตลาดผ่าน `instrument.info`
 
-## Contributing
+## การมีส่วนร่วม {#contributing}
 
-To contribute features or fixes to the Polymarket adapter, see the
-[contributing guide](https://github.com/nautechsystems/nautilus_trader/blob/develop/CONTRIBUTING.md).
+หากต้องการร่วมพัฒนาฟีเจอร์หรือแก้ไขใน Polymarket adapter ดู
+[contributing guide](https://github.com/nautechsystems/nautilus_trader/blob/develop/CONTRIBUTING.md)

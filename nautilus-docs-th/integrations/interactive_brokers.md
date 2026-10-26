@@ -1,137 +1,75 @@
 # Interactive Brokers
 
-The Interactive Brokers adapter connects NautilusTrader to Trader Workstation (TWS) or IB Gateway
-through the [TWS API](https://ibkrcampus.com/campus/ibkr-api-page/twsapi-doc/). It provides live
-market data, execution, instrument discovery, historical requests, and optional management of a
-Dockerized IB Gateway.
+adapter ของ Interactive Brokers เชื่อมต่อ NautilusTrader กับ Trader Workstation (TWS) หรือ IB Gateway ผ่าน
+[TWS API](https://ibkrcampus.com/campus/ibkr-api-page/twsapi-doc/) โดยให้บริการ market data แบบ live, การ execution,
+การค้นหา instrument, การ request ข้อมูลย้อนหลัง และการจัดการ IB Gateway ที่รันใน Docker (ไม่บังคับ)
 
-The Python package includes the adapter. Follow the [installation guide](../getting_started/installation.md),
-then use the examples under [`examples/live/interactive_brokers`](https://github.com/nautechsystems/nautilus_trader/tree/develop/examples/live/interactive_brokers/).
+ตัวอย่างฝั่ง Rust ดูได้ที่หัวข้อ[ทดสอบ adapter](#test-the-adapter)
 
-## Connect to TWS or IB Gateway
+## เชื่อมต่อกับ TWS หรือ IB Gateway {#connect-to-tws-or-ib-gateway}
 
-Enable socket API access in TWS or IB Gateway before starting a client. IB uses these default ports:
+เปิดการเข้าถึง socket API ใน TWS หรือ IB Gateway ก่อนเริ่ม client IB ใช้ port ค่าเริ่มต้นดังนี้:
 
-| Application | Paper trading | Live trading |
+| แอปพลิเคชัน   | Paper trading | Live trading |
 | ----------- | ------------- | ------------ |
 | TWS         | `7497`        | `7496`       |
 | IB Gateway  | `4002`        | `4001`       |
 
-The pinned `ibapi 4.0.1` transport requires TWS or IB Gateway server protocol version **213 or newer**. This
-is the API protocol version, not the application's release number. Older servers are unsupported even when
-their TCP port accepts connections.
-[Issue #4796](https://github.com/nautechsystems/nautilus_trader/issues/4796) reports this failure with
-protocol 187 on Gateway 10.41. Upgrade TWS or IB Gateway before connecting.
+transport `ibapi 4.0.1` ที่ตรึงเวอร์ชันไว้ต้องการ server protocol version ของ TWS หรือ IB Gateway **213 ขึ้นไป** นี่คือ
+เวอร์ชันของ API protocol ไม่ใช่หมายเลข release ของแอปพลิเคชัน server ที่เก่ากว่าไม่รองรับแม้ TCP port จะรับการเชื่อมต่อได้
+[Issue #4796](https://github.com/nautechsystems/nautilus_trader/issues/4796) รายงานความล้มเหลวนี้กับ protocol 187
+บน Gateway 10.41 ให้อัปเกรด TWS หรือ IB Gateway ก่อนเชื่อมต่อ
 
-The transport rejects an older version before sending `StartApi` when the server completes the initial
-handshake. If an old server does not answer that handshake, the connection timeout also applies. Increasing
-the timeout does not add protocol support.
+transport จะปฏิเสธเวอร์ชันที่เก่ากว่าก่อนส่ง `StartApi` เมื่อ server ทำ handshake แรกเสร็จ หาก server รุ่นเก่าไม่ตอบ
+handshake นั้น connection timeout ก็จะมีผลด้วย การเพิ่ม timeout ไม่ได้ทำให้รองรับ protocol เพิ่มขึ้น
 
-The adapter defaults to `127.0.0.1:4002`. Each process connected to the same TWS or Gateway session
-needs a distinct IB API `client_id`. An execution client ID cannot be a multiple of `1000` because
-the adapter partitions order IDs with `client_id % 1000`.
+adapter ใช้ค่าเริ่มต้น `127.0.0.1:4002` แต่ละโปรเซสที่เชื่อมต่อกับ session ของ TWS หรือ Gateway เดียวกันต้องมี
+`client_id` ของ IB API ที่ไม่ซ้ำกัน client ID ของ execution ต้องไม่เป็นผลคูณของ `1000` เพราะ adapter แบ่งช่วง order ID
+ด้วย `client_id % 1000`
 
-IB refuses an order ID at or below one the same `client_id` already used, across sessions (error 103). On
-connect, the execution client starts above its `client_id`'s highest order ID among IB's open and completed
-orders. It keeps IB's next valid ID only when it falls in the client's partition. If IB's next valid ID lies
-above the partition, IB would refuse every ID in it, so connecting fails. Use another `client_id`. Connecting
-also fails if the completed orders do not arrive in full within `request_timeout`.
+IB ปฏิเสธ order ID ที่เท่ากับหรือต่ำกว่า ID ที่ `client_id` เดียวกันเคยใช้แล้ว ข้าม session ด้วย (error 103) เมื่อเชื่อมต่อ
+execution client จะเริ่มที่ค่าสูงกว่า order ID สูงสุดของ `client_id` นั้นในบรรดา order ที่เปิดอยู่และที่เสร็จแล้วของ IB และจะใช้
+next valid ID ของ IB ก็ต่อเมื่อค่านั้นอยู่ในช่วงของ client เท่านั้น หาก next valid ID ของ IB อยู่สูงกว่าช่วงนั้น IB จะปฏิเสธทุก ID
+ในช่วง การเชื่อมต่อจึงล้มเหลว ให้ใช้ `client_id` อื่น การเชื่อมต่อยังล้มเหลวหาก order ที่เสร็จแล้วมาไม่ครบภายใน `request_timeout`
 
-IB lists completed orders for a limited period only, so a client that left no order open can still start below
-an ID it used before that period.
+IB แสดงรายการ order ที่เสร็จแล้วเพียงช่วงเวลาจำกัด client ที่ไม่มี order เปิดค้างไว้จึงอาจยังเริ่มที่ค่าต่ำกว่า ID ที่เคยใช้ก่อน
+ช่วงเวลานั้นได้
 
-The data and execution clients can share one provider configuration:
+data client และ execution client ใช้ provider configuration ชุดเดียวกันได้
 
-```python
-from nautilus_trader.adapters import interactive_brokers as ib
-from nautilus_trader.model import AccountId
-from nautilus_trader.model import InstrumentId
-from nautilus_trader.model import TraderId
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
+ส่ง factory และ config เหล่านี้ให้ builder ของ `LiveNode`
 
-trader_id = TraderId.from_str("TRADER-001")
-account_id = AccountId.from_str("IB-DU123456")
-provider_config = ib.InteractiveBrokersInstrumentProviderConfig(
-    symbology_method=ib.SymbologyMethod.SIMPLIFIED,
-    load_ids={InstrumentId.from_str("AAPL.XNAS")},
-)
+### โหมดของ market data {#market-data-modes}
 
-data_config = ib.InteractiveBrokersDataClientConfig(
-    host="127.0.0.1",
-    port=7497,
-    client_id=101,
-    market_data_type=ib.MarketDataType.DELAYED_FROZEN,
-    instrument_provider=provider_config,
-)
-
-exec_config = ib.InteractiveBrokersExecutionClientConfig(
-    host="127.0.0.1",
-    port=7497,
-    client_id=102,
-    account_id="DU123456",
-    instrument_provider=provider_config,
-)
-
-data_factory = ib.InteractiveBrokersDataClientFactory()
-exec_factory = ib.InteractiveBrokersExecutionClientFactory()
-```
-
-Pass these factories and configs to `LiveNode.builder`. The
-[`connect_with_tws.py`](https://github.com/nautechsystems/nautilus_trader/blob/develop/examples/live/interactive_brokers/connect_with_tws.py)
-example shows the complete node setup. Its default invocation constructs the node offline. Set
-`IB_V2_RUN_NODE=1` to connect.
-
-### Market data modes
-
-| Enum value                      | IB mode                                      |
+| ค่า enum                        | โหมดของ IB                                     |
 | ------------------------------- | -------------------------------------------- |
-| `MarketDataType.REALTIME`       | Live subscribed data.                        |
-| `MarketDataType.FROZEN`         | Last available live data after market close. |
-| `MarketDataType.DELAYED`        | Delayed data.                                |
-| `MarketDataType.DELAYED_FROZEN` | Last available delayed data.                 |
+| `MarketDataType.REALTIME`       | ข้อมูล live ที่ subscribe ไว้                      |
+| `MarketDataType.FROZEN`         | ข้อมูล live ล่าสุดที่มีหลังตลาดปิด                    |
+| `MarketDataType.DELAYED`        | ข้อมูลแบบล่าช้า (delayed)                         |
+| `MarketDataType.DELAYED_FROZEN` | ข้อมูลแบบล่าช้าล่าสุดที่มี                           |
 
-IB permissions still determine which mode and instruments return data. Delayed or delayed-frozen
-data can support paper-account checks outside market hours, but it does not prove a live tick path.
+สิทธิ์ของ IB ยังเป็นตัวกำหนดว่าโหมดและ instrument ใดจะได้รับข้อมูล ข้อมูลแบบ delayed หรือ delayed-frozen ใช้ตรวจสอบ
+paper account นอกเวลาตลาดได้ แต่ไม่ได้พิสูจน์ว่าเส้นทาง tick แบบ live ทำงาน
 
-### Dockerized IB Gateway
+### IB Gateway ใน Docker {#dockerized-ib-gateway}
 
-`DockerizedIBGateway` manages the
-[gnzsnz IB Gateway container](https://github.com/gnzsnz/ib-gateway-docker). Supply credentials in
-the config or set `TWS_USERNAME` and `TWS_PASSWORD`:
+`DockerizedIBGateway` จัดการ [container IB Gateway ของ gnzsnz](https://github.com/gnzsnz/ib-gateway-docker)
+ให้ระบุ credential ใน config หรือตั้ง `TWS_USERNAME` และ `TWS_PASSWORD`
 
-```python
-from nautilus_trader.adapters import interactive_brokers as ib
+เริ่ม gateway ก่อนสร้าง client ที่จะเชื่อมต่อ `DockerizedIBGateway` เป็นผู้ดูแล lifecycle ของ container ส่วน config ของ
+client รับเพียง `host` และ `port` ตั้ง `read_only_api` เป็น false เฉพาะเมื่อ gateway ต้องรับ order การตรวจความพร้อม
+ใช้ข้อความ login จาก session ปัจจุบันของ container ดังนั้น log ที่ค้างจาก session ก่อนหน้าจะไม่ทำให้รายงานสถานะพร้อม
+ผิดพลาด
 
+## สถาปัตยกรรม {#architecture}
 
-gateway = ib.DockerizedIBGateway(
-    ib.DockerizedIBGatewayConfig(
-        trading_mode=ib.TradingMode.PAPER,
-        read_only_api=True,
-        timeout=300,
-    ),
-)
-gateway.safe_start_blocking()
-
-data_config = ib.InteractiveBrokersDataClientConfig(
-    host=gateway.host,
-    port=gateway.port,
-    client_id=101,
-)
-```
-
-Start the gateway before constructing clients that connect. Python owns the container lifecycle through
-`DockerizedIBGateway`. The client configs accept only `host` and `port`. Set `read_only_api=False` only when
-the gateway must accept orders. Readiness uses login messages from the current container session, so retained
-logs from an earlier session cannot report a false ready state.
-
-## Architecture
-
-The adapter is one Rust implementation exposed through the native Rust API and PyO3 bindings. It translates
-between IB's TWS API and the Nautilus live engines. It does not own a transport: `ibapi` speaks the TWS socket
-protocol and reconnects it. The adapter owns domain mapping, subscription lifecycle, and policy (commands,
-events, instrument conversion, stream resubscription, and execution reconciliation). That boundary explains
-the crate's layout, and it is why the `http` and `websocket` modules standard in other adapters do not exist
-here.
+adapter เป็น implementation ของ Rust ชุดเดียวที่เปิดให้ใช้ผ่าน Rust API แบบ native มันแปลงระหว่าง TWS API ของ IB
+กับ live engine ของ Nautilus โดยไม่ได้เป็นเจ้าของ transport เอง: `ibapi` เป็นผู้สื่อสารด้วย TWS socket protocol และ
+reconnect ส่วน adapter รับผิดชอบการจับคู่ domain, lifecycle ของ subscription และนโยบาย (command, event, การแปลง
+instrument, การ resubscribe stream และ execution reconciliation) ขอบเขตนี้อธิบายโครงสร้างของ crate และเป็นเหตุผลที่
+ไม่มี module `http` และ `websocket` ซึ่งเป็นมาตรฐานใน adapter อื่น
 
 ```mermaid
 flowchart LR
@@ -162,55 +100,48 @@ flowchart LR
   PROV --> EXEC
 ```
 
-Data, execution, and historical clients with the same `(host, port, client_id)` share one
-reference-counted `ibapi` connection. Concurrent acquisition for the same key converges on one
-connection, and the registry removes it after the final client releases its handle.
+data client, execution client และ historical client ที่มี `(host, port, client_id)` เดียวกันจะใช้ connection ของ `ibapi`
+ร่วมกันหนึ่งตัวแบบนับ reference การขอใช้พร้อมกันด้วย key เดียวกันจะได้ connection เดียวกัน และ registry จะลบ connection
+ออกหลังจาก client ตัวสุดท้ายปล่อย handle
 
-| Module       | Responsibility                                                                    |
+| Module       | ความรับผิดชอบ                                                                       |
 | ------------ | --------------------------------------------------------------------------------- |
-| `common`     | Contracts, enums, generic spread IDs, symbology, and shared connections.          |
-| `providers`  | Contract qualification, chain discovery, venue resolution, and instrument cache.  |
-| `data`       | Live subscriptions, historical request routing, conversion, and stream recovery.  |
-| `execution`  | Commands, order state, updates, reports, conditions, spreads, and reconciliation. |
-| `historical` | Standalone instrument, bar, and tick requests.                                    |
-| `gateway`    | Docker container configuration, lifecycle, and readiness.                         |
-| `python`     | PyO3 classes, enums, factories, and conversion boundaries.                        |
-| `config`     | Typed data, execution, provider, and gateway configuration.                       |
-| `factories`  | `DataClientFactory` and `ExecutionClientFactory` implementations.                 |
+| `common`     | contract, enum, generic spread ID, symbology และ connection ที่ใช้ร่วมกัน             |
+| `providers`  | การ qualify contract, การค้นหา chain, การ resolve venue และ cache ของ instrument      |
+| `data`       | subscription แบบ live, การ route request ข้อมูลย้อนหลัง, การแปลง และการกู้คืน stream     |
+| `execution`  | command, state ของ order, การอัปเดต, report, condition, spread และ reconciliation   |
+| `historical` | request ของ instrument, bar และ tick แบบ standalone                                |
+| `gateway`    | configuration, lifecycle และความพร้อมของ Docker container                          |
+| `config`     | configuration แบบมี type ของ data, execution, provider และ gateway                 |
+| `factories`  | implementation ของ `DataClientFactory` และ `ExecutionClientFactory`                 |
 
-The integration surface with the rest of Nautilus is deliberately thin. The node builder hands each factory a
-typed config. The factory builds the client and seeds the instrument provider from the engine cache, which the
-adapter never writes.
+พื้นผิวการเชื่อมต่อกับส่วนอื่นของ Nautilus ถูกออกแบบให้บางโดยตั้งใจ node builder ส่ง config แบบมี type ให้แต่ละ factory
+factory จะสร้าง client และเติม instrument provider จาก cache ของ engine ซึ่ง adapter ไม่เคยเขียนลงไป
 
-The data client sends typed data events (ticks, bars, instruments, and correlated request responses) and the
-execution client sends typed execution events (order events, fills, and account state) into the engines
-through their event channels. These channels are the only paths into the engines. The adapter registers its
-factories and config extractors with the global PyO3 registry, which is how Python `TradingNode`
-configurations reach the Rust factories. Reconciliation is a pull interface driven by the execution engine
-(see [Reconciliation](#reconciliation)).
+data client ส่ง data event แบบมี type (tick, bar, instrument และ response ของ request ที่เชื่อมโยงกัน) และ execution client
+ส่ง execution event แบบมี type (order event, fill และ account state) เข้าสู่ engine ผ่าน event channel ของแต่ละ engine
+channel เหล่านี้เป็นเส้นทางเดียวที่เข้าสู่ engine ส่วน reconciliation เป็น interface แบบ pull ที่ขับเคลื่อนโดย execution engine
+(ดู [Reconciliation](#reconciliation))
 
-### Reconnect and resubscribe
+### Reconnect และ resubscribe {#reconnect-and-resubscribe}
 
-The `ibapi` transport reconnects the socket with Fibonacci backoff up to a bounded attempt count
-(`max_reconnect_attempts`), then establishes a complete session. A TCP connection followed by a transient
-handshake or startup error consumes an attempt and retries instead of ending recovery. A successful reconnect
-resets open subscription channels by delivering a connection-reset error to each. On exhaustion the transport
-shuts down and the adapter reports disconnected.
+transport `ibapi` จะ reconnect socket ด้วย Fibonacci backoff จนถึงจำนวนครั้งที่จำกัดไว้ (`max_reconnect_attempts`)
+แล้วจึงสร้าง session ที่สมบูรณ์ การเชื่อมต่อ TCP ที่ตามด้วย error ชั่วคราวระหว่าง handshake หรือการเริ่มต้นจะนับเป็นหนึ่งครั้ง
+และ retry แทนที่จะยุติการกู้คืน การ reconnect ที่สำเร็จจะ reset channel ของ subscription ที่เปิดอยู่โดยส่ง error
+connection-reset ไปยังแต่ละ channel เมื่อหมดจำนวนครั้ง transport จะปิดตัวลงและ adapter จะรายงานว่า disconnected
 
-Both data and execution client configs accept `max_reconnect_attempts`. `None` keeps ibapi's default of
-20 attempts; `0` disables automatic reconnect retries. Clients with the same `(host, port, client_id)`
-share a connection and use the first creator's setting. Set the same value on clients that share a connection.
+ทั้ง config ของ data client และ execution client รับ `max_reconnect_attempts` ค่า `None` ใช้ค่าเริ่มต้นของ ibapi คือ
+20 ครั้ง ส่วน `0` ปิดการ retry reconnect อัตโนมัติ client ที่มี `(host, port, client_id)` เดียวกันจะใช้ connection ร่วมกัน
+และใช้ค่าของผู้สร้างคนแรก ให้ตั้งค่าเดียวกันกับทุก client ที่ใช้ connection ร่วมกัน
 
-Each data stream then waits for the transport, subscribes again, and retries failed resubscriptions with a
-delay. One generic stream driver owns this lifecycle policy for every stream type, so recovery behavior cannot
-drift between quotes, trades, depth, bars, greeks, and index prices. Market-data farm notices use the same
-stream policy without treating a farm outage as a socket failure. TWS resets the session's market-data type to
-realtime after a reconnect. The notice monitor restores the configured frozen or delayed mode before releasing
-recovered subscriptions.
+จากนั้น data stream แต่ละตัวจะรอ transport, subscribe อีกครั้ง และ retry การ resubscribe ที่ล้มเหลวโดยมีการหน่วงเวลา
+stream driver แบบ generic ตัวเดียวเป็นเจ้าของนโยบาย lifecycle นี้สำหรับ stream ทุกประเภท พฤติกรรมการกู้คืนจึงไม่เบี่ยงเบน
+ระหว่าง quote, trade, depth, bar, greeks และ index price การแจ้งเตือนจาก market-data farm ใช้นโยบาย stream เดียวกัน
+โดยไม่ถือว่า farm ล่มเป็นความล้มเหลวของ socket TWS จะ reset market-data type ของ session กลับเป็น realtime หลัง
+reconnect ตัวเฝ้าการแจ้งเตือนจะคืนค่าโหมด frozen หรือ delayed ที่ตั้งไว้ก่อนปล่อย subscription ที่กู้คืนแล้ว
 
-Order-bound error frames arrive on the order update stream as notices with the originating order or request
-ID. The transport's routing layer delivers these notices instead of a decoded message variant. Thus, the
-update stream stays alive across error frames.
+error frame ที่ผูกกับ order มาถึงทาง order update stream ในรูปการแจ้งเตือนพร้อม order ID หรือ request ID ต้นทาง ชั้น routing
+ของ transport ส่งการแจ้งเตือนเหล่านี้แทน message variant ที่ decode แล้ว update stream จึงยังทำงานต่อได้แม้มี error frame
 
 ```mermaid
 stateDiagram-v2
@@ -226,48 +157,42 @@ stateDiagram-v2
     Waiting --> [*]: unsubscribe
 ```
 
-Quotes, trades, depth, bars, option greeks, and index prices follow this lifecycle. Before a depth
-stream applies data from a replacement subscription, it clears the existing book so stale levels
-cannot survive. If the order update stream ends or yields an error, the execution client drops the
-subscription, waits, and binds it again, retrying a failed bind; order events between the end and
-the re-bind are not replayed. If the ibapi transport has shut down, or the global notice stream
-ends, the execution client reports disconnected instead of appearing healthy with a dead stream.
+quote, trade, depth, bar, option greeks และ index price เป็นไปตาม lifecycle นี้ ก่อนที่ depth stream จะใช้ข้อมูลจาก
+subscription ตัวใหม่ มันจะล้าง book เดิมเพื่อไม่ให้ level ที่ค้างอยู่หลงเหลือ หาก order update stream จบลงหรือให้ error
+execution client จะทิ้ง subscription รอ แล้ว bind ใหม่ โดย retry หากการ bind ล้มเหลว order event ระหว่างการจบและการ
+bind ใหม่จะไม่ถูก replay หาก transport ของ ibapi ปิดตัวลงแล้ว หรือ global notice stream จบลง execution client จะรายงาน
+ว่า disconnected แทนที่จะดูเหมือนปกติทั้งที่ stream ตายแล้ว
 
-### Order identity and cancellation
+### Identity ของ order และการยกเลิก {#order-identity-and-cancellation}
 
-Distinct broker permanent IDs sharing one client order reference remain separate physical orders. The adapter
-reports each additional order under its own client order ID:
-`DUP-<account length>:<account ID>:PERM-<permanent ID>`. Thus, the execution engine creates it as an external
-order. The instrument's external order claim applies, or otherwise the `EXTERNAL` strategy. An unresolved
-duplicate group blocks modification.
+permanent ID ของ broker ที่ต่างกันแต่ใช้ client order reference เดียวกันยังคงเป็น order จริงคนละตัว adapter จะรายงาน order
+เพิ่มเติมแต่ละตัวภายใต้ client order ID ของมันเอง: `DUP-<account length>:<account ID>:PERM-<permanent ID>` ดังนั้น
+execution engine จะสร้างมันเป็น order ภายนอก โดยใช้การอ้างสิทธิ์ order ภายนอกของ instrument หรือไม่เช่นนั้นจะเป็น
+strategy `EXTERNAL` กลุ่ม order ซ้ำที่ยัง resolve ไม่ได้จะขัดขวางการ modify
 
-When an execution arrives for an order the adapter does not track, including such a duplicate, the
-adapter holds the fill and queries the order's details and executions. It then reports the order
-together with its real fills, so the engine creates the order at its full quantity. The query is
-bounded by `request_timeout` and at most 3 seconds, below the live node's default
-`position_check_threshold_ms` of 5 seconds. If the query fails, returns nothing, or times out, the
-adapter logs a warning and forwards the held fills unchanged.
+เมื่อ execution มาถึงสำหรับ order ที่ adapter ไม่ได้ติดตาม รวมถึง order ซ้ำแบบนี้ adapter จะถือ fill ไว้และ query รายละเอียด
+และ execution ของ order นั้น จากนั้นจึงรายงาน order พร้อม fill จริง engine จึงสร้าง order ด้วยจำนวนเต็ม query นี้ถูกจำกัดด้วย
+`request_timeout` และไม่เกิน 3 วินาที ซึ่งต่ำกว่าค่าเริ่มต้น `position_check_threshold_ms` ของ live node ที่ 5 วินาที หาก
+query ล้มเหลว ไม่ได้อะไรกลับมา หรือหมดเวลา adapter จะ log คำเตือนและส่งต่อ fill ที่ถือไว้โดยไม่เปลี่ยนแปลง
 
-With `strategy_only=True` (the default), the strategy issues individual cancellations for its own orders. With
-`strategy_only=False`, cancel-all is instrument-wide within the selected account and side. A side-filtered
-cancel-all skips duplicate orders whose broker side is still unknown. Canceling the original order also
-considers its known working duplicates.
+เมื่อ `strategy_only` เป็น true (ค่าเริ่มต้น) strategy จะยกเลิก order ของตัวเองทีละตัว เมื่อ `strategy_only` เป็น false
+cancel-all จะครอบคลุมทั้ง instrument ภายใน account และ side ที่เลือก cancel-all ที่กรองตาม side จะข้าม order ซ้ำที่ยังไม่ทราบ
+side ฝั่ง broker การยกเลิก order ต้นฉบับจะพิจารณา order ซ้ำที่ทราบว่ายังทำงานอยู่ด้วย
 
-The adapter cancels only uniquely bound routes owned by the configured API client. Ambiguous or unbound orders
-remain explicitly unresolved and require TWS binding or operator action. One cancellation confirmation does
-not establish group completion.
+adapter ยกเลิกเฉพาะ route ที่ bind แบบไม่ซ้ำและเป็นของ API client ที่ตั้งค่าไว้เท่านั้น order ที่กำกวมหรือไม่ได้ bind จะคงสถานะ
+ยัง resolve ไม่ได้อย่างชัดเจน และต้องการการ bind ใน TWS หรือการดำเนินการของผู้ดูแล การยืนยันการยกเลิกหนึ่งครั้งไม่ได้
+หมายความว่ากลุ่มทั้งหมดเสร็จสิ้น
 
-Risk checks and execution use the same account routing. The risk engine denies an order whose
-account is unresolved rather than skipping account checks.
+การตรวจสอบความเสี่ยงและการ execution ใช้การ route account เดียวกัน risk engine จะ deny order ที่ resolve account ไม่ได้
+แทนที่จะข้ามการตรวจ account
 
-### Execution order flow
+### Order flow ของการ execution {#execution-order-flow}
 
-The execution client is split along message direction: outbound commands (submit, modify, cancel), inbound
-venue updates, combo-fill assembly, and account streams are separate modules sharing one order-state owner.
-That owner holds the client-to-venue ID maps, active orders, and a bounded terminal-order cache behind a
-single lock. The terminal cache absorbs IB's execution replays after a reconnect. Thus, a completed order's
-re-sent fills deduplicate instead of duplicating. The client converts each Nautilus order once, applies
-optional IB tags, and then submits it through `ibapi`.
+execution client ถูกแบ่งตามทิศทางของ message: command ขาออก (submit, modify, cancel), การอัปเดตขาเข้าจาก venue, การประกอบ
+fill ของ combo และ account stream เป็น module แยกกันที่ใช้เจ้าของ state ของ order ร่วมกันหนึ่งตัว เจ้าของนี้เก็บ map ของ ID
+ระหว่าง client กับ venue, order ที่ active และ cache ของ order ที่สิ้นสุดแล้วแบบจำกัดขนาดไว้หลัง lock เดียว cache ของ order
+ที่สิ้นสุดแล้วรองรับการ replay execution ของ IB หลัง reconnect fill ที่ถูกส่งซ้ำของ order ที่เสร็จแล้วจึงถูกกำจัดความซ้ำแทนที่จะ
+ซ้ำซ้อน client จะแปลง order ของ Nautilus เพียงครั้งเดียว ใส่ tag ของ IB (ถ้ามี) แล้วจึง submit ผ่าน `ibapi`
 
 ```mermaid
 sequenceDiagram
@@ -303,275 +228,234 @@ flowchart TD
     Deduplicate --> Event[Emit Nautilus event]
 ```
 
-Every engine-visible order event originates from venue evidence on the update stream: `OrderAccepted` requires
-an order status or open-order message, never local send success. An order-bound IB error notice resolves
-against tracked orders and is handled by order state.
+order event ทุกตัวที่ engine มองเห็นมีที่มาจากหลักฐานจาก venue บน update stream: `OrderAccepted` ต้องมี order status
+หรือ open-order message ไม่ใช่เพียงการส่งสำเร็จในฝั่ง local การแจ้งเตือน error ของ IB ที่ผูกกับ order จะถูก resolve เทียบกับ
+order ที่ติดตามอยู่และจัดการโดย state ของ order
 
-Before acceptance, an order rejection code in `[200, 399]` emits a terminal `OrderRejected`. Any other error
-code triggers a venue query. The order is rejected only when IB lists it neither as open nor as completed. IB
-also sends such codes for working orders (10349 sets the time in force from an order preset). A presence query
-that fails, times out, or ends early leaves the order working.
+ก่อนการตอบรับ code การปฏิเสธ order ในช่วง `[200, 399]` จะส่ง `OrderRejected` แบบสิ้นสุด error code อื่นจะ trigger การ
+query venue order จะถูกปฏิเสธก็ต่อเมื่อ IB ไม่ได้แสดงว่าเป็นทั้ง order ที่เปิดอยู่และ order ที่เสร็จแล้ว IB ยังส่ง code แบบนี้กับ
+order ที่ทำงานอยู่ด้วย (10349 ตั้ง time in force จาก order preset) query ตรวจการมีอยู่ที่ล้มเหลว หมดเวลา หรือจบก่อนกำหนด
+จะคง order ไว้ในสถานะทำงาน
 
-After acceptance, a notice emits `OrderModifyRejected` when a modify is pending or `OrderCancelRejected` when
-a cancel is pending. Otherwise, it triggers a venue presence query rather than a terminal event. IB reports
-modify rejections with the same codes while the original order keeps working, so the query prevents a false
-terminal event.
+หลังการตอบรับ การแจ้งเตือนจะส่ง `OrderModifyRejected` เมื่อมีการ modify ค้างอยู่ หรือ `OrderCancelRejected` เมื่อมีการ
+cancel ค้างอยู่ มิฉะนั้นจะ trigger query ตรวจการมีอยู่ที่ venue แทน event แบบสิ้นสุด IB รายงานการปฏิเสธ modify ด้วย code
+เดียวกันขณะที่ order ต้นฉบับยังทำงานอยู่ query จึงป้องกัน event สิ้นสุดที่ผิดพลาด
 
-Warning codes in `[2100, 2169]`, warning-form order messages (code 399 with a `Warning:` line), and the cancel
-confirmation (202) never terminalize an order. The global notice stream handles error frames that cannot be
-routed to an individual request or order.
+code คำเตือนในช่วง `[2100, 2169]`, message ของ order ในรูปคำเตือน (code 399 ที่มีบรรทัด `Warning:`) และการยืนยันการ
+ยกเลิก (202) จะไม่ทำให้ order สิ้นสุด global notice stream จัดการ error frame ที่ route ไปยัง request หรือ order แต่ละตัวไม่ได้
 
-Ambiguous command outcomes resolve through a venue query. It recovers missed fills from execution history
-before inferring any terminal state. Thus, a fill can never be misreported as a cancellation. Cancel-all
-prefers the tracked TWS order ID over the permanent ID, which lets the originating client cancel its own live
-orders without a cross-client lookup.
+ผลลัพธ์ของ command ที่กำกวมจะ resolve ผ่านการ query venue ซึ่งกู้ fill ที่พลาดไปจากประวัติ execution ก่อนอนุมานสถานะสิ้นสุด
+ใด ๆ fill จึงไม่มีทางถูกรายงานผิดเป็นการยกเลิก cancel-all เลือกใช้ TWS order ID ที่ติดตามไว้ก่อน permanent ID ทำให้ client
+ต้นทางยกเลิก order live ของตัวเองได้โดยไม่ต้องค้นหาข้าม client
 
-## Data capabilities
+## ความสามารถด้านข้อมูล {#data-capabilities}
 
-| Nautilus data type | Live subscribe | Historical request | Notes                                     |
+| Data type ของ Nautilus | Live subscribe | Historical request | หมายเหตุ                                     |
 | ------------------ | -------------- | ------------------ | ----------------------------------------- |
-| Instrument         | No             | Yes                | Startup loading and explicit requests.    |
-| Quote tick         | Yes            | Yes                | Tick-by-tick or batched `reqMktData`.     |
-| Trade tick         | Yes            | Yes                | Tick-by-tick live and historical trades.  |
-| Bar                | Yes            | Yes                | External time bars.                       |
-| Book delta         | Yes            | No                 | Market depth with book clear on recovery. |
-| Index price        | Yes            | No                 | Index price events.                       |
-| Option greeks      | Yes            | No                 | Greeks plus option open interest.         |
+| Instrument         | No             | Yes                | โหลดตอนเริ่มต้นและ request แบบระบุชัด            |
+| Quote tick         | Yes            | Yes                | แบบ tick-by-tick หรือ `reqMktData` แบบ batch   |
+| Trade tick         | Yes            | Yes                | trade แบบ tick-by-tick ทั้ง live และย้อนหลัง      |
+| Bar                | Yes            | Yes                | time bar แบบ external                       |
+| Book delta         | Yes            | No                 | market depth พร้อมล้าง book เมื่อกู้คืน          |
+| Index price        | Yes            | No                 | event ของ index price                       |
+| Option greeks      | Yes            | No                 | greeks พร้อม open interest ของ option        |
 
-Set `batch_quotes=False` to prefer tick-by-tick bid/ask subscriptions. The client falls back to
-`reqMktData` when tick-by-tick quotes are unavailable, and BAG spread quotes always use
-`reqMktData`. `ignore_quote_tick_size_updates=True` filters quote events whose only change is size.
+ตั้ง `batch_quotes` เป็น false เพื่อเลือกใช้การ subscribe bid/ask แบบ tick-by-tick client จะ fallback ไปใช้
+`reqMktData` เมื่อไม่มี quote แบบ tick-by-tick และ quote ของ spread แบบ BAG จะใช้ `reqMktData` เสมอ
+`ignore_quote_tick_size_updates` ที่เป็น true จะกรอง quote event ที่เปลี่ยนเฉพาะขนาดออก
 
-The quote cache assembles bid and ask updates into complete quote ticks. IB no-quote sentinels
-(price `-1` without a size, or a zero price with zero size) are filtered before ticks are built
-and clear the affected book side, so a one-sided market emits nothing rather than stale values.
-For a contract with a price magnifier, IB sends the `-1` multiplied by it (`-100` for a ZC
-option), and the adapter filters that the same way.
-Genuine zero and negative prices, including a `-1` price with a size, which calendar spreads
-produce routinely, flow through.
+quote cache ประกอบการอัปเดต bid และ ask เข้าเป็น quote tick ที่สมบูรณ์ ค่า sentinel แบบไม่มี quote ของ IB (ราคา `-1` ที่ไม่มี
+ขนาด หรือราคาศูนย์กับขนาดศูนย์) จะถูกกรองออกก่อนสร้าง tick และล้าง side ของ book ที่ได้รับผลกระทบ ตลาดที่มีเพียงฝั่งเดียว
+จึงไม่ส่งอะไรออกมาแทนที่จะส่งค่าเก่า สำหรับ contract ที่มี price magnifier IB จะส่ง `-1` คูณด้วย magnifier (`-100` สำหรับ
+option ของ ZC) และ adapter ก็กรองในแบบเดียวกัน ราคาศูนย์และราคาติดลบที่เป็นของจริง รวมถึงราคา `-1` ที่มีขนาด ซึ่ง
+calendar spread สร้างขึ้นเป็นประจำ จะผ่านไปได้ตามปกติ
 
-IB reports IDEALPRO prices in steps finer than a pair's `minTick`, which is the pair's price
-increment. The adapter rounds a pair's bid prices down and its ask prices up to the increment, so
-a published bid is never above IB's bid, a published ask is never below IB's ask, and a quote IB
-sends unlocked never locks or crosses. This applies to quotes, historical bid and ask ticks, and
-the prices of bid and ask bars. Every other price (trades, midpoint, last and index prices, and the
-bars built from them) rounds to the nearest increment, with ties going to the even multiple. Order
-book levels are not rounded, because two IB levels could round to one price. Other instruments are
-not rounded.
+IB รายงานราคาของ IDEALPRO ในขั้นที่ละเอียดกว่า `minTick` ของคู่เงิน ซึ่งเป็น price increment ของคู่นั้น adapter จะปัดราคา
+bid ของคู่เงินลงและราคา ask ขึ้นให้ตรงกับ increment ดังนั้น bid ที่เผยแพร่จะไม่สูงกว่า bid ของ IB, ask ที่เผยแพร่จะไม่ต่ำกว่า ask
+ของ IB และ quote ที่ IB ส่งมาแบบไม่ล็อกจะไม่กลายเป็นล็อกหรือ cross ซึ่งใช้กับ quote, tick bid และ ask ย้อนหลัง และราคาของ
+bar ของ bid และ ask ราคาอื่นทั้งหมด (trade, midpoint, ราคา last และ index รวมถึง bar ที่สร้างจากราคาเหล่านั้น) จะปัดไปยัง
+increment ที่ใกล้ที่สุด โดยกรณีเท่ากันจะปัดไปทางผลคูณที่เป็นเลขคู่ level ของ order book ไม่ถูกปัด เพราะ level ของ IB สองระดับ
+อาจปัดได้ราคาเดียวกัน instrument อื่นไม่ถูกปัด
 
-For historical data, `HistoricalInteractiveBrokersClient` accepts an instrument provider and data
-client config. Constructing this Python client connects immediately, so keep it behind the same
-explicit run gate as the request:
+สำหรับข้อมูลย้อนหลัง `HistoricalInteractiveBrokersClient` รับ instrument provider และ config ของ data client
 
-```python
-from nautilus_trader.adapters import interactive_brokers as ib
-
-
-provider_config = ib.InteractiveBrokersInstrumentProviderConfig()
-provider = ib.InteractiveBrokersInstrumentProvider(provider_config)
-config = ib.InteractiveBrokersDataClientConfig(
-    host="127.0.0.1",
-    port=7497,
-    client_id=180,
-    market_data_type=ib.MarketDataType.DELAYED,
-    instrument_provider=provider_config,
-)
-
-# This constructor connects to TWS or IB Gateway.
-client = ib.HistoricalInteractiveBrokersClient(provider, config)
-```
-
-| Method                | Selectors and controls                                                                                                                                       |
+| Method                | Selector และการควบคุม                                                                                                                                          |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `request_instruments` | Accepts Nautilus instrument IDs, IB contract dictionaries, or both.                                                                                          |
-| `request_bars`        | Accepts bar specification strings, an end time, and either a start time or IB duration string; contracts or instrument IDs select the instruments.           |
-| `request_ticks`       | Accepts `IbHistoricalTickType.TRADES` or `BID_ASK`, a bounded time range, contracts or instrument IDs, regular-hours filtering, timeout, and a result limit. |
+| `request_instruments` | รับ instrument ID ของ Nautilus, dictionary ของ contract ของ IB หรือทั้งสองอย่าง                                                                                   |
+| `request_bars`        | รับ string ของ bar specification, เวลาสิ้นสุด และเวลาเริ่มต้นหรือ duration string ของ IB โดย contract หรือ instrument ID ใช้เลือก instrument                           |
+| `request_ticks`       | รับ `IbHistoricalTickType.TRADES` หรือ `BID_ASK`, ช่วงเวลาที่มีขอบเขต, contract หรือ instrument ID, การกรองเวลาซื้อขายปกติ, timeout และขีดจำกัดจำนวนผลลัพธ์           |
 
-Historical tick requests need both a start and an end time. They page backward from the end time, with a
-default cap of 10,000 ticks when no limit is given. They send only an end bound because IB misinterprets
-requests with both bounds. They deduplicate the boundary second that IB's second-resolution end encoding
-re-delivers. When one second holds a full page and the window cannot retreat, the request stops with a warning
-instead of looping.
+request tick ย้อนหลังต้องมีทั้งเวลาเริ่มต้นและเวลาสิ้นสุด โดยจะแบ่งหน้าย้อนหลังจากเวลาสิ้นสุด และจำกัดที่ 10,000 tick เป็น
+ค่าเริ่มต้นเมื่อไม่ระบุขีดจำกัด request จะส่งเฉพาะขอบเขตสิ้นสุด เพราะ IB ตีความ request ที่มีทั้งสองขอบเขตผิด และจะกำจัด
+ความซ้ำของวินาทีที่ขอบเขตซึ่ง IB ส่งซ้ำมาจากการเข้ารหัสเวลาสิ้นสุดแบบความละเอียดระดับวินาที เมื่อวินาทีหนึ่งมีข้อมูลเต็มหน้าและ
+หน้าต่างถอยหลังต่อไม่ได้ request จะหยุดพร้อมคำเตือนแทนที่จะวนซ้ำ
 
-A bar request whose segment fails returns an error rather than a series with a silent hole. Historical trade
-ticks with IB's zero size are skipped before constructing the positive-quantity Nautilus type. Other invalid
-conversions still fail the request.
+request ของ bar ที่ segment ใดล้มเหลวจะคืน error แทนที่จะคืนชุดข้อมูลที่มีช่องโหว่อย่างเงียบ ๆ trade tick ย้อนหลังที่ IB ให้ขนาด
+เป็นศูนย์จะถูกข้ามก่อนสร้าง type ของ Nautilus ที่ต้องมีจำนวนเป็นบวก การแปลงที่ไม่ถูกต้องแบบอื่นยังทำให้ request ล้มเหลว
 
-IB controls pacing, available history, supported bar sizes, and regular-trading-hours filtering.
-For continuous futures, IB rejects an explicit bar end time. The adapter omits it and requests one
-duration segment anchored to the request time, so the result can fall outside the requested start
-and end range.
+IB เป็นผู้ควบคุม pacing, ประวัติข้อมูลที่มีให้, ขนาด bar ที่รองรับ และการกรองตามเวลาซื้อขายปกติ สำหรับ continuous futures
+IB จะปฏิเสธเวลาสิ้นสุดของ bar ที่ระบุชัด adapter จึงละไว้และ request duration segment หนึ่งช่วงโดยยึดเวลาของ request
+ผลลัพธ์จึงอาจอยู่นอกช่วงเวลาเริ่มต้นและสิ้นสุดที่ร้องขอ
 
-## Execution capabilities
+## ความสามารถด้าน execution {#execution-capabilities}
 
-### Order types
+### ประเภทของ order {#order-types}
 
-| Nautilus order type    | IB order type       | Price inputs                          |
+| ประเภท order ของ Nautilus | ประเภท order ของ IB   | Input ด้านราคา                           |
 | ---------------------- | ------------------- | ------------------------------------- |
-| `MARKET`               | Market              | None.                                 |
-| `LIMIT`                | Limit               | Limit price.                          |
-| `MARKET_TO_LIMIT`      | Market to limit     | None.                                 |
-| `STOP_MARKET`          | Stop                | Trigger price.                        |
-| `STOP_LIMIT`           | Stop limit          | Limit and trigger prices.             |
-| `MARKET_IF_TOUCHED`    | Market if touched   | Trigger price.                        |
-| `LIMIT_IF_TOUCHED`     | Limit if touched    | Limit and trigger prices.             |
-| `TRAILING_STOP_MARKET` | Trailing stop       | Trailing offset and optional trigger. |
-| `TRAILING_STOP_LIMIT`  | Trailing stop limit | Limit and trailing offsets.           |
+| `MARKET`               | Market              | ไม่มี                                   |
+| `LIMIT`                | Limit               | ราคา limit                             |
+| `MARKET_TO_LIMIT`      | Market to limit     | ไม่มี                                   |
+| `STOP_MARKET`          | Stop                | ราคา trigger                           |
+| `STOP_LIMIT`           | Stop limit          | ราคา limit และ trigger                  |
+| `MARKET_IF_TOUCHED`    | Market if touched   | ราคา trigger                           |
+| `LIMIT_IF_TOUCHED`     | Limit if touched    | ราคา limit และ trigger                  |
+| `TRAILING_STOP_MARKET` | Trailing stop       | trailing offset และ trigger (ไม่บังคับ)   |
+| `TRAILING_STOP_LIMIT`  | Trailing stop limit | offset ของ limit และ trailing           |
 
-The adapter maps `DAY`, `GTC`, `IOC`, `FOK`, `GTD`, and `AT_THE_OPEN` time in force values. A market
-or limit order with `AT_THE_CLOSE` becomes the corresponding market-on-close or limit-on-close IB
-order. GTD orders include their Nautilus expiry time in the IB order.
+adapter จับคู่ค่า time in force `DAY`, `GTC`, `IOC`, `FOK`, `GTD` และ `AT_THE_OPEN` order แบบ market หรือ limit ที่มี
+`AT_THE_CLOSE` จะกลายเป็น order แบบ market-on-close หรือ limit-on-close ของ IB ที่สอดคล้องกัน order แบบ GTD จะใส่
+เวลาหมดอายุของ Nautilus ไว้ใน order ของ IB
 
-The adapter rejects post-only orders. Quote quantity is valid only for inverse instruments, and
-only on BUY `MARKET` orders, which IB sizes by `cashQty` (IB rejects a cash quantity on any other
-order type with error 10244). Trailing orders support price offsets and basis-point offsets, which
-IB receives as a trailing percent. These checks, and any order the adapter cannot resolve or
-transform for IB, emit coded `OrderDenied` reasons before the adapter sends an order to IB.
+adapter ปฏิเสธ order แบบ post-only quote quantity ใช้ได้เฉพาะกับ inverse instrument และเฉพาะ order `MARKET` ฝั่ง BUY
+ซึ่ง IB กำหนดขนาดด้วย `cashQty` (IB ปฏิเสธ cash quantity บน order ประเภทอื่นด้วย error 10244) trailing order รองรับ
+offset แบบราคาและแบบ basis point ซึ่ง IB รับเป็น trailing percent การตรวจสอบเหล่านี้ รวมถึง order ใดที่ adapter resolve
+หรือแปลงให้ IB ไม่ได้ จะส่งเหตุผล `OrderDenied` แบบมี code ก่อนที่ adapter จะส่ง order ไปยัง IB
 
-### Commands and order attributes
+### Command และคุณสมบัติของ order {#commands-and-order-attributes}
 
-| Capability        | Support | Notes                                                        |
+| ความสามารถ        | รองรับ | หมายเหตุ                                                        |
 | ----------------- | ------- | ------------------------------------------------------------ |
-| Submit order      | Yes     | Single orders and generic spreads.                           |
-| Submit order list | Yes     | Includes bracket and linked orders.                          |
-| Modify order      | Yes     | Quantity, price, trigger, and IB parameter updates.          |
-| Cancel order      | Yes     | Uses tracked venue order state.                              |
-| Cancel all orders | Yes     | Scoped through the execution client.                         |
-| Query order       | Yes     | Checks open orders, then executions before inferring cancel. |
-| Mass status       | Yes     | Orders, fills, and positions.                                |
+| Submit order      | Yes     | order เดี่ยวและ generic spread                                 |
+| Submit order list | Yes     | รวมถึง bracket order และ linked order                          |
+| Modify order      | Yes     | การอัปเดตจำนวน, ราคา, trigger และพารามิเตอร์ของ IB               |
+| Cancel order      | Yes     | ใช้ state ของ order ที่ venue ซึ่งติดตามไว้                          |
+| Cancel all orders | Yes     | กำหนดขอบเขตผ่าน execution client                               |
+| Query order       | Yes     | ตรวจ open order แล้วจึงตรวจ execution ก่อนอนุมานว่าถูกยกเลิก         |
+| Mass status       | Yes     | order, fill และ position                                     |
 
-Pass `params={"exchange": "IEX"}` to submit, submit-list, or modify commands to override the
-cached contract exchange for that command. An omitted or empty value retains the cached exchange.
+ส่ง `params={"exchange": "IEX"}` ให้กับ command แบบ submit, submit-list หรือ modify เพื่อ override exchange ของ contract
+ใน cache สำหรับ command นั้น หากไม่ระบุหรือเป็นค่าว่างจะใช้ exchange ใน cache ตามเดิม
 
-IB accepts a new trailing stop price only together with a new trailing amount (error 10067). A
-modify that sets a trailing stop's trigger must pass `params={"trailing_offset": <offset>}` in the
-order's offset units: a price amount for `PRICE` offsets, or basis points for `BASIS_POINTS`
-offsets. An offset equal to the current one is rejected by IB, and a trigger modify without the
-parameter is rejected before it is sent.
+IB รับราคา trailing stop ใหม่ได้ก็ต่อเมื่อมาพร้อม trailing amount ใหม่เท่านั้น (error 10067) การ modify ที่ตั้ง trigger ของ
+trailing stop ต้องส่ง `params={"trailing_offset": <offset>}` ในหน่วย offset ของ order: เป็นจำนวนราคาสำหรับ offset แบบ
+`PRICE` หรือเป็น basis point สำหรับ offset แบบ `BASIS_POINTS` offset ที่เท่ากับค่าปัจจุบันจะถูก IB ปฏิเสธ และการ modify
+trigger ที่ไม่มีพารามิเตอร์นี้จะถูกปฏิเสธก่อนส่ง
 
-IB-specific order fields use a tag prefixed with `IBOrderTags:` followed by a JSON object. Keys use
-the `ibapi` order field names in snake case or lower camel case. Unknown fields fail the order
-conversion. The adapter normalizes `order_type`, `tif` or `timeInForce`, `action`, `oca_type`,
-`trigger_method`, `origin`, `short_sale_slot`, `volatility_type`,
-`reference_price_type`, `rule_80_a`, `open_close`, and `NonGuaranteed`. Active, stop, cancel, manual,
-and good-till timestamps use `%Y%m%d %H:%M:%S UTC`.
+ฟิลด์ของ order เฉพาะของ IB ใช้ tag ที่ขึ้นต้นด้วย `IBOrderTags:` ตามด้วย JSON object key ใช้ชื่อฟิลด์ของ order ใน `ibapi`
+แบบ snake case หรือ lower camel case ฟิลด์ที่ไม่รู้จักจะทำให้การแปลง order ล้มเหลว adapter จะ normalize `order_type`,
+`tif` หรือ `timeInForce`, `action`, `oca_type`, `trigger_method`, `origin`, `short_sale_slot`, `volatility_type`,
+`reference_price_type`, `rule_80_a`, `open_close` และ `NonGuaranteed` timestamp ของ active, stop, cancel, manual และ
+good-till ใช้รูปแบบ `%Y%m%d %H:%M:%S UTC`
 
-The adapter tracks each order by its IB order ID and reference, and checks each execution against the order
-side. Thus, tags cannot set `orderId`, `clientId`, `permId`, `orderRef`, `totalQuantity`, `cashQty`,
-`parentId`, or `transmit`. A tagged `action` must keep the order side: a SELL order may use `SSHORT` or
-`SLONG`, but not `BUY`. Such a tag fails the order conversion.
+adapter ติดตาม order แต่ละตัวด้วย order ID และ reference ของ IB และตรวจ execution แต่ละตัวเทียบกับ side ของ order ดังนั้น
+tag จึงตั้ง `orderId`, `clientId`, `permId`, `orderRef`, `totalQuantity`, `cashQty`, `parentId` หรือ `transmit` ไม่ได้
+`action` ที่ระบุใน tag ต้องคง side ของ order ไว้: order ฝั่ง SELL อาจใช้ `SSHORT` หรือ `SLONG` ได้ แต่ใช้ `BUY` ไม่ได้ tag
+แบบนั้นจะทำให้การแปลง order ล้มเหลว
 
-The optional `conditions` array accepts these shapes:
+array `conditions` (ไม่บังคับ) รับรูปแบบเหล่านี้:
 
-| Condition        | Required fields | Optional fields and defaults                                                |
+| Condition        | ฟิลด์ที่จำเป็น | ฟิลด์ที่ไม่บังคับและค่าเริ่มต้น                                                   |
 | ---------------- | --------------- | --------------------------------------------------------------------------- |
-| `price`          | None            | `conId=0`, `exchange="SMART"`, `price=0`, `isMore=True`, `triggerMethod=0`. |
-| `time`           | None            | `time=""`, `isMore=True`.                                                   |
-| `margin`         | None            | `percent=0`, `isMore=True`.                                                 |
+| `price`          | ไม่มี            | `conId=0`, `exchange="SMART"`, `price=0`, `isMore=True`, `triggerMethod=0`. |
+| `time`           | ไม่มี            | `time=""`, `isMore=True`.                                                   |
+| `margin`         | ไม่มี            | `percent=0`, `isMore=True`.                                                 |
 | `execution`      | `symbol`        | `secType="STK"`, `exchange="SMART"`.                                        |
-| `volume`         | None            | `conId=0`, `exchange="SMART"`, `volume=0`, `isMore=True`.                   |
-| `percent_change` | None            | `conId=0`, `exchange="SMART"`, `changePercent=0`, `isMore=True`.            |
+| `volume`         | ไม่มี            | `conId=0`, `exchange="SMART"`, `volume=0`, `isMore=True`.                   |
+| `percent_change` | ไม่มี            | `conId=0`, `exchange="SMART"`, `changePercent=0`, `isMore=True`.            |
 
-Every condition accepts `conjunction="and"` or `"or"`. The default is `"and"`.
+ทุก condition รับ `conjunction="and"` หรือ `"or"` ค่าเริ่มต้นคือ `"and"`
 
-### Account state
+### Account state {#account-state}
 
-On connect and on each account query, the execution client reads one `reqAccountSummary`
-snapshot for the configured account and maps its tags to typed balances and margins. It then
-reads one `reqAccountUpdates` snapshot for the same account and cancels that stream once IB
-signals the download end. Every raw tag and key from both snapshots lands in `AccountState.info`
-under its IB name, so values IB publishes only on `updateAccountValue` (for example
-`PostExpirationExcess` and `PostExpirationMargin`) are readable from Python alongside the summary
-tags such as `TotalCashValue`. A key reported once per currency keeps the last value IB sends.
+เมื่อเชื่อมต่อและทุกครั้งที่ query account execution client จะอ่าน snapshot ของ `reqAccountSummary` หนึ่งครั้งสำหรับ account
+ที่ตั้งค่าไว้ และจับคู่ tag ต่าง ๆ เป็นยอดเงินและ margin แบบมี type จากนั้นอ่าน snapshot ของ `reqAccountUpdates` หนึ่งครั้ง
+สำหรับ account เดียวกัน และยกเลิก stream นั้นเมื่อ IB แจ้งว่าการดาวน์โหลดสิ้นสุด tag และ key ดิบทุกตัวจากทั้งสอง snapshot
+จะถูกเก็บใน `AccountState.info` ภายใต้ชื่อของ IB ดังนั้นค่าที่ IB เผยแพร่เฉพาะทาง `updateAccountValue` (เช่น
+`PostExpirationExcess` และ `PostExpirationMargin`) จึงอ่านได้ควบคู่กับ tag ของ summary อย่าง `TotalCashValue` key ที่
+รายงานหนึ่งครั้งต่อสกุลเงินจะเก็บค่าสุดท้ายที่ IB ส่งมา
 
-The account has no base currency by default and keeps one balance per currency. Set `base_currency`
-to the account's base currency, the currency IB reports the summary tags in, for a single-currency
-account. The portfolio then converts P&L in other currencies with exchange rates from the cache, as
-for any account with a base currency. The client logs an error if IB reports a balance in another
-currency.
+account ไม่มี base currency เป็นค่าเริ่มต้นและเก็บยอดเงินแยกตามสกุลเงิน สำหรับ account สกุลเงินเดียว ให้ตั้ง `base_currency`
+เป็น base currency ของ account ซึ่งคือสกุลเงินที่ IB ใช้รายงาน tag ของ summary จากนั้น portfolio จะแปลง P&L ในสกุลเงินอื่น
+ด้วยอัตราแลกเปลี่ยนจาก cache เช่นเดียวกับ account ใด ๆ ที่มี base currency client จะ log error หาก IB รายงานยอดเงินใน
+สกุลเงินอื่น
 
-## Reconciliation
+## Reconciliation {#reconciliation}
 
-Mass status requests query three independent IB sources:
+request แบบ mass status จะ query แหล่งข้อมูลของ IB ที่เป็นอิสระต่อกันสามแหล่ง:
 
-- Open and completed orders produce order status reports.
-- Executions paired with commission reports produce fill reports.
-- Account positions produce position status reports.
+- order ที่เปิดอยู่และที่เสร็จแล้วให้ order status report
+- execution ที่จับคู่กับ commission report ให้ fill report
+- position ของ account ให้ position status report
 
-Position updates do not create synthetic order status reports. If IB returns a position without
-matching order or fill history, the execution engine can adopt the position from the position report
-alone by creating its internal reconciliation fill. This preserves the report boundary: the adapter
-reports venue state, while the engine owns inferred state needed to reconcile its cache.
+การอัปเดต position ไม่ได้สร้าง order status report แบบสังเคราะห์ หาก IB คืน position ที่ไม่มีประวัติ order หรือ fill ที่ตรงกัน
+execution engine สามารถรับ position นั้นจาก position report อย่างเดียวได้ด้วยการสร้าง reconciliation fill ภายในของมันเอง
+ซึ่งรักษาขอบเขตของ report ไว้: adapter รายงาน state ของ venue ส่วน engine เป็นเจ้าของ state ที่อนุมานขึ้นซึ่งจำเป็นต่อการ
+reconcile cache ของตน
 
-IB's position average cost includes commissions, while a position rebuilt from fills averages their prices.
-The adapter replays an instrument's fills, including the leg executions of combo orders, from the quantity
-held before the fill window. When the replay passes through flat or flips, the position report carries the
-average price of the fills after the last crossing, so a position held across a restart reconciles.
+average cost ของ position ใน IB รวมค่า commission ไว้ ขณะที่ position ที่สร้างใหม่จาก fill จะเฉลี่ยจากราคาของ fill adapter
+จะ replay fill ของ instrument รวมถึง execution ของ leg ใน combo order โดยเริ่มจากจำนวนที่ถืออยู่ก่อนหน้าต่างของ fill เมื่อการ
+replay ผ่านจุด flat หรือกลับทิศ position report จะใช้ราคาเฉลี่ยของ fill หลังจุดข้ามครั้งสุดท้าย position ที่ถือข้ามการ restart
+จึง reconcile ได้
 
-Fills that share a timestamp have no known execution order. If such a group mixes sides or flips, the entry
-price stays unknown until a later fill opens from flat or flips.
+fill ที่มี timestamp เดียวกันไม่มีลำดับการ execution ที่ทราบได้ หากกลุ่มนั้นมี side ปนกันหรือกลับทิศ ราคาเข้าจะยังไม่ทราบจนกว่า
+จะมี fill ภายหลังที่เปิดจาก flat หรือกลับทิศ
 
-The replay infers the quantity held before the window, so a missing execution would change the result. The
-report carries the replayed entry price only when both conditions hold:
+การ replay อนุมานจำนวนที่ถืออยู่ก่อนหน้าต่าง ดังนั้น execution ที่หายไปจะเปลี่ยนผลลัพธ์ report จะใช้ราคาเข้าจากการ replay
+ก็ต่อเมื่อเป็นไปตามทั้งสองเงื่อนไข:
 
-- Every execution of the instrument was parsed.
-- The price reproduces IB's average cost.
+- execution ทุกตัวของ instrument ถูก parse สำเร็จ
+- ราคานั้นทำให้ได้ average cost ตรงกับของ IB
 
-For this check, the expected average cost is the entry price plus opening commissions per unit for a long. For
-a short, it is the entry price minus those commissions. A lot opened by a flip carries no commission.
+สำหรับการตรวจนี้ average cost ที่คาดไว้ของฝั่ง long คือราคาเข้าบวกค่า commission ตอนเปิดต่อหน่วย ส่วนฝั่ง short คือราคาเข้า
+ลบค่า commission เหล่านั้น lot ที่เปิดจากการกลับทิศไม่มี commission
 
-Otherwise the report keeps IB's average cost, which the engine's reconciliation fill uses.
+มิฉะนั้น report จะใช้ average cost ของ IB ซึ่ง reconciliation fill ของ engine จะนำไปใช้
 
-On connect, the execution client resolves the instrument of every open position in the account. It publishes
-any instrument absent from the cache. Thus, a position in a contract outside the provider's `load_ids` still
-recovers at startup instead of aborting the node.
+เมื่อเชื่อมต่อ execution client จะ resolve instrument ของทุก position ที่เปิดอยู่ใน account และ publish instrument ใดก็ตามที่
+ไม่มีใน cache ดังนั้น position ใน contract ที่อยู่นอก `load_ids` ของ provider ยังกู้คืนได้ตอนเริ่มต้นแทนที่จะทำให้ node หยุดทำงาน
 
-For a pending-cancel order missing from the open-orders snapshot, the adapter checks execution
-history before emitting a canceled event. Replayed executions are deduplicated after terminal order
-state is evicted, including generated spread-leg fills.
+สำหรับ order ในสถานะ pending-cancel ที่ไม่อยู่ใน snapshot ของ open order adapter จะตรวจประวัติ execution ก่อนส่ง event
+canceled execution ที่ replay มาจะถูกกำจัดความซ้ำหลัง state ของ order ที่สิ้นสุดแล้วถูกนำออกจาก cache รวมถึง fill ของ
+spread leg ที่สร้างขึ้นด้วย
 
-Set `track_option_exercise_from_position_update=True` only when position changes should drive option
-exercise tracking. This setting does not restore synthetic position-derived order reports.
+ตั้ง `track_option_exercise_from_position_update` เป็น true เฉพาะเมื่อต้องการให้การเปลี่ยนแปลงของ position ขับเคลื่อน
+การติดตามการใช้สิทธิ์ option การตั้งค่านี้ไม่ได้ทำให้ order report แบบสังเคราะห์ที่ derive จาก position กลับมา
 
-After a restart, orders a previous session left working return as open external orders. IB's `PreSubmitted`
-status, used for example while an order waits for its `goodAfterTime`, maps to `ACCEPTED`. The execution
-client resolves each restored order's IB order ID from its `PERM-` venue order ID and tracks it, so later IB
-status updates, fills, and cancels reach the owning strategy. Filled orders from the previous session
-reconcile from their real executions. The adapter reports no price for market-type orders, so reconciliation
-never infers a fill at price 0.
+หลัง restart order ที่ session ก่อนหน้าทิ้งไว้ในสถานะทำงานจะกลับมาเป็น open order ภายนอก สถานะ `PreSubmitted` ของ IB
+ที่ใช้ตัวอย่างเช่นขณะที่ order รอ `goodAfterTime` จะจับคู่เป็น `ACCEPTED` execution client จะ resolve order ID ของ IB
+ของ order ที่กู้คืนแต่ละตัวจาก venue order ID แบบ `PERM-` แล้วติดตามไว้ ดังนั้นการอัปเดตสถานะ, fill และการยกเลิกจาก IB
+ภายหลังจะไปถึง strategy เจ้าของ order ที่ fill แล้วจาก session ก่อนหน้าจะ reconcile จาก execution จริง adapter ไม่รายงาน
+ราคาสำหรับ order ประเภท market reconciliation จึงไม่มีทางอนุมาน fill ที่ราคา 0
 
-Replies to execution queries (`reqExecutions`) also arrive on IB's order update stream. The adapter
-treats only unsolicited execution details there as live fills, so startup and periodic execution
-queries do not apply the same fills again.
+คำตอบของ query execution (`reqExecutions`) ก็มาถึงทาง order update stream ของ IB ด้วย adapter ถือว่าเฉพาะ execution
+detail ที่ไม่ได้ร้องขอเท่านั้นเป็น fill แบบ live query execution ตอนเริ่มต้นและแบบเป็นระยะจึงไม่นำ fill เดิมไปใช้ซ้ำ
 
-## Symbology and instruments
+## Symbology และ instrument {#symbology-and-instruments}
 
-`InteractiveBrokersInstrumentProviderConfig.symbology_method` selects one of two public methods:
+`InteractiveBrokersInstrumentProviderConfig.symbology_method` เลือกหนึ่งในสองวิธีสาธารณะ:
 
-| Method                       | Use                                                       |
+| วิธี                         | การใช้งาน                                                     |
 | ---------------------------- | --------------------------------------------------------- |
-| `SymbologyMethod.SIMPLIFIED` | Readable IDs for normal instrument lookup and examples.   |
-| `SymbologyMethod.RAW`        | IDs that retain the IB security type for explicit lookup. |
+| `SymbologyMethod.SIMPLIFIED` | ID ที่อ่านง่ายสำหรับการค้นหา instrument ปกติและตัวอย่าง            |
+| `SymbologyMethod.RAW`        | ID ที่คง security type ของ IB ไว้สำหรับการค้นหาแบบระบุชัด          |
 
-One symbology value built from this setting drives every mapping site in the adapter, so data,
-execution, and provider paths always resolve identical IDs. Raw symbology
-(`AAPL=STK.SMART`) is the lossless escape hatch: it preserves the IB local symbol and security
-type for instruments the simplified format rules cannot express, such as complex international
-listings.
+ค่า symbology เดียวที่สร้างจากการตั้งค่านี้ขับเคลื่อนทุกจุดที่มีการจับคู่ใน adapter ดังนั้นเส้นทางของ data, execution และ
+provider จะ resolve ได้ ID เดียวกันเสมอ symbology แบบ raw (`AAPL=STK.SMART`) เป็นทางออกที่ไม่สูญเสียข้อมูล: คง local
+symbol และ security type ของ IB ไว้สำหรับ instrument ที่กฎรูปแบบแบบ simplified แสดงไม่ได้ เช่น listing ระหว่างประเทศ
+ที่ซับซ้อน
 
-Futures and futures-option IDs carry the local symbol reported by IB, such as `YMM6.XCBT` and
-`YMM6 C45000.XCBT`. The adapter does not rewrite the contract year, so identifiers stay stable
-across catalogs and caches.
+ID ของ futures และ futures option ใช้ local symbol ที่ IB รายงาน เช่น `YMM6.XCBT` และ `YMM6 C45000.XCBT` adapter ไม่
+เขียนปีของ contract ใหม่ identifier จึงคงที่ข้าม catalog และ cache
 
-The symbology method controls symbol conversion. Venue selection is a separate step with this
-precedence:
+วิธี symbology ควบคุมการแปลง symbol ส่วนการเลือก venue เป็นอีกขั้นหนึ่งที่มีลำดับความสำคัญดังนี้:
 
-1. CFD and commodity contracts use the adapter pseudo-venues `IBCFD` and `IBCMDTY`.
-1. A matching `symbol_to_mic_venue` prefix wins for other security types.
-1. Stock primary exchange and a compatible cached venue take precedence over SMART routing.
-1. Contract details can supply a non-SMART valid exchange.
-1. `convert_exchange_to_mic_venue=True` converts a known exchange to its MIC.
-1. The remaining IB exchange value becomes the venue.
+1. contract ประเภท CFD และ commodity ใช้ pseudo-venue ของ adapter คือ `IBCFD` และ `IBCMDTY`
+1. prefix ของ `symbol_to_mic_venue` ที่ตรงกันจะมีผลสำหรับ security type อื่น
+1. primary exchange ของหุ้นและ venue ใน cache ที่เข้ากันได้มีความสำคัญเหนือการ route แบบ SMART
+1. contract details อาจให้ valid exchange ที่ไม่ใช่ SMART
+1. `convert_exchange_to_mic_venue` ที่เป็น true จะแปลง exchange ที่รู้จักเป็น MIC
+1. ค่า exchange ของ IB ที่เหลือจะกลายเป็น venue
 
 ```mermaid
 flowchart TD
@@ -587,283 +471,168 @@ flowchart TD
     F -- no --> H[Remaining IB exchange value]
 ```
 
-The pseudo-venues are part of the adapter namespace under both symbology methods. For example, simplified
-symbology can produce `IBDE30.IBCFD` or `XAUUSD.IBCMDTY`, while raw symbology adds the security type to the
-symbol. These venues take precedence over `symbol_to_mic_venue` and `convert_exchange_to_mic_venue`. They do
-not describe a separate IB routing mechanism.
+pseudo-venue เป็นส่วนหนึ่งของ namespace ของ adapter ภายใต้ทั้งสองวิธี symbology ตัวอย่างเช่น symbology แบบ simplified
+อาจให้ `IBDE30.IBCFD` หรือ `XAUUSD.IBCMDTY` ขณะที่ symbology แบบ raw จะเพิ่ม security type เข้าไปใน symbol venue
+เหล่านี้มีความสำคัญเหนือ `symbol_to_mic_venue` และ `convert_exchange_to_mic_venue` และไม่ได้อธิบายกลไกการ route
+แยกต่างหากของ IB
 
-Use the same provider config for data and execution clients so both resolve identical IDs. Startup
-`load_ids` and `load_contracts` are required entries: client initialization fails if a configured
-instrument cannot be resolved.
+ใช้ provider config เดียวกันสำหรับ data client และ execution client เพื่อให้ทั้งคู่ resolve ได้ ID เดียวกัน `load_ids` และ
+`load_contracts` ตอนเริ่มต้นเป็นรายการที่บังคับ: การ initialize client จะล้มเหลวหาก resolve instrument ที่ตั้งค่าไว้ไม่ได้
 
-### Provider configuration
+### Provider configuration {#provider-configuration}
 
-| Option                          | Default      | Purpose                                                 |
+| Option                          | Default      | วัตถุประสงค์                                                 |
 | ------------------------------- | ------------ | ------------------------------------------------------- |
-| `symbology_method`              | `SIMPLIFIED` | Select simplified or raw symbol conversion.             |
-| `load_ids`                      | Empty        | Load Nautilus instrument IDs at startup.                |
-| `load_contracts`                | Empty        | Load IB contract dictionaries at startup.               |
-| `min_expiry_days`               | `None`       | Minimum relative expiry for chain loading.              |
-| `max_expiry_days`               | `None`       | Maximum relative expiry for chain loading.              |
-| `build_options_chain`           | `None`       | Override option chain construction.                     |
-| `build_futures_chain`           | `None`       | Override futures chain construction.                    |
-| `cache_validity_days`           | `None`       | Lifetime of persisted instrument data.                  |
-| `convert_exchange_to_mic_venue` | `False`      | Convert known IB exchanges to MIC venues.               |
-| `symbol_to_mic_venue`           | Empty        | Override venues for matching symbol prefixes.           |
-| `filter_sec_types`              | Empty        | Exclude selected IB security types.                     |
-| `filter_callable`               | `None`       | Apply a Python callable by fully qualified import path. |
-| `cache_path`                    | `None`       | Persist the instrument cache at the selected path.      |
+| `symbology_method`              | `SIMPLIFIED` | เลือกการแปลง symbol แบบ simplified หรือ raw               |
+| `load_ids`                      | ว่าง          | โหลด instrument ID ของ Nautilus ตอนเริ่มต้น                 |
+| `load_contracts`                | ว่าง          | โหลด dictionary ของ contract ของ IB ตอนเริ่มต้น              |
+| `min_expiry_days`               | `None`       | วันหมดอายุสัมพัทธ์ขั้นต่ำสำหรับการโหลด chain                     |
+| `max_expiry_days`               | `None`       | วันหมดอายุสัมพัทธ์สูงสุดสำหรับการโหลด chain                     |
+| `build_options_chain`           | `None`       | override การสร้าง option chain                           |
+| `build_futures_chain`           | `None`       | override การสร้าง futures chain                          |
+| `cache_validity_days`           | `None`       | อายุของข้อมูล instrument ที่บันทึกไว้                         |
+| `convert_exchange_to_mic_venue` | `false`      | แปลง exchange ของ IB ที่รู้จักเป็น MIC venue                 |
+| `symbol_to_mic_venue`           | ว่าง          | override venue สำหรับ prefix ของ symbol ที่ตรงกัน            |
+| `filter_sec_types`              | ว่าง          | ตัด security type ของ IB ที่เลือกออก                        |
+| `cache_path`                    | `None`       | บันทึก cache ของ instrument ไว้ที่ path ที่เลือก               |
 
-Contract dictionaries use IB field names. Chain bounds are days from the request date:
+dictionary ของ contract ใช้ชื่อฟิลด์ของ IB ขอบเขตของ chain นับเป็นจำนวนวันจากวันที่ request
 
-```python
-from nautilus_trader.adapters import interactive_brokers as ib
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก (ตัวอย่างโหลด `SPY` พร้อม option chain ระยะ 7-45 วัน และ `ES`
+> แบบ continuous future พร้อม futures chain ระยะ 30-180 วัน)
 
+หากไม่มี flag ของ chain `CONTFUT` จะแทน continuous future ของ IB ซึ่ง IB จำกัดให้ใช้ได้เฉพาะข้อมูลย้อนหลัง ไม่รองรับ
+การ subscribe แบบ live หรือ order
 
-provider_config = ib.InteractiveBrokersInstrumentProviderConfig(
-    load_contracts=[
-        {
-            "secType": ib.IbSecurityType.STOCK.as_str(),
-            "symbol": "SPY",
-            "exchange": "SMART",
-            "primaryExchange": "ARCA",
-            "build_options_chain": True,
-            "min_expiry_days": 7,
-            "max_expiry_days": 45,
-        },
-        {
-            "secType": ib.IbSecurityType.CONTINUOUS_FUTURE.as_str(),
-            "symbol": "ES",
-            "exchange": "CME",
-            "build_futures_chain": True,
-            "min_expiry_days": 30,
-            "max_expiry_days": 180,
-        },
-    ],
-)
-```
+### Generic spread {#generic-spreads}
 
-Without a chain flag, `CONTFUT` represents IB's continuous future. IB limits continuous futures to historical
-data. They do not support live subscriptions or orders.
+สร้าง spread ID ด้วย `new_generic_spread_id` อย่าจัดรูปแบบไวยากรณ์ของ leg ด้วยมือ ทุก leg ต้องใช้ venue เดียวกัน และ
+เครื่องหมายของ ratio เป็นตัวเลือก action ของ leg ใน IB (เช่น `1` สำหรับ leg ฝั่ง long และ `-1` สำหรับ leg ฝั่ง short)
 
-### Generic spreads
+โหลด instrument ของ leg ก่อน request spread provider จะ qualify แต่ละ leg, สร้าง contract แบบ BAG ของ IB และเก็บ
+instrument ของ spread ที่ได้ไว้ใน cache ก่อนการ subscribe ข้อมูลหรือการ submit order
 
-Build spread IDs with `new_generic_spread_id`. Do not format their leg grammar by hand. All legs must use the
-same venue, and the ratio sign selects the IB leg action:
+execution ของ spread กลับมาจาก IB เป็น fill ระดับ combo สำหรับ spread order และ execution หนึ่งรายการต่อ leg execution
+ของแต่ละ leg จะกลายเป็น event `OrderFilled` บน instrument ของ leg ภายใต้ strategy ของ spread order โดยมี client order ID
+แบบ `-LEG-` execution engine จะนำไปใช้กับ position ของ leg โดยไม่มี order ของตัวเอง IB ส่ง commission report สำหรับ
+execution ของ leg เท่านั้น fill ระดับ combo จึงมี commission เป็นศูนย์
 
-```python
-from nautilus_trader.model import new_generic_spread_id
+เมื่อเชื่อมต่อ execution client จะโหลดและ publish instrument ของ spread และ leg ของทุก combo order ที่เปิดอยู่หรือเสร็จแล้ว
+reconciliation ตอนเริ่มต้นจึงกู้คืน order เหล่านั้นได้แม้ node จะไม่ได้โหลด spread เอง fill report ตอนเริ่มต้นเก็บ fill ระดับ combo
+ของแต่ละ combo order ส่วน execution ของ leg จะไม่ถูกรวม และ position ของ leg จะ reconcile จาก position report ของ IB
 
+### Price magnifier {#price-magnifier}
 
-spread_id = new_generic_spread_id(
-    [
-        (long_leg.id, 1),
-        (short_leg.id, -1),
-    ],
-)
-```
+IB กำหนดราคาของบาง contract ในหน่วยย่อยของสกุลเงิน เช่น ธัญพืชของ CBOT เป็นเซนต์และหุ้นใน LSE เป็นเพนนี และรายงาน
+`priceMagnifier` ของ contract เหล่านั้น (100 ทั้งคู่) adapter จะหารทุกราคาที่ IB รายงานสำหรับ contract แบบนี้ด้วย magnifier
+(market data, ข้อมูลย้อนหลัง, fill และ order report) และคูณราคาของ order ที่ส่งออกไปด้วย magnifier ราคาของ Nautilus จึงอยู่ใน
+สกุลเงินของ contract ดังนั้น bar ของ ZC ที่ IB รายงานที่ 486.25 จะเป็น 4.8625 และ `price * multiplier` คือมูลค่าของ contract
+`minTick` ของ IB อยู่ในสกุลเงินของ contract อยู่แล้ว price increment ของ instrument จึงเป็น `minTick` ตามที่รายงาน strike
+ของ option ที่มี magnifier ก็ถูกหารด้วย magnifier เช่นกัน ราคาที่ให้ใน `IBOrderTags` (เช่น `starting_price`,
+`stock_ref_price`, `discretionary_amt` และ `delta_neutral_aux_price`) และใน order condition จะถูกส่งให้ IB ตามที่ระบุ
+ในหน่วยของ IB ดังนั้นราคาใน tag หรือ condition ของ contract ที่มี magnifier คือราคาที่ IB รายงาน ไม่ใช่ราคาของ Nautilus
 
-Load the leg instruments before requesting the spread. The provider qualifies each leg, constructs
-the IB BAG contract, and caches the resulting spread instrument before data subscription or order
-submission.
+average cost ของ position คือราคาในสกุลเงินของ contract คูณด้วย multiplier adapter จึงหารด้วย multiplier เท่านั้น IB รายงาน
+ผลการคำนวณของ option ที่มี magnifier (ราคาของสินทรัพย์อ้างอิงและ greeks) ในสกุลเงินของ contract อยู่แล้ว adapter จึง publish
+โดยไม่เปลี่ยนแปลง
 
-Spread executions come back from IB as a combo-level fill for the spread order and one execution per leg. Each
-leg execution becomes an `OrderFilled` event on the leg instrument under the spread order's strategy. It has a
-`-LEG-` client order ID. The execution engine applies it to the leg position without an order of its own. IB
-sends commission reports for the leg executions only, so the combo-level fill carries zero commission.
+execution client ต้องมี magnifier ของ instrument ก่อน submit หรือ modify order ของ instrument นั้น เมื่อ provider ยังไม่ได้โหลด
+instrument เช่น instrument ที่ data client โหลดหลังจากสร้าง execution client แล้ว client จะใช้ contract และ magnifier จาก
+instrument ใน cache หรือไม่เช่นนั้นจะ request contract details จาก IB และรอได้นานสุด `request_timeout` client จะ deny
+order หรือปฏิเสธการ modify เมื่อไม่มีแหล่งใดให้ magnifier ได้ทันเวลา order ที่ถูกยกเลิกระหว่างรอ ไม่ว่าจะทีละตัวหรือด้วย
+cancel-all จะถูกยกเลิกใน client และไม่ไปถึง IB การยกเลิก order หนึ่งตัวใน order list ที่กำลังรอจะหยุดทั้ง list และ client จะ
+deny order ตัวอื่นใน list
 
-On connect, the execution client loads and publishes the spread and leg instruments of every open or completed
-combo order, so startup reconciliation restores those orders even when the node does not load the spread
-itself. Startup fill reports hold each combo order's combo-level fills. Its leg executions are left out, and
-the leg positions reconcile from IB's position reports.
+#### การอัปเกรดเมื่อมี contract ที่ใช้ magnifier {#upgrading-with-magnified-contracts}
 
-### Price magnifier
+เวอร์ชันก่อนหน้าแปลงราคาของ contract ที่มี magnifier ต่างกันในแต่ละเส้นทาง ก่อนอัปเกรด node ที่เทรดหรือบันทึกข้อมูล
+contract ที่มี magnifier มากกว่า 1:
 
-IB prices some contracts in a sub-unit of their currency, such as CBOT grains in cents and LSE
-stocks in pence, and reports a `priceMagnifier` for them (100 for both). The adapter divides every
-price IB reports for such a contract by the magnifier (market data, historical data, fills, and
-order reports), and multiplies the prices of orders it sends by it. Nautilus prices are therefore
-in the contract's currency, so a ZC bar IB reports at 486.25 is 4.8625, and `price * multiplier`
-is the contract value. IB's `minTick` is already in the contract's currency, so the instrument's
-price increment is the `minTick` as reported. A magnified option's strike is divided by the
-magnifier too. Prices given in `IBOrderTags` (for example `starting_price`, `stock_ref_price`,
-`discretionary_amt`, and `delta_neutral_aux_price`) and in order conditions are passed to IB as
-given, in IB's units, so a magnified contract's tag or condition price is the price IB reports for
-it, not the Nautilus price.
+- **ปิด position และยกเลิก order ที่ทำงานอยู่ใน contract เหล่านั้น** เวอร์ชันก่อนหน้ารายงานราคาของ fill และ order เป็น
+  magnifier ยกกำลังสองคูณกับราคาที่เวอร์ชันนี้รายงาน รายงานราคาเฉลี่ยของ position หารด้วย magnifier และหารราคาของ order
+  ที่ส่งออกไปด้วย magnifier position ที่เปิดก่อนอัปเกรดและปิดหลังอัปเกรด หรือ order ที่วางก่อนและ modify หลังอัปเกรด จะปะปน
+  สองสเกลเข้าด้วยกัน
+- **สร้าง option ที่มี magnifier ใน cache ใหม่** ตอนนี้ strike ของ option ที่มี magnifier ถูกหารด้วย magnifier แล้ว แต่ instrument
+  ของ option ที่เวอร์ชันก่อนหน้า cache ไว้จะโหลดมาโดยไม่เปลี่ยนแปลง และคง strike ในหน่วยของ IB ไว้คู่กับราคาในสกุลเงินของ
+  contract ให้ลบไฟล์ cache ของ instrument ของ provider (`cache_path`) และลบ instrument เหล่านั้นออกจากฐานข้อมูล cache ใด ๆ
+  ที่ node ใช้โหลด instrument เพื่อให้ adapter โหลดใหม่จาก IB ส่วน instrument อื่นไม่เปลี่ยนแปลง: price increment ของมันคือ
+  `minTick` ของ IB ในทั้งสองเวอร์ชัน
+- **แปลงข้อมูล live ที่บันทึกไว้ ไม่ใช่ข้อมูลย้อนหลัง** ข้อมูลจาก request ย้อนหลัง (`request_bars`, `request_quotes`,
+  `request_trades` และ `HistoricalInteractiveBrokersClient`) และ index price ถูกหารด้วย magnifier อยู่แล้ว จึงตรงกับเวอร์ชันนี้
+  แต่ข้อมูลที่บันทึกจาก subscription ไม่ได้ถูกหาร: ให้หาร quote แบบ tick-by-tick ด้วย magnifier ยกกำลังสอง และหาร quote อื่น,
+  trade, bar และข้อมูล order book ด้วย magnifier ส่วน fill, order และ position ที่บันทึกไว้เป็นไปตามสเกลในข้อแรก
 
-Position average cost is a price in the contract's currency times the multiplier, so the adapter
-divides it by the multiplier only. IB reports a magnified option's computation (the underlying price
-and the greeks) in the contract's currency already, so the adapter publishes it unchanged.
+## เอกสารอ้างอิง configuration {#configuration-reference}
 
-The execution client needs an instrument's magnifier before it submits or modifies an order for it.
-When its provider has not loaded the instrument, for example one a data client loaded after the
-execution client was created, the client takes the contract and magnifier from the instrument in
-the cache, or else requests the contract details from IB and waits up to `request_timeout` for
-them. It denies the order, or rejects the modify, when neither supplies the magnifier in time.
-An order canceled while it waits, singly or by a cancel-all, is canceled in the client and never
-reaches IB. Canceling one order of a waiting order list stops the whole list, and the client
-denies the list's other orders.
+### Data client {#data-client}
 
-#### Upgrading with magnified contracts
-
-Earlier versions converted a magnified contract's prices differently on each path. Before
-upgrading a node that trades or records contracts with a magnifier above 1:
-
-- **Flatten positions and cancel working orders in those contracts.** Earlier versions reported
-  fills and order prices at the magnifier squared times the price this version reports, reported
-  position average prices divided by the magnifier, and divided the prices of orders they sent by
-  it. A position opened before the upgrade and closed after it, or an order placed before it and
-  modified after it, mixes the two scales.
-- **Rebuild cached magnified options.** A magnified option's strike is now divided by the magnifier,
-  but an option instrument cached by an earlier version loads unchanged and keeps its strike in
-  IB's units beside prices in the contract's currency. Delete the provider's instrument cache file
-  (`cache_path`), and remove those instruments from any cache database the node loads instruments
-  from, so the adapter loads them again from IB. Other instruments are unchanged: their price
-  increment is IB's `minTick` in both versions.
-- **Convert recorded live data, not history.** Data from history requests (`request_bars`,
-  `request_quotes`, `request_trades`, and `HistoricalInteractiveBrokersClient`) and index prices
-  were already divided by the magnifier, so they match this version. Data recorded from
-  subscriptions was not: divide tick-by-tick quotes by the magnifier squared, and other quotes,
-  trades, bars, and order book data by the magnifier. Recorded fills, orders, and positions follow
-  the scales in the first item.
-
-## Configuration reference
-
-### Data client
-
-| Option                           | Default                   | Purpose                                                                     |
+| Option                           | Default                   | วัตถุประสงค์                                                                     |
 | -------------------------------- | ------------------------- | --------------------------------------------------------------------------- |
-| `host`                           | `127.0.0.1`               | TWS or IB Gateway host.                                                     |
-| `port`                           | `4002`                    | TWS or IB Gateway socket port.                                              |
-| `client_id`                      | `1`                       | IB API client ID.                                                           |
-| `use_regular_trading_hours`      | `True`                    | Restrict requests to regular trading hours.                                 |
-| `market_data_type`               | `MarketDataType.REALTIME` | Select real-time, frozen, delayed, or delayed-frozen data.                  |
-| `ignore_quote_tick_size_updates` | `False`                   | Filter quote changes that update only size.                                 |
-| `connection_timeout`             | `300` seconds             | Set the socket connection timeout.                                          |
-| `request_timeout`                | `60` seconds              | Set the IB request timeout.                                                 |
-| `handle_revised_bars`            | `False`                   | Publish every revision of an open bar instead of each completed bar once.   |
-| `batch_quotes`                   | `True`                    | Prefer `reqMktData` for quote subscriptions.                                |
-| `all_last_trades`                | `True`                    | Include AllLast trades; set `False` to request Last trades only.            |
-| `subscription_idle_timeout_secs` | `None`                    | Emit a custom-data event after this many seconds without subscription data. |
-| `max_reconnect_attempts`         | `None`                    | Bound ibapi's automatic reconnect attempts.                                 |
-| `instrument_provider`            | Default provider config   | Configure contract and instrument loading.                                  |
-| `dockerized_gateway`             | `None`                    | Reserved and rejected; start the gateway separately.                        |
+| `host`                           | `127.0.0.1`               | host ของ TWS หรือ IB Gateway                                                 |
+| `port`                           | `4002`                    | socket port ของ TWS หรือ IB Gateway                                          |
+| `client_id`                      | `1`                       | client ID ของ IB API                                                        |
+| `use_regular_trading_hours`      | `true`                    | จำกัด request ให้อยู่ในเวลาซื้อขายปกติ                                           |
+| `market_data_type`               | `MarketDataType.REALTIME` | เลือกข้อมูลแบบ real-time, frozen, delayed หรือ delayed-frozen                   |
+| `ignore_quote_tick_size_updates` | `false`                   | กรองการเปลี่ยนแปลงของ quote ที่อัปเดตเฉพาะขนาด                                    |
+| `connection_timeout`             | `300` วินาที               | ตั้ง timeout ของการเชื่อมต่อ socket                                               |
+| `request_timeout`                | `60` วินาที                | ตั้ง timeout ของ request ไปยัง IB                                               |
+| `handle_revised_bars`            | `false`                   | publish ทุกการปรับแก้ของ bar ที่ยังเปิดอยู่ แทนที่จะ publish bar ที่เสร็จแล้วครั้งเดียว       |
+| `batch_quotes`                   | `true`                    | เลือกใช้ `reqMktData` สำหรับการ subscribe quote                                 |
+| `all_last_trades`                | `true`                    | รวม trade แบบ AllLast ตั้งเป็น false เพื่อ request เฉพาะ trade แบบ Last             |
+| `subscription_idle_timeout_secs` | `None`                    | ส่ง custom-data event เมื่อไม่มีข้อมูลจาก subscription ครบจำนวนวินาทีนี้               |
+| `max_reconnect_attempts`         | `None`                    | จำกัดจำนวนครั้งของการ reconnect อัตโนมัติของ ibapi                                  |
+| `instrument_provider`            | config ของ provider ค่าเริ่มต้น | ตั้งค่าการโหลด contract และ instrument                                          |
+| `dockerized_gateway`             | `None`                    | สงวนไว้และจะถูกปฏิเสธ ให้เริ่ม gateway แยกต่างหาก                                    |
 
-With `handle_revised_bars=False`, a bar IB keeps up to date is published once it completes. IB
-revises the open bar every 5 seconds and sends its final values about half a second after the bar
-closes, so the bar is published when that update arrives. If none arrives, because the last 5
-seconds had no trades, the bar is published 2 seconds after its close or on the next bar's first
-update, whichever comes first.
+เมื่อ `handle_revised_bars` เป็น false bar ที่ IB อัปเดตต่อเนื่องจะถูก publish เมื่อเสร็จสมบูรณ์ IB ปรับแก้ bar ที่เปิดอยู่ทุก 5 วินาที
+และส่งค่าสุดท้ายประมาณครึ่งวินาทีหลัง bar ปิด bar จึงถูก publish เมื่อการอัปเดตนั้นมาถึง หากไม่มีการอัปเดตมา เพราะ 5 วินาที
+สุดท้ายไม่มี trade bar จะถูก publish 2 วินาทีหลังปิด หรือเมื่อมีการอัปเดตแรกของ bar ถัดไป แล้วแต่อย่างใดจะมาก่อน
 
-When `subscription_idle_timeout_secs` is set, each live subscription emits
-`InteractiveBrokersSubscriptionIdle` once per interval of inactivity. A new market-data update rearms the
-notification. Subscribe to `DataType("InteractiveBrokersSubscriptionIdle")` through the message bus to receive
-these events in `on_data`. Each event identifies the data client, instrument, subscription, timeout, and last
-local data receipt time. A quiet instrument or closed market can also trigger an event. Inactivity alone does
-not restart a subscription.
+เมื่อตั้ง `subscription_idle_timeout_secs` subscription แบบ live แต่ละตัวจะส่ง `InteractiveBrokersSubscriptionIdle` หนึ่งครั้ง
+ต่อหนึ่งช่วงที่ไม่มีความเคลื่อนไหว การอัปเดต market data ใหม่จะตั้งการแจ้งเตือนใหม่ subscribe
+`DataType("InteractiveBrokersSubscriptionIdle")` ผ่าน message bus เพื่อรับ event เหล่านี้ใน `on_data` แต่ละ event ระบุ data
+client, instrument, subscription, timeout และเวลาที่ได้รับข้อมูลในเครื่องครั้งล่าสุด instrument ที่เงียบหรือตลาดที่ปิดก็อาจ trigger
+event ได้ การไม่มีความเคลื่อนไหวเพียงอย่างเดียวไม่ได้ทำให้ subscription เริ่มใหม่
 
-### Execution client
+### Execution client {#execution-client}
 
-| Option                                       | Default                 | Purpose                                              |
+| Option                                       | Default                 | วัตถุประสงค์                                              |
 | -------------------------------------------- | ----------------------- | ---------------------------------------------------- |
-| `host`                                       | `127.0.0.1`             | TWS or IB Gateway host.                              |
-| `port`                                       | `4002`                  | TWS or IB Gateway socket port.                       |
-| `client_id`                                  | `1`                     | IB API client ID.                                    |
-| `account_id`                                 | `None`                  | Raw IB account code such as `DU123456`.              |
-| `base_currency`                              | `None`                  | Account base currency; `None` is multi-currency.     |
-| `connection_timeout`                         | `300` seconds           | Set the socket connection timeout.                   |
-| `request_timeout`                            | `60` seconds            | Set the IB request timeout.                          |
-| `fetch_all_open_orders`                      | `False`                 | Request all open orders visible to the session.      |
-| `track_option_exercise_from_position_update` | `False`                 | Track option exercise through position updates.      |
-| `max_reconnect_attempts`                     | `None`                  | Bound ibapi's automatic reconnect attempts.          |
-| `instrument_provider`                        | Default provider config | Configure contract and instrument loading.           |
-| `dockerized_gateway`                         | `None`                  | Reserved and rejected; start the gateway separately. |
+| `host`                                       | `127.0.0.1`             | host ของ TWS หรือ IB Gateway                          |
+| `port`                                       | `4002`                  | socket port ของ TWS หรือ IB Gateway                   |
+| `client_id`                                  | `1`                     | client ID ของ IB API                                 |
+| `account_id`                                 | `None`                  | รหัส account ดิบของ IB เช่น `DU123456`                 |
+| `base_currency`                              | `None`                  | base currency ของ account ค่า `None` คือหลายสกุลเงิน     |
+| `connection_timeout`                         | `300` วินาที             | ตั้ง timeout ของการเชื่อมต่อ socket                        |
+| `request_timeout`                            | `60` วินาที              | ตั้ง timeout ของ request ไปยัง IB                        |
+| `fetch_all_open_orders`                      | `false`                 | request open order ทั้งหมดที่ session มองเห็น              |
+| `track_option_exercise_from_position_update` | `false`                 | ติดตามการใช้สิทธิ์ option ผ่านการอัปเดต position           |
+| `max_reconnect_attempts`                     | `None`                  | จำกัดจำนวนครั้งของการ reconnect อัตโนมัติของ ibapi           |
+| `instrument_provider`                        | config ของ provider ค่าเริ่มต้น | ตั้งค่าการโหลด contract และ instrument                   |
+| `dockerized_gateway`                         | `None`                  | สงวนไว้และจะถูกปฏิเสธ ให้เริ่ม gateway แยกต่างหาก             |
 
-### Dockerized gateway
+### Gateway ใน Docker {#dockerized-gateway}
 
-| Option            | Default                            | Purpose                                                              |
+| Option            | Default                            | วัตถุประสงค์                                                              |
 | ----------------- | ---------------------------------- | -------------------------------------------------------------------- |
-| `username`        | `TWS_USERNAME`                     | Set the IB login username.                                           |
-| `password`        | `TWS_PASSWORD`                     | Set the IB login password; debug output and serialization redact it. |
-| `trading_mode`    | `TradingMode.PAPER`                | Select paper or live login and port mapping.                         |
-| `read_only_api`   | `True`                             | Disable order entry through the Gateway API.                         |
-| `timeout`         | `300` seconds                      | Bound startup readiness; valid values are `1` through `3600`.        |
-| `container_image` | `ghcr.io/gnzsnz/ib-gateway:stable` | Select the container image reference.                                |
-| `vnc_port`        | `None`                             | Expose VNC on a port from `5900` through `5999`; `None` disables it. |
+| `username`        | `TWS_USERNAME`                     | ตั้ง username สำหรับ login ของ IB                                       |
+| `password`        | `TWS_PASSWORD`                     | ตั้ง password สำหรับ login ของ IB โดย debug output และ serialization จะปิดบังค่า |
+| `trading_mode`    | `TradingMode.PAPER`                | เลือกการ login แบบ paper หรือ live และการจับคู่ port                       |
+| `read_only_api`   | `true`                             | ปิดการส่ง order ผ่าน Gateway API                                       |
+| `timeout`         | `300` วินาที                        | จำกัดเวลารอความพร้อมตอนเริ่มต้น ค่าที่ใช้ได้คือ `1` ถึง `3600`                 |
+| `container_image` | `ghcr.io/gnzsnz/ib-gateway:stable` | เลือก reference ของ container image                                  |
+| `vnc_port`        | `None`                             | เปิด VNC บน port ตั้งแต่ `5900` ถึง `5999` ค่า `None` คือปิด               |
 
-`DockerizedIBGateway` exposes asynchronous and blocking `start`, `safe_start`, and `stop` methods,
-plus `container_status`. The safe start variants reuse a ready container and replace an unhealthy
-one.
+`DockerizedIBGateway` มี method `start`, `safe_start` และ `stop` ทั้งแบบ asynchronous และแบบ blocking รวมถึง
+`container_status` method แบบ safe start จะใช้ container ที่พร้อมอยู่แล้วซ้ำ และแทนที่ container ที่ไม่สมบูรณ์
 
-## Python enum reference
+## ทดสอบ adapter {#test-the-adapter}
 
-All public Python enum names use `SCREAMING_SNAKE_CASE`. IB conversion enums expose `as_str()` or
-`as_i32()` when callers need the corresponding wire value.
+สำหรับ market data ให้รันด้วย `cargo run --example ib-data-tester --package nautilus-interactive-brokers --features examples`
+ซึ่ง stream instrument ที่ตั้งค่าไว้ด้วย actor `DataTester` ในตัว โดยเชื่อมต่อกับ TWS หรือ IB Gateway ที่รันอยู่ในเครื่องและไม่ส่ง
+order ใด ๆ
 
-### Connection, contracts, and instruments
-
-| Enum                                | Purpose and key members                                                                                                                                |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `ContainerStatus`                   | Gateway lifecycle: `NO_CONTAINER`, `CONTAINER_CREATED`, `CONTAINER_STARTING`, `CONTAINER_STOPPED`, `NOT_LOGGED_IN`, `READY`, or `UNKNOWN`.             |
-| `MarketDataType`                    | Subscription mode: `REALTIME`, `FROZEN`, `DELAYED`, or `DELAYED_FROZEN`.                                                                               |
-| `SymbologyMethod`                   | Instrument ID mapping: `SIMPLIFIED` or `RAW`.                                                                                                          |
-| `TradingMode`                       | Gateway login mode: `PAPER` or `LIVE`.                                                                                                                 |
-| `IbSecurityType`                    | IB contract types: stock, option, future, continuous future, index, futures option, FX, spread, warrant, bond, commodity, news, fund, crypto, and CFD. |
-| `IbOptionRight`                     | Option side: `CALL` or `PUT`.                                                                                                                          |
-| `IbBondIdentifierKind`              | Bond identifier: `CUSIP` or `ISIN`.                                                                                                                    |
-| `IbFundAssetType`                   | Fund asset classification: none, other, money market, fixed income, multi-asset, equity, sector, guaranteed, or alternative.                           |
-| `IbFundDistributionPolicyIndicator` | Fund distribution policy: `NONE`, `ACCUMULATION_FUND`, or `INCOME_FUND`.                                                                               |
-
-### Market and historical data
-
-| Enum                     | Purpose and key members                                                                                                 |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| `IbHistoricalBarSize`    | Historical bar intervals from one second through one month.                                                             |
-| `IbHistoricalTickType`   | Historical ticks: `TRADES` or `BID_ASK`.                                                                                |
-| `IbHistoricalWhatToShow` | Historical source such as trades, midpoint, bid, ask, volatility, fee rate, schedule, or adjusted last.                 |
-| `IbRealtimeBarSize`      | IB real-time bar size; IB supports `SEC5`.                                                                              |
-| `IbRealtimeWhatToShow`   | Real-time bar source: `TRADES`, `MIDPOINT`, `BID`, or `ASK`.                                                            |
-| `IbTradingHours`         | Regular or extended trading hours.                                                                                      |
-| `IbTickType`             | The full IB numeric tick-field set, including live and delayed prices, sizes, option values, yields, NAVs, and volumes. |
-
-### Orders and conditions
-
-| Enum                     | Purpose and key members                                                                                                  |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| `IbAction`               | Order action and execution side: buy, sell, bought, sold, sell short, or sell long.                                      |
-| `IbOrderType`            | Native IB order types used by conversion and `IBOrderTags`; direct Nautilus support is limited to the order table above. |
-| `IbOrderStatus`          | Native lifecycle status from API pending through submitted, pending cancel, canceled, filled, or inactive.               |
-| `IbTimeInForce`          | IB time in force values used for order conversion.                                                                       |
-| `IbBuilderTimeInForce`   | Time in force values accepted by IB order builders, including good-till-crossing and opening auction.                    |
-| `IbOrderOpenClose`       | Open or close designation.                                                                                               |
-| `IbOrderOrigin`          | Customer or firm origin.                                                                                                 |
-| `IbShortSaleSlot`        | No short-sale slot, broker, or third party.                                                                              |
-| `IbAuctionStrategy`      | Match, improvement, or transparent auction strategy.                                                                     |
-| `IbAuctionType`          | Opening, closing, or volatility auction.                                                                                 |
-| `IbReferencePriceType`   | Average of NBBO or NBBO.                                                                                                 |
-| `IbVolatilityType`       | Daily or annual volatility.                                                                                              |
-| `IbRule80A`              | IB Rule 80A account and agency classifications.                                                                          |
-| `IbOcaType`              | No OCA, cancel with block, reduce with block, or reduce without block.                                                   |
-| `IbTriggerMethod`        | Default, double bid/ask, last, double last, bid/ask, last or bid/ask, or midpoint.                                       |
-| `IbLiquidity`            | None, added, removed, routed out, or explicitly unknown liquidity.                                                       |
-| `IbComboLegOpenClose`    | Same, open, close, or unknown combo-leg designation.                                                                     |
-| `IbLegAction`            | Buy or sell combo-leg action.                                                                                            |
-| `IbConditionKind`        | Price, time, margin, execution, volume, or percent-change condition.                                                     |
-| `IbConditionConjunction` | `AND` or `OR`.                                                                                                           |
-| `IbExerciseAction`       | Exercise or lapse an option.                                                                                             |
-| `IbTwapStrategyType`     | Marketable, matching midpoint, matching same side, or matching last.                                                     |
-| `IbRiskAversion`         | Get done, aggressive, neutral, or passive.                                                                               |
-| `IbArticleType`          | Text or binary news article.                                                                                             |
-
-## Test the adapter
-
-For market data, `examples/live/interactive_brokers/data_tester.py` streams the configured
-instrument with the built-in `DataTester` actor, and the Rust equivalent runs with
-`cargo run --example ib-data-tester --package nautilus-interactive-brokers --features examples`.
-Both connect to a locally running TWS or IB Gateway and place no orders.
-
-The Python examples construct offline by default. Their run flags separate connection from order
-submission. The Rust execution tester uses the same boundary:
+execution tester ของ Rust แยกการเชื่อมต่อออกจากการส่ง order ด้วย run flag:
 
 ```bash
 # Construct the tester without connecting.
@@ -888,18 +657,17 @@ cargo run --example ib-exec-tester \
   --features examples
 ```
 
-Available execution profiles are `lifecycle`, `cancel-modify`, `rejection`, `options`, `stop`,
-`stop-limit`, `trailing`, `bracket`, and `unsupported-flags`. Run live tests only against an account
-and instruments intended for the selected profile.
+execution profile ที่มีให้ใช้ได้แก่ `lifecycle`, `cancel-modify`, `rejection`, `options`, `stop`, `stop-limit`, `trailing`,
+`bracket` และ `unsupported-flags` รัน live test เฉพาะกับ account และ instrument ที่ตั้งใจใช้กับ profile ที่เลือกเท่านั้น
 
-## Troubleshooting
+## การแก้ปัญหา {#troubleshooting}
 
-- Confirm TWS or IB Gateway is running, logged in, and configured for socket API access.
-- Confirm the port matches the application and trading mode.
-- Confirm no other process uses the same IB API client ID.
-- Confirm the account has permission for the requested market data type and instrument.
-- Run the ignored connection smoke explicitly when a paper session is available:
-  `cargo test -p nautilus-interactive-brokers --test connection -- --ignored`.
+- ตรวจว่า TWS หรือ IB Gateway กำลังรัน, login แล้ว และตั้งค่าให้เข้าถึง socket API ได้
+- ตรวจว่า port ตรงกับแอปพลิเคชันและโหมดการเทรด
+- ตรวจว่าไม่มีโปรเซสอื่นใช้ client ID ของ IB API เดียวกัน
+- ตรวจว่า account มีสิทธิ์สำหรับ market data type และ instrument ที่ร้องขอ
+- รัน connection smoke test ที่ถูก ignore ไว้อย่างชัดเจนเมื่อมี paper session ให้ใช้:
+  `cargo test -p nautilus-interactive-brokers --test connection -- --ignored`
 
-For IB error codes, pacing, and connection settings, see the
-[official TWS API reference](https://ibkrcampus.com/campus/ibkr-api-page/twsapi-doc/).
+สำหรับ error code, pacing และการตั้งค่าการเชื่อมต่อของ IB ดู
+[TWS API reference อย่างเป็นทางการ](https://ibkrcampus.com/campus/ibkr-api-page/twsapi-doc/)

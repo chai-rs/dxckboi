@@ -1,144 +1,142 @@
 # Tardis
 
-Tardis provides granular cryptocurrency market data, including tick-by-tick order book snapshots and
-updates, trades, open interest, funding rates, option summaries, and liquidations.
+Tardis ให้บริการ market data ของ cryptocurrency แบบละเอียด รวมถึง snapshot และ update ของ order book
+แบบ tick-by-tick, trade, open interest, funding rate, option summary และ liquidation
 
-NautilusTrader integrates with the Tardis API, Tardis Machine WebSocket server, and Tardis CSV
-formats. The capabilities of this adapter include:
+NautilusTrader เชื่อมต่อกับ Tardis API, WebSocket server ของ Tardis Machine และรูปแบบ CSV ของ Tardis
+ความสามารถของ adapter นี้ได้แก่:
 
-- CSV loading and streaming functions read Tardis-format files into Nautilus data in bulk or
-  bounded chunks.
-- `run_tardis_machine_replay` replays historical data and writes Nautilus Parquet catalog files.
-- `TardisDataClientConfig` and `TardisDataClientFactory` connect a Nautilus node to a configured
-  historical replay or real-time Tardis Machine stream.
-- Python and Rust expose `TardisMachineClient` and `TardisHttpClient` for lower-level access to
-  normalized streams and instrument metadata.
-
-:::info
-A `TARDIS_API_KEY` is required for Nautilus instrument metadata calls. Tardis Machine uses
-`TM_API_KEY` for historical dates outside the free first day of each month. See also
-[environment variables](#environment-variables).
-:::
-
-## Overview
-
-The adapter is implemented in Rust with optional Python bindings. Its components are compiled into
-NautilusTrader, so it does not require a separate Tardis client library installation. Consult the
-[Tardis documentation](https://docs.tardis.dev/) for the upstream APIs, formats, and server.
-
-The minimum tested Tardis Node version used by Tardis Machine is **18.2.2**. This release fixes
-Deribit order book normalization when queued updates already covered by a snapshot arrive after it.
-NautilusTrader does not pin the version in your Tardis Machine deployment.
-
-## Supported formats
-
-Tardis provides *normalized* market data, a unified format consistent across supported exchanges.
-This normalization lets one parser handle data from any [Tardis-supported exchange](#venues).
-NautilusTrader does not support exchange-native Tardis market data formats in this adapter.
-
-The following normalized Tardis Machine formats are supported by NautilusTrader. See the official
-[Tardis data type reference](https://docs.tardis.dev/tardis-machine/data-types) for field schemas.
-
-| Tardis format       | Nautilus data type                                            |
-| :------------------ | :------------------------------------------------------------ |
-| `book_change`       | `OrderBookDeltas`                                             |
-| `book_snapshot_*`   | `OrderBookDepth` or `OrderBookDeltas`                         |
-| `quote`             | `QuoteTick`                                                   |
-| `quote_10s`         | `QuoteTick`                                                   |
-| `trade`             | `TradeTick`                                                   |
-| `trade_bar_*`       | `Bar`                                                         |
-| `derivative_ticker` | `FundingRateUpdate`, `MarkPriceUpdate`, or `IndexPriceUpdate` |
-| `option_summary`    | `OptionGreeks`; optional `QuoteTick` from BBO fields          |
-| `disconnect`        | Ignored                                                       |
-
-**Notes**:
-
-- Tardis documents `quote` as an alias for `book_snapshot_1_0ms`.
-- Tardis documents `quote_10s` as an alias for `book_snapshot_1_10s`.
-- `quote`, `quote_10s`, and one-level snapshots are parsed as `QuoteTick`.
-- The data client emits funding rate, mark price, and index price updates from `derivative_ticker`
-  messages only when their values change. The catalog replay pipeline does not write these updates.
-- Tardis `option_summary` messages include best bid/offer fields. Nautilus always maps this feed to
-  `OptionGreeks`. Set `extract_bbo_as_quotes` to `true` to also emit `QuoteTick` from those BBO fields.
-- The adapter does not parse the Tardis `book_ticker`, `liquidation`, or `error` normalized formats.
+- ฟังก์ชันโหลดและ stream CSV ที่อ่านไฟล์รูปแบบ Tardis เป็นข้อมูลของ Nautilus แบบรวดเดียวหรือเป็น chunk
+  ที่มีขอบเขต
+- `run_tardis_machine_replay` replay ข้อมูลย้อนหลังและเขียนเป็นไฟล์ Parquet catalog ของ Nautilus
+- `TardisDataClientConfig` และ `TardisDataClientFactory` เชื่อม Nautilus node เข้ากับ historical replay
+  หรือ real-time stream ของ Tardis Machine ที่ตั้งค่าไว้
+- Rust มี `TardisMachineClient` และ `TardisHttpClient` สำหรับเข้าถึง normalized stream และ metadata
+  ของ instrument ในระดับล่าง
 
 :::info
-See also the Tardis [Tardis Machine quickstart](https://docs.tardis.dev/tardis-machine/quickstart).
+ต้องมี `TARDIS_API_KEY` สำหรับการเรียก metadata ของ instrument ใน Nautilus Tardis Machine ใช้
+`TM_API_KEY` สำหรับวันที่ในอดีตที่อยู่นอกวันแรกของแต่ละเดือนซึ่งใช้ได้ฟรี ดูเพิ่มเติมที่
+[environment variable](#environment-variables)
 :::
 
-## Bars
+## ภาพรวม {#overview}
 
-The adapter converts Tardis trade bar intervals and suffixes to Nautilus `BarType`s.
-This includes the following:
+adapter นี้ implement ด้วย Rust component ของมันถูก compile รวมอยู่ใน NautilusTrader จึงไม่ต้องติดตั้ง
+client library ของ Tardis แยกต่างหาก ดู API, รูปแบบข้อมูล และ server ต้นทางได้ที่
+[เอกสารของ Tardis](https://docs.tardis.dev/)
 
-| Tardis suffix | Meaning         | Nautilus bar aggregation   |
-| :------------ | :-------------- | :------------------------- |
-| `ms`          | Milliseconds    | `MILLISECOND`              |
-| `s`           | Seconds         | `SECOND`                   |
-| `m`           | Minutes         | `MINUTE`, `HOUR`, or `DAY` |
-| `ticks`       | Number of ticks | `TICK`                     |
-| `vol`         | Volume size     | `VOLUME`                   |
+Tardis Node เวอร์ชันต่ำสุดที่ทดสอบแล้วซึ่ง Tardis Machine ใช้คือ **18.2.2** release นี้แก้ปัญหาการ normalize
+order book ของ Deribit เมื่อ update ที่อยู่ในคิวซึ่ง snapshot ครอบคลุมแล้วมาถึงหลัง snapshot
+NautilusTrader ไม่ได้ pin เวอร์ชันใน deployment ของ Tardis Machine ของผู้ใช้
 
-Minute intervals that divide evenly into hours or days use the canonical Nautilus `HOUR` or `DAY`
-aggregation.
+## รูปแบบที่รองรับ {#supported-formats}
 
-## Symbology and normalization
+Tardis ให้ market data แบบ *normalized* ซึ่งเป็นรูปแบบเดียวกันที่สอดคล้องกันทุก exchange ที่รองรับ
+การ normalize นี้ทำให้ parser ตัวเดียวจัดการข้อมูลจาก[exchange ใดก็ได้ที่ Tardis รองรับ](#venues)
+adapter นี้ของ NautilusTrader ไม่รองรับ market data ของ Tardis ในรูปแบบดั้งเดิมของแต่ละ exchange
 
-The Tardis integration normalizes symbols consistently for compatibility with NautilusTrader's crypto exchange
-adapters. NautilusTrader usually uses the native exchange names supplied by Tardis. For some exchanges, it
-adjusts raw symbols to match Nautilus symbology, as shown below:
+NautilusTrader รองรับรูปแบบ normalized ของ Tardis Machine ต่อไปนี้ ดู schema ของ field ได้ที่
+[Tardis data type reference](https://docs.tardis.dev/tardis-machine/data-types) อย่างเป็นทางการ
 
-### Common rules
+| รูปแบบของ Tardis     | Nautilus data type                                              |
+| :------------------ | :-------------------------------------------------------------- |
+| `book_change`       | `OrderBookDeltas`                                               |
+| `book_snapshot_*`   | `OrderBookDepth` หรือ `OrderBookDeltas`                         |
+| `quote`             | `QuoteTick`                                                     |
+| `quote_10s`         | `QuoteTick`                                                     |
+| `trade`             | `TradeTick`                                                     |
+| `trade_bar_*`       | `Bar`                                                           |
+| `derivative_ticker` | `FundingRateUpdate`, `MarkPriceUpdate` หรือ `IndexPriceUpdate`  |
+| `option_summary`    | `OptionGreeks` และ `QuoteTick` (ตัวเลือกเสริม) จาก field BBO    |
+| `disconnect`        | ถูกเพิกเฉย                                                      |
 
-- All symbols are converted to uppercase.
-- Market type suffixes are appended with a hyphen for some exchanges.
-- Original exchange symbols are preserved in the Nautilus instrument definitions `raw_symbol` field.
+**หมายเหตุ**:
 
-### Exchange-specific normalizations
+- Tardis ระบุว่า `quote` เป็น alias ของ `book_snapshot_1_0ms`
+- Tardis ระบุว่า `quote_10s` เป็น alias ของ `book_snapshot_1_10s`
+- `quote`, `quote_10s` และ snapshot ระดับเดียวจะถูก parse เป็น `QuoteTick`
+- data client จะ emit update ของ funding rate, mark price และ index price จาก message `derivative_ticker`
+  เฉพาะเมื่อค่าเปลี่ยนแปลง pipeline การ replay ไปยัง catalog ไม่ได้เขียน update เหล่านี้
+- message `option_summary` ของ Tardis มี field best bid/offer Nautilus จะ map feed นี้เป็น `OptionGreeks`
+  เสมอ ตั้ง `extract_bbo_as_quotes` เป็น `true` เพื่อให้ emit `QuoteTick` จาก field BBO เหล่านั้นด้วย
+- adapter ไม่ได้ parse รูปแบบ normalized `book_ticker`, `liquidation` หรือ `error` ของ Tardis
 
-- **Binance**: Nautilus appends the suffix `-PERP` to perpetual symbols from `binance`,
-  `binance-futures`, `binance-us`, `binance-dex`, and `binance-jersey`.
-- **Bybit**: Nautilus uses product category suffixes, including `-SPOT`, `-LINEAR`,
-  `-INVERSE`, and `-OPTION`.
-- **dYdX v3**: Nautilus appends the suffix `-PERP` to perpetual symbols from `dydx`.
-- **Gate.io**: Nautilus appends the suffix `-PERP` to perpetual symbols from `gate-io-futures`.
-- **MEXC**: Nautilus appends the suffix `-PERP` to perpetual symbols from `mexc-futures`.
+:::info
+ดูเพิ่มเติมที่ [Tardis Machine quickstart](https://docs.tardis.dev/tardis-machine/quickstart) ของ Tardis
+:::
 
-For detailed symbology documentation per exchange:
+## Bar {#bars}
+
+adapter แปลง interval และ suffix ของ trade bar ใน Tardis เป็น `BarType` ของ Nautilus
+ได้แก่:
+
+| Suffix ของ Tardis | ความหมาย      | Nautilus bar aggregation     |
+| :--------------- | :----------- | :--------------------------- |
+| `ms`             | มิลลิวินาที    | `MILLISECOND`                |
+| `s`              | วินาที        | `SECOND`                     |
+| `m`              | นาที          | `MINUTE`, `HOUR` หรือ `DAY`  |
+| `ticks`          | จำนวน tick    | `TICK`                       |
+| `vol`            | ขนาด volume   | `VOLUME`                     |
+
+interval หน่วยนาทีที่หารเป็นชั่วโมงหรือวันได้ลงตัวจะใช้ aggregation `HOUR` หรือ `DAY` มาตรฐานของ Nautilus
+
+## Symbology และการ normalize {#symbology-and-normalization}
+
+integration ของ Tardis จะ normalize symbol อย่างสม่ำเสมอเพื่อให้เข้ากันได้กับ adapter ของ crypto exchange
+ใน NautilusTrader โดยปกติ NautilusTrader จะใช้ชื่อดั้งเดิมของ exchange ที่ Tardis ให้มา สำหรับบาง exchange
+จะปรับ symbol ดิบให้ตรงกับ symbology ของ Nautilus ดังนี้:
+
+### กฎทั่วไป {#common-rules}
+
+- symbol ทั้งหมดถูกแปลงเป็นตัวพิมพ์ใหญ่
+- บาง exchange จะต่อท้าย suffix ของประเภทตลาดด้วยขีด (hyphen)
+- symbol ดั้งเดิมของ exchange ถูกเก็บไว้ใน field `raw_symbol` ของ instrument definition ใน Nautilus
+
+### การ normalize เฉพาะ exchange {#exchange-specific-normalizations}
+
+- **Binance**: Nautilus ต่อท้าย suffix `-PERP` ให้ symbol ของ perpetual จาก `binance`,
+  `binance-futures`, `binance-us`, `binance-dex` และ `binance-jersey`
+- **Bybit**: Nautilus ใช้ suffix ตามหมวดผลิตภัณฑ์ ได้แก่ `-SPOT`, `-LINEAR`, `-INVERSE` และ `-OPTION`
+- **dYdX v3**: Nautilus ต่อท้าย suffix `-PERP` ให้ symbol ของ perpetual จาก `dydx`
+- **Gate.io**: Nautilus ต่อท้าย suffix `-PERP` ให้ symbol ของ perpetual จาก `gate-io-futures`
+- **MEXC**: Nautilus ต่อท้าย suffix `-PERP` ให้ symbol ของ perpetual จาก `mexc-futures`
+
+เอกสาร symbology โดยละเอียดของแต่ละ exchange:
 
 - [Binance symbology](./binance.md#symbology)
 - [Bybit symbology](./bybit.md#symbology)
 - [dYdX symbology](./dydx.md#symbology)
 
-## Venues
+## Venue {#venues}
 
-Some exchanges on Tardis are partitioned into multiple venues.
-The table below outlines the mappings between Nautilus venues and corresponding Tardis exchanges:
+exchange บางแห่งบน Tardis ถูกแบ่งออกเป็นหลาย venue
+ตารางด้านล่างแสดงการจับคู่ระหว่าง venue ของ Nautilus กับ exchange ที่สอดคล้องกันใน Tardis:
 
-| Nautilus venue     | Tardis exchange(s)                                                                                           |
+| Venue ของ Nautilus  | Exchange ของ Tardis                                                                                         |
 | :----------------- | :----------------------------------------------------------------------------------------------------------- |
 | `ASCENDEX`         | `ascendex`                                                                                                   |
 | `BINANCE`          | `binance`, `binance-dex`, `binance-european-options`, `binance-futures`, `binance-jersey`, `binance-options` |
-| `BINANCE_DELIVERY` | `binance-delivery` (*COIN-margined contracts*)                                                               |
+| `BINANCE_DELIVERY` | `binance-delivery` (*สัญญาแบบ COIN-margined*)                                                                |
 | `BINANCE_US`       | `binance-us`                                                                                                 |
 | `BITFINEX`         | `bitfinex`, `bitfinex-derivatives`                                                                           |
 | `BITFLYER`         | `bitflyer`                                                                                                   |
 | `BITGET`           | `bitget`, `bitget-futures`                                                                                   |
-| `BITMEX`           | `bitmex` (*historical data only*)                                                                            |
+| `BITMEX`           | `bitmex` (*ข้อมูลย้อนหลังเท่านั้น*)                                                                            |
 | `BITNOMIAL`        | `bitnomial`                                                                                                  |
 | `BITSTAMP`         | `bitstamp`                                                                                                   |
 | `BLOCKCHAIN_COM`   | `blockchain-com`                                                                                             |
 | `BYBIT`            | `bybit`, `bybit-options`, `bybit-spot`                                                                       |
 | `COINBASE`         | `coinbase`                                                                                                   |
 | `COINBASE_INTX`    | `coinbase-international`                                                                                     |
-| `COINFLEX`         | `coinflex` (*historical data only*)                                                                          |
+| `COINFLEX`         | `coinflex` (*ข้อมูลย้อนหลังเท่านั้น*)                                                                          |
 | `CRYPTO_COM`       | `crypto-com`                                                                                                 |
 | `CRYPTOFACILITIES` | `cryptofacilities`                                                                                           |
 | `DELTA`            | `delta`                                                                                                      |
 | `DERIBIT`          | `deribit`                                                                                                    |
 | `DYDX`             | `dydx`                                                                                                       |
 | `DYDX_V4`          | `dydx-v4`                                                                                                    |
-| `FTX`              | `ftx`, `ftx-us` (*historical data only*)                                                                     |
+| `FTX`              | `ftx`, `ftx-us` (*ข้อมูลย้อนหลังเท่านั้น*)                                                                     |
 | `GATE_IO`          | `gate-io`, `gate-io-futures`                                                                                 |
 | `GEMINI`           | `gemini`                                                                                                     |
 | `HITBTC`           | `hitbtc`                                                                                                     |
@@ -154,98 +152,89 @@ The table below outlines the mappings between Nautilus venues and corresponding 
 | `OKEX`             | `okex`, `okex-futures`, `okex-options`, `okex-spreads`, `okex-swap`                                          |
 | `PHEMEX`           | `phemex`                                                                                                     |
 | `POLONIEX`         | `poloniex`                                                                                                   |
-| `SERUM`            | `serum` (*historical data only*)                                                                             |
+| `SERUM`            | `serum` (*ข้อมูลย้อนหลังเท่านั้น*)                                                                             |
 | `STAR_ATLAS`       | `star-atlas`                                                                                                 |
 | `UPBIT`            | `upbit`                                                                                                      |
 | `WOO_X`            | `woo-x`                                                                                                      |
 
-Some exchange IDs represent delisted venues retained for historical data. Consult the official
-[historical data details](https://docs.tardis.dev/historical-data-details) for availability and
-delisting status.
+exchange ID บางตัวเป็น venue ที่เลิกให้บริการแล้วแต่ยังเก็บไว้สำหรับข้อมูลย้อนหลัง ดูความพร้อมใช้งานและ
+สถานะการเลิกให้บริการได้ที่ [historical data details](https://docs.tardis.dev/historical-data-details) อย่างเป็นทางการ
 
-Tardis Node [18.2.3](https://github.com/tardis-dev/tardis-node/releases/tag/18.2.3) removes BitMEX
-real-time streaming. Historical BitMEX replay, channels, and normalization remain supported.
+Tardis Node [18.2.3](https://github.com/tardis-dev/tardis-node/releases/tag/18.2.3) ยกเลิกการ stream แบบ real-time
+ของ BitMEX แต่การ replay ข้อมูลย้อนหลังของ BitMEX, channel และการ normalize ยังรองรับอยู่
 
-## Environment variables
+## Environment variable {#environment-variables}
 
-The following environment variables are used by Tardis and NautilusTrader.
+Tardis และ NautilusTrader ใช้ environment variable ต่อไปนี้
 
-- `TM_API_KEY`: API key passed to the Tardis Machine process for historical data access.
-- `TARDIS_API_KEY`: API key for Nautilus instrument metadata requests.
-- `TARDIS_MACHINE_WS_URL` (optional): Tardis Machine WebSocket base URL.
-- `NAUTILUS_PATH` (optional): Parent directory containing the `catalog/` subdirectory for
-  replay output.
+- `TM_API_KEY`: API key ที่ส่งให้ process ของ Tardis Machine สำหรับเข้าถึงข้อมูลย้อนหลัง
+- `TARDIS_API_KEY`: API key สำหรับ request metadata ของ instrument ใน Nautilus
+- `TARDIS_MACHINE_WS_URL` (ตัวเลือกเสริม): base URL ของ WebSocket ของ Tardis Machine
+- `NAUTILUS_PATH` (ตัวเลือกเสริม): directory แม่ที่มี subdirectory `catalog/` สำหรับ output ของการ replay
 
-The Tardis instruments metadata API requires bearer-token authorization and is available to active
-pro and business Tardis subscriptions.
+instruments metadata API ของ Tardis ต้องยืนยันตัวตนด้วย bearer token และใช้ได้กับ subscription ของ Tardis
+ระดับ pro และ business ที่ active อยู่
 
-## Running Tardis Machine historical replays
+## การรัน historical replay ของ Tardis Machine {#running-tardis-machine-historical-replays}
 
-The [Tardis Machine Server](https://docs.tardis.dev/tardis-machine/quickstart) is a locally
-runnable server with built-in data caching. It provides tick-level historical and consolidated
-real-time cryptocurrency market data through HTTP and WebSocket APIs.
+[Tardis Machine Server](https://docs.tardis.dev/tardis-machine/quickstart) เป็น server ที่รันในเครื่องได้
+และมีการ cache ข้อมูลในตัว มันให้ market data ของ cryptocurrency ทั้งแบบย้อนหลังระดับ tick และแบบ real-time
+ที่รวมแล้ว ผ่าน HTTP และ WebSocket API
 
 :::warning
-If you cancel a historical WebSocket replay before completion, Tardis Machine 18.2.2 can terminate. This
-occurs with Tardis Node 18.2.3 on Node.js 26.7.0. The replay can leave a cached-file handle open, causing an
-`ERR_INVALID_STATE` error when garbage collection closes it. The server exit also interrupts other connected
-clients.
+หาก cancel historical WebSocket replay ก่อนเสร็จ Tardis Machine 18.2.2 อาจหยุดทำงาน กรณีนี้เกิดกับ
+Tardis Node 18.2.3 บน Node.js 26.7.0 การ replay อาจทิ้ง handle ของไฟล์ที่ cache ไว้เปิดค้าง ทำให้เกิด error
+`ERR_INVALID_STATE` เมื่อ garbage collection ปิดมัน การที่ server ปิดตัวยังขัดจังหวะ client อื่นที่เชื่อมต่ออยู่ด้วย
 
-Let replays finish where practical. The same server on Node.js 24.19.0 avoids the observed crash, but still
-produces a `DEP0137` warning. It does not fix the upstream file-handle leak.
+ให้ปล่อยให้ replay ทำงานจนเสร็จเมื่อทำได้ server เดียวกันบน Node.js 24.19.0 หลีกเลี่ยงการ crash ที่พบได้
+แต่ยังแสดง warning `DEP0137` และไม่ได้แก้ปัญหา file-handle รั่วที่ต้นทาง
 :::
 
-You can run complete Tardis Machine WebSocket replays from Python or Rust and write the results in
-Nautilus Parquet format. Both interfaces call the same Rust replay implementation.
+สามารถรัน WebSocket replay ของ Tardis Machine แบบสมบูรณ์จาก Rust และเขียนผลลัพธ์เป็นรูปแบบ Parquet
+ของ Nautilus ได้
 
-The end-to-end `run_tardis_machine_replay` data pipeline function uses a specified
-[configuration](#configuration) to execute the following steps:
+ฟังก์ชัน data pipeline แบบ end-to-end `run_tardis_machine_replay` ใช้[configuration](#configuration)
+ที่กำหนดเพื่อทำขั้นตอนต่อไปนี้:
 
-- Connect to the Tardis Machine server.
-- Request and parse all instrument definitions for the configured exchanges from the Tardis
-  instruments metadata API.
-- Stream all requested instruments and data types for the specified time ranges from Tardis Machine.
-- For each data type and date (UTC), write catalog-compatible `.parquet` files by instrument or
-  bar type.
-- Finish the stream and flush the remaining data to disk.
+- เชื่อมต่อกับ server ของ Tardis Machine
+- request และ parse instrument definition ทั้งหมดของ exchange ที่ตั้งค่าไว้จาก instruments metadata API ของ Tardis
+- stream instrument และ data type ทั้งหมดที่ร้องขอในช่วงเวลาที่กำหนดจาก Tardis Machine
+- สำหรับแต่ละ data type และวัน (UTC) เขียนไฟล์ `.parquet` ที่เข้ากันได้กับ catalog แยกตาม instrument หรือ bar type
+- จบ stream และ flush ข้อมูลที่เหลือลง disk
 
-### Output files
+### ไฟล์ output {#output-files}
 
-Files are written one per UTC day and instrument, or per bar type, using ISO 8601 timestamp ranges:
+ไฟล์ถูกเขียนหนึ่งไฟล์ต่อวัน (UTC) และ instrument หรือต่อ bar type โดยใช้ช่วง timestamp แบบ ISO 8601:
 
-- **Format**: `{start_timestamp}_{end_timestamp}.parquet`
-- **Example**: `2023-10-01T00-00-00-000000000Z_2023-10-01T23-59-59-999999999Z.parquet`
-- **Relative path**: `{data_type}/{instrument_id}/{filename}`, or `bars/{bar_type}/{filename}` for
-  bars.
+- **รูปแบบ**: `{start_timestamp}_{end_timestamp}.parquet`
+- **ตัวอย่าง**: `2023-10-01T00-00-00-000000000Z_2023-10-01T23-59-59-999999999Z.parquet`
+- **Relative path**: `{data_type}/{instrument_id}/{filename}` หรือ `bars/{bar_type}/{filename}` สำหรับ bar
 
-This format is compatible with Nautilus data catalog queries, consolidation, and management.
+รูปแบบนี้เข้ากันได้กับการ query, การรวมไฟล์ (consolidation) และการจัดการ data catalog ของ Nautilus
 
 :::note
-You can request data for the first day of each month without a Tardis Machine API key. Other
-dates require `TM_API_KEY`.
+สามารถ request ข้อมูลของวันแรกของแต่ละเดือนได้โดยไม่ต้องมี API key ของ Tardis Machine วันอื่นต้องใช้ `TM_API_KEY`
 :::
 
-This process is optimized for direct output to a Nautilus Parquet data catalog.
-Set `NAUTILUS_PATH` to the parent directory that contains the `catalog/` subdirectory. Parquet
-files are written under `<NAUTILUS_PATH>/catalog/data/` in subdirectories by data type and
-instrument or bar type.
+กระบวนการนี้ปรับให้เหมาะกับการเขียน output ลง Parquet data catalog ของ Nautilus โดยตรง
+ตั้ง `NAUTILUS_PATH` เป็น directory แม่ที่มี subdirectory `catalog/` ไฟล์ Parquet จะถูกเขียนไว้ใต้
+`<NAUTILUS_PATH>/catalog/data/` ใน subdirectory แยกตาม data type และ instrument หรือ bar type
 
-If no `output_path` is specified and `NAUTILUS_PATH` is unset, output defaults to the current
-working directory.
+หากไม่ได้ระบุ `output_path` และไม่ได้ตั้ง `NAUTILUS_PATH` output จะไปอยู่ที่ working directory ปัจจุบันโดยค่าเริ่มต้น
 
-### Procedure
+### ขั้นตอน {#procedure}
 
 :::warning
-Do not publish Tardis Machine ports on the host address `0.0.0.0`. Docker
-[publishes ports on all host interfaces by default](https://docs.docker.com/engine/network/port-publishing/)
-when a mapping omits the host address. On Linux, Docker
-[diverts published container traffic before `ufw` applies its rules](https://docs.docker.com/engine/network/packet-filtering-firewalls/#docker-and-ufw),
-which can bypass the expected firewall restrictions. Bind both ports to `127.0.0.1` unless you
-require and separately secure remote access.
+อย่า publish port ของ Tardis Machine บน host address `0.0.0.0` Docker
+[publish port บนทุก interface ของ host โดยค่าเริ่มต้น](https://docs.docker.com/engine/network/port-publishing/)
+เมื่อ mapping ไม่ได้ระบุ host address บน Linux Docker
+[เบี่ยง traffic ของ container ที่ publish ไว้ก่อนที่ `ufw` จะใช้กฎของมัน](https://docs.docker.com/engine/network/packet-filtering-firewalls/#docker-and-ufw)
+ซึ่งอาจข้ามข้อจำกัดของ firewall ที่คาดไว้ ให้ bind ทั้งสอง port ไว้กับ `127.0.0.1` เว้นแต่จำเป็นต้องเข้าถึง
+จากระยะไกลและมีการรักษาความปลอดภัยแยกต่างหาก
 :::
 
-For dates outside the free first day of each month, set `TM_API_KEY` in the host environment. Then
-start the `tardis-machine` Docker container:
+สำหรับวันที่อยู่นอกวันแรกของแต่ละเดือนซึ่งใช้ได้ฟรี ให้ตั้ง `TM_API_KEY` ใน environment ของ host จากนั้น
+เริ่ม Docker container `tardis-machine`:
 
 ```bash
 docker run \
@@ -255,32 +244,29 @@ docker run \
   -d tardisdev/tardis-machine
 ```
 
-This command starts the `tardis-machine` server without a persistent local cache, which may affect
-performance. For better replay performance, run it with a persistent volume.
+คำสั่งนี้เริ่ม server `tardis-machine` โดยไม่มี cache ถาวรในเครื่อง ซึ่งอาจกระทบประสิทธิภาพ
+เพื่อประสิทธิภาพการ replay ที่ดีขึ้น ให้รันด้วย persistent volume
 
-### Configuration
+### Configuration {#configuration}
 
-Next, ensure you have a configuration JSON file available.
+ถัดไป ให้เตรียมไฟล์ configuration แบบ JSON ไว้
 
-**Configuration JSON fields**
+**Field ของ configuration JSON**
 
-- `tardis_ws_url` (`str | null`): Tardis Machine WebSocket URL. Defaults to
-  `TARDIS_MACHINE_WS_URL`.
-- `tardis_http_url` (`str | null`): Tardis HTTP API base URL. Defaults to
-  `https://api.tardis.dev/v1`.
-- `normalize_symbols` (`bool | null`): applies Nautilus symbol normalization. Defaults to `true`.
-- `output_path` (`str | null`): output directory for Parquet data. When unset, uses
-  `<NAUTILUS_PATH>/catalog/data` if `NAUTILUS_PATH` is set, then the current working directory.
-- `book_snapshot_output` (`"deltas" | "depth" | null`): output format for snapshots. Defaults
-  to `"deltas"`.
-- `extract_bbo_as_quotes` (`bool | null`): also writes `QuoteTick` data from best bid/offer fields
-  in Tardis Machine `option_summary` messages. Defaults to `false`.
-- `compression` (`"zstd" | "snappy" | "uncompressed" | null`): Parquet compression codec.
-  Defaults to `"zstd"` level 3.
-- `proxy_url` (`str | null`): proxy URL for Tardis HTTP requests. Defaults to no proxy.
-- `options` (`JSON[]`): required replay request option objects.
+- `tardis_ws_url` (`str | null`): WebSocket URL ของ Tardis Machine ค่าเริ่มต้นคือ `TARDIS_MACHINE_WS_URL`
+- `tardis_http_url` (`str | null`): base URL ของ Tardis HTTP API ค่าเริ่มต้นคือ `https://api.tardis.dev/v1`
+- `normalize_symbols` (`bool | null`): ใช้การ normalize symbol ของ Nautilus ค่าเริ่มต้นคือ `true`
+- `output_path` (`str | null`): directory output สำหรับข้อมูล Parquet หากไม่ได้ตั้ง จะใช้
+  `<NAUTILUS_PATH>/catalog/data` ถ้าตั้ง `NAUTILUS_PATH` ไว้ หรือไม่ก็ working directory ปัจจุบัน
+- `book_snapshot_output` (`"deltas" | "depth" | null`): รูปแบบ output ของ snapshot ค่าเริ่มต้นคือ `"deltas"`
+- `extract_bbo_as_quotes` (`bool | null`): เขียนข้อมูล `QuoteTick` จาก field best bid/offer ใน message
+  `option_summary` ของ Tardis Machine ด้วย ค่าเริ่มต้นคือ `false`
+- `compression` (`"zstd" | "snappy" | "uncompressed" | null`): codec การบีบอัดของ Parquet
+  ค่าเริ่มต้นคือ `"zstd"` level 3
+- `proxy_url` (`str | null`): URL ของ proxy สำหรับ HTTP request ไปยัง Tardis ค่าเริ่มต้นคือไม่ใช้ proxy
+- `options` (`JSON[]`): object ของ option สำหรับ replay request (จำเป็น)
 
-An example configuration file is available at `crates/adapters/tardis/bin/example_config.json`:
+มีตัวอย่างไฟล์ configuration อยู่ที่ `crates/adapters/tardis/bin/example_config.json`:
 
 ```json
 {
@@ -303,30 +289,28 @@ An example configuration file is available at `crates/adapters/tardis/bin/exampl
 }
 ```
 
-### Book snapshot output
+### Output ของ book snapshot {#book-snapshot-output}
 
-The `book_snapshot_output` configuration option controls how Tardis `book_snapshot_*` messages are
-converted and stored.
+option `book_snapshot_output` ควบคุมวิธีแปลงและจัดเก็บ message `book_snapshot_*` ของ Tardis
 
-| Value    | Nautilus type     | Output directory     | Description                             |
-| :------- | :---------------- | :------------------- | :-------------------------------------- |
-| `deltas` | `OrderBookDeltas` | `order_book_deltas/` | Clear and add deltas for each snapshot. |
-| `depth`  | `OrderBookDepth`  | `order_book_depths/` | Snapshots with all price levels.        |
+| ค่า      | Nautilus type     | Directory output     | คำอธิบาย                                    |
+| :------- | :---------------- | :------------------- | :----------------------------------------- |
+| `deltas` | `OrderBookDeltas` | `order_book_deltas/` | delta แบบ clear และ add สำหรับแต่ละ snapshot |
+| `depth`  | `OrderBookDepth`  | `order_book_depths/` | snapshot ที่มีระดับราคาทั้งหมด              |
 
-**When to use each format**:
+**ควรใช้รูปแบบใดเมื่อใด**:
 
-- **`deltas` (default)**: use when you need to reconstruct book state or combine snapshots with
-  `book_change` data. Each snapshot becomes a clear delta followed by an add delta for each level.
-- **`depth`**: use when a strategy needs periodic depth snapshots. Each snapshot is a single
-  record with all price levels from the venue message.
+- **`deltas` (ค่าเริ่มต้น)**: ใช้เมื่อต้องสร้าง state ของ book ขึ้นใหม่หรือรวม snapshot เข้ากับข้อมูล
+  `book_change` แต่ละ snapshot จะกลายเป็น clear delta ตามด้วย add delta สำหรับแต่ละระดับราคา
+- **`depth`**: ใช้เมื่อ strategy ต้องการ depth snapshot เป็นระยะ แต่ละ snapshot เป็น record เดียวที่มี
+  ระดับราคาทั้งหมดจาก message ของ venue
 
-**Avoiding file overwrites**:
+**การหลีกเลี่ยงการเขียนทับไฟล์**:
 
-When downloading both `book_snapshot_*` and `book_change` data for the same instrument and date
-range, `depth` writes snapshots to `order_book_depths/` and avoids overwriting
-`order_book_deltas/`.
+เมื่อดาวน์โหลดทั้งข้อมูล `book_snapshot_*` และ `book_change` สำหรับ instrument และช่วงวันเดียวกัน
+`depth` จะเขียน snapshot ไปที่ `order_book_depths/` และหลีกเลี่ยงการเขียนทับ `order_book_deltas/`
 
-Example configuration with explicit format:
+ตัวอย่าง configuration ที่ระบุรูปแบบชัดเจน:
 
 ```json
 {
@@ -344,15 +328,15 @@ Example configuration with explicit format:
 }
 ```
 
-### Option summary BBO extraction
+### การดึง BBO จาก option summary {#option-summary-bbo-extraction}
 
-Set `extract_bbo_as_quotes` to `true` when requesting Tardis Machine `option_summary` data and the
-backtest also needs option BBO quotes. Nautilus still writes `OptionGreeks` from every
-`option_summary` message. When all best bid/offer fields are present and sizes are valid, it also
-writes a `QuoteTick` for the same instrument and timestamps.
+ตั้ง `extract_bbo_as_quotes` เป็น `true` เมื่อ request ข้อมูล `option_summary` จาก Tardis Machine และ
+backtest ต้องใช้ BBO quote ของ option ด้วย Nautilus ยังคงเขียน `OptionGreeks` จากทุก message
+`option_summary` เมื่อ field best bid/offer ครบทั้งหมดและขนาดถูกต้อง มันจะเขียน `QuoteTick` สำหรับ
+instrument และ timestamp เดียวกันด้วย
 
-This option only applies to Tardis Machine `option_summary` replay and stream messages. It does not
-change Tardis CSV loading.
+option นี้ใช้กับ message `option_summary` ของ Tardis Machine ทั้งแบบ replay และ stream เท่านั้น ไม่ได้เปลี่ยน
+การโหลด CSV ของ Tardis
 
 ```json
 {
@@ -370,30 +354,10 @@ change Tardis CSV loading.
 }
 ```
 
-### Python replays
+### การ replay ด้วย Rust {#rust-replays}
 
-To run a replay in Python, create a script similar to the following:
-
-```python
-import asyncio
-from pathlib import Path
-
-from nautilus_trader.adapters.tardis import run_tardis_machine_replay
-
-
-async def run():
-    config_filepath = Path("YOUR_CONFIG_FILEPATH")
-    await run_tardis_machine_replay(str(config_filepath.resolve()))
-
-
-if __name__ == "__main__":
-    asyncio.run(run())
-```
-
-### Rust replays
-
-To run a replay in Rust, enable the `nautilus-tardis` `replay` feature flag and create a binary
-similar to the following:
+หากต้องการรัน replay ด้วย Rust ให้เปิด feature flag `replay` ของ `nautilus-tardis` และสร้าง binary
+ในลักษณะต่อไปนี้:
 
 ```rust
 use std::path::PathBuf;
@@ -410,145 +374,100 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-Logging defaults to INFO level. To enable debug logging, export the following environment variable:
+logging มีค่าเริ่มต้นเป็นระดับ INFO หากต้องการเปิด debug logging ให้ export environment variable ต่อไปนี้:
 
 ```bash
 export NAUTILUS_LOG=debug
 ```
 
-A working example binary is available at `crates/adapters/tardis/bin/example_replay.rs`.
+มีตัวอย่าง binary ที่ใช้งานได้อยู่ที่ `crates/adapters/tardis/bin/example_replay.rs`
 
-This can also be run using cargo:
+สามารถรันด้วย cargo ได้เช่นกัน:
 
 ```bash
 cargo run -p nautilus-tardis --features replay --bin tardis-replay <path_to_your_config>
 ```
 
-### Option-chain backtest catalog
+### Catalog สำหรับ backtest แบบ option chain {#option-chain-backtest-catalog}
 
-An option-chain backtest starts after the Tardis replay has written data to the Nautilus
-catalog. The backtest loader does not request missing Tardis data during a run, so the
-catalog must contain:
+backtest แบบ option chain เริ่มหลังจากที่ Tardis replay เขียนข้อมูลลง catalog ของ Nautilus แล้ว
+backtest loader ไม่ได้ request ข้อมูล Tardis ที่ขาดหายระหว่างการรัน ดังนั้น catalog ต้องมี:
 
-- Option instruments from the Tardis instrument metadata API.
-- `QuoteTick` data from one-level option book snapshots, quote data, or `option_summary` BBO
-  extraction.
-- `OptionGreeks` data from Tardis `option_summary` messages.
+- option instrument จาก instrument metadata API ของ Tardis
+- ข้อมูล `QuoteTick` จาก option book snapshot ระดับเดียว, ข้อมูล quote หรือการดึง BBO จาก `option_summary`
+- ข้อมูล `OptionGreeks` จาก message `option_summary` ของ Tardis
 
-Use both `QuoteTick` and `OptionGreeks` in the `BacktestDataConfig` list for the same
-option instrument IDs. The option-chain manager aggregates the replayed BBO and Greeks
-into `OptionChainSlice` snapshots. Use `snapshot_interval_ms=None` for raw publishing,
-or set an interval in milliseconds to publish thinned snapshots.
+ใช้ทั้ง `QuoteTick` และ `OptionGreeks` ในรายการ `BacktestDataConfig` สำหรับ option instrument ID เดียวกัน
+option-chain manager จะรวม BBO และ Greeks ที่ replay แล้วเป็น snapshot `OptionChainSlice` ใช้
+`snapshot_interval_ms=None` สำหรับการ publish แบบดิบ หรือตั้ง interval เป็นมิลลิวินาทีเพื่อ publish
+snapshot ที่ลดความถี่ลง
 
-Strategies can select contracts by moneyness with ATM-relative or ATM-percent strike ranges, by delta with
-`StrikeRange.delta(target, tolerance)`, or by fixed strike with `StrikeRange.fixed([...])`. Option order
-matching in backtests is quote-driven. Marketable orders fill as takers against the opposing BBO. Passive
-limits can fill as makers when later BBO updates trade through the limit.
+strategy สามารถเลือกสัญญาตาม moneyness ด้วยช่วง strike แบบอิงกับ ATM หรือเปอร์เซ็นต์จาก ATM, ตาม delta ด้วย
+`StrikeRange.delta(target, tolerance)` หรือตาม strike คงที่ด้วย `StrikeRange.fixed([...])` การ matching
+ของ option order ใน backtest ขับเคลื่อนด้วย quote order ที่ marketable จะ fill เป็น taker กับ BBO ฝั่งตรงข้าม
+ส่วน passive limit อาจ fill เป็น maker เมื่อ BBO update ที่ตามมา trade ทะลุราคา limit
 
-Configure option fees explicitly on the simulated venue with structural fee models such
-as `CappedOptionFeeModel` or `TieredNotionalOptionFeeModel`. There is no automatic
-Tardis exchange to fee model mapping.
+ตั้งค่าค่าธรรมเนียมของ option อย่างชัดเจนบน simulated venue ด้วย structural fee model เช่น
+`CappedOptionFeeModel` หรือ `TieredNotionalOptionFeeModel` ไม่มีการ map จาก exchange ของ Tardis ไปยัง
+fee model โดยอัตโนมัติ
 
-### Option-chain CSV catalog conversion
+### การแปลง CSV ของ option chain เป็น catalog {#option-chain-csv-catalog-conversion}
 
-For historical option chains from downloadable Tardis CSV files, use `convert_tardis_options_chain_csv(...)`
-to convert `options_chain` rows into Nautilus catalog data. This path calls neither Tardis Machine nor the
-instrument metadata API. Use it with existing Tardis CSV files or to bootstrap a catalog from downloaded data
-without an API key.
+สำหรับ option chain ย้อนหลังจากไฟล์ CSV ของ Tardis ที่ดาวน์โหลดได้ ให้ใช้ `convert_tardis_options_chain_csv(...)`
+เพื่อแปลงแถว `options_chain` เป็นข้อมูล catalog ของ Nautilus เส้นทางนี้ไม่ได้เรียกทั้ง Tardis Machine และ
+instrument metadata API ใช้กับไฟล์ CSV ของ Tardis ที่มีอยู่ หรือเพื่อเริ่มสร้าง catalog จากข้อมูลที่ดาวน์โหลดมา
+โดยไม่ต้องมี API key
 
-The converter writes `OptionGreeks` for every selected row. With the default `extract_bbo_as_quotes=True`,
-complete best bid/offer rows also write `QuoteTick`. Keep this enabled for option-chain backtests. Greeks-only
-catalogs do not provide quotes. Thus, the chain manager cannot publish populated `OptionChainSlice` snapshots
-for strikes without BBO data.
+ตัวแปลงจะเขียน `OptionGreeks` สำหรับทุกแถวที่เลือก เมื่อใช้ค่าเริ่มต้น `extract_bbo_as_quotes=True`
+แถวที่มี best bid/offer ครบจะเขียน `QuoteTick` ด้วย ให้เปิดค่านี้ไว้สำหรับ backtest แบบ option chain
+catalog ที่มีแต่ Greeks ไม่มี quote ดังนั้น chain manager จึงไม่สามารถ publish snapshot `OptionChainSlice`
+ที่มีข้อมูลสำหรับ strike ที่ไม่มีข้อมูล BBO ได้
 
-Instrument derivation supports only Deribit options. For other option venues, set `write_instruments=False`
-before conversion and load the instruments through another source before backtesting. Leaving it enabled for a
-non-Deribit file can fail after data files have been written to the catalog.
+การสร้าง instrument รองรับเฉพาะ option ของ Deribit สำหรับ venue ของ option อื่น ให้ตั้ง `write_instruments=False`
+ก่อนแปลง และโหลด instrument จากแหล่งอื่นก่อน backtest การปล่อยให้เปิดไว้กับไฟล์ที่ไม่ใช่ Deribit อาจล้มเหลว
+หลังจากที่ไฟล์ข้อมูลถูกเขียนลง catalog ไปแล้ว
 
-Pass daily `options_chain` CSV paths in chronological order. The `underlyings` filter matches symbol prefixes
-such as `["BTC-"]`. To keep the last row per instrument per interval within each input file, set
-`snapshot_interval_ms`. Alternatively, use `None` to write every selected row. Rows must be ordered by
-`local_timestamp` within each file when thinning.
+ส่ง path ของ CSV `options_chain` รายวันตามลำดับเวลา filter `underlyings` จะจับคู่ prefix ของ symbol
+เช่น `["BTC-"]` หากต้องการเก็บแถวสุดท้ายต่อ instrument ต่อ interval ภายในแต่ละไฟล์ input ให้ตั้ง
+`snapshot_interval_ms` หรือใช้ `None` เพื่อเขียนทุกแถวที่เลือก เมื่อลดความถี่ แถวภายในแต่ละไฟล์ต้อง
+เรียงตาม `local_timestamp`
 
-Provide explicit `price_precision` and `size_precision` for deterministic quote
-metadata. Inferred precision can increase as later rows are read, so data written earlier in a
-file can keep lower precision metadata.
+ให้ระบุ `price_precision` และ `size_precision` อย่างชัดเจนเพื่อให้ metadata ของ quote เป็นแบบ deterministic
+precision ที่อนุมานได้อาจเพิ่มขึ้นเมื่ออ่านแถวที่ตามมา ดังนั้นข้อมูลที่เขียนไว้ก่อนหน้าในไฟล์อาจมี metadata
+ของ precision ที่ต่ำกว่า
 
-```python
-from pathlib import Path
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-from nautilus_trader.adapters.tardis import convert_tardis_options_chain_csv
+## การโหลดข้อมูล CSV ของ Tardis {#loading-tardis-csv-data}
 
+สามารถโหลดข้อมูล CSV รูปแบบ Tardis ด้วย Rust ได้ loader จะอ่านข้อมูล CSV แบบ text จาก disk และ parse
+เป็นข้อมูลของ Nautilus
 
-convert_tardis_options_chain_csv(
-    filepaths=[Path("deribit_options_chain_2020-06-08.csv")],
-    catalog_path=Path("catalog"),
-    underlyings=["BTC-"],
-    snapshot_interval_ms=60_000,
-    price_precision=4,
-    size_precision=1,
-)
-```
+สามารถระบุ parameter `limit` ให้ฟังก์ชัน `load_*` เพื่อควบคุมจำนวนแถวสูงสุดที่โหลดได้
 
-## Loading Tardis CSV data
-
-Tardis-format CSV data can be loaded using either Python or Rust. The loader reads the CSV text data
-from disk and parses it into Nautilus data. Both interfaces call the same Rust loader.
-
-You can also specify a `limit` parameter for the `load_*` functions to control the maximum number
-of rows loaded.
-
-The delta loaders and streamers skip any rows before the first snapshot row in the file, per the
-[Tardis FAQ](https://docs.tardis.dev/faq/order-books). A CSV that has been trimmed or split so it
-no longer starts with a snapshot row will produce zero deltas.
+loader และ streamer ของ delta จะข้ามแถวใด ๆ ที่อยู่ก่อนแถว snapshot แรกในไฟล์ ตาม
+[Tardis FAQ](https://docs.tardis.dev/faq/order-books) CSV ที่ถูกตัดหรือแบ่งจนไม่ได้เริ่มต้นด้วยแถว snapshot
+อีกต่อไปจะได้ delta เป็นศูนย์
 
 :::note
-Loading mixed-instrument CSV files is challenging due to precision requirements and is not
-recommended. Use single-instrument CSV files instead.
+การโหลดไฟล์ CSV ที่มีหลาย instrument ปนกันทำได้ยากเพราะข้อกำหนดด้าน precision และไม่แนะนำ
+ให้ใช้ไฟล์ CSV ที่มี instrument เดียวแทน
 
-The `load_tardis_options_chain`, `stream_tardis_options_chain`, and
-`convert_tardis_options_chain_csv` functions are the exception: Tardis `options_chain` files are
-mixed-instrument chain files, and these paths track precision per instrument. Explicit precisions
-are still recommended for deterministic output.
+ฟังก์ชัน `load_tardis_options_chain`, `stream_tardis_options_chain` และ `convert_tardis_options_chain_csv`
+เป็นข้อยกเว้น: ไฟล์ `options_chain` ของ Tardis เป็นไฟล์ chain ที่มีหลาย instrument และเส้นทางเหล่านี้ติดตาม
+precision แยกตาม instrument แต่ยังแนะนำให้ระบุ precision อย่างชัดเจนเพื่อให้ได้ output แบบ deterministic
 :::
 
-### Loading CSV data in Python
+### การโหลดข้อมูล CSV ด้วย Rust {#loading-csv-data-in-rust}
 
-You can load Tardis-format CSV data in Python using the module-level `load_tardis_*` functions.
-When loading data, you can optionally specify the instrument ID, price precision, and size
-precision. Providing the instrument ID improves loading performance. Price and size precision are
-inferred from the CSV when omitted, but explicit values are recommended for deterministic output,
-especially with large files.
+สามารถโหลดข้อมูล CSV รูปแบบ Tardis ด้วย Rust โดยใช้ฟังก์ชันโหลดใน `crates/adapters/tardis/src/csv/mod.rs`
+เมื่อโหลดข้อมูล สามารถระบุ instrument ID, price precision และ size precision ได้ (ตัวเลือกเสริม) การระบุ
+instrument ID ช่วยให้โหลดได้เร็วขึ้น price precision และ size precision จะถูกอนุมานจาก CSV หากไม่ระบุ
+แต่แนะนำให้ระบุค่าอย่างชัดเจนเพื่อให้ได้ output แบบ deterministic โดยเฉพาะกับไฟล์ขนาดใหญ่
 
-To load the data, create a script similar to the following:
+ดูตัวอย่างแบบสมบูรณ์ได้ที่ `crates/adapters/tardis/bin/example_csv.rs`
 
-```python
-from pathlib import Path
-
-from nautilus_trader.adapters.tardis import load_tardis_deltas
-from nautilus_trader.model import InstrumentId
-
-
-instrument_id = InstrumentId.from_str("BTC-PERPETUAL.DERIBIT")
-deltas = load_tardis_deltas(
-    filepath=Path("YOUR_CSV_DATA_PATH"),
-    price_precision=1,
-    size_precision=0,
-    instrument_id=instrument_id,
-)
-```
-
-### Loading CSV data in Rust
-
-You can load Tardis-format CSV data in Rust using the loading functions in
-`crates/adapters/tardis/src/csv/mod.rs`. When loading data, you can optionally specify the
-instrument ID, price precision, and size precision. Providing the instrument ID improves loading
-performance. Price and size precision are inferred from the CSV when omitted, but explicit values
-are recommended for deterministic output.
-
-For a complete example, see `crates/adapters/tardis/bin/example_csv.rs`.
-
-To load the data, you can use code similar to the following:
+หากต้องการโหลดข้อมูล สามารถใช้โค้ดในลักษณะต่อไปนี้:
 
 ```rust
 use std::path::Path;
@@ -577,115 +496,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-## Streaming Tardis CSV data
+## การ stream ข้อมูล CSV ของ Tardis {#streaming-tardis-csv-data}
 
-The Tardis integration can load and process large CSV files in configurable chunks. This lets you process
-multi-gigabyte files without loading whole files into memory or exhausting system memory.
+integration ของ Tardis สามารถโหลดและประมวลผลไฟล์ CSV ขนาดใหญ่เป็น chunk ที่ตั้งค่าได้ ทำให้ประมวลผลไฟล์
+ขนาดหลาย gigabyte ได้โดยไม่ต้องโหลดทั้งไฟล์เข้าหน่วยความจำหรือใช้หน่วยความจำของระบบจนหมด
 
-Python provides streaming functions for the following CSV data:
+มีฟังก์ชัน `stream_*` สำหรับข้อมูล CSV ต่อไปนี้:
 
-- Order book deltas (`stream_tardis_deltas` and `stream_tardis_batched_deltas`).
-- Order book depth snapshots (`stream_tardis_depth_from_snapshot5` and
-  `stream_tardis_depth_from_snapshot25`).
-- Quote ticks (`stream_tardis_quotes`).
-- Trade ticks (`stream_tardis_trades`).
-- Funding rates (`stream_tardis_funding_rates`).
-- Options chain rows (`stream_tardis_options_chain`).
+- Order book deltas
+- Order book depth snapshots (จากไฟล์ snapshot 5 และ snapshot 25)
+- Quote ticks
+- Trade ticks
+- Funding rates
+- แถว options chain
 
-Rust exposes the equivalent `stream_*` functions.
+### การใช้หน่วยความจำ {#memory-use}
 
-### Streaming CSV data in Python
+การ stream จำกัดจำนวน record ที่ parse แล้วซึ่งถูกเก็บไว้ในแต่ละช่วงเวลา:
 
-The module-level `stream_tardis_*` functions return iterators of bounded chunks. The `chunk_size`
-parameter accepts values in `[1, 1_000_000]` and controls how many records are read per chunk:
-
-```python
-from pathlib import Path
-
-from nautilus_trader.adapters.tardis import stream_tardis_trades
-from nautilus_trader.model import InstrumentId
-
-instrument_id = InstrumentId.from_str("BTC-PERPETUAL.DERIBIT")
-filepath = Path("large_trades_file.csv")
-
-trades = stream_tardis_trades(
-    filepath=filepath,
-    chunk_size=100_000,
-    price_precision=1,
-    size_precision=0,
-    instrument_id=instrument_id,
-)
-
-# Stream trade ticks in chunks
-for chunk in trades:
-    print(f"Processing chunk with {len(chunk)} trades")
-    # Process each chunk - only this chunk is in memory
-    for trade in chunk:
-        # Your processing logic here
-        pass
-```
-
-### Streaming order book data
-
-For order book data, streaming is available for both deltas and depth snapshots:
-
-```python
-from pathlib import Path
-
-from nautilus_trader.adapters.tardis import stream_tardis_deltas
-from nautilus_trader.adapters.tardis import stream_tardis_depth_from_snapshot5
-
-
-filepath = Path("book_snapshot_5.csv")
-
-# Stream order book deltas
-for chunk in stream_tardis_deltas(filepath):
-    print(f"Processing {len(chunk)} deltas")
-    # Process delta chunk
-
-# Stream depth snapshots from snapshot_5 files
-for chunk in stream_tardis_depth_from_snapshot5(filepath):
-    print(f"Processing {len(chunk)} depth snapshots")
-    # Process depth chunk
-```
-
-### Streaming quote data
-
-Quote data can be streamed similarly:
-
-```python
-from pathlib import Path
-
-from nautilus_trader.adapters.tardis import stream_tardis_quotes
-
-
-filepath = Path("quotes.csv")
-
-# Stream quote ticks
-for chunk in stream_tardis_quotes(filepath):
-    print(f"Processing {len(chunk)} quotes")
-    # Process quote chunk
-```
-
-### Memory use
-
-Streaming bounds the number of parsed records retained at one time:
-
-- **Controlled memory use**: Only one chunk is loaded in memory at a time.
-- **Large file processing**: The iterator can process files larger than available RAM.
-- **Configurable chunk sizes**: Tune `chunk_size` within `[1, 1_000_000]` based on your system's
-  memory and performance requirements (default 100,000).
+- **ควบคุมการใช้หน่วยความจำได้**: โหลดเพียง chunk เดียวในหน่วยความจำต่อครั้ง
+- **ประมวลผลไฟล์ขนาดใหญ่ได้**: iterator ประมวลผลไฟล์ที่ใหญ่กว่า RAM ที่มีได้
+- **ตั้งขนาด chunk ได้**: ปรับ `chunk_size` ในช่วง `[1, 1_000_000]` ตามหน่วยความจำและความต้องการด้าน
+  ประสิทธิภาพของระบบ (ค่าเริ่มต้น 100,000)
 
 :::warning
-When using streaming with precision inference, the inferred precision may differ from bulk loading
-the entire file. Precision inference works within chunk boundaries, and different chunks may contain
-values with different precision requirements. For deterministic precision behavior, provide
-explicit `price_precision` and `size_precision` parameters.
+เมื่อใช้การ stream ร่วมกับการอนุมาน precision ค่า precision ที่อนุมานได้อาจต่างจากการโหลดทั้งไฟล์รวดเดียว
+การอนุมาน precision ทำงานภายในขอบเขตของ chunk และ chunk ที่ต่างกันอาจมีค่าที่ต้องการ precision ต่างกัน
+เพื่อให้พฤติกรรมของ precision เป็นแบบ deterministic ให้ระบุ parameter `price_precision` และ `size_precision`
+อย่างชัดเจน
 :::
 
-### Streaming CSV data in Rust
+### การ stream ข้อมูล CSV ด้วย Rust {#streaming-csv-data-in-rust}
 
-The underlying streaming functionality is implemented in Rust and can be used directly:
+ฟังก์ชันการ stream เบื้องหลัง implement ด้วย Rust และใช้งานได้โดยตรง:
 
 ```rust
 use std::path::Path;
@@ -719,49 +562,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-## Instrument metadata
+## Metadata ของ instrument {#instrument-metadata}
 
-The replay pipeline and data client request metadata for every exchange in their configured Tardis
-options before connecting to Tardis Machine. They use the
-[Tardis instruments metadata API](https://docs.tardis.dev/api/instruments-metadata-api) to parse
-instrument metadata into Nautilus definitions. The data client also publishes those definitions to
-the Nautilus data engine.
+pipeline การ replay และ data client จะ request metadata ของทุก exchange ใน option ของ Tardis ที่ตั้งค่าไว้
+ก่อนเชื่อมต่อกับ Tardis Machine โดยใช้
+[instruments metadata API ของ Tardis](https://docs.tardis.dev/api/instruments-metadata-api) เพื่อ parse
+metadata ของ instrument เป็น definition ของ Nautilus data client ยัง publish definition เหล่านั้นไปยัง
+data engine ของ Nautilus ด้วย
 
 :::note
-A `TARDIS_API_KEY` for an active Tardis pro or business subscription is required. The automatic
-bootstrap requests all instrument metadata for each configured Tardis exchange.
+ต้องมี `TARDIS_API_KEY` ของ subscription Tardis ระดับ pro หรือ business ที่ active อยู่ การ bootstrap
+อัตโนมัติจะ request metadata ของ instrument ทั้งหมดสำหรับแต่ละ exchange ของ Tardis ที่ตั้งค่าไว้
 :::
 
-Python and Rust users can also request instrument definitions directly with `TardisHttpClient`.
-The client accepts optional `api_key`, `base_url`, `timeout_secs`, `normalize_symbols`, and
-`proxy_url` arguments. It can retrieve one symbol or all instruments for an exchange. Use Tardis
-lower-kebab exchange IDs such as `binance-futures`.
+ผู้ใช้ Rust ยังสามารถ request instrument definition ได้โดยตรงด้วย `TardisHttpClient`
+client รับ argument `api_key`, `base_url`, `timeout_secs`, `normalize_symbols` และ `proxy_url`
+(ตัวเลือกเสริม) มันดึงได้ทั้ง symbol เดียวหรือทุก instrument ของ exchange หนึ่ง ให้ใช้ exchange ID ของ Tardis
+แบบ lower-kebab เช่น `binance-futures`
 
-### Requesting instruments in Python
+### การ request instrument ด้วย Rust {#requesting-instruments-in-rust}
 
-```python
-import asyncio
-
-from nautilus_trader.adapters.tardis import TardisHttpClient
-
-
-async def run():
-    http_client = TardisHttpClient()
-
-    instrument = await http_client.instruments("bitmex", symbol="xbtusd")
-    print(f"Received: {instrument}")
-
-    instruments = await http_client.instruments("bitmex")
-    print(f"Received: {len(instruments)} instruments")
-
-
-if __name__ == "__main__":
-    asyncio.run(run())
-```
-
-### Requesting instruments in Rust
-
-For a complete example, see `crates/adapters/tardis/bin/example_http.rs`.
+ดูตัวอย่างแบบสมบูรณ์ได้ที่ `crates/adapters/tardis/bin/example_http.rs`
 
 ```rust
 use nautilus_tardis::{
@@ -799,70 +620,53 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-## Nautilus data client
+## Data client ของ Nautilus {#nautilus-data-client}
 
-`TardisDataClientConfig` and `TardisDataClientFactory` integrate a configured Tardis Machine stream
-with a Nautilus node. The configuration selects one mode:
+`TardisDataClientConfig` และ `TardisDataClientFactory` เชื่อม stream ของ Tardis Machine ที่ตั้งค่าไว้
+เข้ากับ Nautilus node configuration จะเลือกโหมดใดโหมดหนึ่ง:
 
-- A non-empty `options` list connects to the historical `ws-replay-normalized` endpoint.
-- When `options` is empty, a non-empty `stream_options` list connects to the real-time
-  `ws-stream-normalized` endpoint and reconnects automatically after a recoverable interruption.
+- รายการ `options` ที่ไม่ว่างจะเชื่อมต่อกับ endpoint ย้อนหลัง `ws-replay-normalized`
+- เมื่อ `options` ว่าง รายการ `stream_options` ที่ไม่ว่างจะเชื่อมต่อกับ endpoint แบบ real-time
+  `ws-stream-normalized` และ reconnect อัตโนมัติหลังการขัดจังหวะที่กู้คืนได้
 
-One list must be non-empty. If both are set, `options` selects historical replay mode. These request
-options determine the upstream exchanges, symbols, and data types. Nautilus subscription commands
-do not add or remove data from the Tardis Machine WebSocket.
+ต้องมีรายการใดรายการหนึ่งที่ไม่ว่าง หากตั้งทั้งสองไว้ `options` จะเลือกโหมด historical replay request option
+เหล่านี้เป็นตัวกำหนด exchange, symbol และ data type ต้นทาง command การ subscribe ของ Nautilus ไม่ได้เพิ่ม
+หรือนำข้อมูลออกจาก WebSocket ของ Tardis Machine
 
-When `options` is empty, a BitMEX entry in `stream_options` fails before any network request.
-Use historical `options` for BitMEX replay. An unsupported-exchange close from Tardis Machine
-terminates the live stream without reconnecting.
+เมื่อ `options` ว่าง entry ของ BitMEX ใน `stream_options` จะล้มเหลวก่อนมี network request ใด ๆ
+ให้ใช้ `options` แบบย้อนหลังสำหรับการ replay BitMEX การปิด connection จาก Tardis Machine ด้วยเหตุผล
+exchange ที่ไม่รองรับจะยุติ live stream โดยไม่ reconnect
 
-The data client adds `derivative_ticker` to every configured request so it can publish funding
-rates, mark prices, and index prices when their values change. It also supports the other outputs in
-[supported formats](#supported-formats), including `OptionGreeks` and optional BBO `QuoteTick` data
-from `option_summary` messages.
+data client จะเพิ่ม `derivative_ticker` ให้ทุก request ที่ตั้งค่าไว้ เพื่อให้ publish funding rate,
+mark price และ index price ได้เมื่อค่าเปลี่ยน มันยังรองรับ output อื่นใน[รูปแบบที่รองรับ](#supported-formats)
+รวมถึง `OptionGreeks` และข้อมูล BBO `QuoteTick` (ตัวเลือกเสริม) จาก message `option_summary`
 
-Create Python stream options from Tardis JSON, then pass them to the public data client config:
+ดู `crates/adapters/tardis/examples/node_data_tester.rs` สำหรับตัวอย่าง replay client ฝั่ง Rust แบบสมบูรณ์
+รวมถึงการลงทะเบียน factory และ config กับ live node
 
-```python
-from nautilus_trader.adapters.tardis import StreamNormalizedRequestOptions
-from nautilus_trader.adapters.tardis import TardisDataClientConfig
-from nautilus_trader.adapters.tardis import TardisDataClientFactory
+config ของ data client ฝั่ง Rust สามารถตั้ง `book_snapshot_output` เป็น `depth` ได้ configuration JSON
+ของการ replay แบบ standalone รองรับทั้งสองค่า
 
+## การสร้าง trade ID {#trade-id-derivation}
 
-stream_options = StreamNormalizedRequestOptions.from_json(
-    b'{"exchange":"binance-futures","symbols":["BTCUSDT"],"dataTypes":["trade","quote"]}',
-)
-config = TardisDataClientConfig(stream_options=[stream_options])
-factory = TardisDataClientFactory()
-```
+trade tick ใช้ trade ID ที่ venue ให้มาใน message หรือแถว CSV ของ Tardis เป็น `TradeId` หาก venue ไม่ได้ให้
+trade ID (เป็น string ว่างหรือ null ในบาง exchange) parser ทั้งสองจะใช้ hash แบบ FNV-1a ที่ deterministic
+hash ประกอบด้วย symbol, timestamp, ราคา, จำนวน และ side ราคาและจำนวนถูก hash ตามค่าทศนิยม ดังนั้น parser
+ทั้งสองจะได้ ID เดียวกันสำหรับ event เดียวกัน โดยมีเงื่อนไขว่าค่าใน CSV แปลงไปกลับผ่าน `f64` ได้โดยไม่เปลี่ยน
+event เดียวกันจาก venue จะได้ trade ID เดียวกันในทุกการ replay ทำให้การตัดข้อมูลซ้ำในขั้นถัดไปยังถูกต้อง
 
-Pass `factory` and `config` to `LiveNode.builder(...).add_data_client(...)`. See
-`examples/live/tardis/data_tester.py` for the node registration pattern and
-`crates/adapters/tardis/examples/node_data_tester.rs` for a complete Rust replay client.
+## ข้อจำกัดและข้อควรพิจารณา {#limitations-and-considerations}
 
-The Rust data client config can set `book_snapshot_output` to `depth`. The Python data client config uses the
-default `deltas` output. The standalone replay JSON configuration supports both values.
+`TardisDataClient` ไม่ได้ implement data request ของ Nautilus รวมถึง request ของ instrument, order book,
+quote, trade, funding rate และ bar ให้ตั้งค่า historical replay ผ่าน `options` หรือใช้
+`run_tardis_machine_replay` สำหรับ workflow ของ catalog
 
-## Trade ID derivation
+## การทดสอบความเข้ากันได้กับ Tardis Node {#testing-tardis-node-compatibility}
 
-Trade ticks use the venue-provided trade ID from the Tardis message or CSV row as the `TradeId`. If the venue
-omits the trade ID (empty string or null on some exchanges), both parsers use a deterministic FNV-1a hash. The
-hash includes the symbol, timestamp, price, amount, and side. Price and amount hash by decimal value, so both
-parsers derive the same ID for the same event, provided its CSV values round-trip through `f64` unchanged. The
-same venue event yields the same trade ID across replays, keeping downstream dedup intact.
-
-## Limitations and considerations
-
-`TardisDataClient` does not implement Nautilus data requests, including instrument, order book,
-quote, trade, funding rate, and bar requests. Configure historical replay through `options`, or use
-`run_tardis_machine_replay` for catalog workflows.
-
-## Testing Tardis Node compatibility
-
-The Deribit regression feeds a snapshot, covered queued updates, and a fresh update through the
-installed Tardis Node normalizer, then checks the complete Nautilus order book. It requires Node.js
-compatible with the tested `tardis-dev` package and runs separately from the default Rust tests.
-From the repository root:
+regression test ของ Deribit จะป้อน snapshot, update ในคิวที่ snapshot ครอบคลุมแล้ว และ update ใหม่
+ผ่าน normalizer ของ Tardis Node ที่ติดตั้งไว้ จากนั้นตรวจ order book ของ Nautilus ทั้งหมด ต้องใช้ Node.js
+ที่เข้ากันได้กับ package `tardis-dev` ที่ทดสอบแล้ว และรันแยกจาก Rust test ค่าเริ่มต้น
+จาก root ของ repository:
 
 ```bash
 tardis_test_dir=$(mktemp -d)
@@ -873,9 +677,9 @@ TARDIS_NODE_MODULE="$tardis_test_dir/node_modules/tardis-dev" \
 rm -rf "$tardis_test_dir"
 ```
 
-## Contributing
+## การมีส่วนร่วม {#contributing}
 
 :::info
-For additional features or to contribute to the Tardis adapter, please see our
-[contributing guide](https://github.com/nautechsystems/nautilus_trader/blob/develop/CONTRIBUTING.md).
+สำหรับฟีเจอร์เพิ่มเติมหรือการมีส่วนร่วมพัฒนา adapter ของ Tardis โปรดดู
+[contributing guide](https://github.com/nautechsystems/nautilus_trader/blob/develop/CONTRIBUTING.md)
 :::
