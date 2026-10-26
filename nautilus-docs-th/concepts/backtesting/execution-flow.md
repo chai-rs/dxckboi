@@ -1,26 +1,26 @@
-# Backtest Execution Flow
+# ลำดับการทำงานของ Backtest Execution
 
-The backtest loop processes market state before strategy callbacks, then settles commands generated
-at the same timestamp.
+backtest loop จะประมวลผลสถานะตลาดก่อนเรียก callback ของ strategy จากนั้นจึง settle command ที่เกิดขึ้น
+ใน timestamp เดียวกัน
 
-## Data and message sequencing
+## ลำดับของข้อมูลและ message {#data-and-message-sequencing}
 
-The main backtest loop processes new market data for order execution before the data engine
-dispatches it to actors and strategies.
+backtest loop หลักจะนำ market data ใหม่ไปประมวลผลเพื่อ execute order ก่อนที่ data engine
+จะ dispatch ข้อมูลนั้นไปยัง actor และ strategy
 
-### Main loop flow
+### ลำดับการทำงานของ main loop {#main-loop-flow}
 
-For each data point the engine runs three phases:
+สำหรับข้อมูลแต่ละจุด engine จะทำงานสามขั้นตอน:
 
-1. **Exchange processing**: The simulated exchange updates its order book from incoming market data and
-   iterates the matching engine. This fills existing orders that match the new market state.
-1. **Strategy callbacks**: The data engine dispatches the data point to actors and strategies through
-   callbacks (for example, `on_quote`, `on_bar`). Strategies may submit, cancel, or modify orders during these
-   callbacks.
-1. **Venue settling**: The engine drains all queued venue commands, then iterates matching engines to fill
-   newly submitted orders. It repeats until no command is eligible, so cascading orders (for example, a hedge
-   submitted from `on_order_filled`) settle within the same timestamp. Earlier latency-delayed commands follow
-   the instrument-scoped rules under [command settling](#command-settling).
+1. **การประมวลผลของ exchange**: simulated exchange อัปเดต order book จาก market data ที่เข้ามา และ
+   iterate matching engine ซึ่งจะ fill order ที่มีอยู่เดิมซึ่ง match กับสถานะตลาดใหม่
+1. **Callback ของ strategy**: data engine dispatch ข้อมูลไปยัง actor และ strategy ผ่าน
+   callback (เช่น `on_quote`, `on_bar`) strategy อาจ submit, cancel หรือ modify order ระหว่าง
+   callback เหล่านี้ได้
+1. **การ settle venue**: engine ดึง venue command ที่อยู่ในคิวออกมาทั้งหมด แล้ว iterate matching engine เพื่อ fill
+   order ที่เพิ่ง submit ทำซ้ำจนกว่าจะไม่มี command ที่พร้อมทำงาน ดังนั้น order ที่เกิดต่อเนื่องกัน (เช่น hedge
+   ที่ submit จาก `on_order_filled`) จะ settle ภายใน timestamp เดียวกัน ส่วน command ที่ถูกหน่วงด้วย latency
+   ก่อนหน้านั้นจะเป็นไปตามกฎระดับ instrument ใน [การ settle command](#command-settling)
 
 ```mermaid
 sequenceDiagram
@@ -59,170 +59,151 @@ sequenceDiagram
     end
 ```
 
-The three phases ensure resting orders see the incoming market before newly submitted orders do.
+สามขั้นตอนนี้ทำให้ order ที่วางรออยู่ (resting order) เห็นข้อมูลตลาดที่เข้ามาก่อน order ที่เพิ่ง submit
 
-Timer events use the same settle mechanism, batched by timestamp. All callbacks at timestamp T execute first.
-Then venues settle for T before the clock advances to T+1. A timestamp containing only portfolio snapshot
-timers does not release older latency-deferred commands.
+timer event ใช้กลไก settle แบบเดียวกัน โดยจัดเป็นกลุ่มตาม timestamp callback ทั้งหมดที่ timestamp T จะทำงานก่อน
+จากนั้น venue จะ settle สำหรับ T ก่อนที่ clock จะเดินไป T+1 timestamp ที่มีเพียง timer ของ portfolio snapshot
+จะไม่ปล่อย command เก่าที่ถูกเลื่อนด้วย latency
 
-For timers used by internally aggregated bars, see
-[internal bar aggregation timing](bar-execution.md#internal-bar-aggregation-timing).
+สำหรับ timer ที่ใช้กับ bar ที่ aggregate ภายใน ดู
+[จังหวะเวลาของการ aggregate bar ภายใน](bar-execution.md#internal-bar-aggregation-timing)
 
-### Deferred option settlement
+### การเลื่อน settlement ของ option {#deferred-option-settlement}
 
-At an option's expiration timestamp, automatic expiry checks close its market, cancel open orders,
-and reject new orders. Position settlement waits until all market data at that timestamp has been
-processed, so settlement sees the latest underlying price available for that timestamp.
+ที่ timestamp หมดอายุของ option การตรวจสอบการหมดอายุอัตโนมัติจะปิดตลาดของ option นั้น cancel order ที่เปิดอยู่
+และ reject order ใหม่ การ settle position จะรอจนกว่า market data ทั้งหมดที่ timestamp นั้นถูกประมวลผลแล้ว
+เพื่อให้ settlement เห็นราคา underlying ล่าสุดที่มีสำหรับ timestamp นั้น
 
-An explicit `InstrumentClose` with `InstrumentCloseType::ContractExpired` attempts settlement immediately.
-Streaming batches must keep **all data for a timestamp together**. `BacktestNode` does this automatically.
+`InstrumentClose` ที่ระบุชัดเจนด้วย `InstrumentCloseType::ContractExpired` จะพยายาม settle ทันที
+batch แบบ streaming ต้องเก็บ **ข้อมูลทั้งหมดของ timestamp เดียวกันไว้ด้วยกัน** ซึ่ง `BacktestNode` ทำให้อัตโนมัติ
 
-`SimulatedVenueConfig.defer_option_settlement` defaults to `true`. The backtest engine schedules
-settlement after all market data at the expiry timestamp, without waiting for the next timestamp.
-When driving `SimulatedExchange` directly, schedule expiry processing after that timestamp's data,
-or explicitly set `defer_option_settlement` to `false` for immediate settlement. Immediate settlement
-can use an **older underlying price** if an update with the same timestamp has yet to be processed.
+`SimulatedVenueConfig.defer_option_settlement` มีค่า default เป็น `true` backtest engine จะกำหนดเวลา
+settlement หลังจาก market data ทั้งหมดที่ timestamp หมดอายุ โดยไม่ต้องรอ timestamp ถัดไป
+เมื่อขับ `SimulatedExchange` โดยตรง ให้กำหนดเวลาการประมวลผลการหมดอายุไว้หลังข้อมูลของ timestamp นั้น
+หรือตั้ง `defer_option_settlement` เป็น `false` อย่างชัดเจนเพื่อ settle ทันที การ settle ทันที
+อาจใช้ **ราคา underlying ที่เก่ากว่า** หากยังมี update ที่ timestamp เดียวกันที่ยังไม่ได้ประมวลผล
 
-### Command settling
+### การ settle command {#command-settling}
 
-#### Same-cycle commands
+#### Command ในรอบเดียวกัน {#same-cycle-commands}
 
-An order fill can trigger a strategy callback that submits another order, such as a stop-loss from
-`on_order_filled`. The engine drains venue command queues and processes commands generated by their events
-until no command is eligible for the current cycle. Commands created at that timestamp and already due settle
-within the same cycle, including zero-latency and same-tick commands for another instrument.
+fill ของ order อาจกระตุ้น callback ของ strategy ที่ submit order อื่น เช่น stop-loss จาก
+`on_order_filled` engine จะดึงคิว venue command และประมวลผล command ที่เกิดจาก event เหล่านั้น
+จนกว่าจะไม่มี command ที่พร้อมทำงานในรอบปัจจุบัน command ที่สร้างขึ้นใน timestamp นั้นและถึงกำหนดแล้วจะ settle
+ภายในรอบเดียวกัน รวมถึง command แบบ zero-latency และ same-tick ของ instrument อื่นด้วย
 
-Simulation modules run once, after the command loop completes.
+simulation module จะทำงานครั้งเดียว หลังจาก command loop เสร็จสิ้น
 
-#### Latency-delayed commands
+#### Command ที่ถูกหน่วงด้วย latency {#latency-delayed-commands}
 
-A [`LatencyModel`](../behavioral_models.md#custom-python-latency-models) places each command in the venue's
-inflight queue with an arrival timestamp. Once a command is due, the settlement point determines whether
-the engine releases it:
+[`LatencyModel`](../behavioral_models.md) จะวาง command แต่ละตัวไว้ในคิว inflight ของ venue
+พร้อม timestamp ที่จะมาถึง เมื่อ command ถึงกำหนด จุด settlement จะเป็นตัวกำหนดว่า
+engine จะปล่อย command นั้นหรือไม่:
 
-| Settlement point               | Due commands released                                                      |
+| จุด settlement                  | Command ที่ถึงกำหนดซึ่งถูกปล่อย                                              |
 | ------------------------------ | -------------------------------------------------------------------------- |
-| Market data                    | Same-timestamp commands and older commands for the data's instrument.      |
-| Portfolio snapshot timers only | Same-timestamp commands.                                                   |
-| Other timer                    | All commands due at the timer timestamp.                                   |
-| Funding-rate settlement        | All commands due at the funding settlement timestamp.                      |
-| Shutdown drain                 | All commands due as the clock advances through the final inflight arrival. |
+| Market data                    | command ใน timestamp เดียวกัน และ command เก่าของ instrument ของข้อมูลนั้น     |
+| เฉพาะ timer ของ portfolio snapshot | command ใน timestamp เดียวกัน                                              |
+| timer อื่น ๆ                     | command ทั้งหมดที่ถึงกำหนด ณ timestamp ของ timer                            |
+| การ settle funding rate         | command ทั้งหมดที่ถึงกำหนด ณ timestamp ของ funding settlement               |
+| การ drain ตอน shutdown          | command ทั้งหมดที่ถึงกำหนดขณะที่ clock เดินผ่านเวลามาถึงของ inflight ตัวสุดท้าย |
 
-Market data for another instrument does not activate an older command against stale market state. Commands
-with a future arrival timestamp stay in the inflight queue.
+market data ของ instrument อื่นจะไม่ทำให้ command เก่าทำงานกับสถานะตลาดที่ล้าสมัย command
+ที่มี timestamp มาถึงในอนาคตจะยังอยู่ในคิว inflight
 
-### Sandbox inbound latency
+### Inbound latency ของ sandbox {#sandbox-inbound-latency}
 
-`SandboxExecutionClientConfig.latency_model` accepts a `StaticLatencyModel` or a
-[Python `LatencyModel` subclass](../behavioral_models.md#custom-python-latency-models), following the
-`fee_model` configuration pattern. It delays submits, modifies, and cancels by the
-model's insert, update, and delete legs, respectively, before they reach the matching engine.
+`SandboxExecutionClientConfig.latency_model` รับ `StaticLatencyModel` โดยใช้รูปแบบเดียวกับการตั้งค่า
+`fee_model` model นี้จะหน่วง submit, modify และ cancel ตามขา insert, update และ delete ของ
+model ตามลำดับ ก่อนที่จะไปถึง matching engine
 
-Venue-generated events (accepts, fills, cancels, expirations) are not delayed, so the model covers
-only the **inbound leg**. Without a latency model, client behavior is unchanged.
+event ที่ venue สร้างขึ้น (accept, fill, cancel, expiration) จะไม่ถูกหน่วง ดังนั้น model จึงครอบคลุม
+เฉพาะ **ขาขาเข้า (inbound leg)** หากไม่มี latency model พฤติกรรมของ client จะไม่เปลี่ยนแปลง
 
-```python
-from decimal import Decimal
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-from nautilus_trader.adapters.sandbox import SandboxExecutionClientConfig
-from nautilus_trader.execution import MakerTakerFeeModel
-from nautilus_trader.execution import StaticLatencyModel
-from nautilus_trader.model import Money
-from nautilus_trader.model import Venue
+#### จังหวะเวลาของ event และ command {#event-and-command-timing}
 
-config = SandboxExecutionClientConfig(
-    venue=Venue("BINANCE"),
-    starting_balances=[Money.from_str("10_000 USDT")],
-    fee_model=MakerTakerFeeModel(
-        maker_rate=Decimal("0.001"),
-        taker_rate=Decimal("0.001"),
-    ),
-    latency_model=StaticLatencyModel(base_latency_nanos=1_000_000_000),
-)
-```
+event ของ client แต่ละตัวใช้ execution channel ของ runner ตามลำดับที่ปล่อยออกมา ไม่ว่าจะมี latency model หรือไม่:
 
-#### Event and command timing
+- `OrderSubmitted` ของ order จะมาก่อน venue event ของ order นั้น
+- fill จาก market data จะมาก่อน response ของ command ใด ๆ ที่ถูกปล่อยหลังจากนั้น
 
-Each client event uses the runner's execution channel in emission order, with or without a latency model:
+**จังหวะเวลาของ command**:
 
-- An order's `OrderSubmitted` precedes its venue events.
-- A fill from market data precedes the response to any command released after it.
+- command จะมีผลก่อน market data ใด ๆ ที่ประมวลผลหลังเวลาที่ถึงกำหนด client จะ drain คิวก่อน
+  แต่ละ tick และ clock alert ของ client จะปล่อย command ในคิวเมื่อไม่มีข้อมูลไหลเข้ามา
+- command ที่มีขา latency เป็นศูนย์จะมีผลทันทีที่มาถึง เว้นแต่มี command อื่นที่ถึงกำหนดแล้วแต่ยังไม่ถูกปล่อย
+  ในกรณีนั้น command จะต่อคิวหลัง command ดังกล่าว
+- cancel-all จะ cancel เฉพาะ order ที่ venue ได้รับแล้วเท่านั้น order ที่ submit ยังอยู่ระหว่างทาง
+  จะไม่ถูกแตะต้องจนกว่า venue จะประมวลผล submit นั้น
 
-**Command timing**:
+#### Contingent order {#contingent-orders}
 
-- A command applies before any market data processed after its due time. The client drains its queue before
-  each tick. Its clock alert releases queued commands when no data flows.
-- A command with a zero latency leg applies on arrival unless another command is already due and
-  unreleased. In that case, it joins the queue behind that command.
-- A cancel-all cancels only orders the venue has received. An order whose submit is still in transit stays
-  untouched until the venue processes its submit.
+ทั้งใน backtest และ sandbox การทำงานแบบ contingent จะเคารพการรับของ venue:
 
-#### Contingent orders
+- fill, update, expiration และ cancellation ไม่สามารถ activate, แก้ไข หรือ cancel order ที่ผูกกันอยู่
+  ซึ่ง venue ยังไม่ได้รับได้
+- submit list แต่ละชุดจะมาถึงพร้อมกันเป็นหน่วยเดียว
+- OTO child ที่ venue ได้รับแล้วยังคง activate ได้เมื่อ parent ถูก fill
+- submit ที่มาช้าจะถูกตรวจสอบกับสถานะปัจจุบันของ order ที่ผูกกันอยู่ และอาจถูก reject หาก order ที่ผูกไว้
+  ปิดไปแล้ว
+- การเปลี่ยนจำนวนแบบ contingent ที่ถูกข้ามไปก่อน venue ได้รับ จะไม่ถูก replay เมื่อ submit มาถึง order จะคง
+  จำนวนที่ submit ไว้ เว้นแต่มีกฎอื่นที่เกี่ยวข้องเปลี่ยนแปลงมัน
 
-In both backtest and sandbox, contingent actions respect venue receipt:
+#### การหยุดขณะที่มี command อยู่ระหว่างทาง {#stopping-with-commands-in-flight}
 
-- Fills, updates, expirations, and cancellations cannot activate, amend, or cancel a linked order
-  the venue has not yet received.
-- Each submit list arrives as a unit.
-- An OTO child already received by the venue can still activate when its parent fills.
-- A late submit is checked against its linked orders' current state and may be rejected if a linked
-  order has already closed.
-- Contingent quantity changes skipped before receipt are not replayed when the submit arrives. The order keeps
-  its submitted quantity unless another applicable rule changes it.
+การหยุด client จะทิ้งทุกอย่างที่ยังอยู่ระหว่างทาง:
 
-#### Stopping with commands in flight
+- submit, modify หรือ cancel แบบระบุเป้าหมายที่ถูกทิ้งจะถูก reject (`OrderRejected`, `OrderModifyRejected`,
+  `OrderCancelRejected`) เพื่อไม่ให้ order ค้างอยู่ในสถานะ `SUBMITTED` หรือ pending ตลอดไป เนื่องจาก sandbox
+  ไม่สร้าง order status report จึงไม่มีอะไรอื่นมา resolve ให้
+- `CancelAllOrders` ที่ถูกทิ้งจะถูกละไป strategy ไม่ได้ mark order ใดเป็น `PENDING_CANCEL` สำหรับมัน
+  จึงไม่มีสถานะ pending ที่ต้องปล่อย
 
-Stopping the client discards anything still in flight:
+### ความหมายของการ shutdown {#shutdown-semantics}
 
-- A discarded submit, modify, or targeted cancel is rejected (`OrderRejected`, `OrderModifyRejected`,
-  `OrderCancelRejected`) so its order does not stay `SUBMITTED` or pending forever. The sandbox
-  generates no order status reports, so nothing else would resolve it.
-- A discarded `CancelAllOrders` is dropped. The strategy marks no order `PENDING_CANCEL` for it,
-  so no pending state needs releasing.
+`BacktestEngine::end()` แยกจากการตั้งค่า `shutdown_on_error` ใน
+[backtest API และการรันซ้ำ](apis-and-runs.md#shutdown-on-error) มันจะเรียก handler `on_stop`
+ของแต่ละ strategy แล้ว drain และ settle command ที่ปล่อยออกมา (เช่น `close_all_positions`, `cancel_all_orders`)
+จากนั้นจึงหยุด engine
 
-### Shutdown semantics
+- command จาก `on_stop` ใช้การเข้าคิวและ latency ของ venue ตามปกติ ไม่ได้รับสิทธิ์ก่อน command
+  inflight ที่มาก่อนหน้า
+- หาก order ที่ส่งก่อนหยุดไปถึง venue ก่อน cancel จาก `on_stop` ก็ยังอาจถูก fill ได้ และ close แบบ
+  reduce-only ที่ตามมาทีหลังอาจถูก reject หาก fill นั้นเปลี่ยน net exposure ไปแล้ว
+- strategy ที่ต้องการปิด position อย่าง deterministic ควรเข้าสู่สถานะ exit-only ก่อนหยุด และ
+  หลีกเลี่ยงการเปิด order ใหม่ขณะที่ command cancel และ close ยังอยู่ระหว่างทาง
+- event handler ของ strategy จะไม่ทำงานสำหรับ event ที่เกิดตามมา เพราะ strategy อยู่ในสถานะ `Stopped` แล้ว
+  `OrderFilled` และ event ที่คล้ายกันจะถูก log แต่ข้าม `on_order_filled` และ handler ที่เกี่ยวข้อง logic ที่ตอบสนองต่อ
+  fill ต้องทำงานก่อนที่ `on_stop` จะ return
+- simulation module จะไม่ทำงานซ้ำตอน shutdown `SimulationModule::process` ทำงานครั้งเดียวต่อ timestamp การเรียก
+  ครั้งที่สองจะทำให้ผลข้างเคียงถูกนำไปใช้ซ้ำ เช่น ดอกเบี้ย FX rollover
+- `LatencyModel` จะเพิ่ม delay ให้กับ command ท้าย ๆ (command ที่ปล่อยออกมาใน
+  data tick สุดท้ายหรือใน `on_stop`) เส้นทาง shutdown จะเลื่อน clock ของ engine ไปยัง timestamp ที่ inflight
+  ตัวล่าสุดมาถึง เพื่อให้ command เหล่านั้นยัง settle ได้ก่อน engine หยุด
 
-`BacktestEngine::end()` is separate from the `shutdown_on_error` configuration in
-[backtest APIs and repeated runs](apis-and-runs.md#shutdown-on-error). It invokes each strategy's `on_stop`
-handler, drains and settles any commands it emits (for example, `close_all_positions`, `cancel_all_orders`),
-then stops the engines.
+## Backtest ที่มีเฉพาะ timer {#timer-only-backtests}
 
-- `on_stop` commands use normal venue queuing and latency. They do not get priority over earlier
-  inflight commands.
-- If a pre-stop order reaches the venue before an `on_stop` cancel, it may still fill. A later
-  reduce-only close can then reject if the fill changed net exposure.
-- Strategies that need deterministic flattening should enter an exit-only state before stopping and
-  avoid new opening orders while cancel and close commands are in-flight.
-- Strategy event handlers do not fire for the resulting events because the strategy is already `Stopped`.
-  `OrderFilled` and similar events log but bypass `on_order_filled` and related handlers. Logic that reacts to
-  fills must run before `on_stop` returns.
-- Simulation modules do not re-run at shutdown. `SimulationModule::process` runs once per timestamp. A second
-  call would double-apply side effects like FX rollover interest.
-- A `LatencyModel` adds its delay to trailing commands (those emitted on the final
-  data tick or in `on_stop`). The shutdown path advances the engine clock to the latest inflight
-  arrival timestamp so those commands still settle before the engines stop.
+backtest engine รองรับการรันที่มี timer แต่ไม่มี market data ซึ่งมีประโยชน์สำหรับงานที่ตั้งเวลาไว้
+หรือการทดสอบ logic ที่ขึ้นกับ timer timer จะทำงานตามลำดับเวลา
 
-## Timer-only backtests
+## Trade ID แบบ deterministic {#deterministic-trade-ids}
 
-The backtest engine supports runs with timers but no market data. This is useful for scheduled
-operations or testing timer-based logic. Timers fire in chronological order.
+simulated exchange (ใช้ทั้งใน backtest และ sandbox execution) จะปล่อย `TradeId` แบบ deterministic สำหรับ
+fill แต่ละตัวที่สร้างขึ้น ID มีรูปแบบ `T-{hash:016x}-{count:03d}` ส่วน hex 16 ตัวอักษรคือ hash แบบ FNV-1a ของ
+`(venue, raw_id, ts_init)` ส่วนตัวนับท้ายใช้แยก fill หลายตัวที่ `ts_init` เดียวกัน (เช่น
+หลาย leg ของ fill ที่ขับเคลื่อนด้วย bar)
 
-## Deterministic trade IDs
+Trade ID แบบ deterministic มีคุณสมบัติดังนี้:
 
-The simulated exchange (used by both backtest and sandbox execution) emits a deterministic `TradeId` for each
-generated fill. The ID has the format `T-{hash:016x}-{count:03d}`. The 16-character hex is an FNV-1a hash of
-`(venue, raw_id, ts_init)`. The trailing counter distinguishes multiple fills at the same `ts_init` (for
-example, several legs of a bar-driven fill).
+- **Deterministic ข้ามการรัน**: ข้อมูลที่ replay ชุดเดียวกันจะได้ `TradeId` เดียวกันทุกครั้ง ทำให้
+  การ dedup ในขั้นถัดไปและการเปรียบเทียบกับ golden output มีความเสถียร
+- **ไม่ชนกันข้ามการ reset**: `ts_init` ถูกตรึงไว้ในข้อมูล backtest และเพิ่มขึ้นเสมอใน live/sandbox ดังนั้น
+  `BacktestEngine.reset()` จึงไม่สามารถสร้าง `TradeId` ที่ชนกับตัวที่อยู่ใน cache แล้วได้ การรับประกันเดียวกัน
+  ใช้กับการ reset `IdsGenerator` ในหน่วยความจำใน sandbox ที่มี order ถูก persist ไว้ด้วย
+- **ความยาวจำกัด**: hash ทำให้ identifier ยาวไม่เกินขีดจำกัด 36 ตัวอักษรของ `TradeId` ไม่ว่า
+  ชื่อ venue จะยาวเท่าใด
 
-Deterministic trade IDs have these properties:
-
-- **Deterministic across runs**: The same replayed data produces the same `TradeId` each time, keeping
-  downstream dedup and golden-output comparisons stable.
-- **Collision-safe across resets**: `ts_init` is pinned in backtest data and monotonic in live/sandbox. Thus,
-  a `BacktestEngine.reset()` cannot mint a `TradeId` that collides with one already in the cache. The same
-  guarantee applies to an in-memory `IdsGenerator` reset in a sandbox with persisted orders.
-- **Bounded length**: The hash keeps the identifier under the 36-character `TradeId` cap regardless
-  of venue name length.
-
-The `use_random_ids` venue flag still governs `VenueOrderId` and `PositionId` generation, but
-`TradeId` is always deterministic and is not affected by the flag.
+flag `use_random_ids` ของ venue ยังคงควบคุมการสร้าง `VenueOrderId` และ `PositionId` แต่
+`TradeId` จะเป็นแบบ deterministic เสมอและไม่ได้รับผลจาก flag นี้

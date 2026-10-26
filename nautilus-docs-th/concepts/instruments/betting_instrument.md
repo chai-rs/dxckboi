@@ -1,61 +1,59 @@
 # Betting Instrument
 
-`BettingInstrument` represents one selection in a sports or gaming market. It carries
-event, competition, market, and selection metadata so Nautilus can treat the selection
-as an instrument with prices, sizes, limits, margins, and fees.
+`BettingInstrument` แทนตัวเลือก (selection) หนึ่งตัวในตลาดกีฬาหรือเกม โดยเก็บ metadata ของ event,
+competition, market และ selection ไว้ เพื่อให้ Nautilus ปฏิบัติต่อ selection นั้นเหมือน instrument ที่มีราคา,
+ขนาด, ข้อจำกัด, margin และค่าธรรมเนียม
 
-Examples include Betfair match-odds selections and handicap market selections.
+ตัวอย่างเช่น selection ในตลาด match odds และตลาด handicap ของ Betfair
 
-## Fields
+## ฟิลด์ {#fields}
 
-| Field                | Rust type          | Python type        | Required/default | Notes                                    |
-| -------------------- | ------------------ | ------------------ | ---------------- | ---------------------------------------- |
-| `instrument_id`      | `InstrumentId`     | `InstrumentId`     | Required         | Stored as `id` in Rust.                  |
-| `raw_symbol`         | `Symbol`           | `Symbol`           | Required         | Native or generated venue symbol.        |
-| `event_type_id`      | `u64`              | `int`              | Required         | Event type identifier.                   |
-| `event_type_name`    | `Ustr`             | `str`              | Required         | Event type name, such as a sport.        |
-| `competition_id`     | `u64`              | `int`              | Required         | Competition identifier.                  |
-| `competition_name`   | `Ustr`             | `str`              | Required         | Competition name.                        |
-| `event_id`           | `u64`              | `int`              | Required         | Event identifier.                        |
-| `event_name`         | `Ustr`             | `str`              | Required         | Event name.                              |
-| `event_country_code` | `Ustr`             | `str`              | Required         | Event country code.                      |
-| `event_open_date`    | `UnixNanos`        | `int`              | Required         | Event open time.                         |
-| `betting_type`       | `Ustr`             | `str`              | Required         | Betting type published by the venue.     |
-| `market_id`          | `Ustr`             | `str`              | Required         | Market identifier.                       |
-| `market_name`        | `Ustr`             | `str`              | Required         | Market name.                             |
-| `market_type`        | `Ustr`             | `str`              | Required         | Market type, such as match odds.         |
-| `market_start_time`  | `UnixNanos`        | `int`              | Required         | Market start time.                       |
-| `selection_id`       | `u64`              | `int`              | Required         | Selection or runner identifier.          |
-| `selection_name`     | `Ustr`             | `str`              | Required         | Selection or runner name.                |
-| `selection_handicap` | `f64`              | `float`            | Required         | Handicap value for handicap markets.     |
-| `currency`           | `Currency`         | `Currency`         | Required         | Quote and settlement currency.           |
-| `price_precision`    | `u8`               | `int`              | Required         | Decimal places allowed for prices.       |
-| `size_precision`     | `u8`               | `int`              | Required         | Decimal places allowed for order sizes.  |
-| `price_increment`    | `Price`            | `Price`            | Required         | Price step, often set by a tick scheme.  |
-| `size_increment`     | `Quantity`         | `Quantity`         | Required         | Minimum size step.                       |
-| `max_quantity`       | `Option<Quantity>` | `Quantity \| None` | `None`           | Maximum order quantity.                  |
-| `min_quantity`       | `Option<Quantity>` | `Quantity \| None` | `None`           | Minimum order quantity.                  |
-| `max_notional`       | `Option<Money>`    | `Money \| None`    | `None`           | Maximum order notional value.            |
-| `min_notional`       | `Option<Money>`    | `Money \| None`    | `None`           | Minimum order notional value.            |
-| `max_price`          | `Option<Price>`    | `Price \| None`    | `None`           | Maximum valid quote or order price.      |
-| `min_price`          | `Option<Price>`    | `Price \| None`    | `None`           | Minimum valid quote or order price.      |
-| `margin_init`        | `Option<Decimal>`  | `Decimal \| None`  | `1`              | Initial margin rate.                     |
-| `margin_maint`       | `Option<Decimal>`  | `Decimal \| None`  | `1`              | Maintenance margin rate.                 |
-| `tick_scheme`        | `Option<Ustr>`     | `str \| None`      | `None`           | Registered variable tick scheme name.    |
-| `info`               | `Option<Params>`   | `dict \| None`     | `None`           | Adapter metadata.                        |
-| `ts_event`           | `UnixNanos`        | `int`              | Required         | Event timestamp in nanoseconds.          |
-| `ts_init`            | `UnixNanos`        | `int`              | Required         | Initialization timestamp in nanoseconds. |
+| ฟิลด์                 | Rust type          | จำเป็น/ค่าเริ่มต้น  | หมายเหตุ                                    |
+| -------------------- | ------------------ | ---------------- | ---------------------------------------- |
+| `instrument_id`      | `InstrumentId`     | Required         | ใน Rust เก็บไว้ในชื่อ `id`                  |
+| `raw_symbol`         | `Symbol`           | Required         | symbol ดั้งเดิมของ venue หรือที่สร้างขึ้น       |
+| `event_type_id`      | `u64`              | Required         | ตัวระบุชนิดของ event                        |
+| `event_type_name`    | `Ustr`             | Required         | ชื่อชนิดของ event เช่น ประเภทกีฬา            |
+| `competition_id`     | `u64`              | Required         | ตัวระบุ competition                        |
+| `competition_name`   | `Ustr`             | Required         | ชื่อ competition                           |
+| `event_id`           | `u64`              | Required         | ตัวระบุ event                              |
+| `event_name`         | `Ustr`             | Required         | ชื่อ event                                 |
+| `event_country_code` | `Ustr`             | Required         | รหัสประเทศของ event                         |
+| `event_open_date`    | `UnixNanos`        | Required         | เวลาเปิดของ event                           |
+| `betting_type`       | `Ustr`             | Required         | ประเภทการเดิมพันที่ venue เผยแพร่              |
+| `market_id`          | `Ustr`             | Required         | ตัวระบุ market                             |
+| `market_name`        | `Ustr`             | Required         | ชื่อ market                                |
+| `market_type`        | `Ustr`             | Required         | ชนิดของ market เช่น match odds             |
+| `market_start_time`  | `UnixNanos`        | Required         | เวลาเริ่มของ market                          |
+| `selection_id`       | `u64`              | Required         | ตัวระบุ selection หรือ runner                |
+| `selection_name`     | `Ustr`             | Required         | ชื่อ selection หรือ runner                   |
+| `selection_handicap` | `f64`              | Required         | ค่า handicap สำหรับตลาด handicap            |
+| `currency`           | `Currency`         | Required         | สกุลเงินของ quote และการชำระ                 |
+| `price_precision`    | `u8`               | Required         | จำนวนตำแหน่งทศนิยมที่อนุญาตสำหรับราคา           |
+| `size_precision`     | `u8`               | Required         | จำนวนตำแหน่งทศนิยมที่อนุญาตสำหรับขนาด order      |
+| `price_increment`    | `Price`            | Required         | ขั้นราคา มักกำหนดโดย tick scheme             |
+| `size_increment`     | `Quantity`         | Required         | ขั้นขนาดขั้นต่ำ                               |
+| `max_quantity`       | `Option<Quantity>` | `None`           | ปริมาณ order สูงสุด                          |
+| `min_quantity`       | `Option<Quantity>` | `None`           | ปริมาณ order ต่ำสุด                          |
+| `max_notional`       | `Option<Money>`    | `None`           | มูลค่า notional ของ order สูงสุด              |
+| `min_notional`       | `Option<Money>`    | `None`           | มูลค่า notional ของ order ต่ำสุด              |
+| `max_price`          | `Option<Price>`    | `None`           | ราคา quote หรือ order สูงสุดที่ใช้ได้            |
+| `min_price`          | `Option<Price>`    | `None`           | ราคา quote หรือ order ต่ำสุดที่ใช้ได้            |
+| `margin_init`        | `Option<Decimal>`  | `1`              | อัตรา initial margin                       |
+| `margin_maint`       | `Option<Decimal>`  | `1`              | อัตรา maintenance margin                   |
+| `tick_scheme`        | `Option<Ustr>`     | `None`           | ชื่อ tick scheme แบบแปรผันที่ลงทะเบียนไว้        |
+| `info`               | `Option<Params>`   | `None`           | metadata ของ adapter                       |
+| `ts_event`           | `UnixNanos`        | Required         | timestamp ของ event หน่วยนาโนวินาที         |
+| `ts_init`            | `UnixNanos`        | Required         | timestamp ตอนสร้าง หน่วยนาโนวินาที           |
 
-**Note**: Python constructors use `instrument_id`. Rust stores the same value as `id`.
+## พฤติกรรม {#behavior}
 
-## Behavior
+- `BettingInstrument` มี asset class เป็น `Alternative` และ instrument class เป็น `SportsBetting`
+- แต่ละ selection หรือ runner ถูกจำลองเป็น instrument ของตัวเอง
+- betting instrument มักใช้ tick scheme ที่ลงทะเบียนไว้เพื่อกำหนดขั้นของ odds ที่ใช้ได้
+- margin มีค่าเริ่มต้นเป็นหนึ่ง เพราะการวางเดิมพันมักกันเงินเดิมพันไว้เต็มจำนวน
 
-- `BettingInstrument` has asset class `Alternative` and instrument class `SportsBetting`.
-- Each selection or runner is modeled as its own instrument.
-- Betting instruments commonly use a registered tick scheme for valid odds steps.
-- Margin defaults to one because staking a bet typically reserves the full stake.
-
-## Example
+## ตัวอย่าง {#example}
 
 ```rust tab="Rust"
 use jiff::Timestamp;
@@ -109,56 +107,12 @@ let selection = BettingInstrument::builder()
     .unwrap();
 ```
 
-```python tab="Python"
-import pandas as pd
+## Adapter {#adapters}
 
-from nautilus_trader.model import BettingInstrument
-from nautilus_trader.model import Currency
-from nautilus_trader.model import InstrumentId
-from nautilus_trader.model import Money
-from nautilus_trader.model import Price
-from nautilus_trader.model import Quantity
-from nautilus_trader.model import Symbol
-from nautilus_trader.model import Venue
+adapter [Betfair](../../integrations/betfair.md) สร้างหรือใช้ instrument แบบ `BettingInstrument`
+สำหรับตลาดเดิมพันกีฬา
 
-GBP = Currency.from_str("GBP")
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-selection = BettingInstrument(
-    instrument_id=InstrumentId(Symbol("1-123456789-50214"), Venue("BETFAIR")),
-    raw_symbol=Symbol("1-123456789-50214"),
-    event_type_id=6423,
-    event_type_name="American Football",
-    competition_id=12282733,
-    competition_name="NFL",
-    event_id=29678534,
-    event_name="NFL",
-    event_country_code="GB",
-    event_open_date=pd.Timestamp("2022-02-07 23:30:00+00:00").value,
-    betting_type="ODDS",
-    market_id="1-123456789",
-    market_name="AFC Conference Winner",
-    market_type="SPECIAL",
-    market_start_time=pd.Timestamp("2022-02-07 23:30:00+00:00").value,
-    selection_id=50214,
-    selection_name="Kansas City Chiefs",
-    selection_handicap=0.0,
-    currency=GBP,
-    price_precision=2,
-    size_precision=2,
-    price_increment=Price.from_str("0.01"),
-    size_increment=Quantity.from_str("0.01"),
-    min_notional=Money(1, GBP),
-    ts_event=0,
-    ts_init=0,
-)
-```
-
-## Adapters
-
-The [Betfair](../../integrations/betfair.md) adapter creates or consumes
-`BettingInstrument` instruments for sports betting markets.
-
-## Related guides
-
-- [Accounting](../accounting.md) covers betting account behavior.
-- [Data](../data/) explains market data that references instruments.
+- [Accounting](../accounting.md) อธิบายพฤติกรรมของ betting account
+- [Data](../data/) อธิบายข้อมูลตลาดที่อ้างอิงถึง instrument

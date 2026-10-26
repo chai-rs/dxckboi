@@ -1,563 +1,453 @@
 # Accounting
 
-The accounting subsystem tracks balances, margins, and PnL for each account. This guide covers the data model,
-the query API that strategies use, and the conventions adapter authors must follow to stay consistent across
-venues.
+ระบบย่อย accounting ทำหน้าที่ติดตาม balance, margin และ PnL ของแต่ละ account คู่มือนี้อธิบาย data model,
+query API ที่ strategy ใช้ และข้อตกลงที่ผู้เขียน adapter ต้องปฏิบัติตามเพื่อให้ทำงานสอดคล้องกันในทุก venue
 
-It applies equally to backtest and live trading. For backtest-specific
-configuration (starting balances, margin-model selection per venue), see
-[Backtesting](backtesting/).
+เนื้อหานี้ใช้ได้ทั้งกับ backtest และ live trading สำหรับ config เฉพาะของ backtest (starting balance, การเลือก
+margin model ต่อ venue) ดู [Backtesting](backtesting/)
 
-## Account types
+## ประเภทของ account {#account-types}
 
-When configuring a venue for live trading or backtests, use `account_type` to select Cash, Margin, or Betting.
+เมื่อกำหนด config ของ venue สำหรับ live trading หรือ backtest ให้ใช้ `account_type` เพื่อเลือก Cash, Margin หรือ Betting
 
-Wallet models on-chain wallet state. The Blockchain adapter selects it. Its execution client supports locally
-signed Uniswap V3 market swaps but is not production-ready.
+Wallet ใช้จำลองสถานะของ wallet บน on-chain โดย Blockchain adapter เป็นตัวเลือกใช้ execution client ของ adapter นี้
+รองรับ market swap บน Uniswap V3 ที่ sign แบบ local แต่ยังไม่พร้อมใช้งานจริงใน production
 
-| Account type | Typical use case                                | Reservations                                                              |
+| ประเภท account | กรณีใช้งานทั่วไป                                   | การจอง (reservation)                                                        |
 | ------------ | ----------------------------------------------- | ------------------------------------------------------------------------- |
-| Cash         | Spot trading (for example, BTC/USDT, stocks)    | Notional for pending buy orders. Base-asset quantity for pending sells.   |
-| Margin       | Derivatives or any product that allows leverage | Initial margin for each order plus maintenance margin for open positions. |
-| Betting      | Sports betting, bookmaking                      | Stake required by the venue. No leverage.                                 |
-| Wallet       | Blockchain wallets (DeFi)                       | Amounts reserved locally for pending orders. No leverage or borrowing.    |
+| Cash         | Spot trading (เช่น BTC/USDT, หุ้น)               | Notional ของ buy order ที่ค้างอยู่ และปริมาณ base asset ของ sell order ที่ค้างอยู่ |
+| Margin       | Derivatives หรือผลิตภัณฑ์ใดก็ตามที่ใช้ leverage ได้     | Initial margin ของแต่ละ order บวก maintenance margin ของ position ที่เปิดอยู่  |
+| Betting      | Sports betting, bookmaking                      | Stake ที่ venue กำหนด ไม่มี leverage                                         |
+| Wallet       | Blockchain wallet (DeFi)                        | จำนวนที่จองไว้แบบ local สำหรับ order ที่ค้างอยู่ ไม่มี leverage และไม่มีการกู้ยืม     |
 
-### Cash accounts
+### Cash account {#cash-accounts}
 
-Cash accounts **settle trades in full**. They have no leverage and thus no concept of margin. Locked balances
-reflect the value reserved for pending orders: the notional value of each pending buy and the quantity each
-pending sell would deliver.
+Cash account **settle trade เต็มจำนวน** ไม่มี leverage จึงไม่มีแนวคิดเรื่อง margin ยอด locked balance สะท้อนมูลค่าที่จองไว้
+สำหรับ order ที่ค้างอยู่ ได้แก่ มูลค่า notional ของ buy order แต่ละตัว และปริมาณที่ sell order แต่ละตัวจะต้องส่งมอบ
 
-#### Precision and rounding
+#### Precision และการปัดเศษ {#precision-and-rounding}
 
-Cash flows and reservations use checked domain or `Decimal` arithmetic and project to native `Money` precision
-with midpoint-to-even rounding. Balance updates add and subtract `Money` amounts without rounding to currency
-display precision. Currency conversions preserve native `Money` precision too.
+กระแสเงินสดและการจองใช้การคำนวณแบบ checked domain หรือ `Decimal` แล้วแปลงเป็น precision ดั้งเดิมของ `Money`
+ด้วยการปัดแบบ midpoint-to-even การอัปเดต balance จะบวกและลบจำนวน `Money` โดยไม่ปัดเป็น display precision ของสกุลเงิน
+การแปลงสกุลเงินก็คง precision ดั้งเดิมของ `Money` ไว้เช่นกัน
 
-See [Precision and settlement](#precision-and-settlement) for the accounting rationale and worked examples.
+ดูเหตุผลเชิงบัญชีและตัวอย่างการคำนวณได้ที่ [Precision และ settlement](#precision-and-settlement)
 
-#### Sell reservations
+#### การจองสำหรับ sell {#sell-reservations}
 
-A sell delivers the instrument's base asset, so the reservation belongs in that asset. Instruments whose
-`base_currency()` is `None`, such as binary options and equities, model no such asset. A pending sell on those
-instruments **locks nothing**, and its proceeds are not compared against the free quote balance.
+การ sell คือการส่งมอบ base asset ของ instrument ดังนั้นการจองจึงควรเป็นสกุลของ asset นั้น instrument ที่
+`base_currency()` เป็น `None` เช่น binary option และหุ้น ไม่ได้จำลอง asset ดังกล่าว sell order ที่ค้างอยู่บน
+instrument เหล่านี้จึง **ไม่ lock อะไรเลย** และรายได้จากการขายจะไม่ถูกนำไปเทียบกับ free quote balance
 
-Reserving the order quantity in the quote currency would label a share or contract count as money and lock
-collateral the sale never consumes. Comparing sale proceeds against free collateral would deny a sale for lack
-of the very balance it credits.
+การจองปริมาณ order เป็น quote currency จะเท่ากับการตีความจำนวนหุ้นหรือสัญญาว่าเป็นเงิน และ lock หลักประกันที่การขาย
+ไม่ได้ใช้จริง ส่วนการนำรายได้จากการขายไปเทียบกับหลักประกันที่ว่างอยู่ จะทำให้การขายถูกปฏิเสธเพราะขาด balance ที่การขาย
+นั้นเองจะเป็นตัวเติมให้
 
-In live trading, inventory availability for those instruments is not tracked or
-checked locally, including across concurrent sells. The venue enforces it, and any
-rejection arrives through the normal order lifecycle. This boundary is
-deliberate: reproducing the venue's inventory check locally would require
-per-asset balances the adapter does not receive. Buy reservations and sell
-checks for instruments that do model a base asset are unchanged.
+ใน live trading ความพร้อมของ inventory สำหรับ instrument เหล่านี้จะไม่ถูกติดตามหรือตรวจสอบแบบ local รวมถึงในกรณีที่มี
+sell หลายตัวพร้อมกัน venue เป็นผู้บังคับใช้ และการปฏิเสธใด ๆ จะมาตามวงจรชีวิตปกติของ order ขอบเขตนี้ตั้งใจออกแบบไว้
+เพราะการทำซ้ำการตรวจสอบ inventory ของ venue แบบ local ต้องใช้ balance ราย asset ซึ่ง adapter ไม่ได้รับมา ส่วนการจอง
+สำหรับ buy และการตรวจสอบ sell ของ instrument ที่มีการจำลอง base asset ยังคงเหมือนเดิม
 
-#### Simulated short-selling checks
+#### การตรวจสอบ short-selling ในการจำลอง {#simulated-short-selling-checks}
 
-Backtests and sandbox check each equity or binary-option sell on a cash account at submission. The order's
-remaining quantity must not exceed the long inventory in its selected position, including executed fills
-awaiting position updates. Sells that reduce or close that position stay valid.
+Backtest และ sandbox จะตรวจสอบ sell ของหุ้นหรือ binary option แต่ละตัวบน cash account ตอน submit ปริมาณคงเหลือ
+ของ order ต้องไม่เกิน inventory ฝั่ง long ใน position ที่เลือก ซึ่งรวมถึง fill ที่ execute แล้วแต่ยังรอการอัปเดต position
+sell ที่ลดหรือปิด position นั้นยังคงใช้ได้
 
-The check uses the order price or current bid to calculate contract units for
-quote-sized sells. Trigger-style market and trailing orders can convert at a
-different price when they fill, changing the contract quantity.
+การตรวจสอบนี้ใช้ราคาของ order หรือ bid ปัจจุบันในการคำนวณจำนวนหน่วยสัญญาสำหรับ sell ที่ระบุขนาดเป็น quote
+order แบบ trigger-style market และ trailing อาจแปลงที่ราคาต่างออกไปเมื่อ fill ทำให้ปริมาณสัญญาเปลี่ยนไป
 
-An entry contributes inventory to its contingent exits only as fills execute. By default, `oto_full_trigger`
-is `false`, so a full-size exit can be rejected after a partial entry fill. Set `oto_full_trigger` to `true`
-to release the exit only after the full entry fill. This also applies when position updates are deferred.
+Order ฝั่งเข้า (entry) จะเพิ่ม inventory ให้กับ order ฝั่งออก (exit) ที่ผูกอยู่ก็ต่อเมื่อมี fill เกิดขึ้นเท่านั้น โดยค่าเริ่มต้น
+`oto_full_trigger` เป็น `false` ดังนั้น exit แบบเต็มขนาดอาจถูกปฏิเสธหลังจาก entry ถูก fill เพียงบางส่วน ให้ตั้ง
+`oto_full_trigger` เป็น `true` เพื่อปล่อย exit หลังจาก entry ถูก fill เต็มจำนวนแล้วเท่านั้น ซึ่งใช้กับกรณีที่การอัปเดต
+position ถูกเลื่อนออกไปด้วย
 
-This submission check does not reserve inventory for other working sells or
-revalidate later quantity changes.
+การตรวจสอบตอน submit นี้ไม่ได้จอง inventory ไว้ให้ sell ตัวอื่นที่กำลังทำงานอยู่ และไม่ตรวจซ้ำเมื่อปริมาณเปลี่ยนในภายหลัง
 
-### Margin accounts
+### Margin account {#margin-accounts}
 
-Margin accounts support instruments that require collateral, such as futures or leveraged crypto perps. They
-track account balances, reserve margin for open orders and positions, and apply a configurable leverage per
-instrument. Margin balances have two scopes. See [Margin scopes](#margin-scopes) below.
+Margin account รองรับ instrument ที่ต้องใช้หลักประกัน เช่น futures หรือ crypto perp ที่มี leverage โดยติดตาม balance
+ของ account, จอง margin สำหรับ order และ position ที่เปิดอยู่ และใช้ leverage ที่กำหนดได้ต่อ instrument margin balance
+มีสองขอบเขต (scope) ดู [Margin scope](#margin-scopes) ด้านล่าง
 
-**Terms**:
+**คำศัพท์**:
 
-- **Leverage**: amplifies exposure relative to account equity. Higher leverage
-  raises both potential returns and risk.
-- **Initial margin**: collateral reserved when an order is submitted.
-- **Maintenance margin**: minimum collateral required to keep an open position.
-- **Locked balance**: funds reserved as collateral, not available for new orders.
+- **Leverage**: ขยาย exposure เทียบกับ equity ของ account leverage ที่สูงขึ้นจะเพิ่มทั้งผลตอบแทนที่เป็นไปได้และความเสี่ยง
+- **Initial margin**: หลักประกันที่จองไว้เมื่อ submit order
+- **Maintenance margin**: หลักประกันขั้นต่ำที่ต้องมีเพื่อคง position ที่เปิดอยู่
+- **Locked balance**: เงินที่จองไว้เป็นหลักประกัน ไม่สามารถใช้กับ order ใหม่ได้
 
 :::note
-Reduce-only orders can only decrease exposure. Thus, they do not contribute to `balance_locked` on cash
-accounts or add to initial margin on margin accounts. Wallet orders still reserve the input asset because the
-on-chain transaction spends that asset even when the order reduces a position.
+Reduce-only order ลด exposure ได้อย่างเดียว จึงไม่นับรวมใน `balance_locked` ของ cash account และไม่เพิ่ม initial margin
+ของ margin account แต่ order ของ wallet ยังคงจอง asset ฝั่ง input ไว้ เพราะ transaction บน on-chain ใช้ asset นั้นจริง
+แม้ order จะเป็นการลด position ก็ตาม
 :::
 
-### Betting accounts
+### Betting account {#betting-accounts}
 
-Betting accounts are specialized for venues where you stake an amount to win or lose a fixed payout
-(prediction markets, sports books). They lock only the stake required by the venue. Leverage and margin do not
-apply.
+Betting account ออกแบบมาเฉพาะสำหรับ venue ที่วางเงินเดิมพัน (stake) เพื่อได้หรือเสียตามจำนวน payout ที่กำหนดไว้
+(prediction market, sports book) โดยจะ lock เฉพาะ stake ที่ venue กำหนดเท่านั้น leverage และ margin ไม่มีผล
 
-### Wallet accounts
+### Wallet account {#wallet-accounts}
 
-Wallet accounts represent blockchain wallets: unleveraged, multi-currency holdings of native and ERC-20 token
-balances with no margin and no borrowing.
+Wallet account แทน blockchain wallet: การถือครองหลายสกุลเงินแบบไม่มี leverage ทั้ง native และ ERC-20 token
+โดยไม่มี margin และไม่มีการกู้ยืม
 
-For reported states:
+สำหรับสถานะที่รายงานเข้ามา:
 
-- `total` is the observed on-chain balance.
-- `locked` tracks local pending-order reservations.
-- `free = total - locked`.
+- `total` คือ balance ที่สังเกตได้บน on-chain
+- `locked` ติดตามการจองแบบ local สำหรับ order ที่ค้างอยู่
+- `free = total - locked`
 
-Account state events **contribute totals only**: the account ignores incoming `locked` and `free` values,
-keeps its local reservations, and rederives `free`. It rebuilds transient reservations from submitted and open
-orders during live startup.
+Account state event **ให้เฉพาะค่า total**: account จะไม่สนใจค่า `locked` และ `free` ที่เข้ามา, คงการจองแบบ local ไว้
+และคำนวณ `free` ใหม่ ระหว่าง startup ของ live trading จะสร้างการจองชั่วคราวขึ้นใหม่จาก order ที่ submit แล้วและที่เปิดอยู่
 
-While an amendment is pending, the account reserves the full observed balance of the debit currency. The
-pending event does not carry the requested terms. If the reserved amount exceeds the latest observed total,
-`locked` is capped at `total` and `free` stays zero until the balance or reservation changes.
+ขณะที่การแก้ไข order (amendment) ยังค้างอยู่ account จะจอง balance ที่สังเกตได้ทั้งหมดของสกุลเงินฝั่ง debit เพราะ pending
+event ไม่ได้มีเงื่อนไขที่ร้องขอมาด้วย หากจำนวนที่จองเกินค่า total ล่าสุดที่สังเกตได้ `locked` จะถูกจำกัดไว้ที่ `total` และ
+`free` จะเป็นศูนย์จนกว่า balance หรือการจองจะเปลี่ยน
 
-A balance with a negative total is rejected rather than applied. ERC-20
-allowances are spender authorizations and are never represented as balances or
-locked funds.
+Balance ที่มี total ติดลบจะถูกปฏิเสธแทนที่จะถูกนำไปใช้ ERC-20 allowance เป็นการอนุญาตให้ spender ใช้เงิน
+และจะไม่ถูกแสดงเป็น balance หรือเงินที่ lock ไว้
 
-## Balance model
+## Balance model {#balance-model}
 
-An `AccountBalance` holds three values in the same currency:
+`AccountBalance` เก็บค่าสามค่าในสกุลเงินเดียวกัน:
 
-- `total`: the venue-reported total balance figure (wallet, net liquidation,
-  or margin balance, depending on the venue).
-- `locked`: amount reserved against open orders and positions.
-- `free`: amount available for new orders (`total - locked`).
+- `total`: ตัวเลข balance รวมที่ venue รายงาน (wallet, net liquidation หรือ margin balance แล้วแต่ venue)
+- `locked`: จำนวนที่จองไว้สำหรับ order และ position ที่เปิดอยู่
+- `free`: จำนวนที่ใช้ได้สำหรับ order ใหม่ (`total - locked`)
 
-The **balance invariant** `total == locked + free` must always hold exactly in the stored Money representation.
+**Balance invariant** `total == locked + free` ต้องเป็นจริงเสมออย่างแม่นยำในรูปแบบ Money ที่จัดเก็บ
 
-### Constructing balances
+### การสร้าง balance {#constructing-balances}
 
-The Python `AccountBalance(total, locked, free)` constructor requires all three fields up front. Adapter code
-written in Rust has derived constructors that enforce the invariant centrally. Prefer them over
-`AccountBalance::new` whenever the venue reports only two of the three values:
+โค้ด adapter ที่เขียนด้วย Rust มี derived constructor ที่บังคับ invariant ไว้จากศูนย์กลาง ควรใช้ constructor เหล่านี้
+แทน `AccountBalance::new` เมื่อ venue รายงานค่ามาเพียงสองในสามค่า:
 
-| Rust constructor                              | When to use                                                                      |
+| Rust constructor                              | ใช้เมื่อ                                                                           |
 | --------------------------------------------- | -------------------------------------------------------------------------------- |
-| `AccountBalance::from_total_and_locked`       | Venue reports total and locked. `free` is derived from the two.                  |
-| `AccountBalance::from_total_and_free`         | Venue reports total and free. `locked` is derived from the two.                  |
-| `AccountBalance::from_money_total_and_locked` | Calculated total and locked are already Money amounts. Retains native precision. |
-| `AccountBalance::new`                         | All three values are already known and consistent (tests, pass-through).         |
+| `AccountBalance::from_total_and_locked`       | Venue รายงาน total และ locked โดย `free` คำนวณจากสองค่านี้                          |
+| `AccountBalance::from_total_and_free`         | Venue รายงาน total และ free โดย `locked` คำนวณจากสองค่านี้                          |
+| `AccountBalance::from_money_total_and_locked` | total และ locked ที่คำนวณไว้เป็นจำนวน Money อยู่แล้ว คง precision ดั้งเดิมไว้           |
+| `AccountBalance::new`                         | ทราบค่าทั้งสามและสอดคล้องกันอยู่แล้ว (test, pass-through)                              |
 
-Each derived constructor clamps the supplied locked or free amount into `[0, total]` when `total >= 0`,
-so transient overshoots from venue rounding never leave the account in a broken
-state.
+Derived constructor แต่ละตัวจะ clamp ค่า locked หรือ free ที่ส่งเข้ามาให้อยู่ในช่วง `[0, total]` เมื่อ `total >= 0`
+เพื่อไม่ให้ค่าที่เกินมาชั่วคราวจากการปัดเศษของ venue ทำให้ account อยู่ในสถานะที่เสียหาย
 
-## Currency and valuation contracts
+## ข้อกำหนดด้านสกุลเงินและการประเมินมูลค่า {#currency-and-valuation-contracts}
 
-Accounting values keep their source currency until an explicit conversion succeeds. This prevents a valid
-number from being labeled with the wrong currency or an unavailable value from being treated as zero.
+ค่าทางบัญชีจะคงสกุลเงินต้นทางไว้จนกว่าการแปลงสกุลเงินแบบ explicit จะสำเร็จ เพื่อป้องกันไม่ให้ตัวเลขที่ถูกต้องถูกติด
+ป้ายสกุลเงินผิด หรือค่าที่ไม่มีอยู่ถูกตีความว่าเป็นศูนย์
 
-| Value                        | Currency contract                                              |
+| ค่า                          | ข้อกำหนดด้านสกุลเงิน                                                   |
 | ---------------------------- | -------------------------------------------------------------- |
-| Instrument cost currency     | Base for inverse, settlement for quanto, and quote otherwise.  |
-| Position PnL                 | Instrument cost currency captured when the position opens.     |
-| Calculated locks and margins | Each calculated amount's currency, converted independently.    |
-| Portfolio aggregates         | Native buckets, or the account base after conversion succeeds. |
+| Cost currency ของ instrument | Base สำหรับ inverse, settlement สำหรับ quanto และ quote สำหรับกรณีอื่น |
+| PnL ของ position              | Cost currency ของ instrument ที่บันทึกไว้ตอนเปิด position            |
+| Lock และ margin ที่คำนวณได้     | สกุลเงินของแต่ละจำนวนที่คำนวณได้ โดยแปลงแยกกันอย่างอิสระ                |
+| ค่ารวมระดับ portfolio          | แยก bucket ตามสกุลเงินดั้งเดิม หรือเป็น base ของ account เมื่อแปลงสำเร็จ |
 
-Aggregations combine only compatible `Money` values. An account without a base currency keeps separate native
-currency buckets. A single-instrument realized PnL query returns unavailable instead of combining mixed
-currencies.
+การรวมค่าจะรวมเฉพาะค่า `Money` ที่เข้ากันได้ account ที่ไม่มี base currency จะแยก bucket ตามสกุลเงินดั้งเดิม
+query realized PnL ของ instrument เดียวจะคืนค่า unavailable แทนที่จะรวมสกุลเงินที่ปนกัน
 
-The accounting and valuation paths also follow these rules:
+เส้นทางด้าน accounting และการประเมินมูลค่ายังเป็นไปตามกฎเหล่านี้:
 
-- Invalid or unrepresentable notional, PnL, fee, locked-balance, and margin results produce an error,
-  unavailable value, or unpriced state. They do not substitute zero. A failed realized PnL recalculation also
-  clears any earlier cached result.
-- `equity()` counts a credited non-inverse base asset once for a multi-currency cash account without a base
-  currency. `mark_values()` stays a gross position-value query and includes that asset.
-- MTM snapshots distinguish carried stale inputs from positions that have never had complete valuation data.
-  Stale-price metadata covers only open instrument and position-side pairs.
+- ผลลัพธ์ notional, PnL, fee, locked balance และ margin ที่ไม่ถูกต้องหรือแสดงค่าไม่ได้ จะให้ผลเป็น error, ค่า unavailable
+  หรือสถานะ unpriced โดยไม่แทนด้วยศูนย์ การคำนวณ realized PnL ใหม่ที่ล้มเหลวจะล้างผลลัพธ์ที่ cache ไว้ก่อนหน้าด้วย
+- `equity()` นับ base asset แบบ non-inverse ที่ได้รับเข้ามาเพียงครั้งเดียวสำหรับ cash account หลายสกุลเงินที่ไม่มี base currency
+  ส่วน `mark_values()` ยังคงเป็น query มูลค่า position แบบ gross และรวม asset นั้นไว้
+- MTM snapshot แยกแยะระหว่าง input เก่าที่ถูกยกมา กับ position ที่ไม่เคยมีข้อมูลการประเมินมูลค่าครบถ้วนเลย
+  metadata ของราคาเก่าครอบคลุมเฉพาะคู่ instrument และฝั่งของ position ที่เปิดอยู่
 
-See [Portfolio](portfolio.md#equity-and-mark-to-market) for equity formulas, price and xrate selection, snapshot
-metadata, and missing-price query scope.
+ดู [Portfolio](portfolio.md#equity-and-mark-to-market) สำหรับสูตร equity, การเลือกราคาและ xrate, metadata ของ snapshot
+และขอบเขตของ query กรณีไม่มีราคา
 
-## Precision and settlement
+## Precision และ settlement {#precision-and-settlement}
 
-Position PnL and calculated account balances retain amounts below currency display precision, so small profits
-and fees remain available to later calculations.
+PnL ของ position และ balance ของ account ที่คำนวณได้จะเก็บจำนวนที่ละเอียดกว่า display precision ของสกุลเงินไว้
+เพื่อให้กำไรและค่าธรรมเนียมเล็ก ๆ ยังคงใช้ในการคำนวณครั้งต่อไปได้
 
-### Cost basis and residuals
+### Cost basis และเศษคงเหลือ {#cost-basis-and-residuals}
 
-Financial calculations use checked domain types and `Decimal`:
+การคำนวณทางการเงินใช้ checked domain type และ `Decimal`:
 
-- Positions derive average prices from retained opening and closing costs. A rounded average never feeds the
-  cost basis.
-- Partial closes allocate opening cost proportionally and retain the unallocated cost. The final close consumes
-  the remaining cost.
-- Positions carry a Decimal PnL remainder below the native `Money` scale into later updates. Reversal fee
-  allocations preserve the original fee total.
+- Position คำนวณราคาเฉลี่ยจากต้นทุนเปิดและปิดที่เก็บไว้ ราคาเฉลี่ยที่ปัดแล้วจะไม่ถูกนำไปใช้เป็น cost basis
+- การปิดบางส่วนจะจัดสรรต้นทุนเปิดตามสัดส่วนและเก็บต้นทุนที่ยังไม่ได้จัดสรรไว้ การปิดครั้งสุดท้ายจะใช้ต้นทุนที่เหลือทั้งหมด
+- Position จะยกเศษ PnL แบบ Decimal ที่ต่ำกว่าสเกลดั้งเดิมของ `Money` ไปใช้ในการอัปเดตครั้งต่อไป การจัดสรรค่าธรรมเนียม
+  ตอน reversal จะคงยอดค่าธรรมเนียมรวมเดิมไว้
 
-Derived `Money` rounds midpoint to even at nine decimal places in standard mode and 16 in high-precision mode,
-or at a finer supported currency precision. Display rounding does not change the stored amount.
+`Money` ที่คำนวณได้จะปัดแบบ midpoint to even ที่ทศนิยมเก้าตำแหน่งในโหมดมาตรฐาน และ 16 ตำแหน่งในโหมด high-precision
+หรือที่ precision ของสกุลเงินที่ละเอียดกว่าที่รองรับ การปัดเพื่อแสดงผลไม่เปลี่ยนจำนวนที่จัดเก็บ
 
-Decimal has a 96-bit coefficient and a maximum scale of 28. Inputs must fit exactly; derived arithmetic rounds
-within that bound and rejects overflow or a nonzero value disappearing. PnL sums may absorb a residual smaller
-than one native settlement `Money` unit if Decimal cannot retain it. A disappearing operand of at least one
-native unit still fails. See the
-[full arithmetic contract](positions.md#numerical-precision).
+Decimal มี coefficient ขนาด 96 bit และสเกลสูงสุด 28 input ต้องพอดีอย่างแม่นยำ การคำนวณที่ได้จะปัดภายในขอบเขตนั้น และ
+ปฏิเสธกรณี overflow หรือค่าที่ไม่ใช่ศูนย์หายไป ผลรวม PnL อาจดูดซับเศษที่เล็กกว่าหนึ่งหน่วย `Money` ของ settlement ดั้งเดิม
+หาก Decimal เก็บไว้ไม่ได้ แต่ operand ที่หายไปซึ่งมีขนาดอย่างน้อยหนึ่งหน่วยดั้งเดิมยังคงทำให้ล้มเหลว ดู
+[ข้อกำหนดการคำนวณฉบับเต็ม](positions.md#numerical-precision)
 
-### Worked examples
+### ตัวอย่างการคำนวณ {#worked-examples}
 
-Both examples use a linear instrument with a multiplier of one, USD prices, and no fees.
+ทั้งสองตัวอย่างใช้ instrument แบบ linear ที่มี multiplier เท่ากับหนึ่ง, ราคาเป็น USD และไม่มีค่าธรรมเนียม
 
-#### Profit below a cent
+#### กำไรที่น้อยกว่าหนึ่งเซนต์ {#profit-below-a-cent}
 
-Buy `0.01` units at `0.1234 USD`, then sell them at `0.1235 USD`:
+ซื้อ `0.01` หน่วยที่ `0.1234 USD` แล้วขายที่ `0.1235 USD`:
 
-- Purchase cost: `0.01 * 0.1234 = 0.001234 USD`.
-- Sale proceeds: `0.01 * 0.1235 = 0.001235 USD`.
-- Realized PnL and calculated cash-balance increase: `0.000001 USD`.
+- ต้นทุนการซื้อ: `0.01 * 0.1234 = 0.001234 USD`
+- รายได้จากการขาย: `0.01 * 0.1235 = 0.001235 USD`
+- Realized PnL และ cash balance ที่คำนวณได้เพิ่มขึ้น: `0.000001 USD`
 
-A two-decimal display shows `0.00 USD`, but the stored profit remains available to later calculations.
-Rounding each cash flow to cents would erase it.
+การแสดงผลทศนิยมสองตำแหน่งจะเห็นเป็น `0.00 USD` แต่กำไรที่จัดเก็บไว้ยังคงใช้ในการคำนวณครั้งต่อไปได้
+หากปัดกระแสเงินสดแต่ละรายการเป็นเซนต์ กำไรนี้จะหายไป
 
-#### Partial closes with a repeating average
+#### การปิดบางส่วนเมื่อราคาเฉลี่ยเป็นทศนิยมซ้ำ {#partial-closes-with-a-repeating-average}
 
-Buy three units at `0.10 USD` and four at `0.20 USD`. Opening cost is `1.10 USD`; the average price, `1.10 / 7`,
-repeats. Close at `0.30 USD` in two fills. At standard native precision:
+ซื้อสามหน่วยที่ `0.10 USD` และสี่หน่วยที่ `0.20 USD` ต้นทุนเปิดคือ `1.10 USD` ราคาเฉลี่ย `1.10 / 7` เป็นทศนิยมซ้ำ
+ปิดที่ `0.30 USD` ด้วยสอง fill ที่ precision ดั้งเดิมแบบมาตรฐาน:
 
-| Action               | Quantity held | Cumulative realized PnL (USD) |
-| -------------------- | ------------- | ----------------------------- |
-| After both buys      | 7             | 0.000000000                   |
-| Sell one at 0.30 USD | 6             | 0.142857143                   |
-| Sell six at 0.30 USD | 0             | 1.000000000                   |
+| การกระทำ               | ปริมาณที่ถือ | Realized PnL สะสม (USD) |
+| -------------------- | ---------- | ----------------------------- |
+| หลังซื้อทั้งสองครั้ง        | 7          | 0.000000000                   |
+| ขายหนึ่งหน่วยที่ 0.30 USD | 6          | 0.142857143                   |
+| ขายหกหน่วยที่ 0.30 USD   | 0          | 1.000000000                   |
 
-The first sale retains unallocated cost and the difference between Decimal PnL and the rounded `Money` result.
-The final close consumes both remainders: total PnL is `2.10 - 1.10 = 1.00 USD`. Discarding fractional PnL or
-reusing a rounded average can introduce drift.
+การขายครั้งแรกเก็บต้นทุนที่ยังไม่ได้จัดสรรและส่วนต่างระหว่าง PnL แบบ Decimal กับผลลัพธ์ `Money` ที่ปัดแล้วไว้
+การปิดครั้งสุดท้ายใช้เศษทั้งสองส่วนนี้: PnL รวมคือ `2.10 - 1.10 = 1.00 USD` การทิ้ง PnL ส่วนที่เป็นเศษ หรือการนำ
+ราคาเฉลี่ยที่ปัดแล้วมาใช้ซ้ำ อาจทำให้เกิดการคลาดเคลื่อนสะสม (drift)
 
-### Venue cash settlement
+### การ settle เงินสดของ venue {#venue-cash-settlement}
 
-Venue settlement rules specify where and how to round booked cash, which can differ from internal PnL.
-With `calculate_account_state=False`, cash and margin accounts skip fill-driven balance calculations and use
-venue-reported balances. FX rollover calculates in Decimal and rounds each posting to currency precision.
+กฎการ settle ของ venue กำหนดว่าจะปัดเงินสดที่บันทึกที่ใดและอย่างไร ซึ่งอาจต่างจาก PnL ภายใน เมื่อ
+`calculate_account_state=False` cash และ margin account จะข้ามการคำนวณ balance จาก fill และใช้ balance ที่ venue
+รายงานแทน FX rollover คำนวณด้วย Decimal และปัดแต่ละรายการที่บันทึกเป็น precision ของสกุลเงิน
 
-CME's [normal futures method (2015)](https://www.cmegroup.com/clearing/files/CME-Money-Calculations-Futures-and-Options.pdf)
-rounds `price * contract value factor` to currency precision at both prices, subtracts those values, then
-multiplies by quantity. Splitting trades at the same price or adding intermediate marks for an unchanged
-holding preserves the total. Midpoints round away from zero. Notional products round after multiplying the
-price change by quantity and the contract value factor.
+[วิธีมาตรฐานสำหรับ futures ของ CME (2015)](https://www.cmegroup.com/clearing/files/CME-Money-Calculations-Futures-and-Options.pdf)
+ปัด `price * contract value factor` เป็น precision ของสกุลเงินที่ทั้งสองราคา นำค่าเหล่านั้นมาลบกัน แล้วคูณด้วยปริมาณ
+การแบ่ง trade ที่ราคาเดียวกัน หรือการเพิ่ม mark ระหว่างทางสำหรับการถือครองที่ไม่เปลี่ยนแปลง จะคงยอดรวมไว้เท่าเดิม
+ค่ากึ่งกลางจะปัดออกจากศูนย์ ส่วนผลิตภัณฑ์แบบ notional จะปัดหลังจากคูณการเปลี่ยนแปลงราคาด้วยปริมาณและ contract value factor
 
-[Eurex changed variation margin and other cash flows in 2023](https://www.eurex.com/ec-en/find/circulars/clearing-circular-3572446)
-from per-contract rounding to transaction or position rounding, following client demand. Matching a clearing
-statement requires the product's settlement rules; native-precision PnL alone does not reproduce every convention.
+[Eurex เปลี่ยน variation margin และกระแสเงินสดอื่น ๆ ในปี 2023](https://www.eurex.com/ec-en/find/circulars/clearing-circular-3572446)
+จากการปัดรายสัญญาเป็นการปัดราย transaction หรือราย position ตามความต้องการของลูกค้า การทำให้ตรงกับ clearing statement
+ต้องใช้กฎ settlement ของผลิตภัณฑ์นั้น PnL ที่ precision ดั้งเดิมเพียงอย่างเดียวไม่สามารถจำลองทุกข้อตกลงได้
 
-## Margin scopes
+## Margin scope {#margin-scopes}
 
-A `MarginBalance` has four fields: `initial`, `maintenance`, `currency`, and an
-`Optional[InstrumentId]` that selects one of two scopes.
+`MarginBalance` มีสี่ field ได้แก่ `initial`, `maintenance`, `currency` และ `InstrumentId` แบบ optional ซึ่งใช้เลือก
+หนึ่งในสอง scope
 
-### Per-instrument scope
+### Scope ราย instrument {#per-instrument-scope}
 
-`MarginBalance.instrument_id` is set to a concrete instrument. Use this for:
+`MarginBalance.instrument_id` ถูกตั้งเป็น instrument ที่ระบุ ใช้สำหรับ:
 
-- Isolated margin (per-position collateral).
-- Backtest or calculated margin, where the `AccountsManager` derives margin
-  locally from open orders and positions per instrument.
+- Isolated margin (หลักประกันราย position)
+- Margin ใน backtest หรือที่คำนวณขึ้น ซึ่ง `AccountsManager` คำนวณ margin แบบ local จาก order และ position
+  ที่เปิดอยู่ราย instrument
 
-### Account-wide scope
+### Scope ระดับทั้ง account {#account-wide-scope}
 
-`MarginBalance.instrument_id` is `None`. The entry is keyed by its
-`currency` (the collateral currency). Use this for cross-margin venues that
-report a single aggregate per collateral currency. A venue may emit one
-account-wide entry (single-collateral cross margin) or several (one per
-collateral coin).
+`MarginBalance.instrument_id` เป็น `None` รายการนี้ใช้ `currency` (สกุลเงินของหลักประกัน) เป็น key ใช้สำหรับ venue
+แบบ cross-margin ที่รายงานค่ารวมค่าเดียวต่อสกุลเงินหลักประกัน venue อาจส่งรายการระดับทั้ง account มาเพียงรายการเดียว
+(cross margin แบบหลักประกันเดียว) หรือหลายรายการ (หนึ่งรายการต่อ collateral coin)
 
-Both scopes coexist on the same `MarginAccount` in separate internal stores. An `AccountState` event can carry
-entries in either or both scopes. `MarginAccount.apply()` routes each entry to the correct store based on
-whether `instrument_id` is set.
+ทั้งสอง scope อยู่ร่วมกันบน `MarginAccount` เดียวกันโดยแยก store ภายใน event `AccountState` สามารถมีรายการใน scope ใด
+scope หนึ่งหรือทั้งสองก็ได้ `MarginAccount.apply()` จะส่งแต่ละรายการไปยัง store ที่ถูกต้องตามว่ามีการตั้ง `instrument_id` หรือไม่
 
 :::warning
-`MarginAccount.apply()` **replaces** both margin stores from the incoming event. It does not merge with prior
-state. An event carrying neither balances nor margins leaves the prior stores in place.
+`MarginAccount.apply()` **แทนที่** margin store ทั้งสองด้วยข้อมูลจาก event ที่เข้ามา โดยไม่ merge กับสถานะก่อนหน้า
+event ที่ไม่มีทั้ง balance และ margin จะคง store เดิมไว้
 
-Adapters that emit partial snapshots must include each live margin entry on each update or those entries will
-be dropped until the next full snapshot.
+Adapter ที่ส่ง snapshot แบบบางส่วนต้องใส่รายการ margin ที่ยังมีผลอยู่ทุกรายการในทุกการอัปเดต มิฉะนั้นรายการเหล่านั้น
+จะหายไปจนกว่าจะมี snapshot แบบเต็มครั้งถัดไป
 
-Balances the event carries replace the stored entry for their currency. Currencies the event omits are
-retained.
+Balance ที่ event มีมาด้วยจะแทนที่รายการที่จัดเก็บไว้ของสกุลเงินนั้น ส่วนสกุลเงินที่ event ไม่ได้ระบุจะถูกคงไว้
 :::
 
-## Strategy query API
+## Query API สำหรับ strategy {#strategy-query-api}
 
-Use the query that matches the venue's reporting shape. If a venue reports
-per-instrument margins, ask by `InstrumentId`. If it reports account-wide
-margins, ask by `Currency`.
+ใช้ query ที่ตรงกับรูปแบบการรายงานของ venue หาก venue รายงาน margin ราย instrument ให้ query ด้วย `InstrumentId`
+หากรายงาน margin ระดับทั้ง account ให้ query ด้วย `Currency`
 
-| Scope          | Queries                                                                      |
+| Scope          | Query                                                                        |
 | -------------- | ---------------------------------------------------------------------------- |
-| Per-instrument | `margin`, `initial_margin`, and `maintenance_margin`                         |
-| Account-wide   | `account_margin`, `account_initial_margin`, and `account_maintenance_margin` |
-| Both scopes    | `total_initial_margin` and `total_maintenance_margin`                        |
+| ราย instrument  | `margin`, `initial_margin` และ `maintenance_margin`                          |
+| ทั้ง account     | `account_margin`, `account_initial_margin` และ `account_maintenance_margin`  |
+| ทั้งสอง scope    | `total_initial_margin` และ `total_maintenance_margin`                        |
 
-The signatures below describe the Python bindings. Point queries return `None` when the entry is absent. Total
-queries always return a `Money` (zero for the currency if nothing matches).
+Query แบบจุด (point query) จะไม่คืนค่า (none) เมื่อไม่มีรายการนั้น ส่วน query แบบผลรวมจะคืน `Money` เสมอ
+(เป็นศูนย์ในสกุลเงินนั้นหากไม่มีรายการที่ตรง)
 
-### Per-instrument queries (`MarginAccount`)
+### Query ราย instrument (`MarginAccount`) {#per-instrument-queries-marginaccount}
 
-- `margin(instrument_id) -> MarginBalance | None`
-- `initial_margin(instrument_id) -> Money | None`
-- `maintenance_margin(instrument_id) -> Money | None`
-- `margins() -> dict[InstrumentId, MarginBalance]` (all per-instrument entries)
-- `initial_margins() -> dict[InstrumentId, Money]`
-- `maintenance_margins() -> dict[InstrumentId, Money]`
+- `margin(instrument_id)`: คืน `MarginBalance` หรือไม่มีค่า
+- `initial_margin(instrument_id)`: คืน `Money` หรือไม่มีค่า
+- `maintenance_margin(instrument_id)`: คืน `Money` หรือไม่มีค่า
+- `margins()`: map จาก `InstrumentId` ไป `MarginBalance` (รายการราย instrument ทั้งหมด)
+- `initial_margins()`: map จาก `InstrumentId` ไป `Money`
+- `maintenance_margins()`: map จาก `InstrumentId` ไป `Money`
 
-These methods only see the per-instrument store. On a cross-margin venue they
-return empty dicts or `None`. Use the account-wide queries below.
+Method เหล่านี้เห็นเฉพาะ store ราย instrument บน venue แบบ cross-margin จะคืน map ว่างหรือไม่มีค่า
+ให้ใช้ query ระดับทั้ง account ด้านล่างแทน
 
-### Account-wide queries (`MarginAccount`)
+### Query ระดับทั้ง account (`MarginAccount`) {#account-wide-queries-marginaccount}
 
-- `account_margin(currency) -> MarginBalance | None`
-- `account_initial_margin(currency) -> Money | None`
-- `account_maintenance_margin(currency) -> Money | None`
-- `account_margins() -> dict[Currency, MarginBalance]` (all account-wide entries)
-- `account_initial_margins() -> dict[Currency, Money]`
-- `account_maintenance_margins() -> dict[Currency, Money]`
+- `account_margin(currency)`: คืน `MarginBalance` หรือไม่มีค่า
+- `account_initial_margin(currency)`: คืน `Money` หรือไม่มีค่า
+- `account_maintenance_margin(currency)`: คืน `Money` หรือไม่มีค่า
+- `account_margins()`: map จาก `Currency` ไป `MarginBalance` (รายการระดับทั้ง account ทั้งหมด)
+- `account_initial_margins()`: map จาก `Currency` ไป `Money`
+- `account_maintenance_margins()`: map จาก `Currency` ไป `Money`
 
-### Totals (`MarginAccount`)
+### ผลรวม (`MarginAccount`) {#totals-marginaccount}
 
-These sum across per-instrument and account-wide entries for a given currency:
+Method เหล่านี้รวมค่าจากทั้งรายการราย instrument และรายการระดับทั้ง account สำหรับสกุลเงินที่ระบุ:
 
-- `total_initial_margin(currency) -> Money`
-- `total_maintenance_margin(currency) -> Money`
+- `total_initial_margin(currency)`: คืน `Money`
+- `total_maintenance_margin(currency)`: คืน `Money`
 
-Useful when a strategy trades on a venue where both scopes may appear (for
-example, isolated positions alongside cross-margin collateral).
+มีประโยชน์เมื่อ strategy เทรดบน venue ที่อาจมีทั้งสอง scope (เช่น isolated position ควบคู่กับหลักประกันแบบ cross-margin)
 
-### Python binding boundary
+### Query ระดับ portfolio {#portfolio-level-queries}
 
-This query surface does not expose the internal Rust mutation methods
-`update_margin`, `clear_margin`, `clear_account_margin`, `clear_initial_margin`,
-`clear_maintenance_margin`, or `set_margin_model`. Python does expose other
-mutation methods, including `update_initial_margin`, `update_maintenance_margin`,
-`set_default_leverage`, and `set_leverage`.
+#### Query ด้าน margin {#margin-queries}
 
-### Portfolio-level queries
+- `portfolio.instrument_initial_margins` (รับ `venue` และ `account_id`): คืน map จาก `InstrumentId` ไป `Money` หรือไม่มีค่า
+- `portfolio.instrument_maintenance_margins` (รับ `venue` และ `account_id`): คืน map จาก `InstrumentId` ไป `Money` หรือไม่มีค่า
 
-#### Margin queries
+`account_id` ใช้เลือก account นั้น ส่วน query ที่ระบุเฉพาะ venue จะ resolve ได้ก็ต่อเมื่อมี account ภายใต้ venue นั้นเพียง
+account เดียว ดังนั้นให้ส่ง `account_id` เมื่อมีหลาย account ใช้ venue ร่วมกัน
 
-- `portfolio.instrument_initial_margins(venue=..., account_id=...) -> dict[InstrumentId, Money] | None`
-- `portfolio.instrument_maintenance_margins(venue=..., account_id=...) -> dict[InstrumentId, Money] | None`
+เมื่อ resolve margin account ได้ query เหล่านี้จะคืนมุมมอง money ราย instrument แบบเดียวกับ
+`MarginAccount.initial_margins` และ `MarginAccount.maintenance_margins` หาก resolve margin account ไม่ได้จะไม่คืนค่า
 
-An `account_id` selects that account. A venue-only query resolves only when
-exactly one account is issued under the venue, so pass `account_id` when several
-accounts share a venue.
+สำหรับข้อมูลระดับทั้ง account บน venue แบบ cross-margin ให้ query จาก account โดยตรงผ่าน
+`portfolio.account(venue=venue).account_initial_margin(ccy)` account ที่ได้คืนมาเป็น **snapshot ที่แยกออกมา**
+และไม่สามารถแก้ไขสถานะของ Portfolio ได้
 
-When a margin account resolves, these return the same per-instrument money views as
-`MarginAccount.initial_margins` and `MarginAccount.maintenance_margins`. If no margin account resolves, they
-return `None`.
+#### Query ด้าน PnL และการประเมินมูลค่า {#pnl-and-valuation-queries}
 
-For account-wide data on cross-margin venues, query the account directly through
-`portfolio.account(venue=venue).account_initial_margin(ccy)`. The returned account is a **detached snapshot**
-and cannot mutate Portfolio state.
+Query ด้าน PnL, exposure, mark-to-market และ equity ทั้งหมดรับ `venue` และ `account_id` แบบ optional เพื่อจำกัดขอบเขต
+สำหรับ venue ที่มีหลาย account:
 
-#### PnL and valuation queries
+- `portfolio.unrealized_pnls` (รับ `venue`, `account_id`, `target_currency`): คืน map จาก `Currency` ไป `Money`
+- `portfolio.realized_pnls` (รับ `venue`, `account_id`, `target_currency`): คืน map จาก `Currency` ไป `Money`
+- `portfolio.total_pnls` (รับ `venue`, `account_id`, `target_currency`): คืน map จาก `Currency` ไป `Money`
+- `portfolio.net_exposures` (รับ `venue`, `account_id`, `target_currency`): คืน map จาก `Currency` ไป `Money` หรือไม่มีค่า
+- `portfolio.mark_values` (รับ `venue`, `account_id`): คืน map จาก `Currency` ไป `Money`
+- `portfolio.equity` (รับ `venue`, `account_id`): คืน map จาก `Currency` ไป `Money`
+- `portfolio.missing_price_instruments` (รับ `venue`, `account_id`): คืนรายการ `InstrumentId`
 
-PnL, exposure, mark-to-market, and equity queries all accept `venue` and an
-optional `account_id` to scope multi-account venues:
+หากระบุ argument ด้านขอบเขตทั้งสองตัว ทั้งสองต้องชี้ไปที่ account เดียวกัน การไม่มีราคา, การแปลงเป็น target currency
+ล้มเหลว หรือการคำนวณ overflow จะทำให้ทั้ง collection ที่ได้รับผลกระทบใช้ไม่ได้: query จะไม่คืนผลรวมแบบบางส่วนหรือ
+แบบสกุลเงินปนกันเลย
 
-- `portfolio.unrealized_pnls(venue=..., account_id=..., target_currency=...) -> dict[Currency, Money]`
-- `portfolio.realized_pnls(venue=..., account_id=..., target_currency=...) -> dict[Currency, Money]`
-- `portfolio.total_pnls(venue=..., account_id=..., target_currency=...) -> dict[Currency, Money]`
-- `portfolio.net_exposures(venue=..., account_id=..., target_currency=...) -> dict[Currency, Money] | None`
-- `portfolio.mark_values(venue=..., account_id=...) -> dict[Currency, Money]`
-- `portfolio.equity(venue=..., account_id=...) -> dict[Currency, Money]`
-- `portfolio.missing_price_instruments(venue, account_id=...) -> list[InstrumentId]`
+ดู [คู่มือ Portfolio](portfolio.md#equity-and-mark-to-market) สำหรับสูตร equity, ลำดับการ fallback ของราคา, พฤติกรรมการ
+แปลงเป็น base currency และตัวติดตามกรณีไม่มีราคาที่แจ้งเตือนเพียงครั้งเดียว
 
-If both scope arguments are present, they must identify the same account. A missing price, failed
-target-currency conversion, or arithmetic overflow invalidates the whole affected collection: a
-query never returns partial or mixed-currency totals.
+## Margin model {#margin-models}
 
-See the [Portfolio guide](portfolio.md#equity-and-mark-to-market) for the equity
-formula, price fallback chain, base-currency conversion behavior, and the
-warn-once missing-price tracker.
+NautilusTrader มี margin model ที่ยืดหยุ่นสำหรับเส้นทางแบบคำนวณ (backtest และ live strategy ที่รันด้วย
+`calculate_account_state=True` เพื่อ reconciliation) margin ที่ venue รายงานมาจะเข้าสู่ store `margins` หรือ
+`account_margins` ของ account โดยตรงโดยไม่ผ่าน model
 
-### Worked examples
+### ภาพรวม {#overview}
 
-Single-collateral cross margin (one account-wide entry):
+แต่ละ venue จัดการ leverage ต่างกัน:
 
-```python
-usdc_margin = margin_account.account_initial_margin(USDC)
-usdc_total = margin_account.total_initial_margin(USDC)
-```
+- **Broker แบบดั้งเดิม** (เช่น Interactive Brokers): ใช้เปอร์เซ็นต์ margin คงที่ไม่ว่า leverage จะเป็นเท่าใด
+- **Crypto exchange** (Binance และอื่น ๆ): leverage อาจลด margin ที่ต้องใช้ลง
 
-Per-coin cross margin (one entry per collateral currency):
+Model ที่มีมาให้ทั้งสองตัวคำนวณ margin เป็นเปอร์เซ็นต์ของ notional โดยใช้ field `margin_init` และ `margin_maint`
+ของ instrument ต่างกันเพียงว่า leverage ช่วยลดยอดจองหรือไม่ สำหรับ venue ที่ใช้ margin คงที่รายสัญญาจริง
+(CME / ICE) ให้ตั้ง `instrument.margin_init` และ `margin_maint` ให้เปอร์เซ็นต์ได้จำนวนเงินดอลลาร์ที่ต้องการ
 
-```python
-for ccy, margin_balance in margin_account.account_margins().items():
-    print(ccy, margin_balance.initial, margin_balance.maintenance)
-```
+### การ netting ในโหมด HEDGING {#hedging-mode-netting}
 
-## Margin models
+ภายใต้ `OmsType.HEDGING` fill แรกของ position ID ใหม่จะเปิด `Position` และ fill ต่อ ๆ มาจะอัปเดต position นั้นได้
+account จึงสามารถถือ sub-position ที่เปิดอยู่จำนวนมากของ instrument เดียวกันได้ accounts manager จะ net sub-position
+เหล่านั้นเข้าเป็น NETTING position สมมุติตามลำดับ `ts_opened` แล้วรัน margin model ครั้งเดียวบนปริมาณสุทธิแบบมีเครื่องหมาย
+และราคาเปิดเฉลี่ยที่ได้
 
-NautilusTrader provides flexible margin calculation models for the calculated
-path (backtests, and live strategies running with `calculate_account_state=True`
-for reconciliation). Reported margins from a venue flow straight into the
-account's `margins` or `account_margins` stores without going through a model.
+การ replay เป็นไปตามกฎเดียวกับ `Position.apply`:
 
-### Overview
+- Fill ฝั่งเดียวกันให้ราคาเปิดเฉลี่ยถ่วงน้ำหนักตามปริมาณ
+- Fill ฝั่งตรงข้ามจะปิดบางส่วนที่ราคาเฉลี่ยเดิม
+- Fill ที่ข้ามศูนย์จะทำให้ส่วนที่เหลือใช้ราคาของ fill ที่พลิกฝั่งนั้น
 
-Different venues treat leverage differently:
+Sub-position ที่มี `ts_opened` เดียวกันจะถูกรวมตามลำดับ `(ts_opened, position_id)` เพื่อให้ผลลัพธ์ไม่ขึ้นกับลำดับการ
+iterate ของ cache
 
-- **Traditional brokers** (for example, Interactive Brokers): fixed margin percentages regardless of leverage.
-- **Crypto exchanges** (Binance, others): leverage may reduce margin requirements.
+เมื่อใช้ margin model และ leverage เดียวกัน maintenance margin ของ HEDGING และ NETTING จะตรงกันหากปริมาณสุทธิ
+และราคาเปิดเฉลี่ยที่รวมได้ตรงกัน margin ที่ต้องใช้จึงแปรผันตาม **exposure ทางเศรษฐกิจสุทธิ**
 
-Both built-in models compute margin as a percentage of notional using the
-instrument's `margin_init` and `margin_maint` fields. They differ only in
-whether leverage reduces the reservation. For venues with true per-contract
-fixed margin (CME / ICE), set `instrument.margin_init` and `margin_maint` so
-the percentage recovers the desired dollar amount.
+### Model ที่มีให้ใช้ {#available-models}
 
-### HEDGING-mode netting
+#### `StandardMarginModel` {#standardmarginmodel}
 
-Under `OmsType.HEDGING`, the first fill for a new position ID opens a `Position`. Later fills can update that
-position. An account can thus hold many open sub-positions for the same instrument. The accounts manager nets
-those sub-positions onto a hypothetical NETTING position in `ts_opened` order. It then runs the margin model
-once on the resulting net signed quantity and average open price.
-
-The replay follows the same rules as `Position.apply`:
-
-- Same-side fills produce a quantity-weighted average open price.
-- Opposite-side fills partial-close at the existing average.
-- A fill that crosses zero makes the residual take the flipping fill's price.
-
-Sub-positions sharing a `ts_opened` fold in `(ts_opened, position_id)` order so the result does not depend on
-cache iteration order.
-
-With the same margin model and leverage, HEDGING and NETTING maintenance margins match if folded net quantities
-and average open prices match. The margin requirement scales with **net economic exposure**.
-
-### Available models
-
-#### `StandardMarginModel`
-
-Uses **fixed percentages without leverage division**, matching traditional broker
-behavior.
-
-```python
-# Fixed percentages - leverage ignored
-margin = notional * instrument.margin_init
-```
+ใช้ **เปอร์เซ็นต์คงที่โดยไม่หารด้วย leverage** ตรงกับพฤติกรรมของ broker แบบดั้งเดิม
 
 - Initial margin: `notional_value * instrument.margin_init`
 - Maintenance margin: `notional_value * instrument.margin_maint`
 
-**Use cases**: traditional brokers (Interactive Brokers), forex brokers with
-fixed margin requirements.
+**กรณีใช้งาน**: broker แบบดั้งเดิม (Interactive Brokers), forex broker ที่มี margin requirement คงที่
 
-#### `LeveragedMarginModel`
+#### `LeveragedMarginModel` {#leveragedmarginmodel}
 
-Divides margin requirements **by leverage**.
-
-```python
-# Leverage reduces margin requirements
-adjusted_notional = notional / leverage
-margin = adjusted_notional * instrument.margin_init
-```
+หาร margin requirement **ด้วย leverage**
 
 - Initial margin: `(notional_value / leverage) * instrument.margin_init`
 - Maintenance margin: `(notional_value / leverage) * instrument.margin_maint`
 
-**Use cases**: crypto exchanges that reduce margin with leverage, venues where
-leverage affects margin requirements.
+**กรณีใช้งาน**: crypto exchange ที่ลด margin ตาม leverage และ venue ที่ leverage มีผลต่อ margin requirement
 
-### Default behavior
+### พฤติกรรมเริ่มต้น {#default-behavior}
 
-`MarginAccount` uses `LeveragedMarginModel` by default. Backtests select
-`StandardMarginModel` by passing it directly to `BacktestVenueConfig.margin_model`.
+`MarginAccount` ใช้ `LeveragedMarginModel` เป็นค่าเริ่มต้น backtest เลือกใช้ `StandardMarginModel` ได้โดยส่ง model นี้
+ให้ `BacktestVenueConfig.margin_model` โดยตรง ดู [Backtesting](backtesting/accounts-and-margin.md#margin-models)
 
-### Worked example: EUR/USD
+### ตัวอย่างการคำนวณ: EUR/USD {#worked-example-eurusd}
 
 - **Instrument**: EUR/USD
-- **Quantity**: 100,000 EUR
-- **Price**: 1.10000
+- **ปริมาณ**: 100,000 EUR
+- **ราคา**: 1.10000
 - **Notional**: $110,000
 - **Leverage**: 50x
 - **`instrument.margin_init`**: 3%
 
-| Model     | Calculation            | Result | Percentage |
-| --------- | ---------------------- | ------ | ---------- |
-| Standard  | $110,000 × 0.03        | $3,300 | 3.00%      |
-| Leveraged | ($110,000 ÷ 50) × 0.03 | $66    | 0.06%      |
+| Model     | การคำนวณ               | ผลลัพธ์ | เปอร์เซ็นต์ |
+| --------- | ---------------------- | ------ | -------- |
+| Standard  | $110,000 × 0.03        | $3,300 | 3.00%    |
+| Leveraged | ($110,000 ÷ 50) × 0.03 | $66    | 0.06%    |
 
-On a $1,000 account: the standard model blocks the trade. The leveraged model allows it.
+บน account ขนาด $1,000: standard model จะบล็อก trade นี้ ส่วน leveraged model จะอนุญาต
 
-### Python model selection
+## ข้อตกลงสำหรับ adapter {#adapter-convention}
 
-Pass a built-in model, a subclass of `nautilus_trader.model.MarginModel`, or a compatible Python object
-as `margin_model` to `BacktestVenueConfig`, `BacktestEngine.add_venue()`, or `SandboxExecutionClientConfig`.
-Models apply only to margin accounts. No `MarginModelConfig` wrapper is needed.
-See [Backtesting](backtesting/accounts-and-margin.md#margin-models).
+Live adapter แปลง response ของ venue เป็น instance ของ `AccountBalance` และ `MarginBalance` ข้อตกลงที่ผู้เขียน adapter
+ต้องปฏิบัติตาม:
 
-#### Callback contract
+### การสร้าง `AccountBalance` {#building-accountbalance}
 
-Custom objects must expose callable `calculate_initial_margin` and `calculate_maintenance_margin` methods
-or configuration raises `TypeError`. Inherited base methods raise `NotImplementedError`.
+ควรใช้ derived constructor เพื่อให้การ clamp และ invariant `total == locked + free` ถูกบังคับใช้จากศูนย์กลาง การคำนวณ
+สาม field ด้วยตนเองแล้วส่งให้ `AccountBalance::new` เหมาะเฉพาะกับเส้นทางแบบ pass-through ที่ค่าทั้งสามเชื่อถือได้อยู่แล้ว
+(เช่น test)
 
-Both take `(instrument, quantity, price, leverage, use_quote_for_inverse)` and return `Money`:
+### การสร้าง `MarginBalance` {#building-marginbalance}
 
-- `instrument`: concrete Python type, such as `CurrencyPair`.
-- `quantity`, `price`, and `leverage`: `Quantity`, `Price`, and `decimal.Decimal`.
-- `use_quote_for_inverse`: `True` requests quote-currency margin for inverse instruments.
-  Risk and portfolio calls pass `None`; direct account calls also accept `True` and `False`.
+เลือก scope ให้ตรงกับสิ่งที่ venue รายงาน:
 
-#### Failure handling
-
-- Direct `MarginAccount` calls raise `ValueError` with callback context for exceptions or non-`Money` results.
-- Pre-trade risk checks reject the order command if initial-margin calculation fails.
-- Portfolio failures silently skip the instrument's margin update and retain its previous margin.
-  One failing open order skips that instrument's entire initial-margin update.
-
-#### State and runtime limits
-
-Configuration and account clones share the Python instance and state. Canonical backtest results use
-`margin_model: "python"` for all custom Python classes.
-
-Keep callbacks independent of the cache and portfolio: portfolio updates can hold borrows and temporarily
-remove the account from the cache.
-
-Callbacks acquire the GIL and clone instruments into Python objects. Conversion, dispatch, and `Money`
-extraction add overhead; no benchmarks quantify it.
-
-## Adapter convention
-
-Live adapters translate venue responses into `AccountBalance` and
-`MarginBalance` instances. The convention that adapter authors must follow:
-
-### Building `AccountBalance`
-
-Prefer the derived constructors so that clamping and the `total == locked + free` invariant are enforced
-centrally. Hand-computing three fields and passing them to `AccountBalance::new` is only appropriate for
-pass-through paths where all three values are already authoritative (for example, tests).
-
-### Building `MarginBalance`
-
-Pick the scope that matches what the venue reports:
-
-| Venue reports                                  | Scope          | Emit with                                                  |
+| Venue รายงาน                                    | Scope          | สร้างด้วย                                                     |
 | ---------------------------------------------- | -------------- | ---------------------------------------------------------- |
-| Per-instrument (isolated positions)            | Per-instrument | `MarginBalance::new(initial, maint, Some(id))`             |
-| Single aggregate per collateral (cross margin) | Account-wide   | `MarginBalance::new(initial, maint, None)`                 |
-| Multiple aggregates, one per collateral        | Account-wide   | One `MarginBalance` per currency with `instrument_id=None` |
+| ราย instrument (isolated position)              | ราย instrument  | `MarginBalance::new(initial, maint, Some(id))`             |
+| ค่ารวมเดียวต่อหลักประกัน (cross margin)             | ทั้ง account     | `MarginBalance::new(initial, maint, None)`                 |
+| หลายค่ารวม หนึ่งค่าต่อหลักประกัน                      | ทั้ง account     | `MarginBalance` หนึ่งตัวต่อสกุลเงิน โดย `instrument_id=None` |
 
 :::info
-Synthetic `ACCOUNT.{VENUE}` or `ACCOUNT-{COIN}.{VENUE}` `InstrumentId`
-placeholders are not used. Account-wide entries carry `instrument_id=None` and
-are keyed by `currency`.
+ไม่มีการใช้ `InstrumentId` สังเคราะห์แบบ `ACCOUNT.{VENUE}` หรือ `ACCOUNT-{COIN}.{VENUE}` เป็น placeholder
+รายการระดับทั้ง account จะมี `instrument_id=None` และใช้ `currency` เป็น key
 :::
 
-## Related guides
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-- [Backtesting](backtesting/): starting balances, margin models, and backtest-specific account
-  setup.
-- [Portfolio](portfolio.md): portfolio-level PnL, exposures, and currency
-  conversion.
-- [Positions](positions.md): position lifecycle, aggregation, and PnL.
-- [Adapters](adapters.md): requirements and best practices for adapter authors.
-- [Blockchain](../integrations/blockchain.md): the adapter that selects wallet accounts, and its
-  execution status.
+- [Backtesting](backtesting/): starting balance, margin model และการตั้งค่า account เฉพาะของ backtest
+- [Portfolio](portfolio.md): PnL ระดับ portfolio, exposure และการแปลงสกุลเงิน
+- [Positions](positions.md): วงจรชีวิตของ position, การ aggregate และ PnL
+- [Adapters](adapters.md): ข้อกำหนดและแนวปฏิบัติที่ดีสำหรับผู้เขียน adapter
+- [Blockchain](../integrations/blockchain.md): adapter ที่เลือกใช้ wallet account และสถานะด้าน execution ของมัน

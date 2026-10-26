@@ -2,76 +2,71 @@
 
 Standard revision: 1
 
-This document defines a shared Markdown baseline for repositories that adopt a local copy. Keep copies
-byte-for-byte identical to the maintained source. Put repository-specific additions in a separate local guide.
+เอกสารนี้กำหนด baseline ของ Markdown ที่ใช้ร่วมกันสำหรับ repository ที่นำสำเนาไปใช้ในเครื่อง สำเนาต้องเหมือนกับ
+source ที่ดูแลอยู่ทุก byte ส่วนเพิ่มเติมเฉพาะ repository ให้แยกไว้ใน local guide อีกฉบับ
 
-## Requirement levels
+## ระดับของข้อกำหนด {#requirement-levels}
 
-Each rule has one of three levels:
+แต่ละกฎมีระดับอย่างใดอย่างหนึ่งจากสามระดับนี้:
 
-- **Required**: Applies to each in-scope file. Rules stated as unqualified imperatives such as "Use" and "Do
-  not", or with "must", are Required.
-- **Preferred**: Identifies the default when more than one valid form exists. Preferred rules use "Prefer" and
-  do not affect conformance.
-- **Transitional**: Applies to the named construct when it is added or substantially edited, and is labeled
-  **Transitional** or described as transitional. Existing instances may remain until a separate migration.
+- **Required**: ใช้กับทุกไฟล์ที่อยู่ในขอบเขต กฎที่เขียนเป็นคำสั่งโดยไม่มีเงื่อนไข เช่น "Use" และ "Do not" หรือใช้คำว่า
+  "must" ถือเป็น Required
+- **Preferred**: ระบุรูปแบบตั้งต้นเมื่อมีรูปแบบที่ถูกต้องมากกว่าหนึ่งแบบ กฎแบบ Preferred ใช้คำว่า "Prefer" และไม่มีผลต่อ
+  conformance
+- **Transitional**: ใช้กับ construct ที่ระบุไว้เมื่อถูกเพิ่มหรือแก้ไขอย่างมีนัยสำคัญ และมีป้ายกำกับ **Transitional** หรือ
+  ถูกอธิบายว่าเป็นกฎช่วงเปลี่ยนผ่าน ของเดิมที่มีอยู่ยังคงไว้ได้จนกว่าจะมีการ migrate แยกต่างหาก
 
-Statements with "may" or "allowed" give bounded permissions, not obligations. Any condition limiting that
-permission is Required. A repository may document narrower local exceptions where its renderer, generated
-content, or imported material requires them.
+ข้อความที่ใช้ "may" หรือ "allowed" เป็นการอนุญาตแบบมีขอบเขต ไม่ใช่ข้อบังคับ เงื่อนไขใด ๆ ที่จำกัดการอนุญาตนั้นถือเป็น
+Required repository อาจบันทึกข้อยกเว้นภายในที่แคบกว่าได้ ในกรณีที่ renderer, เนื้อหาที่ generate ขึ้น หรือเนื้อหาที่
+นำเข้ามาจำเป็นต้องใช้
 
-## Language and extensions
+## ภาษาและ extension {#language-and-extensions}
 
-- Use [CommonMark](https://spec.commonmark.org/current/) as the base specification.
-- Use [GitHub Flavored Markdown](https://github.github.com/gfm/) for tables, task lists,
-  strikethrough, and autolinks.
-- Use additional front matter, Markdown extensions, or renderer components only when the
-  repository documents and supports them.
-- Do not introduce syntax that depends on an undocumented renderer extension.
+- ใช้ [CommonMark](https://spec.commonmark.org/current/) เป็น specification พื้นฐาน
+- ใช้ [GitHub Flavored Markdown](https://github.github.com/gfm/) สำหรับตาราง, task list, ขีดฆ่า (strikethrough)
+  และ autolink
+- ใช้ front matter, Markdown extension หรือ renderer component เพิ่มเติม เฉพาะเมื่อ repository บันทึกไว้และรองรับ
+- อย่านำ syntax ที่ขึ้นกับ renderer extension ที่ไม่ได้บันทึกไว้เข้ามาใช้
 
-The linked specifications are references, not routine prerequisites. Open them only if the local guide,
-surrounding content, and markdownlint leave a concrete parser or renderer ambiguity unresolved.
+specification ที่ลิงก์ไว้เป็นเอกสารอ้างอิง ไม่ใช่สิ่งที่ต้องอ่านเป็นประจำ ให้เปิดอ่านเฉพาะเมื่อ local guide, เนื้อหาโดยรอบ
+และ markdownlint ยังไม่สามารถตอบความกำกวมที่เป็นรูปธรรมของ parser หรือ renderer ได้
 
-## Enforcement
+## การบังคับใช้ {#enforcement}
 
-- Follow the repository's `.markdownlint.jsonc` or equivalent local configuration.
-- Treat this standard as the intended style and markdownlint as automated enforcement of its mechanical
-  subset.
-- Treat an undocumented conflict between this standard and the local configuration as drift to resolve, not an
-  implicit exception.
-- Make sure that all authored Markdown in the repository's lint scope passes its configured Markdown check.
-- Do not hand-edit generated Markdown. Change its source and run the generator.
+- ปฏิบัติตาม `.markdownlint.jsonc` ของ repository หรือ config ภายในที่เทียบเท่า
+- ถือว่ามาตรฐานนี้คือ style ที่ตั้งใจไว้ และ markdownlint คือการบังคับใช้แบบอัตโนมัติสำหรับส่วนที่เป็นกลไกของมาตรฐาน
+- ถือว่าความขัดแย้งที่ไม่ได้บันทึกไว้ระหว่างมาตรฐานนี้กับ config ภายในคือ drift ที่ต้องแก้ไข ไม่ใช่ข้อยกเว้นโดยปริยาย
+- ตรวจให้แน่ใจว่า Markdown ทั้งหมดที่เขียนขึ้นภายในขอบเขตการ lint ของ repository ผ่าน Markdown check ที่ตั้งค่าไว้
+- อย่าแก้ไข Markdown ที่ถูก generate ขึ้นด้วยมือ ให้แก้ที่ source แล้วรัน generator
 
-Generated files, imported third-party documents, and renderer fixtures may use documented
-repository exclusions.
+ไฟล์ที่ถูก generate, เอกสารจาก third-party ที่นำเข้ามา และ renderer fixture อาจใช้ข้อยกเว้นของ repository ที่บันทึกไว้
 
-## Headings
+## Heading {#headings}
 
-- Use ATX headings (`#`, `##`, `###`, and so on).
-- Use one H1 as the first Markdown heading.
-- Use title case for H1.
-- Use sentence case for H2 and below.
-- Maintain a logical hierarchy without skipping heading levels.
-- Leave one blank line above and below each heading.
+- ใช้ ATX heading (`#`, `##`, `###` และอื่น ๆ)
+- ใช้ H1 หนึ่งตัวเป็น Markdown heading แรก
+- ใช้ title case สำหรับ H1
+- ใช้ sentence case สำหรับ H2 ลงไป
+- รักษาลำดับชั้นให้สมเหตุสมผลโดยไม่ข้ามระดับของ heading
+- เว้นบรรทัดว่างหนึ่งบรรทัดทั้งด้านบนและด้านล่างของแต่ละ heading
 
-## Paragraphs and wrapping
+## ย่อหน้าและการตัดบรรทัด {#paragraphs-and-wrapping}
 
-- Separate paragraphs with one blank line.
-- Do not add consecutive blank lines.
-- Prefer a line-length target of [100, 120] characters for prose.
-- Prefer natural breaks and a longer line over leaving one to three words on the next line.
-- Allow code blocks, tables, and long link destinations to exceed the target when needed.
+- คั่นย่อหน้าด้วยบรรทัดว่างหนึ่งบรรทัด
+- อย่าใส่บรรทัดว่างติดกันหลายบรรทัด
+- ควรตั้งเป้าความยาวบรรทัดของเนื้อความไว้ที่ [100, 120] ตัวอักษร
+- ควรตัดบรรทัดตามจังหวะธรรมชาติและยอมให้บรรทัดยาวขึ้น แทนที่จะทิ้งคำหนึ่งถึงสามคำไว้ในบรรทัดถัดไป
+- อนุญาตให้ code block, ตาราง และปลายทางของลิงก์ที่ยาวเกินเป้าหมายได้เมื่อจำเป็น
 
-## Lists
+## รายการ {#lists}
 
-- Use `-` for unordered list items.
-- Use ordered lists only when sequence matters.
-- **Transitional**: Use `1.` for each source item in an ordered list so the renderer supplies the displayed
-  numbers.
-- Keep list indentation and spacing consistent with the local markdownlint configuration.
-- Leave one blank line before and after a list.
+- ใช้ `-` สำหรับรายการแบบไม่เรียงลำดับ
+- ใช้รายการแบบเรียงลำดับเฉพาะเมื่อลำดับมีความสำคัญ
+- **Transitional**: ใช้ `1.` สำหรับทุก item ใน source ของรายการแบบเรียงลำดับ เพื่อให้ renderer ใส่เลขที่แสดงผลเอง
+- รักษาการย่อหน้าและการเว้นระยะของรายการให้สอดคล้องกับ config ของ markdownlint ภายใน
+- เว้นบรรทัดว่างหนึ่งบรรทัดก่อนและหลังรายการ
 
-Example:
+ตัวอย่าง:
 
 ```markdown
 - First item
@@ -81,17 +76,17 @@ Example:
 1. Second step
 ```
 
-## Admonitions
+## Admonition {#admonitions}
 
-- Use only the admonition syntax that the repository documents and renders.
-- When the repository documents and renders GitHub alerts without a stricter local syntax, use the GitHub
-  blockquote alert form. Use one of `NOTE`, `TIP`, `IMPORTANT`, `WARNING`, or `CAUTION` for that form.
-- When support for that extension is absent or unconfirmed, use a portable blockquote with a bold text label.
-- For a multi-paragraph admonition, put `>` before each content line and blank continuation line. A bare blank
-  line ends the admonition.
-- Keep the type label in the source and rendered output. Do not convey meaning through color or an icon alone.
-- Preserve established, supported admonition syntax during a narrow edit. Do not convert it only to impose
-  this fallback.
+- ใช้เฉพาะ syntax ของ admonition ที่ repository บันทึกไว้และ render ได้
+- เมื่อ repository บันทึกไว้และ render GitHub alert ได้ โดยไม่มี syntax ภายในที่เข้มงวดกว่า ให้ใช้รูปแบบ GitHub
+  blockquote alert โดยใช้ `NOTE`, `TIP`, `IMPORTANT`, `WARNING` หรือ `CAUTION` อย่างใดอย่างหนึ่ง
+- เมื่อไม่มีการรองรับ extension นั้นหรือยังไม่ยืนยัน ให้ใช้ blockquote แบบ portable พร้อมป้ายกำกับตัวหนา
+- สำหรับ admonition ที่มีหลายย่อหน้า ให้ใส่ `>` หน้าทุกบรรทัดเนื้อหาและบรรทัดว่างที่ต่อเนื่อง บรรทัดว่างเปล่า ๆ จะเป็นการ
+  จบ admonition
+- คงป้ายกำกับประเภทไว้ทั้งใน source และผลลัพธ์ที่ render อย่าสื่อความหมายด้วยสีหรือไอคอนเพียงอย่างเดียว
+- รักษา syntax ของ admonition ที่ใช้กันอยู่และรองรับแล้วไว้ระหว่างการแก้ไขเล็ก ๆ อย่าแปลงเพียงเพื่อบังคับใช้รูปแบบ
+  fallback นี้
 
 GitHub alert:
 
@@ -106,22 +101,20 @@ Portable fallback:
 > **Warning:** Back up the database before running the migration.
 ```
 
-## Tables
+## ตาราง {#tables}
 
-- Use GFM pipe tables for tabular content.
-- Include leading and trailing pipes.
-- Align pipe characters vertically.
-- Pad each column to its widest cell plus one space either side. This matches Prettier's default output. MD060
-  checks pipe alignment but ignores cell content. Thus, it accepts padding far wider than any cell.
-- Pad delimiter cells with spaces (`| ----- |`, not `|-----|`). MD060 does not check this either.
-- The `normalize markdown table padding` pre-commit hook applies this padding. You do not need to count spaces
-  manually.
-- Prefer left-aligned text columns and right-aligned numeric columns where appropriate.
-- Keep the delimiter row consistent with the intended rendered alignment.
-- Avoid HTML tables unless Markdown cannot express the required structure or the repository documents the
-  need.
+- ใช้ GFM pipe table สำหรับเนื้อหาแบบตาราง
+- ใส่ pipe ทั้งด้านหน้าและด้านท้าย
+- จัด pipe ให้ตรงกันในแนวตั้ง
+- เติมช่องว่างให้แต่ละคอลัมน์กว้างเท่ากับ cell ที่กว้างที่สุดบวกช่องว่างอีกด้านละหนึ่งช่อง ซึ่งตรงกับผลลัพธ์ตั้งต้นของ
+  Prettier MD060 ตรวจการจัดแนวของ pipe แต่ไม่สนใจเนื้อหาใน cell จึงยอมรับการเติมช่องว่างที่กว้างกว่า cell ใด ๆ มาก
+- เติมช่องว่างใน delimiter cell (`| ----- |` ไม่ใช่ `|-----|`) ซึ่ง MD060 ก็ไม่ได้ตรวจเช่นกัน
+- pre-commit hook `normalize markdown table padding` จะเติมช่องว่างนี้ให้ ไม่จำเป็นต้องนับช่องว่างเอง
+- ควรจัดคอลัมน์ข้อความชิดซ้าย และคอลัมน์ตัวเลขชิดขวาตามความเหมาะสม
+- ทำให้ delimiter row สอดคล้องกับการจัดแนวที่ต้องการเมื่อ render
+- หลีกเลี่ยงตาราง HTML เว้นแต่ Markdown ไม่สามารถแสดงโครงสร้างที่ต้องการได้ หรือ repository บันทึกความจำเป็นไว้
 
-Example:
+ตัวอย่าง:
 
 ```markdown
 | Name  | Value |
@@ -130,16 +123,14 @@ Example:
 | Beta  |    17 |
 ```
 
-## Code
+## Code {#code}
 
-- Use backtick-fenced code blocks instead of indented code blocks.
-- **Transitional**: Specify a language for each opening fence. Use `text` for plain text or output without a
-  more specific grammar.
-- Use a longer outer fence when documenting fenced Markdown.
-- Use inline code for commands, file names, functions, types, environment variables, configuration keys, and
-  identifiers.
+- ใช้ code block แบบ backtick fence แทน code block แบบย่อหน้า
+- **Transitional**: ระบุภาษาให้กับทุก fence เปิด ใช้ `text` สำหรับข้อความธรรมดาหรือ output ที่ไม่มี grammar เฉพาะกว่านี้
+- ใช้ fence ด้านนอกที่ยาวกว่าเมื่อต้องการแสดงตัวอย่าง Markdown ที่มี fence
+- ใช้ inline code สำหรับคำสั่ง, ชื่อไฟล์, function, type, environment variable, configuration key และ identifier
 
-Example:
+ตัวอย่าง:
 
 ````markdown
 ```rust
@@ -149,61 +140,59 @@ fn main() {
 ```
 ````
 
-Run `cargo test` and edit `.markdownlint.jsonc`.
+รัน `cargo test` แล้วแก้ไข `.markdownlint.jsonc`
 
-## Emphasis
+## การเน้นข้อความ {#emphasis}
 
-- Use `*italic*` for emphasis.
-- Use `**bold**` for strong emphasis.
-- Avoid emphasis that does not add meaning.
+- ใช้ `*italic*` สำหรับการเน้น
+- ใช้ `**bold**` สำหรับการเน้นอย่างหนัก
+- หลีกเลี่ยงการเน้นที่ไม่ได้เพิ่มความหมาย
 
-## Thematic breaks
+## เส้นคั่น {#thematic-breaks}
 
-Use three hyphens:
+ใช้ขีดสามตัว:
 
 ```markdown
 ---
 ```
 
-## Links and images
+## ลิงก์และรูปภาพ {#links-and-images}
 
-- Use descriptive link text.
-- Prefer inline links. When the same destination appears more than once in a document, prefer reference-style
-  links.
-- Avoid bare URLs.
-- Keep internal links relative when the repository's renderer supports them.
-- Give images useful alternative text. Use empty alternative text only for deliberately decorative images.
+- ใช้ข้อความลิงก์ที่สื่อความหมาย
+- ควรใช้ inline link เมื่อปลายทางเดียวกันปรากฏมากกว่าหนึ่งครั้งในเอกสาร ควรใช้ลิงก์แบบ reference-style
+- หลีกเลี่ยง URL เปล่า ๆ
+- ใช้ลิงก์ภายในแบบ relative เมื่อ renderer ของ repository รองรับ
+- ใส่ alternative text ที่มีประโยชน์ให้รูปภาพ ใช้ alternative text ว่างเฉพาะกับรูปที่ตั้งใจใช้เพื่อตกแต่งเท่านั้น
 
-## HTML
+## HTML {#html}
 
-- Prefer portable Markdown syntax over raw HTML.
-- Use raw HTML only when Markdown cannot express the required result or the repository documents the element
-  or component.
-- When you edit surrounding content, keep supported front matter, MDX components, fence attributes, and other
-  repository extensions.
+- ควรใช้ syntax ของ Markdown ที่ portable มากกว่า raw HTML
+- ใช้ raw HTML เฉพาะเมื่อ Markdown ไม่สามารถแสดงผลลัพธ์ที่ต้องการได้ หรือ repository บันทึก element หรือ component
+  นั้นไว้
+- เมื่อแก้ไขเนื้อหาโดยรอบ ให้คง front matter, MDX component, fence attribute และ repository extension อื่น ๆ ที่รองรับ
+  ไว้
 
-## Files
+## ไฟล์ {#files}
 
-- Use UTF-8 encoding.
-- Use LF line endings.
-- End each file with one newline.
-- Do not leave trailing whitespace or use trailing spaces to create Markdown hard line breaks.
+- ใช้ encoding แบบ UTF-8
+- ใช้ line ending แบบ LF
+- จบแต่ละไฟล์ด้วย newline หนึ่งตัว
+- อย่าทิ้ง trailing whitespace และอย่าใช้ช่องว่างท้ายบรรทัดเพื่อสร้าง hard line break ของ Markdown
 
-## Editing guidance
+## แนวทางการแก้ไข {#editing-guidance}
 
-When you create or modify Markdown:
+เมื่อสร้างหรือแก้ไข Markdown:
 
-- For narrow edits, keep surrounding style and use markdownlint without the full guide unless both leave a
-  concrete question unanswered.
-- Before creating or substantially restructuring documentation, consult only the relevant sections of the
-  repository-local Markdown guide.
-- Keep the existing document structure unless the task requires a change.
-- Keep formatting consistent with surrounding content and supported renderer extensions.
-- Do not reformat unrelated sections.
-- Run the repository's focused Markdown check when available.
+- สำหรับการแก้ไขเล็ก ๆ ให้รักษา style โดยรอบและใช้ markdownlint โดยไม่ต้องเปิด guide ฉบับเต็ม เว้นแต่ทั้งสองอย่าง
+  ยังไม่สามารถตอบคำถามที่เป็นรูปธรรมได้
+- ก่อนสร้างหรือปรับโครงสร้างเอกสารอย่างมีนัยสำคัญ ให้อ่านเฉพาะส่วนที่เกี่ยวข้องของ Markdown guide ภายใน repository
+- รักษาโครงสร้างเอกสารเดิมไว้ เว้นแต่งานนั้นจำเป็นต้องเปลี่ยน
+- รักษารูปแบบให้สอดคล้องกับเนื้อหาโดยรอบและ renderer extension ที่รองรับ
+- อย่าจัดรูปแบบส่วนที่ไม่เกี่ยวข้องใหม่
+- รัน Markdown check แบบเจาะจงของ repository เมื่อมีให้ใช้
 
-## Transitional adoption
+## การนำมาใช้ในช่วงเปลี่ยนผ่าน {#transitional-adoption}
 
-`MD003` enforces ATX headings. Repeated `1.` ordered-list markers and languages on opening code fences are
-transitional rules. `MD029` and `MD040` remain disabled until existing documents receive separate mechanical
-migrations. Do not broaden a narrow documentation change solely to migrate those existing constructs.
+`MD003` บังคับใช้ ATX heading ส่วนการใช้ `1.` ซ้ำในรายการแบบเรียงลำดับ และการระบุภาษาใน fence เปิดของ code block
+เป็นกฎช่วงเปลี่ยนผ่าน `MD029` และ `MD040` จะยังปิดอยู่จนกว่าเอกสารเดิมจะได้รับการ migrate เชิงกลไกแยกต่างหาก อย่าขยาย
+การแก้ไขเอกสารเล็ก ๆ ออกไปเพียงเพื่อ migrate construct เดิมเหล่านั้น

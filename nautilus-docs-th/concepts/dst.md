@@ -2,222 +2,210 @@
 
 <!-- Keep this title as "DST"; longer titles do not render well in the left navigation. -->
 
-Deterministic simulation testing (DST) runs NautilusTrader under a seed-controlled runtime. This
-guide defines:
+Deterministic simulation testing (DST) คือการรัน NautilusTrader ภายใต้ runtime ที่ควบคุมด้วย seed คู่มือนี้กำหนด:
 
-- The reproducibility guarantees for seed-controlled execution.
-- The conditions required for those guarantees.
-- The source seams and checks that enforce the contract.
-- The paths where deterministic execution stops.
+- การรับประกันว่าจะทำซ้ำผลได้ (reproducibility) สำหรับการ execute ที่ควบคุมด้วย seed
+- เงื่อนไขที่จำเป็นเพื่อให้การรับประกันนั้นเป็นจริง
+- จุดเชื่อม (seam) ใน source และการตรวจสอบที่บังคับใช้ข้อกำหนดนี้
+- เส้นทางที่การ execute แบบ deterministic สิ้นสุดลง
 
-Source locations accompany each claim so users and auditors can check the contract against the
-code.
+แต่ละข้อกล่าวอ้างมีตำแหน่งใน source กำกับไว้ เพื่อให้ผู้ใช้และผู้ตรวจสอบเทียบข้อกำหนดกับโค้ดได้
 
 :::note
-A downstream harness that depends on NautilusTrader's determinism consumes the version of this
-document at its pinned NautilusTrader commit. A change to this document is a contract change for
-those consumers and should be reviewed as one.
+Harness ปลายทางที่พึ่งพาความ deterministic ของ NautilusTrader จะใช้เอกสารฉบับนี้ในเวอร์ชันที่ตรงกับ commit ของ
+NautilusTrader ที่ pin ไว้ การเปลี่ยนแปลงเอกสารนี้จึงถือเป็นการเปลี่ยนข้อกำหนด (contract) สำหรับผู้ใช้เหล่านั้น และควร
+review ในฐานะนั้น
 :::
 
-## What DST is
+## DST คืออะไร {#what-dst-is}
 
-DST controls the sources of nondeterminism in a concurrent system. Within the contract defined
-below, one seed determines task scheduling, timer firings, and random values. Two runs with the same
-seed, binary, configuration, and platform produce identical observable behavior. Record a failing
-seed to replay the same execution.
+DST ควบคุมแหล่งที่มาของความไม่ deterministic ในระบบ concurrent ภายในข้อกำหนดที่นิยามไว้ด้านล่าง seed เดียวเป็นตัวกำหนด
+การจัดลำดับ task, การ fire ของ timer และค่าสุ่ม การรันสองครั้งที่ใช้ seed, binary, configuration และ platform เดียวกัน
+จะให้พฤติกรรมที่สังเกตได้เหมือนกันทุกประการ บันทึก seed ที่ล้มเหลวไว้เพื่อ replay การ execute เดิมซ้ำได้
 
-A conventional async runtime draws scheduling decisions from ambient process state, including:
+Async runtime ทั่วไปตัดสินใจเรื่องการจัดลำดับจากสถานะแวดล้อมของ process ได้แก่:
 
-- Task wake order.
-- Timer resolution.
-- OS thread scheduling.
-- Randomized hash seeds.
+- ลำดับการ wake ของ task
+- ความละเอียดของ timer
+- การจัดลำดับ thread ของ OS
+- Hash seed แบบสุ่ม
 
-A conventional test harness does not control these sources, so a race that appears once in CI can be difficult
-to reproduce. DST replaces them with a seeded pseudorandom sequence. Different seeds explore different
-interleavings. The same seed selects the same interleaving.
+Test harness ทั่วไปไม่ได้ควบคุมแหล่งเหล่านี้ race ที่เกิดขึ้นครั้งเดียวใน CI จึงอาจทำซ้ำได้ยาก DST แทนที่สิ่งเหล่านี้ด้วย
+ลำดับ pseudorandom ที่มี seed seed ต่างกันจะสำรวจ interleaving ที่ต่างกัน และ seed เดียวกันจะเลือก interleaving เดียวกัน
 
-[FoundationDB](https://apple.github.io/foundationdb/testing.html) uses the pattern to test a
-production distributed database. In the Rust ecosystem,
-[madsim](https://crates.io/crates/madsim) intercepts `tokio` primitives to provide a
-deterministic scheduler.
+[FoundationDB](https://apple.github.io/foundationdb/testing.html) ใช้ pattern นี้ทดสอบ distributed database ที่ใช้งาน
+จริงใน production ส่วนใน ecosystem ของ Rust [madsim](https://crates.io/crates/madsim) จะดักจับ primitive ของ `tokio`
+เพื่อให้มี scheduler แบบ deterministic
 
-DST targets concurrency defects such as:
+DST มุ่งเป้าไปที่ข้อบกพร่องด้าน concurrency เช่น:
 
-- Channel wakeup ordering.
-- Drain races during shutdown.
-- Startup sequencing.
-- Reconciliation ordering.
-- Recovery-path correctness.
+- ลำดับการ wakeup ของ channel
+- Race ระหว่างการ drain ตอน shutdown
+- ลำดับขั้นตอนตอน startup
+- ลำดับของ reconciliation
+- ความถูกต้องของเส้นทางการกู้คืน (recovery)
 
-Other test layers cannot exhaustively cover these interleavings. A deterministic scheduler can
-explore them across seeds and replay a failing schedule.
+Test ชั้นอื่นไม่สามารถครอบคลุม interleaving เหล่านี้ได้ทั้งหมด scheduler แบบ deterministic สามารถสำรวจได้ข้าม seed ต่าง ๆ
+และ replay schedule ที่ล้มเหลวได้
 
-## Goals
+## เป้าหมาย {#goals}
 
-| Goal                          | Requirement                                                                                                 |
+| เป้าหมาย                        | ข้อกำหนด                                                                                                     |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Seed-reproducible execution   | The in-scope runtime produces the same observable behavior for the same seed and inputs.                    |
-| Explicit scope                | Each fallback to real time, unseeded randomness, or other nondeterminism is documented.                     |
-| Enforcement in source         | Static checks reject banned patterns on the DST path before they rely on reviewer attention.                |
-| Minimum required interception | Time, task scheduling, and randomness route through deterministic sources only where the contract needs it. |
+| การ execute ที่ทำซ้ำได้ด้วย seed     | Runtime ที่อยู่ในขอบเขตให้พฤติกรรมที่สังเกตได้เหมือนเดิมเมื่อใช้ seed และ input เดียวกัน                                   |
+| ขอบเขตที่ชัดเจน                   | ทุกการ fallback ไปใช้เวลาจริง, ค่าสุ่มที่ไม่มี seed หรือความไม่ deterministic อื่น ๆ ต้องมีเอกสารกำกับ                     |
+| การบังคับใช้ใน source              | Static check ปฏิเสธ pattern ที่ห้ามใช้บนเส้นทาง DST ก่อนที่จะต้องพึ่งความใส่ใจของ reviewer                             |
+| ดักจับเท่าที่จำเป็นขั้นต่ำ             | เวลา, การจัดลำดับ task และค่าสุ่มจะผ่านแหล่งแบบ deterministic เฉพาะในจุดที่ข้อกำหนดต้องการเท่านั้น                     |
 
-## Approach
+## แนวทาง {#approach}
 
-The implementation has two layers. The first replaces selected `tokio` primitives with `madsim`.
-The second controls sources of nondeterminism outside those primitives.
+Implementation มีสองชั้น ชั้นแรกแทนที่ primitive บางตัวของ `tokio` ด้วย `madsim` ชั้นที่สองควบคุมแหล่งความไม่
+deterministic ที่อยู่นอก primitive เหล่านั้น
 
-### Layer 1: runtime swap
+### ชั้นที่ 1: สลับ runtime {#layer-1-runtime-swap}
 
-Under the `simulation` Cargo feature on `nautilus-common`, four facade submodules select simulation
-behavior when `RUSTFLAGS="--cfg madsim"` is set:
+ภายใต้ Cargo feature `simulation` ของ `nautilus-common` มี facade submodule สี่ตัวที่จะเลือกพฤติกรรมแบบ simulation
+เมื่อตั้ง `RUSTFLAGS="--cfg madsim"`:
 
-| Submodule | Covers                                          | Normal build  | Simulation build                                                 | Adoption                                          |
+| Submodule | ครอบคลุม                                          | Build ปกติ     | Build แบบ simulation                                              | สถานะการนำไปใช้                                     |
 | --------- | ----------------------------------------------- | ------------- | ---------------------------------------------------------------- | ------------------------------------------------- |
-| `time`    | Timers, intervals, and monotonic `Instant`.     | `tokio`       | `madsim`                                                         | Complete.                                         |
-| `task`    | Spawning and joining async tasks.               | `tokio`       | `madsim`                                                         | Complete.                                         |
-| `runtime` | Runtime builder and handle.                     | `tokio`       | `madsim`                                                         | Complete.                                         |
-| `signal`  | Process signals such as `ctrl_c` and `SIGTERM`. | `tokio` or OS | `madsim` for `ctrl_c`, a never-completing future for `terminate` | Partial. See [Signal handling](#signal-handling). |
+| `time`    | Timer, interval และ `Instant` แบบ monotonic      | `tokio`       | `madsim`                                                         | เสร็จสมบูรณ์                                        |
+| `task`    | การ spawn และ join async task                    | `tokio`       | `madsim`                                                         | เสร็จสมบูรณ์                                        |
+| `runtime` | Runtime builder และ handle                      | `tokio`       | `madsim`                                                         | เสร็จสมบูรณ์                                        |
+| `signal`  | Process signal เช่น `ctrl_c` และ `SIGTERM`       | `tokio` หรือ OS | `madsim` สำหรับ `ctrl_c` และ future ที่ไม่มีวันเสร็จสำหรับ `terminate` | บางส่วน ดู [การจัดการ signal](#signal-handling)       |
 
-These re-exports live in `nautilus_common::live::dst`. DST-path call sites for `time`, `task`, and `runtime`
-import from this module. Normal builds resolve the imports to `tokio`. `simulation` with `cfg(madsim)`
-resolves them to `madsim`.
+Re-export เหล่านี้อยู่ใน `nautilus_common::live::dst` call site บนเส้นทาง DST สำหรับ `time`, `task` และ `runtime` จะ
+import จาก module นี้ build ปกติจะ resolve import เป็น `tokio` ส่วน `simulation` ร่วมกับ `cfg(madsim)` จะ resolve เป็น `madsim`
 
-The `sync`, `io`, `fs`, and `net` submodules, plus the `select!` macro, continue to use real `tokio`. The
-network crate supplies a separate [transport boundary](#simulated-http-and-websocket-transport) for plaintext
-HTTP and Tungstenite WebSocket connections. It does not replace Tokio inside dependencies.
+Submodule `sync`, `io`, `fs` และ `net` รวมถึง macro `select!` ยังคงใช้ `tokio` จริง network crate มี
+[transport boundary](#simulated-http-and-websocket-transport) แยกต่างหากสำหรับการเชื่อมต่อ HTTP แบบ plaintext และ
+Tungstenite WebSocket โดยไม่ได้แทนที่ Tokio ภายใน dependency
 
-### Layer 2: nondeterminism substitution
+### ชั้นที่ 2: แทนที่แหล่งความไม่ deterministic {#layer-2-nondeterminism-substitution}
 
-Nondeterminism outside the aliased runtime needs explicit seams.
+ความไม่ deterministic ที่อยู่นอก runtime ที่ทำ alias ไว้ต้องมี seam ที่ชัดเจน
 
-#### Wall-clock time
+#### เวลาแบบ wall-clock {#wall-clock-time}
 
-Wall-clock reads route through `nautilus_core::time::duration_since_unix_epoch`. Under simulation,
-the seam calls `madsim::time::TimeHandle::try_current()` to preserve Unix-epoch semantics for order
-and fill timestamps.
+การอ่าน wall-clock จะผ่าน `nautilus_core::time::duration_since_unix_epoch` ภายใต้ simulation seam นี้จะเรียก
+`madsim::time::TimeHandle::try_current()` เพื่อคง semantics แบบ Unix epoch สำหรับ timestamp ของ order และ fill
 
-Plain `#[rstest]` bodies run outside a madsim runtime. In that context, the seam falls back to
-`SystemTime::now()`, which uses the same real syscall as a normal build. Production paths under
-simulation run inside a madsim runtime and receive virtual time.
+Body ของ `#[rstest]` ธรรมดาจะรันนอก madsim runtime ในบริบทนั้น seam จะ fallback ไปใช้ `SystemTime::now()` ซึ่งใช้ syscall
+จริงตัวเดียวกับ build ปกติ ส่วนเส้นทาง production ภายใต้ simulation จะรันใน madsim runtime และได้รับเวลาเสมือน
 
-#### Monotonic time
+#### เวลาแบบ monotonic {#monotonic-time}
 
-Monotonic reads route through `nautilus_common::live::dst::time::Instant`. Normal builds resolve
-the type to `tokio::time::Instant`, preserving compatibility with
-`#[tokio::test(start_paused = true)]`. Simulation builds resolve it to `madsim::time::Instant`.
+การอ่านเวลาแบบ monotonic จะผ่าน `nautilus_common::live::dst::time::Instant` build ปกติจะ resolve type นี้เป็น
+`tokio::time::Instant` เพื่อให้ใช้ร่วมกับ `#[tokio::test(start_paused = true)]` ได้ ส่วน build แบบ simulation จะ resolve
+เป็น `madsim::time::Instant`
 
-#### Network-local monotonic time
+#### เวลาแบบ monotonic ภายใน network {#network-local-monotonic-time}
 
-Network code routes monotonic reads through `nautilus_network::dst::time`. `nautilus-network` sits
-below `nautilus-common` in the dependency graph, so it provides a local re-export module with the
-same behavior.
+โค้ดด้าน network อ่านเวลาแบบ monotonic ผ่าน `nautilus_network::dst::time` เนื่องจาก `nautilus-network` อยู่ต่ำกว่า
+`nautilus-common` ใน dependency graph จึงมี module re-export ภายในของตัวเองที่ทำงานแบบเดียวกัน
 
-#### Iteration order
+#### ลำดับการ iterate {#iteration-order}
 
-Observable iteration order uses `IndexMap`, `IndexSet`, or an explicit sort instead of relying on
-`AHashMap` or `AHashSet`. `AHash` randomizes its hasher per process. Stable order is required when
-iteration controls event publication or the sequence of draws from a seeded `FillModel`.
+ลำดับการ iterate ที่สังเกตได้ใช้ `IndexMap`, `IndexSet` หรือการ sort อย่างชัดเจน แทนการพึ่ง `AHashMap` หรือ `AHashSet`
+เพราะ `AHash` สุ่ม hasher ต่อ process ลำดับที่คงที่เป็นสิ่งจำเป็นเมื่อการ iterate ควบคุมการ publish event หรือลำดับการสุ่ม
+จาก `FillModel` ที่มี seed
 
-#### Select polling order
+#### ลำดับการ poll ของ select {#select-polling-order}
 
-Each production `tokio::select!` site on the DST path starts with `biased;`. Without it, an unintercepted RNG
-chooses the branch polling order.
+`tokio::select!` ทุกจุดใน production บนเส้นทาง DST ขึ้นต้นด้วย `biased;` หากไม่มี RNG ที่ไม่ได้ถูกดักจับจะเป็นตัวเลือก
+ลำดับการ poll ของ branch
 
-## Determinism contract
+## ข้อกำหนดด้าน determinism {#determinism-contract}
 
-Under the conditions below, a run identified by `(seed, binary hash, configuration hash)` on the
-same platform produces bitwise-identical:
+ภายใต้เงื่อนไขด้านล่าง run ที่ระบุด้วย `(seed, binary hash, configuration hash)` บน platform เดียวกันจะให้ผลที่เหมือนกัน
+ระดับ bit ใน:
 
-- Scheduling order of async tasks.
-- Timer firings (virtual monotonic and virtual wall-clock).
-- RNG output from `madsim::rand`.
-- Delivery order on `tokio::sync` channels.
+- ลำดับการจัด schedule ของ async task
+- การ fire ของ timer (monotonic เสมือนและ wall-clock เสมือน)
+- ผลลัพธ์ RNG จาก `madsim::rand`
+- ลำดับการส่งบน channel ของ `tokio::sync`
 
-### Required conditions
+### เงื่อนไขที่จำเป็น {#required-conditions}
 
-The contract holds **only when each row below is satisfied**:
+ข้อกำหนดนี้เป็นจริง **เฉพาะเมื่อทุกแถวด้านล่างได้รับการปฏิบัติ**:
 
-| Source of nondeterminism | Required condition                                                       | Failure when bypassed                                                                                                                                  |
+| แหล่งความไม่ deterministic | เงื่อนไขที่จำเป็น                                                            | ผลเมื่อข้ามไป                                                                                                                                             |
 | ------------------------ | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Build selection          | Enable the `simulation` feature and set `RUSTFLAGS="--cfg madsim"`.      | Either setting alone falls back to real `tokio` without an error. The cfg also activates madsim's libc intercepts for `clock_gettime` and `getrandom`. |
-| `tokio::select!`         | Put `biased;` first in each production block on the DST path.            | An unintercepted RNG chooses the polling order.                                                                                                        |
-| Monotonic time           | Use `nautilus_common::live::dst::time` or `nautilus_network::dst::time`. | Direct `std::time::Instant::now` reads the host clock.                                                                                                 |
-| Wall-clock time          | Use `nautilus_core::time::duration_since_unix_epoch`.                    | Direct clock reads bypass virtual time.                                                                                                                |
-| Randomness               | Use `madsim::rand`.                                                      | `rand::thread_rng`, `rand::rng()`, `fastrand`, `getrandom`, and `OsRng` are not intercepted.                                                           |
-| Iteration order          | Use `IndexMap`, `IndexSet`, or sort at the point of use.                 | Randomized hash iteration changes observable ordering.                                                                                                 |
-| Local tasks              | Gate out `tokio::task::LocalSet` under simulation.                       | `madsim` has no `LocalSet`. Use `spawn_local` without it.                                                                                              |
-| Blocking tasks           | Gate out or remove `tokio::task::spawn_blocking`.                        | The blocking call escapes the deterministic scheduler.                                                                                                 |
+| การเลือก build            | เปิด feature `simulation` และตั้ง `RUSTFLAGS="--cfg madsim"`             | ตั้งค่าเพียงอย่างใดอย่างหนึ่งจะ fallback ไปใช้ `tokio` จริงโดยไม่มี error cfg นี้ยังเปิดการดักจับ libc ของ madsim สำหรับ `clock_gettime` และ `getrandom` |
+| `tokio::select!`         | ใส่ `biased;` ไว้แรกสุดในทุก block ของ production บนเส้นทาง DST              | RNG ที่ไม่ได้ถูกดักจับจะเลือกลำดับการ poll                                                                                                                  |
+| เวลาแบบ monotonic         | ใช้ `nautilus_common::live::dst::time` หรือ `nautilus_network::dst::time` | การเรียก `std::time::Instant::now` โดยตรงจะอ่านนาฬิกาของ host                                                                                              |
+| เวลาแบบ wall-clock        | ใช้ `nautilus_core::time::duration_since_unix_epoch`                     | การอ่านนาฬิกาโดยตรงจะข้ามเวลาเสมือน                                                                                                                       |
+| ค่าสุ่ม                     | ใช้ `madsim::rand`                                                       | `rand::thread_rng`, `rand::rng()`, `fastrand`, `getrandom` และ `OsRng` ไม่ถูกดักจับ                                                                      |
+| ลำดับการ iterate           | ใช้ `IndexMap`, `IndexSet` หรือ sort ณ จุดที่ใช้งาน                          | การ iterate hash แบบสุ่มจะเปลี่ยนลำดับที่สังเกตได้                                                                                                          |
+| Local task               | Gate `tokio::task::LocalSet` ออกภายใต้ simulation                          | `madsim` ไม่มี `LocalSet` ให้ใช้ `spawn_local` โดยไม่ต้องมีมัน                                                                                               |
+| Blocking task            | Gate ออกหรือลบ `tokio::task::spawn_blocking`                               | Blocking call จะหลุดออกจาก scheduler แบบ deterministic                                                                                                   |
 
-### Adapter DST contract
+### ข้อกำหนด DST สำหรับ adapter {#adapter-dst-contract}
 
-An adapter is DST-compliant only when each requirement below holds for each **claimed path**. The
-[adapter developer guide](../developer_guide/adapters.md#deterministic-simulation) names the reference
-implementation and states the maintained-adapter requirement. This section states the contract itself.
+Adapter จะถือว่าเป็นไปตาม DST ก็ต่อเมื่อทุกข้อกำหนดด้านล่างเป็นจริงสำหรับทุก **เส้นทางที่อ้างว่ารองรับ (claimed path)**
+[คู่มือนักพัฒนา adapter](../developer_guide/adapters.md#deterministic-simulation) ระบุ implementation อ้างอิงและ
+ข้อกำหนดสำหรับ adapter ที่ได้รับการดูแล ส่วนนี้ระบุตัวข้อกำหนดเอง
 
-| Requirement          | Rule                                                                                                                                                                                                                                                                   |
+| ข้อกำหนด              | กฎ                                                                                                                                                                                                                                                                     |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Build boundary       | Exposes and propagates the `simulation` feature. Claimed paths build and run under `cfg(madsim)` with no test-only production behavior.                                                                                                                                |
-| Static gate          | Each claimed-path production file covered by `check-dst-conventions`, or a recorded exclusion rationale.                                                                                                                                                               |
-| Deterministic inputs | Wall time, monotonic time, timers, randomness, and generated identifiers from the `nautilus_common::live::dst` facade, the `nautilus_core::time` wall-clock seam, or injected declared inputs. Auth inputs from deterministic sources.                                 |
-| Async control        | Tasks, timers, and runtime control through the DST facade, `biased;` on each production `select!`, and deterministic connect, reconnect, retry, unsubscribe, and shutdown.                                                                                             |
-| Wire identity        | Ordered collections or explicit sorts at each wire and domain emission boundary. Retries and reconnects preserve protocol identifiers and reproduce byte-identical requests from the same declared inputs. Uncertain outcomes use the shared command-failure taxonomy. |
-| Controlled transport | Each claimed-path endpoint targets a controlled local peer through supported production configuration. No hardcoded venue host, credentials, or live venue state. Fixed synthetic credentials allowed on private paths.                                                |
-| Fresh-process proof  | Same seed, configuration, and peer script produce identical wire transcripts and domain output across fresh processes. At least one calibrated mutation rejected. Upstream pins subscribe bytes and wire fields. Full comparison lives downstream.                     |
+| ขอบเขตของ build       | เปิดเผยและส่งต่อ feature `simulation` เส้นทางที่อ้างว่ารองรับต้อง build และรันได้ภายใต้ `cfg(madsim)` โดยไม่มีพฤติกรรม production ที่มีไว้สำหรับ test เท่านั้น                                                                                                                |
+| Static gate          | ไฟล์ production ทุกไฟล์ของเส้นทางที่อ้างว่ารองรับต้องอยู่ภายใต้ `check-dst-conventions` หรือมีเหตุผลการยกเว้นที่บันทึกไว้                                                                                                                                                       |
+| Input แบบ deterministic | Wall time, เวลาแบบ monotonic, timer, ค่าสุ่ม และ identifier ที่ generate ขึ้น ต้องมาจาก facade `nautilus_common::live::dst`, seam wall-clock ของ `nautilus_core::time` หรือ input ที่ประกาศไว้และ inject เข้ามา input ด้าน auth ต้องมาจากแหล่งแบบ deterministic         |
+| การควบคุม async        | Task, timer และการควบคุม runtime ผ่าน DST facade, มี `biased;` ในทุก `select!` ของ production และการ connect, reconnect, retry, unsubscribe และ shutdown ต้อง deterministic                                                                                               |
+| Identity บน wire      | ใช้ collection ที่มีลำดับหรือ sort อย่างชัดเจนในทุกขอบเขตที่ส่งข้อมูลออกทาง wire และ domain การ retry และ reconnect ต้องคง protocol identifier ไว้ และสร้าง request ที่เหมือนกันทุก byte จาก input ที่ประกาศไว้เดียวกัน ผลลัพธ์ที่ไม่แน่นอนใช้ taxonomy ของ command-failure ร่วมกัน |
+| Transport ที่ควบคุมได้   | ทุก endpoint ของเส้นทางที่อ้างว่ารองรับต้องชี้ไปยัง peer แบบ local ที่ควบคุมได้ผ่าน configuration ของ production ที่รองรับ ไม่มี host ของ venue, credential หรือสถานะของ venue จริงแบบ hardcoded อนุญาต credential สังเคราะห์แบบคงที่บนเส้นทาง private                    |
+| พิสูจน์ด้วย process ใหม่  | Seed, configuration และ peer script เดียวกันต้องให้ wire transcript และ domain output ที่เหมือนกันข้าม process ใหม่ และต้องปฏิเสธ mutation ที่ปรับเทียบไว้อย่างน้อยหนึ่งตัว ฝั่ง upstream pin subscribe byte และ wire field ไว้ ส่วนการเปรียบเทียบแบบเต็มอยู่ฝั่ง downstream |
 
-A capability the adapter does not claim stays outside the contract until a slice proves it. Slices expand the
-proven set. The gates prevent regression.
+ความสามารถที่ adapter ไม่ได้อ้างว่ารองรับจะอยู่นอกข้อกำหนดจนกว่าจะมี slice ที่พิสูจน์ได้ slice ต่าง ๆ จะขยายชุดที่พิสูจน์แล้ว
+และ gate จะป้องกันการถดถอย
 
-## Static enforcement
+## การบังคับใช้แบบ static {#static-enforcement}
 
-Static enforcement has two layers:
+การบังคับใช้แบบ static มีสองชั้น:
 
-| Layer                   | Enforces                                                                                                                  |
+| ชั้น                      | บังคับใช้                                                                                                                  |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Clippy policy           | `clippy.toml` and `[workspace.lints.clippy]` reject direct `getrandom::{fill,u32,u64}` calls and `tokio::task::LocalSet`. |
-| `check-dst-conventions` | The pre-commit hook applies path-aware and cfg-aware structural checks that Clippy cannot express cleanly.                |
+| Clippy policy           | `clippy.toml` และ `[workspace.lints.clippy]` ปฏิเสธการเรียก `getrandom::{fill,u32,u64}` โดยตรงและ `tokio::task::LocalSet` |
+| `check-dst-conventions` | pre-commit hook ที่ใช้การตรวจสอบเชิงโครงสร้างแบบรู้ path และรู้ cfg ซึ่ง Clippy แสดงออกได้ไม่สะอาด                              |
 
-The hook lives at `.pre-commit-hooks/check_dst_conventions.sh` and runs in the standard pre-commit suite and
-CI. Its scope varies by rule:
+Hook อยู่ที่ `.pre-commit-hooks/check_dst_conventions.sh` และรันในชุด pre-commit มาตรฐานและใน CI ขอบเขตต่างกันไปตามกฎ:
 
-- **Rules 1 to 4 and 6**: the 17 in-scope workspace crates and the audited adapter files in the hook's
-  `ADAPTER_PATHS` list.
-- **Rule 5**: its two audited files.
-- **Rule 7**: the nine crates on the madsim build path, those adapter files, and
-  `crates/network/src/websocket/client.rs`.
+- **กฎข้อ 1 ถึง 4 และ 6**: workspace crate 17 ตัวที่อยู่ในขอบเขต และไฟล์ adapter ที่ตรวจสอบแล้วในรายการ `ADAPTER_PATHS`
+  ของ hook
+- **กฎข้อ 5**: ไฟล์ที่ตรวจสอบแล้วสองไฟล์ของกฎนี้
+- **กฎข้อ 7**: crate เก้าตัวบนเส้นทาง build ของ madsim, ไฟล์ adapter เหล่านั้น และ `crates/network/src/websocket/client.rs`
 
-| Rule | Rejects                                                                                                                                        | Scope or exception                                                                                          |
+| กฎ | ปฏิเสธ                                                                                                                                          | ขอบเขตหรือข้อยกเว้น                                                                                            |
 | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| 1    | Raw `std::time::Instant::now()`, `SystemTime::now()`, `jiff::Timestamp::now()`, and `jiff::Zoned::now()` reads, including imported bare forms. | Allows the wall-clock seam, audited log or progress timing, and marked lines.                               |
-| 2    | Raw `rand::thread_rng`, `rand::rng()`, `fastrand::`, `getrandom::`, `OsRng`, and `Uuid::new_v4()` usage.                                       | Allows cfg-gated and marked lines.                                                                          |
-| 3    | Production `tokio::select!` blocks without `biased;` in the first three lines.                                                                 | Excludes tests and marked lines.                                                                            |
-| 4    | `std::thread::spawn`, `std::thread::Builder::new`, and `tokio::task::spawn_blocking`.                                                          | Allows test-only, non-madsim, and marked sites.                                                             |
-| 5    | `AHashMap` or `AHashSet` in the reconciliation manager and matching engine.                                                                    | Covers the two audited files. The remaining file set stays outside this static rule until audited.          |
-| 6    | Direct `tokio::net::TcpStream::connect` and `tokio::net::TcpListener::bind` calls.                                                             | Callers must use `nautilus_network::net`, which swaps to `turmoil::net` under the `turmoil` feature.        |
-| 7    | Raw `tokio::{time,task,runtime,signal}` paths in production code on the madsim build path.                                                     | Allows the facade, process-wide real Tokio runtime, test infrastructure, cfg-gated sites, and marked lines. |
+| 1    | การอ่าน `std::time::Instant::now()`, `SystemTime::now()`, `jiff::Timestamp::now()` และ `jiff::Zoned::now()` แบบดิบ รวมถึงรูปแบบที่ import มาแบบเปล่า | อนุญาต seam wall-clock, การจับเวลาสำหรับ log หรือ progress ที่ตรวจสอบแล้ว และบรรทัดที่มี marker                       |
+| 2    | การใช้ `rand::thread_rng`, `rand::rng()`, `fastrand::`, `getrandom::`, `OsRng` และ `Uuid::new_v4()` แบบดิบ                                      | อนุญาตบรรทัดที่ gate ด้วย cfg และบรรทัดที่มี marker                                                                |
+| 3    | Block `tokio::select!` ใน production ที่ไม่มี `biased;` ในสามบรรทัดแรก                                                                           | ไม่รวม test และบรรทัดที่มี marker                                                                                |
+| 4    | `std::thread::spawn`, `std::thread::Builder::new` และ `tokio::task::spawn_blocking`                                                            | อนุญาตจุดที่ใช้เฉพาะ test, ที่ไม่ใช่ madsim และที่มี marker                                                          |
+| 5    | `AHashMap` หรือ `AHashSet` ใน reconciliation manager และ matching engine                                                                       | ครอบคลุมสองไฟล์ที่ตรวจสอบแล้ว ไฟล์ที่เหลือยังอยู่นอกกฎ static นี้จนกว่าจะตรวจสอบ                                         |
+| 6    | การเรียก `tokio::net::TcpStream::connect` และ `tokio::net::TcpListener::bind` โดยตรง                                                            | ผู้เรียกต้องใช้ `nautilus_network::net` ซึ่งจะสลับไปใช้ `turmoil::net` ภายใต้ feature `turmoil`                       |
+| 7    | Path `tokio::{time,task,runtime,signal}` แบบดิบในโค้ด production บนเส้นทาง build ของ madsim                                                     | อนุญาต facade, Tokio runtime จริงระดับทั้ง process, โครงสร้างพื้นฐานของ test, จุดที่ gate ด้วย cfg และบรรทัดที่มี marker |
 
-Supported Madsim HTTP and WebSocket paths use `nautilus_network::dst::net`. It selects the simulated byte
-stream and re-exports `nautilus_network::net` in normal builds.
+เส้นทาง HTTP และ WebSocket ของ Madsim ที่รองรับใช้ `nautilus_network::dst::net` ซึ่งจะเลือก byte stream แบบจำลอง
+และ re-export `nautilus_network::net` ใน build ปกติ
 
-The hook supports two exception forms:
+Hook รองรับข้อยกเว้นสองรูปแบบ:
 
-- An inline `// dst-ok` marker on a specific line, typically accompanied by a short reason (for
-  example, log-only wall-clock timing that does not affect state).
-- A small file-level allowlist in the hook script itself for sites classified as
-  leave-alone in the codebase audit (log timing in the cache module, log-record timestamping
-  in the logging bridge and writer, progress reporting in the DeFi module).
+- Marker `// dst-ok` แบบ inline บนบรรทัดที่ระบุ ซึ่งมักมาพร้อมเหตุผลสั้น ๆ (เช่น การจับเวลา wall-clock ที่ใช้แค่ log และไม่มีผล
+  ต่อสถานะ)
+- Allowlist ระดับไฟล์ขนาดเล็กใน script ของ hook เอง สำหรับจุดที่การตรวจสอบ codebase จัดว่าให้คงไว้ตามเดิม (การจับเวลา log ใน
+  module cache, การใส่ timestamp ให้ log record ใน logging bridge และ writer, การรายงาน progress ใน module DeFi)
 
-The hook excludes:
+Hook จะไม่รวม:
 
-- Files under `tests/`, `python/`, and `ffi/` directories.
-- Files named `tests.rs`, `*_test.rs`, or `*_tests.rs`.
-- Lines inside an inline `#[cfg(test)]` module.
+- ไฟล์ใต้ directory `tests/`, `python/` และ `ffi/`
+- ไฟล์ชื่อ `tests.rs`, `*_test.rs` หรือ `*_tests.rs`
+- บรรทัดภายใน module `#[cfg(test)]` แบบ inline
 
-These paths are not part of the production DST contract.
+Path เหล่านี้ไม่ใช่ส่วนหนึ่งของข้อกำหนด DST สำหรับ production
 
-### In-scope crates
+### Crate ที่อยู่ในขอบเขต {#in-scope-crates}
 
-The transitive closure of `nautilus-live` contains 16 in-scope crates:
+Transitive closure ของ `nautilus-live` มี crate ที่อยู่ในขอบเขต 16 ตัว:
 
 - `analysis`
 - `common`
@@ -236,124 +224,118 @@ The transitive closure of `nautilus-live` contains 16 in-scope crates:
 - `system`
 - `trading`
 
-The hook also covers `backtest`, bringing the total to 17 crates.
+Hook ยังครอบคลุม `backtest` ด้วย รวมเป็น 17 crate
 
-Adapter crates and infrastructure crates (Redis, Postgres) are out of scope unless an audited slice is
-recorded in the adapter's integration guide. An audited slice names the DST-path files the static gate covers
-and the exclusion rationale for the rest. It also names the runtime slices the adapter's `dst` tests prove.
+Adapter crate และ infrastructure crate (Redis, Postgres) อยู่นอกขอบเขต เว้นแต่จะมี audited slice บันทึกไว้ในคู่มือ integration
+ของ adapter นั้น audited slice จะระบุไฟล์บนเส้นทาง DST ที่ static gate ครอบคลุมและเหตุผลการยกเว้นของไฟล์ที่เหลือ รวมถึงระบุ
+runtime slice ที่ test `dst` ของ adapter พิสูจน์ได้
 
 :::warning
-Static coverage alone does not establish runtime eligibility: covered files may also serve paths
-outside a proven runtime slice.
+การครอบคลุมแบบ static เพียงอย่างเดียวไม่ได้ยืนยันว่ามีสิทธิ์ใช้งานที่ runtime: ไฟล์ที่ครอบคลุมอาจให้บริการเส้นทางที่อยู่นอก
+runtime slice ที่พิสูจน์แล้วด้วย
 :::
 
-## Simulated HTTP and WebSocket transport
+## Transport HTTP และ WebSocket แบบจำลอง {#simulated-http-and-websocket-transport}
 
-With `simulation` and `cfg(madsim)`, `nautilus-network` executes plaintext HTTP/1.1 requests and Tungstenite
-WebSocket connections over Madsim byte streams.
+เมื่อใช้ `simulation` และ `cfg(madsim)` `nautilus-network` จะ execute HTTP/1.1 request แบบ plaintext และการเชื่อมต่อ
+Tungstenite WebSocket ผ่าน byte stream ของ Madsim
 
-- **HTTP**: production and simulated paths share request defaults, URL and query encoding, and response
-  validation. Shared response validation includes buffered body limits and a deadline that covers the body
-  read. The simulation branch in `crates/network/src/http/simulation.rs` uses Hyper for the HTTP/1.1 exchange
-  and owns its Madsim connection task.
-- **WebSocket**: traffic uses the Tungstenite codec. `crates/network/src/dst.rs` routes its owned tasks and
-  transport streams to Madsim.
+- **HTTP**: เส้นทาง production และแบบจำลองใช้ค่าเริ่มต้นของ request, การ encode URL และ query และการตรวจสอบ response
+  ร่วมกัน การตรวจสอบ response ที่ใช้ร่วมกันรวมถึงขีดจำกัดของ body ที่ buffer ไว้และ deadline ที่ครอบคลุมการอ่าน body
+  branch ของ simulation ใน `crates/network/src/http/simulation.rs` ใช้ Hyper สำหรับการแลกเปลี่ยน HTTP/1.1 และเป็นเจ้าของ
+  connection task ของ Madsim เอง
+- **WebSocket**: traffic ใช้ codec ของ Tungstenite โดย `crates/network/src/dst.rs` จะส่ง task และ transport stream ที่ตัวเอง
+  เป็นเจ้าของไปยัง Madsim
 
-Normal builds use pooled Hyper HTTP connections and Tokio tasks.
+Build ปกติใช้การเชื่อมต่อ HTTP ของ Hyper แบบ pooled และ Tokio task
 
-Configure controlled `http://` and `ws://` endpoints and select `TransportBackend::Tungstenite`. Simulation
-rejects HTTPS/WSS, explicit proxies, and Sockudo before opening a connection. Sockudo's internal timers
-require a Tokio runtime. Ambient HTTP proxy settings do not affect the simulated exchange.
+กำหนด endpoint `http://` และ `ws://` ที่ควบคุมได้ และเลือก `TransportBackend::Tungstenite` simulation จะปฏิเสธ HTTPS/WSS,
+proxy ที่ระบุอย่างชัดเจน และ Sockudo ก่อนเปิดการเชื่อมต่อ เพราะ timer ภายในของ Sockudo ต้องใช้ Tokio runtime ค่าตั้ง HTTP
+proxy จากสภาพแวดล้อมไม่มีผลต่อการแลกเปลี่ยนแบบจำลอง
 
-Redirect behavior depends on `HttpRedirectPolicy`:
+พฤติกรรมการ redirect ขึ้นกับ `HttpRedirectPolicy`:
 
-- `Follow` (default): a redirect response with `Location` returns an error instead of following it.
-- `Reject`: returns the redirect response to the caller.
+- `Follow` (ค่าเริ่มต้น): response แบบ redirect ที่มี `Location` จะคืน error แทนการตาม redirect
+- `Reject`: คืน response แบบ redirect ให้ผู้เรียก
 
-The model covers HTTP request bytes, WebSocket message payloads, and domain events. It does not promise
-reproducible WebSocket handshake keys or frame masks, TLS records, OS TCP scheduling, partial writes, socket
-options, or TCP half-close.
+Model นี้ครอบคลุม byte ของ HTTP request, payload ของ WebSocket message และ domain event แต่ไม่รับประกันว่า handshake key
+หรือ frame mask ของ WebSocket, TLS record, การจัดลำดับ TCP ของ OS, partial write, socket option หรือ TCP half-close
+จะทำซ้ำได้
 
-In `crates/network/src/dst/stream.rs`, stream shutdown flushes bytes. Dropping the stream closes the
-connection. Combining `simulation`, `cfg(madsim)`, and `turmoil` is a compile error. Run the two simulators in
-separate builds.
+ใน `crates/network/src/dst/stream.rs` การ shutdown stream จะ flush byte และการ drop stream จะปิดการเชื่อมต่อ การใช้
+`simulation`, `cfg(madsim)` และ `turmoil` ร่วมกันจะเป็น compile error ให้รัน simulator ทั้งสองแยก build กัน
 
-Simulation sorts request headers by name for reproducible HTTP bytes. This canonical order does not promise
-byte-for-byte equality with live request header ordering. Each HTTP request opens a fresh connection.
-Connection pooling and keep-alive reuse are not modeled.
+Simulation จะเรียง request header ตามชื่อเพื่อให้ byte ของ HTTP ทำซ้ำได้ ลำดับมาตรฐานนี้ไม่ได้รับประกันว่าจะตรงทุก byte กับ
+ลำดับ header ของ request จริง HTTP request แต่ละตัวจะเปิดการเชื่อมต่อใหม่ ไม่ได้จำลอง connection pooling และการนำ
+keep-alive กลับมาใช้
 
-Network tests cover transport behavior. They do not establish end-to-end conformance for an adapter, product,
-or channel.
+Network test ครอบคลุมพฤติกรรมของ transport แต่ไม่ได้ยืนยันความสอดคล้องแบบ end-to-end ของ adapter, ผลิตภัณฑ์ หรือ channel
 
-## Network seed soaks
+## Network seed soak {#network-seed-soaks}
 
-[Turmoil](https://crates.io/crates/turmoil) simulates the network under a seeded scheduler. The
-`nautilus-network` transport tests use it to reach link and reconnect orderings outside the madsim
-runtime swap.
+[Turmoil](https://crates.io/crates/turmoil) จำลอง network ภายใต้ scheduler ที่มี seed transport test ของ
+`nautilus-network` ใช้มันเพื่อเข้าถึงลำดับของ link และ reconnect ที่อยู่นอกการสลับ runtime ของ madsim
 
-### Fixed-seed nightly tests
+### Nightly test แบบ seed คงที่ {#fixed-seed-nightly-tests}
 
-The nightly suite runs reproducible scenarios for:
+ชุด nightly รันสถานการณ์ที่ทำซ้ำได้สำหรับ:
 
-- Initial connection.
-- Reconnection.
-- Network partitions.
-- Closing during reconnection.
-- Closing during backoff.
-- Repeated server drops with exact message-order assertions.
+- การเชื่อมต่อครั้งแรก
+- การเชื่อมต่อใหม่ (reconnection)
+- Network partition
+- การปิดระหว่าง reconnection
+- การปิดระหว่าง backoff
+- การที่ server หลุดซ้ำ ๆ พร้อม assertion ลำดับ message แบบตรงตัว
 
-### Reconnect seed soak
+### Reconnect seed soak {#reconnect-seed-soak}
 
-An ignored reconnect test sweeps Turmoil seeds until stopped or until the configured limit is
-reached. For each seed, the soak runs the Tungstenite WebSocket backend first. It then runs Sockudo
-when the `transport-sockudo` feature is enabled, giving both backends the same schedule search path.
+Reconnect test ที่ถูก ignore ไว้จะไล่ seed ของ Turmoil ไปเรื่อย ๆ จนกว่าจะถูกหยุดหรือถึงขีดจำกัดที่ตั้งไว้ ในแต่ละ seed soak
+จะรัน backend Tungstenite WebSocket ก่อน แล้วจึงรัน Sockudo เมื่อเปิด feature `transport-sockudo` ทำให้ backend ทั้งสอง
+ใช้เส้นทางการค้นหา schedule เดียวกัน
 
-| Variable                                  | Default   | Effect                                              |
+| ตัวแปร                                    | ค่าเริ่มต้น   | ผล                                                    |
 | ----------------------------------------- | --------- | --------------------------------------------------- |
-| `NAUTILUS_TURMOIL_SOAK_START`             | `0`       | Selects the first seed, allowing a sweep to resume. |
-| `NAUTILUS_TURMOIL_SOAK_COUNT`             | Unbounded | Stops after the specified number of seeds.          |
-| `NAUTILUS_TURMOIL_SOAK_PROGRESS_INTERVAL` | `100`     | Logs progress after this many seeds per backend.    |
+| `NAUTILUS_TURMOIL_SOAK_START`             | `0`       | เลือก seed แรก ทำให้กลับมาไล่ต่อได้                      |
+| `NAUTILUS_TURMOIL_SOAK_COUNT`             | ไม่จำกัด    | หยุดหลังจากครบจำนวน seed ที่ระบุ                         |
+| `NAUTILUS_TURMOIL_SOAK_PROGRESS_INTERVAL` | `100`     | Log ความคืบหน้าทุก ๆ จำนวน seed นี้ต่อ backend           |
 
-### Run the soak
+### รัน soak {#run-the-soak}
 
-Run the continuous soak with:
+รัน soak แบบต่อเนื่องด้วย:
 
 ```bash
 scripts/soak-network-turmoil.sh
 ```
 
-Run a bounded soak with:
+รัน soak แบบมีขอบเขตด้วย:
 
 ```bash
 env NAUTILUS_TURMOIL_SOAK_COUNT=100 scripts/soak-network-turmoil.sh
 ```
 
-Each seed enables random node order and link latency from 1 ms to 25 ms. The scenario repeatedly
-drops the server, cycles the client through reconnect states, and asserts exact application-message
-order.
+แต่ละ seed จะเปิดการสุ่มลำดับ node และ latency ของ link ตั้งแต่ 1 ms ถึง 25 ms สถานการณ์นี้จะทำให้ server หลุดซ้ำ ๆ, วน client
+ผ่านสถานะ reconnect ต่าง ๆ และ assert ลำดับ message ระดับ application แบบตรงตัว
 
-The soak does not enable Turmoil `fail_rate`. For TCP, packet loss without a retransmit model would
-overstate the client delivery contract in an order-preservation test.
+Soak ไม่ได้เปิด `fail_rate` ของ Turmoil สำหรับ TCP การสูญเสีย packet โดยไม่มี model การ retransmit จะทำให้ข้อกำหนดการส่ง
+ของ client ดูเกินจริงใน test ที่ตรวจการรักษาลำดับ
 
-### Platform coverage
+### การครอบคลุม platform {#platform-coverage}
 
-The Turmoil tests use a simulated network and are not gated to Linux, so the seed sweep also runs on macOS.
-Several real localhost socket and WebSocket unit tests use `target_os = "linux"` for CI stability. A macOS run
-thus leaves that host TCP coverage untouched. Treat the complete network test set as covered only after a run
-on Linux CI or a Linux workstation.
+Turmoil test ใช้ network แบบจำลองและไม่ได้ gate ไว้เฉพาะ Linux การไล่ seed จึงรันบน macOS ได้ด้วย unit test ของ socket และ
+WebSocket บน localhost จริงหลายตัวใช้ `target_os = "linux"` เพื่อความเสถียรของ CI การรันบน macOS จึงไม่ได้ครอบคลุม TCP
+ของ host ส่วนนั้น ให้ถือว่าชุด network test ทั้งหมดครอบคลุมแล้วก็ต่อเมื่อรันบน Linux CI หรือ Linux workstation แล้วเท่านั้น
 
-## Implementation notes
+## หมายเหตุด้าน implementation {#implementation-notes}
 
-These sections map each deterministic seam to its source, purpose, and exceptions.
+ส่วนเหล่านี้ map seam แบบ deterministic แต่ละตัวไปยัง source, วัตถุประสงค์ และข้อยกเว้น
 
-### Iteration-order seams
+### Seam ด้านลำดับการ iterate {#iteration-order-seams}
 
-Production sites use ordered collections or explicit sorting when iteration is observable on the
-DST path.
+จุดใน production ใช้ collection ที่มีลำดับหรือการ sort อย่างชัดเจนเมื่อการ iterate สังเกตได้บนเส้นทาง DST
 
-#### Matching engine
+#### Matching engine {#matching-engine}
 
-`crates/execution/src/matching_engine/mod.rs` uses eleven ordered collections:
+`crates/execution/src/matching_engine/mod.rs` ใช้ collection ที่มีลำดับสิบเอ็ดตัว:
 
 - `execution_bar_types`
 - `execution_bar_deltas`
@@ -367,17 +349,17 @@ DST path.
 - `queue_ahead_total`
 - `queue_excess`
 
-Removals from `queue_pending`, `queue_ahead_orders`, and `queue_ahead_total` use `.shift_remove()`
-so deleting an entry does not reorder the remainder.
+การลบออกจาก `queue_pending`, `queue_ahead_orders` และ `queue_ahead_total` ใช้ `.shift_remove()` เพื่อให้การลบรายการ
+ไม่เปลี่ยนลำดับของรายการที่เหลือ
 
-#### Reconciliation manager
+#### Reconciliation manager {#reconciliation-manager}
 
-Rule 5 covers `crates/live/src/execution/manager.rs`. The `orders` and `fills` maps in
-`ReconciliationResult` use `IndexMap` in `crates/execution/src/reconciliation/types.rs`.
+กฎข้อ 5 ครอบคลุม `crates/live/src/execution/manager.rs` map `orders` และ `fills` ใน `ReconciliationResult` ใช้ `IndexMap`
+ใน `crates/execution/src/reconciliation/types.rs`
 
-#### Account balances
+#### Balance ของ account {#account-balances}
 
-The account trait returns `IndexMap` from:
+Account trait คืน `IndexMap` จาก:
 
 - `balances`
 - `balances_total`
@@ -385,246 +367,215 @@ The account trait returns `IndexMap` from:
 - `balances_locked`
 - `starting_balances`
 
-Balance and margin storage on `BaseAccount` and `MarginAccount` also uses `IndexMap`. The `commissions` and
-`leverages` fields stay `AHashMap`.
+การจัดเก็บ balance และ margin บน `BaseAccount` และ `MarginAccount` ก็ใช้ `IndexMap` เช่นกัน ส่วน field `commissions` และ
+`leverages` ยังเป็น `AHashMap`
 
-#### Position commissions
+#### Commission ของ position {#position-commissions}
 
-`Position::commissions` in `crates/model/src/position.rs` uses `IndexMap`. Position snapshots consume
-the map through `.values()` in `crates/model/src/events/position/snapshot.rs`, making its order
-observable.
+`Position::commissions` ใน `crates/model/src/position.rs` ใช้ `IndexMap` position snapshot ใช้ map นี้ผ่าน `.values()` ใน
+`crates/model/src/events/position/snapshot.rs` ทำให้ลำดับของมันสังเกตได้
 
-#### Portfolio aggregation
+#### การ aggregate ระดับ portfolio {#portfolio-aggregation}
 
-`crates/portfolio/src/portfolio.rs` stores `unrealized_pnls`, `realized_pnls`, and `net_positions`
-in `IndexMap`. `accumulate_mark_values` builds an `IndexMap<Currency, Decimal>`.
+`crates/portfolio/src/portfolio.rs` เก็บ `unrealized_pnls`, `realized_pnls` และ `net_positions` ใน `IndexMap` ส่วน
+`accumulate_mark_values` สร้าง `IndexMap<Currency, Decimal>`
 
-#### Data engine
+#### Data engine {#data-engine}
 
-`crates/data/src/engine/` uses ordered storage for `book_snapshot_counts`, `bar_aggregators`, and
-`BookSnapshotInfos`. Iterated removals use `.shift_remove()`.
+`crates/data/src/engine/` ใช้การจัดเก็บที่มีลำดับสำหรับ `book_snapshot_counts`, `bar_aggregators` และ `BookSnapshotInfos`
+การลบระหว่าง iterate ใช้ `.shift_remove()`
 
-#### Execution engine
+#### Execution engine {#execution-engine}
 
-`ExecutionEngine.clients` uses `IndexMap`. The `client_ids` and `venues` accumulators in
-`get_clients_for_orders()` use `IndexSet`.
+`ExecutionEngine.clients` ใช้ `IndexMap` ตัวสะสม `client_ids` และ `venues` ใน `get_clients_for_orders()` ใช้ `IndexSet`
 
-#### Backtest engine and exchange
+#### Backtest engine และ exchange {#backtest-engine-and-exchange}
 
-`BacktestEngine.venues` and `SimulatedExchange.matching_engines` preserve venue and instrument
-iteration order for:
+`BacktestEngine.venues` และ `SimulatedExchange.matching_engines` คงลำดับการ iterate ของ venue และ instrument ไว้สำหรับ:
 
-- Settlement.
-- Expiration.
-- Liquidation.
-- Seeded `FillModel` draws.
+- Settlement
+- Expiration
+- Liquidation
+- การสุ่มของ `FillModel` ที่มี seed
 
-The source locations are `crates/backtest/src/engine.rs` and `crates/backtest/src/exchange.rs`.
+ตำแหน่งใน source คือ `crates/backtest/src/engine.rs` และ `crates/backtest/src/exchange.rs`
 
-#### Trading algorithm
+#### Trading algorithm {#trading-algorithm}
 
-`strategy_event_handlers` in `crates/trading/src/algorithm/core.rs` uses `IndexMap` to drive ordered
-`msgbus::unsubscribe_*` fan-out.
+`strategy_event_handlers` ใน `crates/trading/src/algorithm/core.rs` ใช้ `IndexMap` เพื่อขับเคลื่อนการ fan-out
+`msgbus::unsubscribe_*` แบบมีลำดับ
 
-#### Analyzer
+#### Analyzer {#analyzer}
 
-`account_balances` and `account_balances_starting` in `crates/analysis/src/analyzer.rs` use
-`IndexMap`.
+`account_balances` และ `account_balances_starting` ใน `crates/analysis/src/analyzer.rs` ใช้ `IndexMap`
 
-#### Cache API
+#### Cache API {#cache-api}
 
-`get_orders_for_ids` and `get_positions_for_ids` in `crates/common/src/cache/mod.rs` sort returned
-vectors by `client_order_id` and `position_id`. The underlying storage keeps `AHashSet` because it
-has set semantics.
+`get_orders_for_ids` และ `get_positions_for_ids` ใน `crates/common/src/cache/mod.rs` จะ sort vector ที่คืนกลับตาม
+`client_order_id` และ `position_id` ส่วนการจัดเก็บเบื้องล่างยังใช้ `AHashSet` เพราะมี semantics แบบ set
 
-#### Instrument store
+#### Instrument store {#instrument-store}
 
-`InstrumentStore.instruments` in `crates/common/src/providers.rs` uses `IndexMap` with the `ahash`
-hasher. The order is observable in adapters that publish one `DataEvent::Instrument` per entry
-from `get_all()` or `list_all()`.
+`InstrumentStore.instruments` ใน `crates/common/src/providers.rs` ใช้ `IndexMap` กับ hasher `ahash` ลำดับนี้สังเกตได้ใน
+adapter ที่ publish `DataEvent::Instrument` หนึ่งตัวต่อหนึ่งรายการจาก `get_all()` หรือ `list_all()`
 
-#### Order emulator
+#### Order emulator {#order-emulator}
 
-`on_reset` in `crates/execution/src/order_emulator/emulator.rs` sorts three drained sets before
-ordered `msgbus::unsubscribe_*` fan-out:
+`on_reset` ใน `crates/execution/src/order_emulator/emulator.rs` จะ sort set สามตัวที่ drain ออกมาก่อนการ fan-out
+`msgbus::unsubscribe_*` แบบมีลำดับ:
 
 - `subscribed_quotes`
 - `subscribed_trades`
 - `subscribed_strategies`
 
-The quote and trade paths also advance the seeded `UUID4::new` draw sequence. Storage stays on `AHashSet`.
+เส้นทางของ quote และ trade ยังทำให้ลำดับการสุ่มของ `UUID4::new` ที่มี seed เดินหน้าด้วย การจัดเก็บยังคงใช้ `AHashSet`
 
-#### WebSocket subscriptions
+#### WebSocket subscription {#websocket-subscriptions}
 
-`topics_from_map` in `crates/network/src/websocket/subscription.rs` sorts its returned vector to preserve
-reconnect replay order behind `all_topics()` while storage stays on `DashMap` with `AHashSet` values.
+`topics_from_map` ใน `crates/network/src/websocket/subscription.rs` จะ sort vector ที่คืนกลับเพื่อคงลำดับการ replay ตอน
+reconnect ที่อยู่เบื้องหลัง `all_topics()` ขณะที่การจัดเก็บยังใช้ `DashMap` ที่มีค่าเป็น `AHashSet`
 
-#### Unordered collection limits
+#### ข้อจำกัดของ collection ที่ไม่มีลำดับ {#unordered-collection-limits}
 
-`AHashMap` / `AHashSet` sites in the `nautilus-live` closure are lookup-only, behind concurrent
-shared-ownership wrappers (`Arc<DashMap>`, `AtomicMap`), or feed into commutative aggregation.
-`backtest` contains additional hash collections outside rule 5's two-file enforcement scope,
-including pre-run validation and result maps. Treat their iteration order as outside the static
-guarantee until each path is audited.
+จุดที่ใช้ `AHashMap` / `AHashSet` ใน closure ของ `nautilus-live` ใช้เพื่อ lookup อย่างเดียว, อยู่หลัง wrapper แบบ shared
+ownership ที่ทำงานพร้อมกันได้ (`Arc<DashMap>`, `AtomicMap`) หรือส่งต่อไปยังการ aggregate แบบสลับที่ได้ (commutative)
+`backtest` มี hash collection เพิ่มเติมที่อยู่นอกขอบเขตการบังคับใช้สองไฟล์ของกฎข้อ 5 รวมถึงการตรวจสอบก่อนรันและ map
+ของผลลัพธ์ ให้ถือว่าลำดับการ iterate ของสิ่งเหล่านี้อยู่นอกการรับประกันแบบ static จนกว่าแต่ละเส้นทางจะได้รับการตรวจสอบ
 
-### Time seams
+### Seam ด้านเวลา {#time-seams}
 
-Remaining `Instant::now` and `SystemTime::now` sites are tests, file-allowlisted locations, or
-marked exceptions:
+จุดที่ยังเหลือของ `Instant::now` และ `SystemTime::now` เป็น test, ตำแหน่งที่อยู่ใน file allowlist หรือข้อยกเว้นที่มี marker:
 
-| Location                             | Use                                                      | Treatment                                                  |
+| ตำแหน่ง                               | การใช้งาน                                                  | การจัดการ                                                     |
 | ------------------------------------ | -------------------------------------------------------- | ---------------------------------------------------------- |
-| `crates/common/src/testing.rs`       | `wait_until` and `wait_until_async` timers.              | Inline `// dst-ok`: test controls use real time by design. |
-| `crates/execution/src/engine/mod.rs` | Initialization log timing in `load_cache`.               | Inline `// dst-ok`: timing does not affect DST state.      |
-| `crates/common/src/cache/mod.rs`     | Timing in `check_integrity` and `audit_own_order_books`. | File allowlist.                                            |
-| `crates/model/src/defi/reporting.rs` | Progress logging.                                        | File allowlist.                                            |
-| `crates/core/src/time.rs`            | Wall-clock seam definition.                              | Explicit seam exception.                                   |
+| `crates/common/src/testing.rs`       | Timer ของ `wait_until` และ `wait_until_async`            | `// dst-ok` แบบ inline: ตัวควบคุมของ test ตั้งใจใช้เวลาจริง      |
+| `crates/execution/src/engine/mod.rs` | จับเวลาเพื่อ log ตอน initialize ใน `load_cache`             | `// dst-ok` แบบ inline: การจับเวลาไม่มีผลต่อสถานะ DST         |
+| `crates/common/src/cache/mod.rs`     | จับเวลาใน `check_integrity` และ `audit_own_order_books`   | File allowlist                                             |
+| `crates/model/src/defi/reporting.rs` | Log ความคืบหน้า                                           | File allowlist                                             |
+| `crates/core/src/time.rs`            | นิยามของ seam wall-clock                                 | ข้อยกเว้นของ seam ที่ระบุไว้ชัดเจน                                |
 
-`jiff::Timestamp::now` and `jiff::Zoned::now` are hook-banned in the in-scope crates. The remaining
-timestamp call sites are the logging bridge and writer, scoped out under
-[Logging runs on real OS threads](#logging-runs-on-real-os-threads).
-`crates/core/src/datetime.rs::is_within_last_24_hours` routes through
-`nautilus_core::time::nanos_since_unix_epoch()` and compares in `u64` nanos directly.
+`jiff::Timestamp::now` และ `jiff::Zoned::now` ถูก hook ห้ามใช้ใน crate ที่อยู่ในขอบเขต จุดเรียก timestamp ที่เหลือคือ logging
+bridge และ writer ซึ่งถูกตัดออกจากขอบเขตตาม [Logging ทำงานบน OS thread จริง](#logging-runs-on-real-os-threads)
+`crates/core/src/datetime.rs::is_within_last_24_hours` เรียกผ่าน `nautilus_core::time::nanos_since_unix_epoch()` และ
+เปรียบเทียบเป็น nanos แบบ `u64` โดยตรง
 
-### Randomness seams
+### Seam ด้านค่าสุ่ม {#randomness-seams}
 
-Production randomness on the DST path uses the following seams.
+ค่าสุ่มใน production บนเส้นทาง DST ใช้ seam ดังต่อไปนี้
 
-#### UUID generation
+#### การสร้าง UUID {#uuid-generation}
 
-`crates/core/src/uuid.rs::UUID4::new()` uses `madsim::rand::thread_rng()` inside a madsim runtime
-under simulation. Normal builds and plain `#[rstest]` bodies outside a madsim runtime use
-`rand::rng()`.
+`crates/core/src/uuid.rs::UUID4::new()` ใช้ `madsim::rand::thread_rng()` ภายใน madsim runtime เมื่ออยู่ภายใต้
+simulation ส่วน build ปกติและ body ของ `#[rstest]` ธรรมดาที่อยู่นอก madsim runtime ใช้ `rand::rng()`
 
-Production simulation paths run inside the runtime and consume seeded bytes. Order and event
-factories in `nautilus-common` and `nautilus-risk` reach this seam.
+เส้นทาง simulation ของ production รันภายใน runtime และใช้ byte ที่มี seed factory ของ order และ event ใน `nautilus-common`
+และ `nautilus-risk` จะเรียกถึง seam นี้
 
-#### Fill model randomness
+#### ค่าสุ่มของ fill model {#fill-model-randomness}
 
-`crates/execution/src/models/fill.rs::default_std_rng()` follows the same runtime split.
-`ProbabilisticFillState::new()` calls it when no seed is provided. When a caller supplies a seed,
-`StdRng::seed_from_u64` is deterministic without the seam.
+`crates/execution/src/models/fill.rs::default_std_rng()` แยกตาม runtime แบบเดียวกัน `ProbabilisticFillState::new()` จะ
+เรียกมันเมื่อไม่มี seed ให้ เมื่อผู้เรียกระบุ seed `StdRng::seed_from_u64` จะ deterministic ได้โดยไม่ต้องใช้ seam
 
-#### Random matching-engine IDs
+#### ID แบบสุ่มของ matching engine {#random-matching-engine-ids}
 
-The `use_random_ids` path in `crates/execution/src/matching_engine/ids_generator.rs` calls
-`nautilus_core::UUID4::new()` for position and venue order IDs. The default ID scheme,
-`{venue}-{raw_id}-{count}`, is deterministic without random bytes.
+เส้นทาง `use_random_ids` ใน `crates/execution/src/matching_engine/ids_generator.rs` จะเรียก `nautilus_core::UUID4::new()`
+สำหรับ position ID และ venue order ID ส่วนรูปแบบ ID เริ่มต้น `{venue}-{raw_id}-{count}` เป็น deterministic โดยไม่ต้องใช้
+byte สุ่ม
 
-#### Reconnect jitter
+#### Jitter ของการ reconnect {#reconnect-jitter}
 
-`crates/network/src/backoff.rs` samples `madsim::rand::thread_rng()` inside the simulation runtime.
-Normal builds and calls outside a Madsim runtime use `rand::rng()`. Restarting the runtime with the
-same seed restarts the simulated jitter sequence.
+`crates/network/src/backoff.rs` สุ่มจาก `madsim::rand::thread_rng()` ภายใน simulation runtime ส่วน build ปกติและการเรียก
+นอก Madsim runtime ใช้ `rand::rng()` การเริ่ม runtime ใหม่ด้วย seed เดิมจะเริ่มลำดับ jitter แบบจำลองใหม่ด้วย
 
-### Tokio submodule split
+### การแบ่ง submodule ของ Tokio {#tokio-submodule-split}
 
-The common facade routes `time`, `task`, `runtime`, and `signal` through `madsim`. Direct uses of
-Tokio's `sync`, `io`, `fs`, and `net` submodules, plus `select!`, stay on real `tokio` under simulation.
-The network-local `dst::net` boundary separately selects Madsim byte streams for the supported
-HTTP and WebSocket paths.
+Facade ส่วนกลางส่ง `time`, `task`, `runtime` และ `signal` ผ่าน `madsim` ส่วนการใช้ submodule `sync`, `io`, `fs` และ `net`
+ของ Tokio โดยตรง รวมถึง `select!` ยังคงใช้ `tokio` จริงภายใต้ simulation ขอบเขต `dst::net` ภายใน network จะเลือก byte
+stream ของ Madsim แยกต่างหากสำหรับเส้นทาง HTTP และ WebSocket ที่รองรับ
 
-A global Tokio network replacement would also affect dependencies such as:
+การแทนที่ network ของ Tokio ทั้งระบบจะกระทบ dependency ต่าง ๆ ด้วย เช่น:
 
 - `tokio-tungstenite`
 - `tokio-rustls`
 - `hyper-util`
 - `hyper-rustls`
 
-The network-local boundary avoids that global replacement by supplying a stream to Hyper and Tungstenite. TLS
-stays outside its simulation scope.
+ขอบเขตภายใน network หลีกเลี่ยงการแทนที่ทั้งระบบนั้นโดยส่ง stream ให้ Hyper และ Tungstenite ส่วน TLS อยู่นอกขอบเขตของ
+simulation นี้
 
-The in-scope direct uses are:
+การใช้งานโดยตรงที่อยู่ในขอบเขตได้แก่:
 
-| Location                              | Real Tokio surface                         | Boundary                                                                 |
+| ตำแหน่ง                                | ส่วนของ Tokio จริงที่ใช้                       | ขอบเขต                                                                    |
 | ------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------ |
-| `crates/network/src/net.rs`           | `tokio::net::{TcpListener, TcpStream}`     | Re-exports the normal transport behind the `crate::net` seam.            |
-| `crates/network/src/socket/client.rs` | `tokio::io::{AsyncReadExt, AsyncWriteExt}` | Performs I/O on the selected transport.                                  |
-| `crates/network/src/tls.rs`           | `tokio::io::{AsyncRead, AsyncWrite}`       | Defines TLS I/O bounds.                                                  |
-| `crates/network/src/socket/types.rs`  | `tokio::io::{ReadHalf, WriteHalf}`         | Splits `MaybeTlsStream<TcpStream>`. `TcpStream` comes from `crate::net`. |
+| `crates/network/src/net.rs`           | `tokio::net::{TcpListener, TcpStream}`     | Re-export transport ปกติไว้หลัง seam `crate::net`                          |
+| `crates/network/src/socket/client.rs` | `tokio::io::{AsyncReadExt, AsyncWriteExt}` | ทำ I/O บน transport ที่เลือก                                               |
+| `crates/network/src/tls.rs`           | `tokio::io::{AsyncRead, AsyncWrite}`       | นิยามขอบเขต I/O ของ TLS                                                   |
+| `crates/network/src/socket/types.rs`  | `tokio::io::{ReadHalf, WriteHalf}`         | แยก `MaybeTlsStream<TcpStream>` โดย `TcpStream` มาจาก `crate::net`         |
 
-These paths use real sockets even under simulation. The `tokio::sync` channel implementation also stays real,
-but madsim schedules its sender and receiver tasks. Channel delivery order thus stays part of the
-deterministic scheduling contract.
+เส้นทางเหล่านี้ใช้ socket จริงแม้อยู่ภายใต้ simulation implementation ของ channel ใน `tokio::sync` ก็ยังเป็นของจริง แต่ madsim
+เป็นผู้จัด schedule ของ task ฝั่ง sender และ receiver ลำดับการส่งบน channel จึงยังเป็นส่วนหนึ่งของข้อกำหนดการจัด schedule
+แบบ deterministic
 
-### Raw thread escape rules
+### กฎการหลุดออกของ thread แบบดิบ {#raw-thread-escape-rules}
 
-Rule 4 of the hook bans raw thread spawning outside three escape cases:
+กฎข้อ 4 ของ hook ห้ามการ spawn thread แบบดิบ ยกเว้นสามกรณี:
 
-- `#[cfg(test)]` test modules.
-- `#[cfg(not(madsim))]` or `#[cfg(not(all(feature = "simulation", madsim)))]` production
-  sites (for example, the logging writer thread).
-- An inline `// dst-ok` marker.
+- Test module แบบ `#[cfg(test)]`
+- จุดใน production ที่เป็น `#[cfg(not(madsim))]` หรือ `#[cfg(not(all(feature = "simulation", madsim)))]` (เช่น thread
+  ของ logging writer)
+- Marker `// dst-ok` แบบ inline
 
-`tokio::task::LocalSet` and `tokio::task::spawn_blocking` are not supported under `madsim`. The codebase audit
-found no production sites for either inside the in-scope crates. New sites must carry a cfg gate or
-`// dst-ok` marker.
+`tokio::task::LocalSet` และ `tokio::task::spawn_blocking` ไม่รองรับภายใต้ `madsim` การตรวจสอบ codebase ไม่พบการใช้ทั้งสอง
+ใน production ภายใน crate ที่อยู่ในขอบเขต จุดใหม่ต้องมี cfg gate หรือ marker `// dst-ok`
 
-### Logging tests under simulation
+### Logging test ภายใต้ simulation {#logging-tests-under-simulation}
 
-The logging writer thread is cfg-gated out under simulation. Under `cfg(madsim)` log events are dropped. Tests
-that initialize the file-logging writer would either hang or assert against an empty log file. Thus, the
-affected submodules are gated out at the module boundary:
+Thread ของ logging writer ถูก gate ออกด้วย cfg ภายใต้ simulation และภายใต้ `cfg(madsim)` log event จะถูกทิ้ง test ที่
+initialize file-logging writer จะค้างหรือ assert กับไฟล์ log ที่ว่างเปล่า submodule ที่ได้รับผลกระทบจึงถูก gate ออกที่ขอบเขต
+ของ module:
 
 - `crates/common/src/logging/logger.rs::tests::serial_tests`.
 - `crates/common/src/logging/macros.rs::tests`.
 
-`logger.rs::tests::sim_tests::test_init_under_madsim_skips_writer_thread_and_forces_bypass`
-runs under simulation and pins the gated behavior.
+`logger.rs::tests::sim_tests::test_init_under_madsim_skips_writer_thread_and_forces_bypass` รันภายใต้ simulation และ
+pin พฤติกรรมที่ถูก gate ไว้
 
-## Scope boundaries
+## ขอบเขตของข้อกำหนด {#scope-boundaries}
 
-The contract is limited by the boundaries below. Each subsection identifies behavior that can vary between
-runs or stays outside the audited DST path.
+ข้อกำหนดถูกจำกัดด้วยขอบเขตด้านล่าง แต่ละหัวข้อย่อยระบุพฤติกรรมที่อาจแตกต่างกันระหว่างการรัน หรืออยู่นอกเส้นทาง DST
+ที่ตรวจสอบแล้ว
 
-### Python and FFI are not in DST scope
+### Python และ FFI ไม่อยู่ในขอบเขตของ DST {#python-and-ffi-are-not-in-dst-scope}
 
-DST runs under a native Rust test harness and does not start a Python interpreter. The contract
-excludes:
+DST รันภายใต้ test harness แบบ native ของ Rust ข้อกำหนดนี้ไม่รวม binding ใต้ `crates/*/src/python/`, FFI module ใต้
+`crates/core/src/ffi/` และ `crates/model/src/ffi/` รวมถึงโค้ดที่เข้าถึงได้ผ่าน binding เหล่านี้เท่านั้น เส้นทาง Rust ใดก็ตาม
+ที่ harness DST แบบ native เข้าถึงได้ต้องเป็นไปตามข้อกำหนด แม้ type เดียวกันจะถูก export ผ่าน binding ด้วยก็ตาม
 
-- PyO3 bindings under `crates/*/src/python/`.
-- Rust FFI modules under `crates/core/src/ffi/` and `crates/model/src/ffi/`.
-- The Python package under `python/nautilus_trader/`.
+Hook `check-dst-conventions` ใช้นโยบายนี้โดยข้าม path `/python/` และ `/ffi/` ใน crate ที่อยู่ในขอบเขต การเรียก clock, RNG และ
+threading ที่อยู่หลัง path เหล่านั้นไม่อยู่ภายใต้ข้อกำหนด
 
-Code reachable only through these bindings is out of scope. Any Rust path reachable from the native
-DST harness must satisfy the contract, even when the same type is also exported through a binding.
+DST ครอบคลุม state machine ของวงจรชีวิต order, reconciliation, matching, risk และ execution ใน Rust engine เป็นหลัก
+strategy ของผู้ใช้จะ replay ได้ก็ต่อเมื่อเขียนด้วย Rust หรือขับเคลื่อนผ่าน test harness แบบ Rust-native เท่านั้น
 
-The `check-dst-conventions` hook encodes this policy by skipping `/python/` and `/ffi/` paths in the
-in-scope crates. Clock, RNG, and threading calls behind those paths do not apply to the contract.
+### จำกัดตาม platform {#platform-scoped}
 
-DST primarily covers the order lifecycle, reconciliation, matching, risk, and execution state
-machines in the Rust engine. User strategies are replayable only when written in Rust or driven
-through a Rust-native test harness.
+การ override libc ของ `madsim` สำหรับ `clock_gettime` และ `getrandom` ขึ้นกับ platform ข้อกำหนดนี้ไม่ได้อ้างว่าทำซ้ำได้
+ระดับ bit ข้าม platform seed ที่ทำซ้ำความล้มเหลวได้บน Linux x86_64 อาจทำซ้ำไม่ได้บน macOS aarch64
 
-A Python strategy can vary its command stream by:
+### Dependency ที่ไม่ได้ทำ alias จะหลุดออกไปเงียบ ๆ {#non-aliased-dependencies-escape-silently}
 
-- Calling `time.time()`.
-- Issuing arbitrary network requests.
-- Relying on OS thread scheduling.
+Dependency จะหลุดออกจาก simulator โดยไม่มี error เมื่อเข้าถึง OS ผ่าน:
 
-The Rust core processes that command stream according to its deterministic contract, but DST does
-not guarantee end-to-end replay from a Python entry point.
+- การเรียก `libc` โดยตรง
+- การข้ามผ่าน `std::net`
+- ค่าสุ่มที่ไม่ได้ส่งผ่าน seam เช่น `fastrand` หรือ `OsRng`
 
-### Platform-scoped
+Crate ที่อยู่ในขอบเขตได้รับการตรวจสอบแล้ว adapter crate และ infrastructure crate ต้องได้รับการตรวจสอบแยกต่างหากก่อน
+เข้าสู่เส้นทาง DST
 
-`madsim`'s libc overrides for `clock_gettime` and `getrandom` are platform-specific. The contract
-does not claim cross-platform bitwise reproducibility. A seed that reproduces a failure on Linux
-x86_64 may not reproduce it on macOS aarch64.
+### ข้อจำกัดด้านขอบเขตของ transport {#transport-scope-limits}
 
-### Non-aliased dependencies escape silently
-
-A dependency escapes the simulator without an error when it reaches the OS through:
-
-- Direct `libc` calls.
-- A `std::net` bypass.
-- Unrouted randomness such as `fastrand` or `OsRng`.
-
-The in-scope crates have been audited. Adapter and infrastructure crates require separate audits
-before entering the DST path.
-
-### Transport scope limits
-
-The following dependencies use real `tokio` internally:
+Dependency ต่อไปนี้ใช้ `tokio` จริงภายใน:
 
 - `tokio-tungstenite`
 - `tokio-rustls`
@@ -633,12 +584,11 @@ The following dependencies use real `tokio` internally:
 - `redis`
 - `sqlx`
 
-The [simulated HTTP and WebSocket transport](#simulated-http-and-websocket-transport) supplies Madsim streams
-to the supported plaintext paths. Raw socket clients, TLS, Redis, and SQL stay outside that boundary. Turmoil
-provides the separate network simulation described in [Network seed soaks](#network-seed-soaks).
+[Transport HTTP และ WebSocket แบบจำลอง](#simulated-http-and-websocket-transport) ส่ง stream ของ Madsim ให้กับเส้นทาง
+plaintext ที่รองรับ ส่วน raw socket client, TLS, Redis และ SQL อยู่นอกขอบเขตนั้น Turmoil ให้การจำลอง network แยกต่างหาก
+ตามที่อธิบายไว้ใน [Network seed soak](#network-seed-soaks)
 
-The following test modules drive real localhost sockets and are cfg-gated out under
-`all(feature = "simulation", madsim)`:
+Test module ต่อไปนี้ใช้ socket บน localhost จริงและถูก gate ออกด้วย cfg ภายใต้ `all(feature = "simulation", madsim)`:
 
 - `crates/network/src/http/client.rs::tests`
 - `crates/network/src/http/tests.rs`
@@ -648,181 +598,176 @@ The following test modules drive real localhost sockets and are cfg-gated out un
 - `crates/network/src/websocket/client.rs::rust_tests`
 - `crates/network/tests/integration/websocket_proxy.rs`
 
-Their production paths reach madsim time primitives through `dst::time::*`, which panic when called
-from a `#[tokio::test]` runtime.
+เส้นทาง production ของ test เหล่านี้เรียกถึง time primitive ของ madsim ผ่าน `dst::time::*` ซึ่งจะ panic เมื่อถูกเรียกจาก
+runtime ของ `#[tokio::test]`
 
-The retry modules in `crates/network/src/retry.rs` run under both runtimes. Their test attributes switch
-between `#[tokio::test(start_paused = true)]` and `#[madsim::test]`. Time reads and sleeps use
-`crate::dst::time`. Explicit virtual-time advances use a cfg-gated `advance_clock` function. The same test
-bodies thus cover normal and simulation builds.
+Retry module ใน `crates/network/src/retry.rs` รันได้ทั้งสอง runtime โดย attribute ของ test จะสลับระหว่าง
+`#[tokio::test(start_paused = true)]` และ `#[madsim::test]` การอ่านเวลาและการ sleep ใช้ `crate::dst::time` การเลื่อนเวลา
+เสมือนอย่างชัดเจนใช้ฟังก์ชัน `advance_clock` ที่ gate ด้วย cfg body ของ test ชุดเดียวกันจึงครอบคลุมทั้ง build ปกติและ
+build แบบ simulation
 
-### Signal handling
+### การจัดการ signal {#signal-handling}
 
-`nautilus_common::live::dst::signal` exposes routed `ctrl_c` and `terminate` re-exports. The run loop in
-`crates/live/src/node/mod.rs` uses them. Under `cfg(madsim)`, tests can inject node shutdown through
-`madsim::runtime::Handle::send_ctrl_c`. Adapter binary entry points still call `tokio::signal::ctrl_c`
-directly and stay out of scope.
+`nautilus_common::live::dst::signal` เปิดเผย re-export `ctrl_c` และ `terminate` ที่ส่งผ่าน seam แล้ว run loop ใน
+`crates/live/src/node/mod.rs` ใช้สิ่งเหล่านี้ ภายใต้ `cfg(madsim)` test สามารถ inject การ shutdown ของ node ผ่าน
+`madsim::runtime::Handle::send_ctrl_c` ได้ ส่วน entry point ของ binary ของ adapter ยังเรียก `tokio::signal::ctrl_c` โดยตรง
+และอยู่นอกขอบเขต
 
-### Logging runs on real OS threads
+### Logging ทำงานบน OS thread จริง {#logging-runs-on-real-os-threads}
 
-The logging subsystem spawns a writer thread through `std::thread::Builder` and uses `std::sync::mpsc`. Under
-simulation, the thread is not spawned and log events are dropped. Log output is outside the determinism
-contract: the writer only writes, never reads or mutates simulation state.
+ระบบย่อย logging spawn writer thread ผ่าน `std::thread::Builder` และใช้ `std::sync::mpsc` ภายใต้ simulation thread นี้
+จะไม่ถูก spawn และ log event จะถูกทิ้ง ผลลัพธ์ของ log อยู่นอกข้อกำหนดด้าน determinism: writer ทำหน้าที่เขียนอย่างเดียว
+ไม่เคยอ่านหรือเปลี่ยนแปลงสถานะของ simulation
 
-### Adapters
+### Adapter {#adapters}
 
-End-to-end adapter behavior stays outside the upstream simulation test scope. Depending on the adapter,
-unaudited paths contain:
+พฤติกรรมแบบ end-to-end ของ adapter อยู่นอกขอบเขตของ simulation test ฝั่ง upstream เส้นทางที่ยังไม่ได้ตรวจสอบอาจมี
+สิ่งต่อไปนี้ ขึ้นอยู่กับ adapter:
 
-- Direct `jiff::Timestamp::now` or `jiff::Zoned::now` calls.
-- Direct `SystemTime::now` calls.
-- Unrouted RNG calls.
-- Raw transport clients.
+- การเรียก `jiff::Timestamp::now` หรือ `jiff::Zoned::now` โดยตรง
+- การเรียก `SystemTime::now` โดยตรง
+- การเรียก RNG ที่ไม่ได้ส่งผ่าน seam
+- Transport client แบบดิบ
 
-An adapter must be audited for these sites before the DST contract covers its behavior.
+Adapter ต้องได้รับการตรวจสอบจุดเหล่านี้ก่อน ข้อกำหนด DST จึงจะครอบคลุมพฤติกรรมของมัน
 
-## Relationship to other testing layers
+## ความสัมพันธ์กับการทดสอบชั้นอื่น {#relationship-to-other-testing-layers}
 
-DST complements existing testing. It does not replace any of it.
+DST เสริมการทดสอบที่มีอยู่ ไม่ได้มาแทนที่ส่วนใดเลย
 
-| Layer                   | Covers                                               | DST relationship                                |
+| ชั้น                      | ครอบคลุม                                               | ความสัมพันธ์กับ DST                                 |
 | ----------------------- | ---------------------------------------------------- | ----------------------------------------------- |
-| Unit tests              | Pure logic, calculations, parsers, transformers.     | Unchanged.                                      |
-| Integration tests       | Component interaction, I/O boundaries.               | Unchanged. DST runs alongside, not in place of. |
-| Property-based tests    | Invariants over input domains (parsers, roundtrips). | Unchanged.                                      |
-| Acceptance tests        | End-to-end backtest and live scenarios.              | Unchanged.                                      |
-| Deterministic sim (DST) | Async timing, scheduling, recovery correctness.      | Adds seed-replayable exploration.               |
+| Unit test               | Logic ล้วน, การคำนวณ, parser, transformer             | ไม่เปลี่ยนแปลง                                     |
+| Integration test        | ปฏิสัมพันธ์ระหว่าง component, ขอบเขตของ I/O             | ไม่เปลี่ยนแปลง DST รันควบคู่กัน ไม่ได้มาแทน             |
+| Property-based test     | Invariant บนโดเมนของ input (parser, roundtrip)        | ไม่เปลี่ยนแปลง                                     |
+| Acceptance test         | สถานการณ์ backtest และ live แบบ end-to-end            | ไม่เปลี่ยนแปลง                                     |
+| Deterministic sim (DST) | จังหวะเวลาของ async, การจัด schedule, ความถูกต้องของการกู้คืน | เพิ่มการสำรวจที่ replay ได้ด้วย seed                 |
 
-DST covers async concurrency and state-machine correctness. Representative failures include:
+DST ครอบคลุม concurrency แบบ async และความถูกต้องของ state machine ตัวอย่างความล้มเหลวได้แก่:
 
-- A shutdown message dropped under one task wakeup order.
-- A reconciliation event lost when iteration order changes.
+- Shutdown message ถูกทิ้งภายใต้ลำดับการ wakeup ของ task แบบหนึ่ง
+- Reconciliation event หายไปเมื่อลำดับการ iterate เปลี่ยน
 
-The other testing layers keep responsibility for their existing scopes.
+การทดสอบชั้นอื่นยังคงรับผิดชอบขอบเขตเดิมของตน
 
-## Status
+## สถานะ {#status}
 
-### Runtime swap
+### การสลับ runtime {#runtime-swap}
 
-Layer 1 is implemented. `nautilus_common::live::dst` exposes routed re-exports for `time`, `task`, `runtime`,
-and `signal`. Production call sites for `time`, `task`, and `runtime` use the seam. Signal adoption stays
-partial. See [Signal handling](#signal-handling).
+ชั้นที่ 1 implement แล้ว `nautilus_common::live::dst` เปิดเผย re-export ที่ส่งผ่าน seam สำหรับ `time`, `task`, `runtime`
+และ `signal` call site ใน production สำหรับ `time`, `task` และ `runtime` ใช้ seam นี้ ส่วนการนำ signal มาใช้ยังเป็นเพียงบางส่วน
+ดู [การจัดการ signal](#signal-handling)
 
-### Nondeterminism substitution
+### การแทนที่แหล่งความไม่ deterministic {#nondeterminism-substitution}
 
-Layer 2 is implemented across the 17 in-scope crates. Seams cover wall-clock time, monotonic time,
-randomness, and observable iteration order. [Implementation notes](#implementation-notes) lists the
-audited paths and remaining exceptions.
+ชั้นที่ 2 implement แล้วใน crate ที่อยู่ในขอบเขตทั้ง 17 ตัว seam ครอบคลุมเวลาแบบ wall-clock, เวลาแบบ monotonic, ค่าสุ่ม
+และลำดับการ iterate ที่สังเกตได้ [หมายเหตุด้าน implementation](#implementation-notes) แสดงรายการเส้นทางที่ตรวจสอบแล้ว
+และข้อยกเว้นที่เหลืออยู่
 
-### Static enforcement status
+### สถานะของการบังคับใช้แบบ static {#static-enforcement-status}
 
-`check-dst-conventions` runs in pre-commit and CI. It covers the load-bearing structural conditions
-and permits reviewed per-line exceptions through `// dst-ok`.
+`check-dst-conventions` รันใน pre-commit และ CI ครอบคลุมเงื่อนไขเชิงโครงสร้างที่เป็นแกนสำคัญ และอนุญาตข้อยกเว้นรายบรรทัด
+ที่ review แล้วผ่าน `// dst-ok`
 
-### Runtime verification limit
+### ข้อจำกัดของการยืนยันที่ runtime {#runtime-verification-limit}
 
-Verification covers seam tests and static checks. This repository does not compare complete
-adapter runs across fresh processes.
+การยืนยันครอบคลุม test ของ seam และ static check repository นี้ไม่ได้เปรียบเทียบการรัน adapter แบบเต็มข้าม process ใหม่
 
-### Simulation smoke gate
+### Simulation smoke gate {#simulation-smoke-gate}
 
-The nightly workflow and local pre-flight use the same DST targets:
+Nightly workflow และ pre-flight แบบ local ใช้ DST target ชุดเดียวกัน:
 
-| Entry point                           | Relevant order                                            | Purpose                                                  |
+| Entry point                           | ลำดับที่เกี่ยวข้อง                                            | วัตถุประสงค์                                                  |
 | ------------------------------------- | --------------------------------------------------------- | -------------------------------------------------------- |
-| `.github/workflows/nightly-tests.yml` | `check-code-sim` > `cargo-test-sim`                       | Runs the nightly and manually dispatched DST smoke gate. |
-| `make pre-flight`                     | `check-code-sim` > `cargo-test-sim` > `cargo-test-extras` | Fails early on DST lint before the Rust test suites.     |
+| `.github/workflows/nightly-tests.yml` | `check-code-sim` > `cargo-test-sim`                       | รัน DST smoke gate แบบ nightly และแบบสั่งรันด้วยมือ              |
+| `make pre-flight`                     | `check-code-sim` > `cargo-test-sim` > `cargo-test-extras` | ล้มเหลวตั้งแต่เนิ่น ๆ เมื่อ DST lint ไม่ผ่าน ก่อนถึงชุด test ของ Rust |
 
-`check-code-sim` runs pinned stable Clippy with `--features simulation` and `cfg(madsim)` across
-`nautilus-common`, `nautilus-core`, `nautilus-event-store`, `nautilus-network`,
-`nautilus-execution`, and `nautilus-live`. A separate `--no-default-features` leg compiles and lints
-each audited adapter without its default features in the standard-precision core leg.
+`check-code-sim` รัน Clippy เวอร์ชัน stable ที่ pin ไว้ด้วย `--features simulation` และ `cfg(madsim)` กับ
+`nautilus-common`, `nautilus-core`, `nautilus-event-store`, `nautilus-network`, `nautilus-execution` และ `nautilus-live`
+มีอีกขาหนึ่งที่ใช้ `--no-default-features` แยกต่างหาก เพื่อ compile และ lint adapter ที่ตรวจสอบแล้วแต่ละตัวโดยไม่มี default
+feature ในขาของ core แบบ standard precision
 
-`cargo-test-sim` uses three feature-coherent nextest invocations:
+`cargo-test-sim` ใช้การเรียก nextest สามครั้งที่มีชุด feature สอดคล้องกัน:
 
-| Precision | Packages                                                                                                              | Features                    | Selection                                                                                           |
+| Precision | Package                                                                                                               | Feature                     | การเลือก                                                                                             |
 | --------- | --------------------------------------------------------------------------------------------------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------- |
-| Standard  | `nautilus-common`, `nautilus-core`, `nautilus-event-store`, `nautilus-network`, `nautilus-execution`, `nautilus-live` | `simulation`                | All compatible common, event-store, network, and execution tests, plus focused live and core tests. |
-| Standard  | Each audited adapter                                                                                                  | `simulation`                | Integration `dst` tests only, without adapter default features.                                     |
-| High      | `nautilus-common`, `nautilus-execution`                                                                               | `simulation,high-precision` | All tests in both packages.                                                                         |
+| Standard  | `nautilus-common`, `nautilus-core`, `nautilus-event-store`, `nautilus-network`, `nautilus-execution`, `nautilus-live` | `simulation`                | Test ที่เข้ากันได้ทั้งหมดของ common, event-store, network และ execution รวมถึง test เฉพาะจุดของ live และ core |
+| Standard  | Adapter ที่ตรวจสอบแล้วแต่ละตัว                                                                                            | `simulation`                | เฉพาะ integration test `dst` โดยไม่มี default feature ของ adapter                                    |
+| High      | `nautilus-common`, `nautilus-execution`                                                                               | `simulation,high-precision` | Test ทั้งหมดในทั้งสอง package                                                                          |
 
-Nextest compiles the selected library and test targets, so the gate does not run a separate Cargo
-build. The invocations resolve each feature set once across their package sets. Together they
-exercise seam-routed `QuantityRaw` (`u64` / `u128`) and `PriceRaw` (`i64` / `i128`) paths at both fixed-point widths.
+Nextest compile library และ test target ที่เลือกไว้ gate นี้จึงไม่ต้องรัน Cargo build แยกต่างหาก การเรียกแต่ละครั้ง resolve
+ชุด feature เพียงครั้งเดียวข้าม package ในชุดนั้น เมื่อรวมกันแล้วจะทดสอบเส้นทาง `QuantityRaw` (`u64` / `u128`) และ
+`PriceRaw` (`i64` / `i128`) ที่ส่งผ่าน seam ในความกว้าง fixed-point ทั้งสองแบบ
 
-#### Common tests
+#### Common test {#common-tests}
 
-The standard-precision run executes all simulation-compatible `nautilus-common` tests. Its feature
-graph propagates `nautilus-core/simulation`, selecting the `wall_clock_now` cfg branch throughout
-the suite.
+การรันแบบ standard precision จะ execute test ทั้งหมดของ `nautilus-common` ที่เข้ากันได้กับ simulation feature graph ของมัน
+ส่งต่อ `nautilus-core/simulation` ทำให้เลือก cfg branch `wall_clock_now` ตลอดทั้งชุด
 
-Plain `#[rstest]` bodies run outside a madsim runtime and use the seam's `SystemTime::now()` fallback.
-This is the same path madsim's libc shim takes outside a runtime.
+Body ของ `#[rstest]` ธรรมดารันนอก madsim runtime และใช้ fallback `SystemTime::now()` ของ seam ซึ่งเป็นเส้นทางเดียวกับที่
+libc shim ของ madsim ใช้เมื่ออยู่นอก runtime
 
-The `LiveClock` test module is cfg-gated out because its plain `#[rstest]` cases start `LiveTimer`
-tasks without a madsim runtime, and most wait for wall-clock progress.
+Test module ของ `LiveClock` ถูก gate ออกด้วย cfg เพราะ case แบบ `#[rstest]` ธรรมดาของมันเริ่ม task `LiveTimer` โดยไม่มี
+madsim runtime และส่วนใหญ่รอให้ wall-clock เดินไปข้างหน้า
 
-`live::dst::tests::test_dst_wall_clock_advances_with_virtual_time` runs under `#[madsim::test]` and
-asserts that `nanos_since_unix_epoch` advances with `madsim::time::sleep`. This pins virtual
-wall-clock behavior inside the runtime.
+`live::dst::tests::test_dst_wall_clock_advances_with_virtual_time` รันภายใต้ `#[madsim::test]` และ assert ว่า
+`nanos_since_unix_epoch` เดินหน้าไปพร้อมกับ `madsim::time::sleep` ซึ่ง pin พฤติกรรมของ wall-clock เสมือนภายใน runtime
 
-#### Event store tests
+#### Event store test {#event-store-tests}
 
-The standard-precision run executes all simulation-compatible `nautilus-event-store` tests. It exercises the
-synchronous event and marker writers under `cfg(madsim)`, including deterministic sequence ordering. Tests
-that depend on blocking OS threads keep native coverage and are gated out because those threads run outside
-madsim's scheduling control.
+การรันแบบ standard precision จะ execute test ทั้งหมดของ `nautilus-event-store` ที่เข้ากันได้กับ simulation โดยทดสอบ event
+writer และ marker writer แบบ synchronous ภายใต้ `cfg(madsim)` รวมถึงการจัดลำดับ sequence แบบ deterministic test ที่พึ่ง
+OS thread แบบ blocking ยังคงมีการทดสอบแบบ native และถูก gate ออก เพราะ thread เหล่านั้นทำงานนอกการควบคุมการจัด schedule
+ของ madsim
 
-The event-store smoke lane compiles and tests its existing simulation implementation without
-extending the static convention hook to event-store production code.
+Smoke lane ของ event-store จะ compile และทดสอบ implementation ด้าน simulation ที่มีอยู่ โดยไม่ได้ขยาย static convention
+hook ไปยังโค้ด production ของ event-store
 
-#### Live startup reconciliation
+#### Reconciliation ตอน startup ของ live {#live-startup-reconciliation}
 
-The focused `nautilus-live` regression runs under madsim. It verifies that a pending mass-status request
-reaches its configured timeout and reports the expected error. It also verifies node cleanup.
-The full timeout and cleanup flow never enters a real Tokio timer.
+Regression test เฉพาะจุดของ `nautilus-live` รันภายใต้ madsim โดยยืนยันว่า mass-status request ที่ค้างอยู่จะถึง timeout ที่ตั้งไว้
+และรายงาน error ที่คาดไว้ และยืนยันการ cleanup ของ node ด้วย flow ของ timeout และ cleanup ทั้งหมดไม่เคยเข้าไปใช้ timer
+ของ Tokio จริงเลย
 
-#### Network tests
+#### Network test {#network-tests}
 
-The run executes all `nautilus-network` tests except transport-bound modules cfg-gated out at the
-source. Coverage includes virtual-time seam tests for sleep, timeout, and the rate limiter, plus the
-retry suites that exercise backoff timing. `crates/network/tests/simulation.rs` adds WebSocket
-reconnect, unsupported endpoint and Sockudo rejection, and jitter reset checks. Unit tests in
-`crates/network/src/http/simulation.rs` cover request bytes, response limits, body deadlines,
-cancellation, redirect policy, and HTTPS/proxy rejection.
+การรันจะ execute test ทั้งหมดของ `nautilus-network` ยกเว้น module ที่ผูกกับ transport ซึ่งถูก gate ออกด้วย cfg ที่ source
+การครอบคลุมรวมถึง test ของ seam เวลาเสมือนสำหรับ sleep, timeout และ rate limiter รวมถึงชุด retry ที่ทดสอบจังหวะของ backoff
+`crates/network/tests/simulation.rs` เพิ่มการตรวจสอบ WebSocket reconnect, การปฏิเสธ endpoint ที่ไม่รองรับและ Sockudo และ
+การ reset jitter unit test ใน `crates/network/src/http/simulation.rs` ครอบคลุม byte ของ request, ขีดจำกัดของ response,
+deadline ของ body, การยกเลิก, redirect policy และการปฏิเสธ HTTPS/proxy
 
-`#[madsim::test]` uses a varying seed by default and reports it on failure. Set `MADSIM_TEST_SEED`
-to replay a schedule. The `dst smoke (cfg madsim)` job in `.github/workflows/nightly-tests.yml`
-selects five consecutive seeds from `GITHUB_RUN_NUMBER * MADSIM_TEST_NUM`. The jitter runtime-reset
-test pins its own seed and complements the cross-seed network checks.
+`#[madsim::test]` ใช้ seed ที่เปลี่ยนไปเป็นค่าเริ่มต้นและรายงาน seed เมื่อล้มเหลว ตั้ง `MADSIM_TEST_SEED` เพื่อ replay schedule
+job `dst smoke (cfg madsim)` ใน `.github/workflows/nightly-tests.yml` เลือก seed ต่อเนื่องห้าตัวจาก
+`GITHUB_RUN_NUMBER * MADSIM_TEST_NUM` test การ reset runtime ของ jitter จะ pin seed ของตัวเองและเสริมการตรวจสอบ network
+แบบข้าม seed
 
-#### Execution tests
+#### Execution test {#execution-tests}
 
-The run executes all `nautilus-execution` tests. These plain `#[rstest]` cases exercise cfg-gated branches in
-the matching engine, fill model, and execution engine without entering a madsim runtime. `default_std_rng()`
-thus takes its host-RNG fallback in these tests.
+การรันจะ execute test ทั้งหมดของ `nautilus-execution` case แบบ `#[rstest]` ธรรมดาเหล่านี้ทดสอบ branch ที่ gate ด้วย cfg ใน
+matching engine, fill model และ execution engine โดยไม่เข้าไปใน madsim runtime `default_std_rng()` จึงใช้ fallback ไปยัง
+RNG ของ host ใน test เหล่านี้
 
-#### Core seam tests
+#### Core seam test {#core-seam-tests}
 
-The focused `nautilus-core` selection pins `wall_clock_now` against virtual time.
+การเลือก test เฉพาะจุดของ `nautilus-core` pin `wall_clock_now` เทียบกับเวลาเสมือน
 
-#### Adapter tests
+#### Adapter test {#adapter-tests}
 
-Each audited adapter runs its integration `dst` tests under `simulation` without the crate's
-default features. Those `#[madsim::test]` cases pin the slice the adapter's integration guide
-records: subscribe bytes, reconnect behavior, authentication frames, and per-operation wire fields.
+Adapter ที่ตรวจสอบแล้วแต่ละตัวรัน integration test `dst` ของตนภายใต้ `simulation` โดยไม่มี default feature ของ crate
+case แบบ `#[madsim::test]` เหล่านั้น pin slice ที่บันทึกไว้ในคู่มือ integration ของ adapter ได้แก่ subscribe byte, พฤติกรรม
+reconnect, frame ของ authentication และ wire field ราย operation
 
-#### Overall gate coverage
+#### การครอบคลุมโดยรวมของ gate {#overall-gate-coverage}
 
-`#[madsim::test]` cases in `nautilus-common`, `nautilus-core`, `nautilus-network`,
-`nautilus-live`, and the audited adapters provide deterministic-scheduler coverage. The complete
-gate catches drift in the cfg-gated seams but does not verify end-to-end adapter determinism.
+Case แบบ `#[madsim::test]` ใน `nautilus-common`, `nautilus-core`, `nautilus-network`, `nautilus-live` และ adapter ที่ตรวจสอบแล้ว
+ให้การครอบคลุมด้วย scheduler แบบ deterministic gate ทั้งหมดจับการเบี่ยงเบนใน seam ที่ gate ด้วย cfg ได้ แต่ไม่ได้ยืนยัน
+ความ deterministic แบบ end-to-end ของ adapter
 
-## Further reading
+## อ่านเพิ่มเติม {#further-reading}
 
-- `.pre-commit-hooks/check_dst_conventions.sh` defines the seven enforcement rules in full and
-  documents the `// dst-ok` marker convention.
-- [FoundationDB testing philosophy](https://apple.github.io/foundationdb/testing.html).
-- [TigerBeetle simulation testing blog posts](https://tigerbeetle.com/blog/).
-- [madsim repository](https://github.com/madsim-rs/madsim), the deterministic runtime.
-- [Turmoil repository](https://github.com/tokio-rs/turmoil), the deterministic network simulator.
+- `.pre-commit-hooks/check_dst_conventions.sh` นิยามกฎการบังคับใช้ทั้งเจ็ดข้อแบบเต็ม และอธิบายข้อตกลงเรื่อง marker `// dst-ok`
+- [FoundationDB testing philosophy](https://apple.github.io/foundationdb/testing.html)
+- [บทความ blog เรื่อง simulation testing ของ TigerBeetle](https://tigerbeetle.com/blog/)
+- [madsim repository](https://github.com/madsim-rs/madsim) runtime แบบ deterministic
+- [Turmoil repository](https://github.com/tokio-rs/turmoil) ตัวจำลอง network แบบ deterministic

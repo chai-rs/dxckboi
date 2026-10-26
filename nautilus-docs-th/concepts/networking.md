@@ -1,23 +1,23 @@
 # Networking
 
-NautilusTrader adapters use the shared `nautilus-network` clients for HTTP request/response APIs,
-WebSocket streams, and suffix-framed TCP protocols. These clients add trading-system policy around
-the underlying Rust transports: rate limits, connection reuse, liveness checks, reconnect control,
-replay coordination, and bounded reads.
+adapter ของ NautilusTrader ใช้ client กลางใน `nautilus-network` สำหรับ API แบบ request/response ผ่าน HTTP,
+สตรีม WebSocket และโปรโตคอล TCP ที่แบ่ง frame ด้วย suffix โดย client เหล่านี้เพิ่ม policy ระดับระบบเทรด
+ครอบ transport ของ Rust ที่อยู่ข้างใต้ ได้แก่ rate limit, การนำการเชื่อมต่อกลับมาใช้ซ้ำ, การตรวจ liveness,
+การควบคุม reconnect, การประสานการ replay และการอ่านแบบมีขอบเขต
 
-| Client         | Underlying transport                | Use when                           | Added policy                                                                                    |
+| Client         | Transport ข้างใต้                      | ใช้เมื่อ                               | Policy ที่เพิ่มเข้ามา                                                                                   |
 | -------------- | ----------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------- |
-| HTTP           | Hyper                               | Finite request/response operations | Layered quotas, pooled connections, keepalive, timeouts, proxy routing, and bounded bodies      |
-| WebSocket      | `tokio-tungstenite` or `sockudo-ws` | Long-lived framed streams          | Runtime backend selection, quotas, heartbeats, liveness checks, reconnects, and session fencing |
-| Raw TCP socket | Tokio and `rustls`                  | Suffix-framed byte streams         | Framing, initial retries, heartbeats, liveness checks, reconnects, and ordered replay           |
+| HTTP           | Hyper                               | งาน request/response ที่จบในตัว       | quota แบบหลายชั้น, connection pool, keepalive, timeout, การ route ผ่าน proxy และ body แบบมีขอบเขต       |
+| WebSocket      | `tokio-tungstenite` หรือ `sockudo-ws` | สตรีมแบบ frame ที่อยู่ยาว                | การเลือก backend ตอน runtime, quota, heartbeat, การตรวจ liveness, reconnect และ session fencing      |
+| Raw TCP socket | Tokio และ `rustls`                   | สตรีมไบต์ที่แบ่ง frame ด้วย suffix         | framing, การลองใหม่ตอนเริ่มต้น, heartbeat, การตรวจ liveness, reconnect และ replay ตามลำดับ             |
 
-The [Adapters](adapters.md) guide explains how venue clients translate these transports into
-Nautilus domain messages. This page covers the shared transport behavior beneath that boundary.
+คู่มือ [Adapters](adapters.md) อธิบายว่า client ของ venue แปลง transport เหล่านี้เป็นข้อความโดเมนของ
+Nautilus อย่างไร หน้านี้ครอบคลุมพฤติกรรมของ transport กลางที่อยู่ใต้ขอบเขตนั้น
 
-## HTTP client
+## HTTP client {#http-client}
 
-[`HttpClient`](../../crates/network/src/http/client.rs) wraps one reusable Hyper client and one or more shared
-rate limiters. A request waits for each applicable quota before the inner client builds and executes it.
+[`HttpClient`](../../crates/network/src/http/client.rs) ห่อ Hyper client ที่ใช้ซ้ำได้หนึ่งตัวและ rate limiter
+ที่ใช้ร่วมกันหนึ่งตัวขึ้นไป request จะรอ quota ทุกตัวที่เกี่ยวข้องก่อนที่ client ภายในจะสร้างและ execute request นั้น
 
 ```mermaid
 flowchart LR
@@ -39,173 +39,174 @@ flowchart LR
     hyper <--> endpoint
 ```
 
-The outer client applies quota policy. The reusable inner client owns connection and response policy.
+client ชั้นนอกใช้ policy เรื่อง quota ส่วน client ภายในที่ใช้ซ้ำได้เป็นเจ้าของ policy ด้านการเชื่อมต่อและ response
 
-The Rust API exposes `http::Method`, `http::StatusCode`, and `url::Url`. Requests return
-`HttpResponse` or `HttpResponseStream`, and failures return `HttpClientError`.
+Rust API เปิดให้ใช้ `http::Method`, `http::StatusCode` และ `url::Url` request จะคืนค่า `HttpResponse` หรือ
+`HttpResponseStream` และเมื่อล้มเหลวจะคืน `HttpClientError`
 
-### Rate limiting and requests
+### Rate limiting และ request {#rate-limiting-and-requests}
 
-The rate limiter uses the generic cell rate algorithm (GCRA) with a default quota and optional
-per-key overrides. A request can carry several keys, such as an endpoint and an order scope, and
-waits for them together. Multiple limiters let one request consume independent budgets, such as
-per-IP and per-account limits. Sharing their `Arc` values across HTTP clients keeps those budgets
-process-wide instead of creating one allowance per connection.
+rate limiter ใช้ generic cell rate algorithm (GCRA) พร้อม quota ค่าเริ่มต้นและการ override ราย key ที่ไม่บังคับ
+request หนึ่งตัวสามารถมีหลาย key เช่น endpoint และขอบเขตของ order และจะรอทุก key พร้อมกัน การมีหลาย
+limiter ทำให้ request หนึ่งใช้งบที่เป็นอิสระต่อกันได้ เช่น limit ราย IP และราย account การแชร์ค่า `Arc` ของ
+limiter ข้าม HTTP client จะทำให้งบเหล่านั้นเป็นระดับ process แทนที่จะได้โควตาแยกต่อการเชื่อมต่อ
 
-The client accepts default and per-request headers, query parameters with repeated values, raw
-request bodies, and `GET`, `POST`, `PUT`, `PATCH`, and `DELETE` methods. A client-level timeout applies to
-all requests unless a request supplies its own timeout.
+client รองรับ header ค่าเริ่มต้นและราย request, query parameter ที่มีค่าซ้ำ, request body แบบดิบ และ method
+`GET`, `POST`, `PUT`, `PATCH` และ `DELETE` timeout ระดับ client ใช้กับทุก request เว้นแต่ request นั้นจะระบุ
+timeout ของตัวเอง
 
-### Proxy routing
+### การ route ผ่าน proxy {#proxy-routing}
 
-By default the client honors ambient proxy configuration. With `use_system_proxy` at its default of `true` and
-no explicit `proxy_url`, requests use the proxy named by `HTTP_PROXY`, `HTTPS_PROXY`, or `ALL_PROXY`
-(lowercase variants included). Destinations matched by `NO_PROXY` bypass that proxy.
+โดยค่าเริ่มต้น client จะใช้การตั้งค่า proxy จากสภาพแวดล้อม เมื่อ `use_system_proxy` อยู่ที่ค่าเริ่มต้น `true`
+และไม่ได้ระบุ `proxy_url` ไว้ request จะใช้ proxy ที่ระบุใน `HTTP_PROXY`, `HTTPS_PROXY` หรือ `ALL_PROXY`
+(รวมถึงแบบตัวพิมพ์เล็ก) ปลายทางที่ตรงกับ `NO_PROXY` จะไม่ผ่าน proxy
 
-This default deliberately trusts the process environment. An actor who controls that environment chooses the
-proxy that observes all plaintext HTTP traffic and the CONNECT tunnels that carry HTTPS.
+ค่าเริ่มต้นนี้ตั้งใจเชื่อถือ environment ของ process ผู้ที่ควบคุม environment นั้นได้จึงเลือก proxy ที่มองเห็น
+HTTP traffic แบบ plaintext ทั้งหมดและ CONNECT tunnel ที่ใช้ส่ง HTTPS ได้
 
-An optional explicit `proxy_url` applies to both HTTP and HTTPS traffic and always takes precedence
-over ambient lookup. Passing `use_system_proxy(false)` disables ambient lookup, so requests route
-directly only when `proxy_url` is unset.
+`proxy_url` ที่ระบุชัดเจน (ไม่บังคับ) ใช้กับทั้ง HTTP และ HTTPS traffic และมีลำดับความสำคัญเหนือการค้นหาจาก
+สภาพแวดล้อมเสมอ การส่ง `use_system_proxy(false)` จะปิดการค้นหาจากสภาพแวดล้อม request จึงจะไปตรง
+เฉพาะเมื่อไม่ได้ตั้ง `proxy_url`
 
-**HTTP status errors stay normal `HttpResponse` values** so each adapter can interpret the venue's body and
-retry rules. Transport retries cover:
+**error ที่เป็น HTTP status ยังคงเป็นค่า `HttpResponse` ปกติ** เพื่อให้แต่ละ adapter ตีความ body และกฎการลองใหม่
+ของ venue ได้เอง การลองใหม่ระดับ transport ครอบคลุม:
 
-- Requests canceled before transmission on reused connections.
-- Remote HTTP/2 `GOAWAY(NO_ERROR)` or `REFUSED_STREAM` errors, with two retries allowed.
+- request ที่ถูกยกเลิกก่อนส่งบนการเชื่อมต่อที่นำกลับมาใช้ซ้ำ
+- error `GOAWAY(NO_ERROR)` หรือ `REFUSED_STREAM` ของ HTTP/2 จากฝั่ง remote โดยลองใหม่ได้สองครั้ง
 
-Other transport failures and HTTP status codes do not trigger retries. Adapters can wrap retryable operations
-with [`RetryManager`](../../crates/network/src/retry.rs), but the adapter must decide which venue errors and
-operations are safe to retry.
+ความล้มเหลวของ transport แบบอื่นและ HTTP status code จะไม่ทำให้เกิดการลองใหม่ adapter สามารถครอบงานที่
+ลองใหม่ได้ด้วย [`RetryManager`](../../crates/network/src/retry.rs) แต่ adapter ต้องตัดสินใจเองว่า error ของ
+venue และงานใดบ้างที่ลองใหม่ได้อย่างปลอดภัย
 
-### Connection reuse and response bounds
+### การใช้การเชื่อมต่อซ้ำและขอบเขตของ response {#connection-reuse-and-response-bounds}
 
-Each production `HttpClient` enables `TCP_NODELAY`, keeps up to 32 idle connections per host, and keeps an
-idle connection for up to 60 seconds. HTTP/2 connections send keepalive probes at 30-second intervals even
-while idle. Reusing a client preserves the pool and avoids a new TCP and TLS handshake for each request.
+`HttpClient` สำหรับ production แต่ละตัวเปิด `TCP_NODELAY`, เก็บการเชื่อมต่อที่ว่างได้สูงสุด 32 ตัวต่อ host
+และเก็บการเชื่อมต่อที่ว่างไว้ได้นานสุด 60 วินาที การเชื่อมต่อ HTTP/2 จะส่ง keepalive probe ทุก 30 วินาทีแม้ขณะ
+ว่างอยู่ การใช้ client ซ้ำจะคง pool ไว้และเลี่ยง handshake ของ TCP และ TLS ใหม่ในทุก request
 
-HTTP/2 connections use fixed flow-control windows of 16 MiB per stream and 32 MiB per connection. Thus, a
-server can send up to 16 MiB of a response before the client acknowledges any of it. Setting
-`NAUTILUS_HTTP2_ADAPTIVE_WINDOW=true` before building a client selects Hyper's adaptive windows instead. The
-value `false` or an unset variable keeps the fixed windows, and any other value makes the client build fail.
-[Flow-control windows](#flow-control-windows) explains how these sizes were chosen.
+การเชื่อมต่อ HTTP/2 ใช้ flow-control window แบบคงที่ขนาด 16 MiB ต่อ stream และ 32 MiB ต่อการเชื่อมต่อ ดังนั้น
+server สามารถส่ง response ได้ถึง 16 MiB ก่อนที่ client จะ acknowledge ส่วนใดเลย การตั้ง
+`NAUTILUS_HTTP2_ADAPTIVE_WINDOW=true` ก่อนสร้าง client จะเลือกใช้ adaptive window ของ Hyper แทน ค่า `false`
+หรือไม่ตั้งตัวแปรจะคง window แบบคงที่ไว้ และค่าอื่นใดจะทำให้การสร้าง client ล้มเหลว
+[Flow-control windows](#flow-control-windows) อธิบายว่าเลือกขนาดเหล่านี้มาอย่างไร
 
-The client adds only the request origin (scheme, host, and port) to transport errors and response-stream
-diagnostics. It excludes userinfo, paths, queries, and fragments from this URL context. Set
-`HttpClient::builder().redact_url(true)` to omit the added origin. Requests and diagnostic messages
-from lower layers are unchanged; TLS certificate errors and dependency logs can still include the hostname.
+client เพิ่มเฉพาะ origin ของ request (scheme, host และ port) ลงใน error ของ transport และข้อมูลวินิจฉัยของ
+response stream โดยไม่รวม userinfo, path, query และ fragment ใน URL context นี้ ตั้ง
+`HttpClient::builder().redact_url(true)` เพื่อละ origin ที่เพิ่มเข้ามา request และข้อความวินิจฉัยจากชั้นล่างจะไม่
+เปลี่ยน error ของใบรับรอง TLS และ log ของ dependency ยังอาจมีชื่อ host อยู่
 
-#### Buffered responses
+#### Response แบบ buffer {#buffered-responses}
 
-Buffered requests advertise gzip unless default or per-request headers set `Accept-Encoding`. The client
-decodes gzip and removes `Content-Encoding` and `Content-Length` from selected headers. Unsupported or corrupt
-encodings fail regardless of status; responses whose method or status forbids content are not decoded.
+request แบบ buffer จะประกาศรองรับ gzip เว้นแต่ header ค่าเริ่มต้นหรือราย request จะตั้ง `Accept-Encoding` ไว้
+client จะถอดรหัส gzip และลบ `Content-Encoding` และ `Content-Length` ออกจาก header ที่เลือก encoding ที่ไม่
+รองรับหรือเสียหายจะล้มเหลวไม่ว่า status จะเป็นอะไร ส่วน response ที่ method หรือ status ห้ามมี content จะไม่ถูก
+ถอดรหัส
 
-Received and decoded bodies have separate 100 MiB default limits. Oversized declared lengths fail before
-reading; chunked or unbounded bodies stop at the limit on received bytes. The request deadline includes
-decompression. Configure the decoded limit with `HttpClient::builder().max_decompressed_bytes(...)`; Tardis sets 1 GiB.
+body ที่ได้รับและ body ที่ถอดรหัสแล้วมี limit ค่าเริ่มต้นแยกกันที่ 100 MiB ความยาวที่ประกาศไว้เกินขนาดจะล้มเหลว
+ก่อนอ่าน ส่วน body แบบ chunked หรือไม่มีขอบเขตจะหยุดเมื่อไบต์ที่ได้รับถึง limit deadline ของ request รวมเวลา
+คลายการบีบอัดด้วย ตั้ง limit ของข้อมูลที่ถอดรหัสแล้วด้วย `HttpClient::builder().max_decompressed_bytes(...)`
+โดย Tardis ตั้งไว้ที่ 1 GiB
 
-#### Streaming responses
+#### Response แบบสตรีม {#streaming-responses}
 
-`HttpClient::get_stream` returns status and raw chunks without buffering or decoding the body. Default headers
-apply; it adds no `Accept-Encoding` or total body size limit. One absolute deadline covers headers and the body,
-including chunk processing. No rate-limit keys are supplied, so no quota is consumed.
+`HttpClient::get_stream` คืน status และ chunk ดิบโดยไม่ buffer หรือถอดรหัส body header ค่าเริ่มต้นยังใช้อยู่
+แต่จะไม่เพิ่ม `Accept-Encoding` หรือ limit ขนาด body รวม deadline สัมบูรณ์หนึ่งค่าครอบคลุมทั้ง header และ body
+รวมถึงการประมวลผล chunk และไม่มีการส่ง key ของ rate limit จึงไม่ใช้ quota
 
-Dropping an unfinished response releases the exchange, including its
-[simulated connection task](dst.md#simulated-http-and-websocket-transport). Dataset downloads stream to a
-temporary file before renaming it. Separate header and per-read timeouts let a progressing download exceed
-the configured timeout in total.
+การทิ้ง response ที่ยังไม่จบจะปล่อย exchange นั้น รวมถึง
+[simulated connection task](dst.md#simulated-http-and-websocket-transport) ของมัน การดาวน์โหลด dataset จะ
+สตรีมลงไฟล์ชั่วคราวก่อนเปลี่ยนชื่อ timeout ของ header และ timeout ต่อการอ่านแต่ละครั้งที่แยกกันทำให้การดาวน์โหลด
+ที่ยังคืบหน้าอยู่ใช้เวลารวมเกิน timeout ที่ตั้งไว้ได้
 
-### HTTP transport benchmarks
+### Benchmark ของ HTTP transport {#http-transport-benchmarks}
 
-The [HTTP comparison](../../crates/network/benches/BENCHMARKS.md#http-transport-comparison), measured
-2026-09-09 on an AMD Ryzen Threadripper 9980X, compares the previous Reqwest 0.13.4 client with the
-direct Hyper implementation. Both run in the same `bench-lto` binary with fat LTO and one codegen
-unit. The CPU governor is `performance`, ASLR is disabled per process, and client and server threads
-are pinned to separate physical cores. Accepted sessions have no sampled Cargo or compiler activity.
+[HTTP comparison](../../crates/network/benches/BENCHMARKS.md#http-transport-comparison) ซึ่งวัดเมื่อ
+2026-09-09 บน AMD Ryzen Threadripper 9980X เปรียบเทียบ client Reqwest 0.13.4 ตัวเดิมกับ implementation ที่
+ใช้ Hyper โดยตรง ทั้งสองรันใน binary `bench-lto` เดียวกันที่เปิด fat LTO และ codegen unit เดียว CPU governor
+ตั้งเป็น `performance`, ปิด ASLR ราย process และ pin thread ของ client และ server ไว้คนละ physical core
+session ที่ยอมรับไม่มีกิจกรรมของ Cargo หรือ compiler ระหว่างการสุ่มวัด
 
-Five independent sessions provide 60 paired samples per workload. The following 64 KiB cases summarize GET and
-POST at concurrency 1 and 16. The full report includes 1 KiB and 1 MiB responses, p99 values, uncertainty
-intervals, and resource measurements.
+session อิสระห้าชุดให้ตัวอย่างแบบจับคู่ 60 ตัวต่อ workload กรณี 64 KiB ต่อไปนี้สรุป GET และ POST ที่
+concurrency 1 และ 16 รายงานฉบับเต็มมี response ขนาด 1 KiB และ 1 MiB, ค่า p99, ช่วงความไม่แน่นอน และ
+การวัดทรัพยากร
 
-| 64 KiB workload      | Reqwest req/s | Hyper req/s | Paired throughput change | Paired p99 change |
+| Workload 64 KiB      | Reqwest req/s | Hyper req/s | การเปลี่ยนแปลง throughput แบบจับคู่ | การเปลี่ยนแปลง p99 แบบจับคู่ |
 | -------------------- | ------------- | ----------- | ------------------------ | ----------------- |
 | GET, concurrency 1   | 29,516        | 30,645      | +3.6%                    | -3.1%             |
 | POST, concurrency 1  | 27,054        | 28,223      | +4.1%                    | -3.4%             |
 | GET, concurrency 16  | 55,870        | 55,460      | -0.5%                    | +0.4%             |
 | POST, concurrency 16 | 47,779        | 47,631      | -0.3%                    | +0.2%             |
 
-Throughput columns are medians of sample summaries. Changes are medians of paired within-round ratios.
-Positive throughput changes and negative p99 changes favor Hyper.
+คอลัมน์ throughput เป็นค่ามัธยฐานของสรุปตัวอย่าง ส่วนการเปลี่ยนแปลงเป็นค่ามัธยฐานของอัตราส่วนแบบจับคู่ภายใน
+รอบเดียวกัน การเปลี่ยนแปลง throughput ที่เป็นบวกและการเปลี่ยนแปลง p99 ที่เป็นลบหมายถึง Hyper ดีกว่า
 
-Serial throughput for 1 KiB and 64 KiB responses improves by 3.6% to 5.0%. Concurrent cases range
-from -2.6% to +0.2%, and the 1 KiB concurrent POST case has a paired p99 increase of 1.8%. These
-results support a modest serial improvement, with regressions in some concurrent workloads.
+throughput แบบ serial สำหรับ response 1 KiB และ 64 KiB ดีขึ้น 3.6% ถึง 5.0% กรณี concurrent อยู่ในช่วง -2.6%
+ถึง +0.2% และกรณี POST แบบ concurrent ขนาด 1 KiB มี p99 แบบจับคู่เพิ่มขึ้น 1.8% ผลเหล่านี้สนับสนุนว่า
+แบบ serial ดีขึ้นเล็กน้อย โดยมีการถดถอยในบาง workload แบบ concurrent
 
-The benchmark exercises complete requests and validates response bodies, status, headers, and
-connection reuse over loopback HTTP/1.1. It excludes TLS, HTTP/2, proxies, WAN latency, and adapter
-parsing, so the results do not establish a production-wide speedup.
+benchmark นี้ทดสอบ request ที่สมบูรณ์และตรวจสอบ response body, status, header และการใช้การเชื่อมต่อซ้ำผ่าน
+HTTP/1.1 บน loopback โดยไม่รวม TLS, HTTP/2, proxy, latency ของ WAN และการ parse ของ adapter ผลลัพธ์จึง
+ไม่ได้ยืนยันว่าเร็วขึ้นในระดับ production ทั้งหมด
 
-### Flow-control windows
+### Flow-control window {#flow-control-windows}
 
-HTTP/2 flow control limits how much response data a server can send before the client acknowledges
-it. Each round trip delivers at most one window, so on a long path the window rather than the link
-can set download speed. Hyper offers two modes:
+flow control ของ HTTP/2 จำกัดปริมาณข้อมูล response ที่ server ส่งได้ก่อนที่ client จะ acknowledge แต่ละ
+round trip ส่งได้มากสุดหนึ่ง window ดังนั้นบนเส้นทางที่ยาว window จะเป็นตัวกำหนดความเร็วดาวน์โหลดแทนลิงก์
+Hyper มีสองโหมด:
 
-- Adaptive windows start at 65,535 bytes and grow toward 16 MiB as PING probes measure the
-  bandwidth-delay product, with SETTINGS frames raising the window.
-- Fixed windows stay constant. Hyper's defaults are 2 MiB per stream and 5 MiB per connection.
+- adaptive window เริ่มที่ 65,535 ไบต์และโตขึ้นไปจนถึง 16 MiB ขณะที่ PING probe วัด bandwidth-delay
+  product โดยใช้ SETTINGS frame เพิ่มขนาด window
+- fixed window คงที่ ค่าเริ่มต้นของ Hyper คือ 2 MiB ต่อ stream และ 5 MiB ต่อการเชื่อมต่อ
 
-`HttpClient` uses fixed windows of 16 MiB per stream and 32 MiB per connection. Adaptive windows
-caused two problems:
+`HttpClient` ใช้ fixed window ขนาด 16 MiB ต่อ stream และ 32 MiB ต่อการเชื่อมต่อ เพราะ adaptive window
+ทำให้เกิดปัญหาสองอย่าง:
 
-- Cloudflare resets: Cloudflare fronts `api.tardis.dev`, which serves the 284 MB uncompressed Deribit
-  instrument list. Downloads reset mid-body in 13 of 21 runs with adaptive windows. All 49 downloads with
-  fixed windows of 2, 8, or 16 MiB completed. The evidence points to the probe and SETTINGS traffic of
-  adaptive growth as the trigger, not the window size.
-- Slow new connections: each body larger than 65,535 bytes needs extra round trips while the window grows. At
-  100 ms RTT, a 1 MiB response on a new connection took 616 ms with adaptive windows and 207 ms with fixed
-  windows.
+- Cloudflare reset: Cloudflare อยู่หน้า `api.tardis.dev` ซึ่งให้บริการรายการ instrument ของ Deribit ขนาด
+  284 MB แบบไม่บีบอัด การดาวน์โหลดถูก reset กลาง body ใน 13 จาก 21 ครั้งเมื่อใช้ adaptive window ขณะที่
+  การดาวน์โหลดทั้ง 49 ครั้งด้วย fixed window ขนาด 2, 8 หรือ 16 MiB เสร็จสมบูรณ์ หลักฐานชี้ว่าตัวกระตุ้นคือ
+  traffic ของ probe และ SETTINGS ในการโตของ adaptive window ไม่ใช่ขนาดของ window
+- การเชื่อมต่อใหม่ช้า: body ที่ใหญ่กว่า 65,535 ไบต์แต่ละตัวต้องใช้ round trip เพิ่มขณะที่ window กำลังโต ที่
+  RTT 100 ms, response ขนาด 1 MiB บนการเชื่อมต่อใหม่ใช้เวลา 616 ms กับ adaptive window และ 207 ms กับ
+  fixed window
 
-Hyper's fixed default avoids both problems but delivers at most 2 MiB per round trip, so large
-bodies slow down. A local benchmark compared the settings over TLS on loopback, with a relay adding
-round-trip delay. The following cases at 100 ms RTT show the pattern, as median milliseconds:
+fixed window ค่าเริ่มต้นของ Hyper เลี่ยงปัญหาทั้งสองได้ แต่ส่งได้มากสุด 2 MiB ต่อ round trip ทำให้ body ขนาดใหญ่
+ช้าลง benchmark ในเครื่องเปรียบเทียบการตั้งค่าต่างๆ ผ่าน TLS บน loopback โดยมี relay เพิ่ม delay ของ
+round trip กรณีต่อไปนี้ที่ RTT 100 ms แสดงรูปแบบ เป็นค่ามัธยฐานหน่วยมิลลิวินาที:
 
-| Body   | Connection | Adaptive | Fixed 2 MiB | Fixed 8 MiB | Fixed 16 MiB |
+| Body   | การเชื่อมต่อ | Adaptive | Fixed 2 MiB | Fixed 8 MiB | Fixed 16 MiB |
 | ------ | ---------- | -------- | ----------- | ----------- | ------------ |
-| 64 KiB | New        | 308      | 206         | 206         | 206          |
-| 1 MiB  | New        | 616      | 207         | 207         | 207          |
-| 4 MiB  | New        | 875      | 413         | 209         | 208          |
-| 16 MiB | New        | 1,185    | 1,037       | 416         | 211          |
+| 64 KiB | ใหม่        | 308      | 206         | 206         | 206          |
+| 1 MiB  | ใหม่        | 616      | 207         | 207         | 207          |
+| 4 MiB  | ใหม่        | 875      | 413         | 209         | 208          |
+| 16 MiB | ใหม่        | 1,185    | 1,037       | 416         | 211          |
 | 1 MiB  | Warm       | 154      | 103         | 104         | 103          |
 | 4 MiB  | Warm       | 105      | 310         | 105         | 105          |
 | 16 MiB | Warm       | 212      | 935         | 315         | 108          |
 
-Warm connections had already served three requests of the same size, which gives adaptive windows time to
-grow. The 16 MiB stream window equals the adaptive ceiling, so a response gets that capacity from its first
-round trip without the probe traffic.
+การเชื่อมต่อแบบ warm ได้ให้บริการ request ขนาดเดียวกันไปแล้วสามครั้ง ซึ่งให้เวลา adaptive window ได้โต
+stream window ขนาด 16 MiB เท่ากับเพดานของ adaptive window ดังนั้น response จะได้ความจุนั้นตั้งแต่ round
+trip แรกโดยไม่มี traffic ของ probe
 
-Tests covered 20, 100, and 250 ms RTT, bodies from 32 KiB to 16 MiB, and new and warm connections. Fixed 16
-MiB matched the faster of adaptive and Hyper's default within 1 ms or beat it. Fixed 8 MiB took two to three
-times as long for 16 MiB bodies. The 32 MiB connection window lets two large responses on one connection each
-use a full stream window.
+การทดสอบครอบคลุม RTT 20, 100 และ 250 ms, body ตั้งแต่ 32 KiB ถึง 16 MiB และการเชื่อมต่อทั้งแบบใหม่และ
+แบบ warm โดย Fixed 16 MiB ทำได้เท่ากับตัวที่เร็วกว่าระหว่าง adaptive และค่าเริ่มต้นของ Hyper ภายใน 1 ms หรือ
+ดีกว่า ส่วน Fixed 8 MiB ใช้เวลานานกว่าสองถึงสามเท่าสำหรับ body ขนาด 16 MiB connection window ขนาด
+32 MiB ทำให้ response ขนาดใหญ่สองตัวบนการเชื่อมต่อเดียวใช้ stream window ได้เต็มทั้งคู่
 
-Before flow control applies backpressure, a slow reader can receive up to 16 MiB per stream and 32 MiB per
-connection. Adaptive windows allow at most 16 MiB for each.
+ก่อนที่ flow control จะสร้าง backpressure ผู้อ่านที่ช้าอาจได้รับข้อมูลถึง 16 MiB ต่อ stream และ 32 MiB ต่อ
+การเชื่อมต่อ ขณะที่ adaptive window อนุญาตสูงสุด 16 MiB สำหรับแต่ละอย่าง
 
-Loopback bandwidth is effectively unlimited, so the benchmark overstates large-body gains. On a real link, the
-window limits throughput only when it is smaller than bandwidth times RTT. At 100 ms RTT, 2 MiB allows about
-20 MiB/s and 16 MiB about 160 MiB/s. The
-[HTTP/2 flow-control benchmark](../../crates/network/benches/BENCHMARKS.md#http2-flow-control-windows) has the
-full tables, the method, and the Cloudflare runs.
+bandwidth ของ loopback แทบไม่มีขีดจำกัด benchmark จึงแสดงประโยชน์ของ body ขนาดใหญ่เกินจริง บนลิงก์จริง
+window จะจำกัด throughput เฉพาะเมื่อเล็กกว่า bandwidth คูณ RTT ที่ RTT 100 ms ขนาด 2 MiB ให้ได้ประมาณ
+20 MiB/s และ 16 MiB ได้ประมาณ 160 MiB/s
+[HTTP/2 flow-control benchmark](../../crates/network/benches/BENCHMARKS.md#http2-flow-control-windows)
+มีตารางฉบับเต็ม, วิธีการ และผลการรันกับ Cloudflare
 
-## WebSocket client
+## WebSocket client {#websocket-client}
 
-[`WebSocketClient`](../../crates/network/src/websocket/client.rs) separates connection lifecycle
-from frame transport. A controller owns reconnect and shutdown transitions, one writer serializes
-all sink access, and handler mode assigns each connection to one reader task. An optional heartbeat
-task sends liveness traffic through the same writer.
+[`WebSocketClient`](../../crates/network/src/websocket/client.rs) แยกวงจรชีวิตของการเชื่อมต่อออกจากการส่ง
+frame โดย controller เป็นเจ้าของการเปลี่ยนสถานะ reconnect และ shutdown, writer หนึ่งตัวจัดลำดับการเข้าถึง
+sink ทั้งหมด และ handler mode กำหนดให้การเชื่อมต่อแต่ละตัวมี reader task หนึ่งตัว heartbeat task ที่ไม่บังคับ
+จะส่ง traffic เพื่อยืนยัน liveness ผ่าน writer ตัวเดียวกัน
 
 ```mermaid
 flowchart LR
@@ -240,78 +241,75 @@ flowchart LR
     sockudo <--> endpoint
 ```
 
-The lifecycle tasks use one neutral transport interface, so adapters do not depend on a concrete
-WebSocket library.
+task ของวงจรชีวิตใช้ interface ของ transport แบบกลางเพียงตัวเดียว adapter จึงไม่ต้องพึ่งไลบรารี WebSocket
+ตัวใดตัวหนึ่งโดยเฉพาะ
 
-### Connection modes
+### โหมดการเชื่อมต่อ {#connection-modes}
 
-| Mode    | Reader ownership       | Automatic reconnect            | Liveness behavior                              |
+| โหมด    | ผู้เป็นเจ้าของ reader     | Reconnect อัตโนมัติ                | พฤติกรรมด้าน liveness                               |
 | ------- | ---------------------- | ------------------------------ | ---------------------------------------------- |
-| Handler | Internal callback task | Exponential backoff and jitter | Heartbeat and application-data idle timeouts   |
-| Stream  | Caller-owned reader    | Disabled                       | Caller reports failure and replaces the client |
+| Handler | callback task ภายใน     | exponential backoff และ jitter  | heartbeat timeout และ idle timeout ของข้อมูลแอปพลิเคชัน |
+| Stream  | reader ที่ผู้เรียกเป็นเจ้าของ | ปิดอยู่                           | ผู้เรียกรายงานความล้มเหลวและแทนที่ client เอง           |
 
-Handler mode is the usual choice for long-lived adapter connections. Stream mode suits adapters
-that need direct stream backpressure or own a protocol-specific reconnect sequence.
+handler mode เป็นตัวเลือกปกติสำหรับการเชื่อมต่อของ adapter ที่อยู่ยาว ส่วน stream mode เหมาะกับ adapter ที่ต้องการ
+backpressure ของ stream โดยตรง หรือมีลำดับการ reconnect เฉพาะโปรโตคอลของตัวเอง
 
-### Transport backends
+### Transport backend {#transport-backends}
 
-The `WsTransport` abstraction normalizes text, binary, Ping, Pong, and Close frames together with
-transport errors. `WebSocketConfig.backend` selects either backend at runtime:
+abstraction `WsTransport` ทำให้ frame แบบ text, binary, Ping, Pong และ Close รวมถึง error ของ transport อยู่ใน
+รูปแบบเดียวกัน `WebSocketConfig.backend` ใช้เลือก backend ตอน runtime:
 
-| Backend                                                           | Availability                                 | Upgrade headers                           | Proxy behavior                   |
+| Backend                                                           | การมีให้ใช้                                      | Upgrade header                              | พฤติกรรมกับ proxy                   |
 | ----------------------------------------------------------------- | -------------------------------------------- | ----------------------------------------- | -------------------------------- |
-| [`tokio-tungstenite`](https://crates.io/crates/tokio-tungstenite) | Always compiled                              | Passed through the WebSocket handshake    | HTTP and HTTPS `CONNECT` tunnels |
-| [`sockudo-ws`](https://crates.io/crates/sockudo-ws)               | Default with the `transport-sockudo` feature | Passed through a local HTTP/1.1 handshake | HTTP and HTTPS `CONNECT` tunnels |
+| [`tokio-tungstenite`](https://crates.io/crates/tokio-tungstenite) | compile เสมอ                                  | ส่งผ่าน WebSocket handshake                 | `CONNECT` tunnel แบบ HTTP และ HTTPS |
+| [`sockudo-ws`](https://crates.io/crates/sockudo-ws)               | ค่าเริ่มต้นเมื่อเปิด feature `transport-sockudo`     | ส่งผ่าน HTTP/1.1 handshake ในเครื่อง           | `CONNECT` tunnel แบบ HTTP และ HTTPS |
 
-Disabling default Cargo features removes `sockudo-ws` and makes Tungstenite the default. Both
-backends use `rustls` for `wss://` connections and set `TCP_NODELAY` on paths where Nautilus creates
-the TCP stream.
+การปิด Cargo feature ค่าเริ่มต้นจะเอา `sockudo-ws` ออกและทำให้ Tungstenite เป็นค่าเริ่มต้น ทั้งสอง backend ใช้
+`rustls` สำหรับการเชื่อมต่อ `wss://` และตั้ง `TCP_NODELAY` บนเส้นทางที่ Nautilus สร้าง TCP stream เอง
 
 :::warning
-A recognized SOCKS proxy URL logs a warning and **connects directly** because WebSocket SOCKS
-tunneling is not implemented. Malformed proxy URLs and other unsupported schemes return an error.
+URL ของ SOCKS proxy ที่รู้จักจะ log คำเตือนแล้ว **เชื่อมต่อตรง** เพราะยังไม่ได้ implement SOCKS tunneling สำหรับ
+WebSocket ส่วน URL ของ proxy ที่ผิดรูปแบบและ scheme อื่นที่ไม่รองรับจะคืนค่า error
 :::
 
-### Inbound size limits
+### ขีดจำกัดขนาดขาเข้า {#inbound-size-limits}
 
-`WebSocketConfig.max_message_size_bytes` and `WebSocketConfig.max_frame_size_bytes` bound inbound message and
-frame payload sizes for one connection. Leave them unset to pass each backend's current default config: **64
-MiB per message and 16 MiB per frame**.
+`WebSocketConfig.max_message_size_bytes` และ `WebSocketConfig.max_frame_size_bytes` จำกัดขนาด payload ของ
+message และ frame ขาเข้าสำหรับการเชื่อมต่อหนึ่งตัว หากไม่ตั้งไว้จะใช้ config ค่าเริ่มต้นปัจจุบันของแต่ละ backend:
+**64 MiB ต่อ message และ 16 MiB ต่อ frame**
 
-The frame cap bounds memory for one inbound frame. Both backends apply the message cap after that frame
-payload is read, so a lower message cap does not shrink the buffer. A zero value is rejected on the builder
-and on both handler and stream connect paths.
+เพดานของ frame จำกัดหน่วยความจำสำหรับ frame ขาเข้าหนึ่งตัว ทั้งสอง backend ใช้เพดานของ message หลังอ่าน
+payload ของ frame นั้นแล้ว การลดเพดาน message จึงไม่ทำให้ buffer เล็กลง ค่าศูนย์จะถูกปฏิเสธทั้งที่ builder และ
+บนเส้นทาง connect ของทั้ง handler และ stream
 
-Both backends apply the message cap to single-frame and fragmented messages. A message that exceeds the cap
-and fits in the frame cap fails the read with `MessageTooLarge`. Frame-limit errors differ by backend:
+ทั้งสอง backend ใช้เพดาน message กับ message แบบ frame เดียวและแบบแบ่ง fragment message ที่เกินเพดานแต่อยู่
+ในเพดานของ frame จะทำให้การอ่านล้มเหลวด้วย `MessageTooLarge` ส่วน error จากขีดจำกัดของ frame จะต่างกันตาม
+backend:
 
-- **Sockudo**: a frame that exceeds the frame cap fails first with `FrameTooLarge`, including a fully buffered
-  small frame.
-- **Tungstenite**: each frame breach is reported as `MessageTooLarge`.
+- **Sockudo**: frame ที่เกินเพดาน frame จะล้มเหลวก่อนด้วย `FrameTooLarge` รวมถึง frame เล็กที่ถูก buffer ไว้ครบ
+- **Tungstenite**: การเกินขีดจำกัดของ frame ทุกครั้งจะถูกรายงานเป็น `MessageTooLarge`
 
-### Liveness and recovery
+### Liveness และการกู้คืน {#liveness-and-recovery}
 
-The configured heartbeat sends either an RFC 6455 Ping or a venue-specific text message at a fixed
-interval. Configuring one also arms a response deadline: the client expects the
-peer to answer, so an unset `heartbeat_timeout_secs` defaults to three intervals. Set the field to
-choose a different window. A transport with no heartbeat gets no default, because nothing would
-guarantee the inbound frames needed to keep the window open.
+heartbeat ที่ตั้งค่าไว้จะส่ง Ping ตาม RFC 6455 หรือข้อความ text เฉพาะของ venue ตามช่วงเวลาคงที่ การตั้ง
+heartbeat ยังเปิด deadline ของการตอบกลับด้วย: client คาดหวังว่า peer จะตอบ ดังนั้นหากไม่ได้ตั้ง
+`heartbeat_timeout_secs` จะใช้ค่าเริ่มต้นสามช่วง heartbeat ตั้งฟิลด์นี้เพื่อเลือกหน้าต่างอื่น transport ที่ไม่มี
+heartbeat จะไม่มีค่าเริ่มต้น เพราะไม่มีอะไรรับประกัน frame ขาเข้าที่จำเป็นต่อการเปิดหน้าต่างไว้
 
-The **heartbeat timeout** resets on each inbound frame, including Ping and Pong, so it detects a peer that has
-stopped sending anything. The separate **idle timeout** resets only on text or binary application data, so
-control traffic cannot hide a silent market-data stream. A venue that answers the keepalive with a text
-payload refreshes the idle timeout exactly like real data does. Thus, this window is meaningful only when it
-sits below the heartbeat interval.
+**heartbeat timeout** จะรีเซ็ตทุกครั้งที่มี frame ขาเข้า รวมถึง Ping และ Pong จึงตรวจจับ peer ที่หยุดส่งทุกอย่าง
+ได้ ส่วน **idle timeout** ที่แยกต่างหากจะรีเซ็ตเฉพาะเมื่อมีข้อมูลแอปพลิเคชันแบบ text หรือ binary ดังนั้น control
+traffic จึงซ่อนสตรีมข้อมูลตลาดที่เงียบไปไม่ได้ venue ที่ตอบ keepalive ด้วย payload แบบ text จะรีเฟรช idle timeout
+เหมือนข้อมูลจริง หน้าต่างนี้จึงมีความหมายก็ต่อเมื่อตั้งไว้ต่ำกว่าช่วง heartbeat
 
-An unset timeout leaves that detection off, except that an unset `heartbeat_timeout_secs` still
-derives three intervals when a heartbeat is configured. A zero timeout is rejected. Adapters that
-expose a non-optional integer map zero to unset rather than passing it through.
+timeout ที่ไม่ได้ตั้งจะปิดการตรวจจับนั้น ยกเว้น `heartbeat_timeout_secs` ที่ไม่ได้ตั้งจะยังคำนวณเป็นสามช่วงเมื่อมีการ
+ตั้ง heartbeat ไว้ timeout ที่เป็นศูนย์จะถูกปฏิเสธ adapter ที่เปิดให้ตั้งเป็นจำนวนเต็มแบบไม่ optional จะ map ค่าศูนย์
+เป็น "ไม่ได้ตั้ง" แทนที่จะส่งต่อไปตรงๆ
 
-A read failure, write failure, Close frame, heartbeat timeout, idle timeout, or explicit reconnect request
-moves a handler-mode client into reconnecting state. Reconnect uses exponential backoff with bounded jitter
-and allows unlimited attempts by default. A replacement connection that stays active for at least 10 seconds
-resets the attempt count and backoff. A configured maximum closes the client after that many consecutive
-failed or short-lived attempts.
+ความล้มเหลวในการอ่าน, ความล้มเหลวในการเขียน, Close frame, heartbeat timeout, idle timeout หรือคำขอ
+reconnect ที่ระบุชัดเจน จะทำให้ client ใน handler mode เข้าสู่สถานะ reconnecting การ reconnect ใช้ exponential
+backoff พร้อม jitter แบบมีขอบเขต และโดยค่าเริ่มต้นลองได้ไม่จำกัดจำนวนครั้ง การเชื่อมต่อตัวแทนที่ใช้งานได้ต่อเนื่อง
+อย่างน้อย 10 วินาทีจะรีเซ็ตจำนวนครั้งที่ลองและ backoff หากตั้งค่าสูงสุดไว้ client จะปิดหลังลองล้มเหลวหรือได้
+การเชื่อมต่อที่อยู่ได้ไม่นานติดต่อกันครบจำนวนนั้น
 
 ```mermaid
 stateDiagram-v2
@@ -325,91 +323,87 @@ stateDiagram-v2
     Disconnecting --> Closed: shutdown completes
 ```
 
-Handler mode publishes `Disconnected` on entry to `Reconnecting` and `Connected` on recovery. Individual
-attempts and deliberate disconnects add no state-sink edges.
+handler mode จะ publish `Disconnected` เมื่อเข้าสู่ `Reconnecting` และ `Connected` เมื่อกู้คืนได้ การลองแต่ละครั้ง
+และการ disconnect โดยเจตนาจะไม่เพิ่ม edge ใน state sink
 
-The writer installs the replacement sink before the controller starts its reader and publishes the
-reconnect notification. A **connection epoch** advances with each sink replacement. Reader fences drop
-frames from retired sessions, while epoch-aware handlers and sends let an adapter bind work to the
-transport that produced it. Mutable reconnect headers apply to later handshakes without interrupting
-the active connection.
+writer จะติดตั้ง sink ตัวแทนก่อนที่ controller จะเริ่ม reader และ publish การแจ้ง reconnect **connection epoch**
+จะเพิ่มขึ้นทุกครั้งที่แทนที่ sink ตัวกั้นของ reader จะทิ้ง frame จาก session ที่เลิกใช้แล้ว ขณะที่ handler และการส่ง
+ที่รู้จัก epoch ทำให้ adapter ผูกงานเข้ากับ transport ที่สร้างงานนั้นได้ header ของการ reconnect ที่แก้ไขได้จะมีผล
+กับ handshake ครั้งถัดไปโดยไม่ขัดจังหวะการเชื่อมต่อที่ใช้อยู่
 
-Adapters can register an `AuthTracker` so a disconnect invalidates authentication. They can also gate the
-reconnect buffer on that tracker. Messages then wait for the new session to authenticate. If authentication
-fails, the client discards the remaining buffer. `SubscriptionState` separately records confirmed, pending
-subscribe, and pending unsubscribe intent for adapter-driven resubscription. It never sends protocol messages
-itself.
+adapter สามารถลงทะเบียน `AuthTracker` เพื่อให้การ disconnect ทำให้การยืนยันตัวตนเป็นโมฆะ และยังสามารถกั้น
+reconnect buffer ด้วย tracker นั้นได้ ข้อความจะรอจนกว่า session ใหม่จะยืนยันตัวตนสำเร็จ หากยืนยันตัวตนล้มเหลว
+client จะทิ้ง buffer ที่เหลือ ส่วน `SubscriptionState` จะบันทึกแยกต่างหากถึงความตั้งใจที่ยืนยันแล้ว, กำลังรอ
+subscribe และกำลังรอ unsubscribe สำหรับการ resubscribe ที่ adapter เป็นผู้ขับเคลื่อน โดยไม่ส่งข้อความโปรโตคอล
+เองเลย
 
-### Reconnect throttling
+### การ throttle การ reconnect {#reconnect-throttling}
 
-Once three reconnect attempts occur inside a rolling two-minute window, each further attempt waits at least
-one second, regardless of the configured backoff. The window is purely time-based. A replacement connection
-that survives the stability threshold still resets the backoff and attempt count. This has no effect on the
-floor. Throttling lifts by itself once fewer than three attempts stay inside the window.
+เมื่อมีการลอง reconnect ครบสามครั้งภายในหน้าต่างเลื่อนสองนาที การลองครั้งถัดๆ ไปแต่ละครั้งจะรออย่างน้อยหนึ่งวินาที
+ไม่ว่าจะตั้ง backoff ไว้อย่างไร หน้าต่างนี้อิงเวลาล้วนๆ การเชื่อมต่อตัวแทนที่อยู่ได้ผ่านเกณฑ์ความเสถียรยังคงรีเซ็ต
+backoff และจำนวนครั้งที่ลอง แต่ไม่มีผลต่อค่าขั้นต่ำนี้ การ throttle จะหายไปเองเมื่อจำนวนครั้งที่ลองในหน้าต่างเหลือ
+น้อยกว่าสาม
 
-Venues rate-limit new connections per IP (Binance permits 300 connections per five minutes, OKX three per
-second). Thus, an unthrottled reconnect loop can turn a transient drop into an IP-level throttle or ban that
-affects each client behind that address. The first three attempts in any window incur no additional throttling
-delay. Configured backoff still applies. A single drop can still trigger an immediate first reconnect.
+venue จำกัดอัตราการเชื่อมต่อใหม่ราย IP (Binance อนุญาต 300 การเชื่อมต่อต่อห้านาที, OKX สามครั้งต่อวินาที)
+ดังนั้น loop การ reconnect ที่ไม่ถูก throttle อาจเปลี่ยนการหลุดชั่วคราวให้กลายเป็นการ throttle หรือแบนระดับ IP ที่
+กระทบทุก client หลัง address นั้น การลองสามครั้งแรกในหน้าต่างใดๆ จะไม่มี delay จากการ throttle เพิ่ม แต่ backoff
+ที่ตั้งไว้ยังมีผล การหลุดครั้งเดียวยังทำให้ reconnect ครั้งแรกทันทีได้
 
-### State reporting and explicit reconnect
+### การรายงานสถานะและการ reconnect แบบระบุชัดเจน {#state-reporting-and-explicit-reconnect}
 
-Clients configured with a `SocketStateSink` publish ordered `Connected` and `Disconnected` availability edges:
+client ที่ตั้งค่า `SocketStateSink` ไว้จะ publish edge ของความพร้อมใช้งาน `Connected` และ `Disconnected`
+ตามลำดับ:
 
-1. A successful initial connection publishes `Connected`.
-1. Transport loss or an accepted explicit reconnect publishes `Disconnected`.
-1. A successful replacement publishes `Connected`.
+1. การเชื่อมต่อครั้งแรกที่สำเร็จจะ publish `Connected`
+1. การสูญเสีย transport หรือการ reconnect แบบระบุชัดเจนที่ได้รับการยอมรับจะ publish `Disconnected`
+1. การแทนที่ที่สำเร็จจะ publish `Connected`
 
-Initial connection failure, individual retry attempts, retry exhaustion, deliberate disconnect, and client
-drop do not add events. The sink describes transport availability and does not report all internal
-`ConnectionMode` transitions.
+ความล้มเหลวของการเชื่อมต่อครั้งแรก, การลองใหม่แต่ละครั้ง, การลองใหม่จนหมด, การ disconnect โดยเจตนา และการ
+drop client จะไม่เพิ่ม event sink นี้อธิบายความพร้อมใช้งานของ transport และไม่ได้รายงานการเปลี่ยน
+`ConnectionMode` ภายในทั้งหมด
 
-Its callback runs synchronously and serializes edges, so it must return promptly and must not request another
-transition through the same sink.
+callback ของ sink ทำงานแบบ synchronous และจัดลำดับ edge ดังนั้นต้องคืนค่าโดยเร็ว และต้องไม่ร้องขอการเปลี่ยน
+สถานะอื่นผ่าน sink เดียวกัน
 
-`request_reconnect()` atomically asks a handler-mode controller to replace its active transport. A
-cloneable `WebSocketReconnectHandle` gives adapter tasks the same capability without ownership of
-the client and distinguishes accepted, already reconnecting, disconnecting, closed, and unsupported
-requests.
-An accepted request invalidates registered authentication state and publishes `Disconnected` before
-the replacement can become active. Stream mode reports `Unsupported` because its reader is
-caller-owned.
+`request_reconnect()` ร้องขอแบบ atomic ให้ controller ใน handler mode แทนที่ transport ที่ใช้อยู่
+`WebSocketReconnectHandle` ที่ clone ได้ให้ความสามารถเดียวกันแก่ task ของ adapter โดยไม่ต้องเป็นเจ้าของ client
+และแยกแยะคำขอที่ได้รับการยอมรับ, กำลัง reconnect อยู่แล้ว, กำลัง disconnect, ปิดแล้ว และไม่รองรับ
+คำขอที่ได้รับการยอมรับจะทำให้สถานะการยืนยันตัวตนที่ลงทะเบียนไว้เป็นโมฆะ และ publish `Disconnected` ก่อนที่ตัว
+แทนที่จะเริ่มใช้งานได้ stream mode จะรายงาน `Unsupported` เพราะ reader เป็นของผู้เรียก
 
-### Send semantics
+### ความหมายของการส่ง {#send-semantics}
 
-Application text and binary sends wait for their rate-limit keys and for an active connection. The ordinary
-send methods return after enqueueing the frame, so **success does not prove delivery**.
+การส่ง text และ binary ของแอปพลิเคชันจะรอ key ของ rate limit และรอให้มีการเชื่อมต่อที่ใช้งานอยู่ method การส่ง
+ปกติจะคืนค่าหลังนำ frame เข้าคิว ดังนั้น **การสำเร็จไม่ได้พิสูจน์ว่าส่งถึงแล้ว**
 
-The writer keeps FIFO order for application messages buffered during reconnect or after a failed write and
-replays them on a replacement connection. A control frame belongs to the connection it was issued on, so a
-failed Ping, Pong, or Close is dropped rather than replayed.
+writer จะคงลำดับ FIFO ของข้อความแอปพลิเคชันที่ถูก buffer ไว้ระหว่าง reconnect หรือหลังการเขียนล้มเหลว และ
+replay บนการเชื่อมต่อตัวแทน control frame เป็นของการเชื่อมต่อที่ส่งมันออกไป ดังนั้น Ping, Pong หรือ Close ที่
+ล้มเหลวจะถูกทิ้งแทนที่จะ replay
 
-This in-memory buffer provides reconnect continuity, not durable or exactly-once delivery.
+buffer ในหน่วยความจำนี้ให้ความต่อเนื่องระหว่าง reconnect ไม่ใช่การส่งแบบถาวรหรือ exactly-once
 
-Ownership-bound text sends take an expected connection epoch and wait for the writer result. They
-fail if ownership changes and never replay on another connection. Connection-bound Pong sends use
-the same epoch check so a response cannot leak onto the connection after the one that received its
-Ping.
+การส่ง text แบบผูกกับ ownership จะรับ connection epoch ที่คาดไว้และรอผลจาก writer โดยจะล้มเหลวหาก
+ownership เปลี่ยนไป และจะไม่ replay บนการเชื่อมต่ออื่น การส่ง Pong แบบผูกกับการเชื่อมต่อใช้การตรวจ epoch
+เดียวกัน เพื่อไม่ให้ response รั่วไปยังการเชื่อมต่อที่ตามหลังการเชื่อมต่อที่ได้รับ Ping นั้น
 
 :::warning
-If a bound write times out after it starts, **delivery is undetermined** and the caller must not
-retry blindly.
+หากการเขียนแบบผูกไว้ timeout หลังจากเริ่มไปแล้ว **จะไม่สามารถระบุได้ว่าส่งถึงหรือไม่** และผู้เรียกต้องไม่ลองใหม่
+แบบไม่ไตร่ตรอง
 :::
 
-### Writer capacity
+### ความจุของ writer {#writer-capacity}
 
-`WebSocketConfig::writer_capacity` limits ordinary messages across the writer queue, in-flight writes, and
-reconnect buffer. It defaults to 1,024 messages.
+`WebSocketConfig::writer_capacity` จำกัดจำนวนข้อความปกติรวมกันทั้งในคิวของ writer, การเขียนที่กำลังดำเนินอยู่
+และ reconnect buffer โดยมีค่าเริ่มต้น 1,024 ข้อความ
 
-Ownership-bound sends, keepalives, and control frames share a separate allowance of the same size so
-authentication can proceed when replay fills the ordinary allowance. A full allowance rejects new sends with
-`SendError::BufferFull` before enqueueing. These limits bound **message count, not payload bytes**.
+การส่งแบบผูกกับ ownership, keepalive และ control frame ใช้โควตาแยกต่างหากขนาดเดียวกัน เพื่อให้การยืนยันตัวตน
+ดำเนินต่อได้เมื่อการ replay ใช้โควตาปกติจนเต็ม โควตาที่เต็มจะปฏิเสธการส่งใหม่ด้วย `SendError::BufferFull` ก่อน
+เข้าคิว ขีดจำกัดเหล่านี้จำกัด **จำนวนข้อความ ไม่ใช่จำนวนไบต์ของ payload**
 
-### Backend benchmarks
+### Benchmark ของ backend {#backend-benchmarks}
 
-The [WebSocket benchmark](../../crates/network/benches/BENCHMARKS.md) was measured on
-2026-07-29. The following 512 B results are the median of three back-to-back runs on the same AMD
-Ryzen Threadripper 9980X host:
+[WebSocket benchmark](../../crates/network/benches/BENCHMARKS.md) วัดเมื่อ 2026-07-29 ผลลัพธ์ขนาด 512 B
+ต่อไปนี้เป็นค่ามัธยฐานของการรันติดกันสามครั้งบน host AMD Ryzen Threadripper 9980X เครื่องเดียวกัน:
 
 | Metric                            | `tokio-tungstenite 0.30.0` | `sockudo-ws 2.0.1`       |
 | --------------------------------- | -------------------------: | -----------------------: |
@@ -419,21 +413,19 @@ Ryzen Threadripper 9980X host:
 | Text send throughput              | 6.400 million messages/s   | 7.207 million messages/s |
 | Text round-trip throughput        | 0.530 million messages/s   | 1.852 million messages/s |
 
-Across the measured 64 B, 512 B, and 4,096 B payloads, `sockudo-ws 2.0.1` reduced round-trip p99
-latency by 73% to 82%. At 512 B it processed 18% more receives, 13% more sends, and 250% more round
-trips.
+ใน payload ขนาด 64 B, 512 B และ 4,096 B ที่วัด `sockudo-ws 2.0.1` ลด latency p99 ของ round trip ได้ 73% ถึง
+82% ที่ 512 B ประมวลผลการรับได้มากขึ้น 18%, การส่งมากขึ้น 13% และ round trip มากขึ้น 250%
 
-These are backend frame-transport microbenchmarks over established, uncompressed 1 MiB in-memory
-Tokio duplex streams. They exclude DNS, TCP connect, TLS, HTTP upgrade, kernel network I/O,
-external latency, keepalive traffic, and the reconnecting client lifecycle. These WebSocket
-measurements do not cover HTTP or raw TCP clients, and their absolute values should only be
-compared on the same machine.
+ผลเหล่านี้เป็น microbenchmark ของการส่ง frame ในระดับ backend บน Tokio duplex stream ในหน่วยความจำขนาด
+1 MiB ที่เชื่อมต่อแล้วและไม่บีบอัด ไม่รวม DNS, TCP connect, TLS, HTTP upgrade, network I/O ของ kernel,
+latency ภายนอก, traffic ของ keepalive และวงจรชีวิตของ client ที่ reconnect การวัด WebSocket เหล่านี้ไม่ครอบคลุม
+HTTP หรือ raw TCP client และค่าสัมบูรณ์ควรเปรียบเทียบบนเครื่องเดียวกันเท่านั้น
 
-## Raw TCP socket client
+## Raw TCP socket client {#raw-tcp-socket-client}
 
-[`SocketClient`](../../crates/network/src/socket/client.rs) supports plain and TLS byte streams for
-protocols that delimit messages with a fixed suffix. A controller coordinates the connection, one
-reader splits inbound frames, and one writer appends the suffix while serializing concurrent sends.
+[`SocketClient`](../../crates/network/src/socket/client.rs) รองรับสตรีมไบต์ทั้งแบบ plain และ TLS สำหรับโปรโตคอล
+ที่แบ่งขอบเขตข้อความด้วย suffix คงที่ controller ประสานการเชื่อมต่อ, reader หนึ่งตัวแยก frame ขาเข้า และ writer
+หนึ่งตัวต่อ suffix ท้ายข้อความพร้อมจัดลำดับการส่งที่เกิดพร้อมกัน
 
 ```mermaid
 flowchart LR
@@ -464,62 +456,60 @@ flowchart LR
     stream <--> endpoint
 ```
 
-The writer owns framing and replay order. The adapter receives complete messages without the configured
-suffix.
+writer เป็นเจ้าของ framing และลำดับการ replay ส่วน adapter จะได้รับข้อความที่สมบูรณ์โดยไม่มี suffix ที่ตั้งค่าไว้
 
-### Framing and liveness
+### Framing และ liveness {#framing-and-liveness}
 
-The suffix must contain at least one byte and applies in both directions. The reader keeps a partial frame
-across reads and strips the suffix before invoking the callback. While the session stays active, it emits
-complete messages in arrival order. If an unterminated frame grows past 10 MiB, the reader stops and the
-controller reconnects instead of allowing unchecked memory growth.
+suffix ต้องมีอย่างน้อยหนึ่งไบต์และใช้ทั้งสองทิศทาง reader จะเก็บ frame ที่ยังไม่ครบไว้ข้ามการอ่านแต่ละครั้ง และตัด
+suffix ออกก่อนเรียก callback ระหว่างที่ session ยังใช้งานอยู่ reader จะ emit ข้อความที่สมบูรณ์ตามลำดับที่มาถึง
+หาก frame ที่ยังไม่จบโตเกิน 10 MiB reader จะหยุดและ controller จะ reconnect แทนที่จะปล่อยให้หน่วยความจำโต
+โดยไม่มีการตรวจสอบ
 
-An optional heartbeat task sends a configured byte payload at a fixed interval. The writer appends the same
-suffix as it does for application messages. A raw socket has no Ping frames, so the payload is required.
+heartbeat task ที่ไม่บังคับจะส่ง payload ไบต์ที่ตั้งค่าไว้ตามช่วงเวลาคงที่ writer จะต่อ suffix เดียวกับที่ใช้กับข้อความ
+แอปพลิเคชัน raw socket ไม่มี Ping frame จึงต้องระบุ payload
 
-`heartbeat_timeout_secs` stops the reader when no bytes arrive within the window. Unset, it defaults to three
-intervals when a heartbeat is configured and leaves detection off otherwise. A zero timeout is rejected.
+`heartbeat_timeout_secs` จะหยุด reader เมื่อไม่มีไบต์มาถึงภายในหน้าต่าง หากไม่ได้ตั้งจะใช้ค่าเริ่มต้นสามช่วง
+heartbeat เมื่อตั้ง heartbeat ไว้ มิฉะนั้นจะปิดการตรวจจับ timeout ที่เป็นศูนย์จะถูกปฏิเสธ
 
-The socket enables `TCP_NODELAY` to avoid Nagle delays for small protocol messages.
+socket จะเปิด `TCP_NODELAY` เพื่อเลี่ยง delay จาก Nagle สำหรับข้อความโปรโตคอลขนาดเล็ก
 
-### Connection and TLS policy
+### Policy ด้านการเชื่อมต่อและ TLS {#connection-and-tls-policy}
 
-The client accepts `host:port` or URL input and supports plain or TLS mode. TLS uses the standard
-web PKI roots. A certificate directory can add trusted roots and, when it contains a matching
-certificate and private key, supply a client identity for mutual TLS.
+client รับ input แบบ `host:port` หรือ URL และรองรับโหมด plain หรือ TLS โดย TLS ใช้ web PKI root มาตรฐาน
+directory ของใบรับรองสามารถเพิ่ม root ที่เชื่อถือ และเมื่อมีใบรับรองกับ private key ที่ตรงกัน จะใช้เป็น identity
+ของ client สำหรับ mutual TLS ได้
 
-Initial connection establishment makes up to five attempts by default, with a 10-second bound per attempt and
-exponential backoff.
+การสร้างการเชื่อมต่อครั้งแรกจะลองได้สูงสุดห้าครั้งโดยค่าเริ่มต้น โดยแต่ละครั้งมีขอบเขต 10 วินาที และใช้
+exponential backoff
 
-Once connected, transport loss uses the configurable reconnect timeout, exponential backoff, bounded jitter,
-and unlimited attempts by default. As with the WebSocket client, 10 seconds of stable uptime resets the
-reconnect cycle. The same reconnect throttling bounds its attempt rate once reconnects flap. An optional state
-sink reports semantic connection loss and recovery.
+เมื่อเชื่อมต่อแล้ว การสูญเสีย transport จะใช้ reconnect timeout ที่ตั้งค่าได้, exponential backoff, jitter แบบมี
+ขอบเขต และลองได้ไม่จำกัดโดยค่าเริ่มต้น เช่นเดียวกับ WebSocket client การเชื่อมต่อที่เสถียรต่อเนื่อง 10 วินาทีจะ
+รีเซ็ตรอบการ reconnect และการ throttle การ reconnect แบบเดียวกันจะจำกัดอัตราการลองเมื่อ reconnect สลับไปมา
+state sink ที่ไม่บังคับจะรายงานการสูญเสียและการกู้คืนการเชื่อมต่อในเชิงความหมาย
 
-### State reporting and explicit reconnect
+### การรายงานสถานะและการ reconnect แบบระบุชัดเจน {#state-reporting-and-explicit-reconnect-1}
 
-The optional `SocketStateSink` has the same availability contract as the WebSocket client. It
-publishes `Connected` after successful initial connection, `Disconnected` when an active transport
-enters reconnect, and `Connected` after recovery. It omits initial failures, individual attempts,
-retry exhaustion, deliberate disconnect, and drop. Its synchronous callback must return promptly
-and must not request another transition through the same sink.
+`SocketStateSink` ที่ไม่บังคับมีสัญญาเรื่องความพร้อมใช้งานเหมือนกับ WebSocket client โดยจะ publish `Connected`
+หลังการเชื่อมต่อครั้งแรกสำเร็จ, `Disconnected` เมื่อ transport ที่ใช้งานอยู่เข้าสู่การ reconnect และ `Connected`
+หลังการกู้คืน โดยละเว้นความล้มเหลวครั้งแรก, การลองแต่ละครั้ง, การลองใหม่จนหมด, การ disconnect โดยเจตนา และ
+การ drop callback แบบ synchronous ของ sink ต้องคืนค่าโดยเร็ว และต้องไม่ร้องขอการเปลี่ยนสถานะอื่นผ่าน sink เดียวกัน
 
-`request_reconnect()` atomically asks the controller to replace an active plain or TLS transport. The
-cloneable `SocketReconnectHandle` lets adapter tasks make that request without owning the client. It reports
-whether the request was accepted. The request is rejected if the client is already reconnecting,
-disconnecting, or closed. An accepted request publishes `Disconnected` before waking the controller. Normal
-reconnect replay and buffer ordering then apply to the replacement.
+`request_reconnect()` ร้องขอแบบ atomic ให้ controller แทนที่ transport แบบ plain หรือ TLS ที่ใช้งานอยู่
+`SocketReconnectHandle` ที่ clone ได้ช่วยให้ task ของ adapter ส่งคำขอนี้ได้โดยไม่ต้องเป็นเจ้าของ client และจะรายงาน
+ว่าคำขอได้รับการยอมรับหรือไม่ คำขอจะถูกปฏิเสธหาก client กำลัง reconnect อยู่แล้ว, กำลัง disconnect หรือปิดแล้ว
+คำขอที่ได้รับการยอมรับจะ publish `Disconnected` ก่อนปลุก controller จากนั้นการ replay และลำดับของ buffer ตาม
+ปกติของการ reconnect จะมีผลกับตัวแทนที่
 
-### Replay and delivery boundaries
+### ขอบเขตของการ replay และการส่ง {#replay-and-delivery-boundaries}
 
-During reconnect, the writer buffers application messages in FIFO order. Recovery proceeds as follows:
+ระหว่าง reconnect writer จะ buffer ข้อความแอปพลิเคชันตามลำดับ FIFO การกู้คืนเป็นไปดังนี้:
 
-1. After installing a replacement writer, it can send protocol replay messages supplied by the adapter, such as
-   a logon or session setup sequence.
-1. The writer drains the buffered application messages.
-1. The replacement reader starts only after that drain succeeds.
+1. หลังติดตั้ง writer ตัวแทนแล้ว สามารถส่งข้อความ replay ของโปรโตคอลที่ adapter ให้มา เช่น ลำดับการ logon
+   หรือการตั้งค่า session
+1. writer จะระบายข้อความแอปพลิเคชันที่ buffer ไว้
+1. reader ตัวแทนจะเริ่มทำงานหลังการระบายนั้นสำเร็จเท่านั้น
 
-A post-reconnection callback runs after the writer, buffer, and reader are ready.
+callback หลังการ reconnect จะทำงานหลังจาก writer, buffer และ reader พร้อมแล้ว
 
 ```mermaid
 sequenceDiagram
@@ -549,90 +539,90 @@ sequenceDiagram
     end
 ```
 
-A raw TCP replacement becomes active only after optional protocol replay and buffered application messages
-drain successfully. The reader and post-reconnection callback start afterward.
+การเชื่อมต่อ raw TCP ตัวแทนจะเริ่มใช้งานได้ก็ต่อเมื่อ replay ของโปรโตคอล (ถ้ามี) และข้อความแอปพลิเคชันที่ buffer
+ไว้ถูกระบายสำเร็จแล้ว reader และ callback หลังการ reconnect จะเริ่มหลังจากนั้น
 
 :::warning
-`send_bytes` returns when the message enters the writer channel, not when the peer receives it. A
-concurrent disconnect can still prevent delivery. Reconnect replay and buffering are process memory,
-so protocols that require durable or exactly-once delivery must enforce those guarantees above the
-socket client.
+`send_bytes` คืนค่าเมื่อข้อความเข้าสู่ channel ของ writer ไม่ใช่เมื่อ peer ได้รับ การ disconnect ที่เกิดพร้อมกันยังอาจ
+ทำให้ส่งไม่ถึงได้ การ replay และ buffer ระหว่าง reconnect อยู่ในหน่วยความจำของ process ดังนั้นโปรโตคอลที่ต้องการ
+การส่งแบบถาวรหรือ exactly-once ต้องบังคับการรับประกันเหล่านั้นในชั้นที่อยู่เหนือ socket client
 :::
 
-### Writer capacity
+### ความจุของ writer {#writer-capacity-1}
 
-`SocketConfig::writer_capacity` limits the combined number of queued, in-flight, and replay messages and
-defaults to 1,024. Once full, the writer rejects new sends with `SendError::BufferFull`, including sends
-through `SocketClient::writer_tx`. Accepted messages keep their replay policy. This limits message count, not
-payload bytes.
+`SocketConfig::writer_capacity` จำกัดจำนวนรวมของข้อความที่อยู่ในคิว, กำลังส่ง และรอ replay โดยมีค่าเริ่มต้น
+1,024 เมื่อเต็มแล้ว writer จะปฏิเสธการส่งใหม่ด้วย `SendError::BufferFull` รวมถึงการส่งผ่าน
+`SocketClient::writer_tx` ข้อความที่ได้รับแล้วจะคง policy การ replay ของตัวเองไว้ ขีดจำกัดนี้จำกัดจำนวนข้อความ
+ไม่ใช่จำนวนไบต์ของ payload
 
-## TCP socket options
+## TCP socket option {#tcp-socket-options}
 
-The WebSocket and raw TCP socket clients apply the same options to each outbound connection, including the hop
-to an HTTP `CONNECT` proxy. The HTTP client uses a separate Hyper connector with `TCP_NODELAY`.
-The HTTP client's keepalive starts after 15 seconds idle, with 15 seconds between probes and three retries.
-The HTTP client also uses a 30-second `TCP_USER_TIMEOUT` on Linux, Android, and Fuchsia.
-The table below applies to WebSocket and raw TCP clients.
+WebSocket และ raw TCP socket client ใช้ option ชุดเดียวกันกับการเชื่อมต่อขาออกทุกตัว รวมถึง hop ไปยัง HTTP
+`CONNECT` proxy ส่วน HTTP client ใช้ Hyper connector แยกต่างหากที่เปิด `TCP_NODELAY`
+keepalive ของ HTTP client เริ่มหลังว่าง 15 วินาที โดยห่างกัน 15 วินาทีระหว่าง probe และลองใหม่สามครั้ง
+HTTP client ยังใช้ `TCP_USER_TIMEOUT` 30 วินาทีบน Linux, Android และ Fuchsia
+ตารางด้านล่างใช้กับ WebSocket และ raw TCP client
 
-| Option             | Value                           | Detects or prevents                                       |
+| Option             | ค่า                              | ตรวจจับหรือป้องกัน                                             |
 | ------------------ | ------------------------------- | --------------------------------------------------------- |
-| `TCP_NODELAY`      | Enabled                         | Nagle delaying a small frame behind an unacknowledged one |
-| Keepalive          | 20 s idle, 10 s apart, 3 probes | An idle peer that has gone away without closing           |
-| `TCP_USER_TIMEOUT` | 1 minute, Linux only            | Outbound data that is never acknowledged                  |
+| `TCP_NODELAY`      | เปิด                             | Nagle หน่วง frame เล็กไว้หลัง frame ที่ยังไม่ได้รับ acknowledge     |
+| Keepalive          | ว่าง 20 s, ห่างกัน 10 s, 3 probe    | peer ที่ว่างอยู่และหายไปโดยไม่ปิดการเชื่อมต่อ                         |
+| `TCP_USER_TIMEOUT` | 1 นาที เฉพาะ Linux                | ข้อมูลขาออกที่ไม่เคยได้รับ acknowledge                             |
 
-These catch a connection that stops delivering without closing. A NAT or load balancer produces this condition
-when it drops state with no `FIN` and no `RST`. Writes keep succeeding into the send buffer and return `Ok`
-for messages the peer will never receive. Kernel defaults take approximately 15 minutes to detect this
-failure. These settings limit detection to approximately one minute.
+option เหล่านี้จับการเชื่อมต่อที่หยุดส่งข้อมูลโดยไม่ปิด NAT หรือ load balancer ทำให้เกิดสภาพนี้เมื่อทิ้ง state ไป
+โดยไม่มี `FIN` และไม่มี `RST` การเขียนยังสำเร็จลง send buffer และคืนค่า `Ok` สำหรับข้อความที่ peer จะไม่มีวัน
+ได้รับ ค่าเริ่มต้นของ kernel ใช้เวลาประมาณ 15 นาทีในการตรวจจับความล้มเหลวนี้ การตั้งค่าเหล่านี้จำกัดการตรวจจับให้
+อยู่ที่ประมาณหนึ่งนาที
 
-`TCP_USER_TIMEOUT` is sized to exceed the keepalive probe budget. On Linux it also overrides
-`TCP_KEEPCNT`, so detection there follows the timeout rather than the probe count, which applies on
-macOS and Windows.
+`TCP_USER_TIMEOUT` ถูกกำหนดขนาดให้เกินงบของ keepalive probe บน Linux ยัง override `TCP_KEEPCNT` ด้วย
+การตรวจจับบน Linux จึงเป็นไปตาม timeout แทนจำนวน probe ซึ่งใช้บน macOS และ Windows
 
-Treat them as a backstop. The heartbeat timeout usually fires first, and unlike it these need no
-configuration and still bound a connection whose reader task has stopped making progress. A socket
-that rejects an option is still usable, so failures are logged and the connection proceeds.
+ให้มอง option เหล่านี้เป็นตัวสำรอง heartbeat timeout มักทำงานก่อน แต่ต่างจาก heartbeat ตรงที่ option เหล่านี้
+ไม่ต้องตั้งค่า และยังจำกัดการเชื่อมต่อที่ reader task หยุดคืบหน้าได้ socket ที่ปฏิเสธ option ใดยังใช้งานได้ ความ
+ล้มเหลวจึงถูก log ไว้และการเชื่อมต่อดำเนินต่อไป
 
-## Testing
+## การทดสอบ {#testing}
 
-The network crate separates algorithm checks from operating-system I/O and simulated failure topologies. This
-keeps a failure local. A state-machine invariant should fail without a socket. Wire behavior should fail
-against a small loopback peer. Reconnect races should fail under a reproducible network schedule.
+crate network แยกการตรวจอัลกอริทึมออกจาก I/O ของระบบปฏิบัติการและโทโพโลยีความล้มเหลวแบบจำลอง เพื่อให้
+ความล้มเหลวอยู่ในขอบเขตเฉพาะจุด invariant ของ state machine ควรล้มเหลวได้โดยไม่ต้องมี socket พฤติกรรมบน wire
+ควรล้มเหลวเมื่อทดสอบกับ peer ขนาดเล็กบน loopback และ race ของการ reconnect ควรล้มเหลวภายใต้ตารางเวลาเครือข่าย
+ที่ทำซ้ำได้
 
-### Unit and component tests
+### Unit test และ component test {#unit-and-component-tests}
 
-Tests beside the implementation cover configuration validation, state transitions, rate limits, backoff, retry
-budgets, framing, transport conversion, authentication, subscription state, and reconnect buffer policy. Pure
-logic uses fake clocks and direct state models. Async task tests use paused Tokio time, in-memory duplex
-streams, injected transports, or an ephemeral loopback server. Thus, they exercise the real reader, writer,
-heartbeat, and controller tasks without an external service.
+test ที่อยู่ข้าง implementation ครอบคลุมการตรวจสอบ config, การเปลี่ยนสถานะ, rate limit, backoff, งบการลองใหม่,
+framing, การแปลง transport, การยืนยันตัวตน, สถานะ subscription และ policy ของ reconnect buffer logic ล้วนใช้
+clock ปลอมและ state model โดยตรง ส่วน test ของ async task ใช้เวลา Tokio แบบหยุดไว้, duplex stream ในหน่วยความจำ,
+transport ที่ inject เข้าไป หรือ server บน loopback ชั่วคราว จึงทดสอบ reader, writer, heartbeat และ controller
+task ตัวจริงได้โดยไม่ต้องพึ่ง service ภายนอก
 
-The client suites then test their own protocol boundary. HTTP tests cover request serialization,
-response headers and body limits, timeouts, proxy behavior, and URL redaction. WebSocket and raw TCP
-tests cover concurrent sends, liveness timeouts, framing, connection epochs, state sinks, explicit
-reconnect, replay order, and shutdown races. The shared TLS tests cover certificate loading and a
-complete mutual-TLS handshake. A separate loopback integration suite exercises the WebSocket HTTP
-`CONNECT` proxy path for plain `ws://` upstreams.
+จากนั้นชุด test ของแต่ละ client จะทดสอบขอบเขตโปรโตคอลของตัวเอง test ของ HTTP ครอบคลุมการ serialize request,
+header และ limit ของ body ใน response, timeout, พฤติกรรมของ proxy และการ redact URL test ของ WebSocket และ
+raw TCP ครอบคลุมการส่งพร้อมกัน, liveness timeout, framing, connection epoch, state sink, การ reconnect แบบระบุ
+ชัดเจน, ลำดับการ replay และ race ระหว่าง shutdown test ของ TLS ที่ใช้ร่วมกันครอบคลุมการโหลดใบรับรองและ handshake
+แบบ mutual TLS ที่สมบูรณ์ ชุด integration test บน loopback แยกต่างหากทดสอบเส้นทาง HTTP `CONNECT` proxy ของ
+WebSocket สำหรับ upstream แบบ `ws://` ธรรมดา
 
-### Property tests
+### Property test {#property-tests}
 
-[`proptest`](https://github.com/proptest-rs/proptest) generates values and operation traces for invariants
-that example cases cannot enumerate. The suites compare GCRA decisions with a reference model and check
-backoff and retry bounds. They round-trip transport messages through both WebSocket backends and exercise
-authentication, subscription, and reconnect-buffer state machines. Selected suites persist minimized failures
-in `crates/network/proptest-regressions` so a discovered case becomes a permanent regression test.
+[`proptest`](https://github.com/proptest-rs/proptest) สร้างค่าและ trace ของการดำเนินการสำหรับ invariant ที่กรณี
+ตัวอย่างไล่ครอบคลุมไม่ได้ ชุด test เปรียบเทียบการตัดสินใจของ GCRA กับ reference model และตรวจขอบเขตของ backoff
+และการลองใหม่ ทำ round-trip ข้อความ transport ผ่านทั้งสอง backend ของ WebSocket และทดสอบ state machine ของ
+การยืนยันตัวตน, subscription และ reconnect buffer ชุด test ที่เลือกไว้จะเก็บความล้มเหลวที่ย่อแล้วไว้ใน
+`crates/network/proptest-regressions` เพื่อให้กรณีที่ค้นพบกลายเป็น regression test ถาวร
 
-### Deterministic network simulation
+### การจำลองเครือข่ายแบบกำหนดผลได้ {#deterministic-network-simulation}
 
-[`turmoil`](https://crates.io/crates/turmoil) tests compile the production raw TCP and WebSocket clients
-against simulated TCP types through the crate's `net` seam. Fixed seeds make failures reproducible. Stressed
-runs vary task order and message latency. Scenarios inject connection drops, partitions and repairs, stalled
-peers, handshake failures, and disconnects during backoff or recovery. Assertions cover eventual state,
-attempt limits, heartbeat behavior, message ordering, authentication gating, and clean shutdown. Separate
-suites exercise the Tungstenite and Sockudo backends over the same simulated protocol.
+test ด้วย [`turmoil`](https://crates.io/crates/turmoil) จะ compile raw TCP และ WebSocket client ตัวที่ใช้ใน
+production เข้ากับ TCP type แบบจำลองผ่านรอยต่อ `net` ของ crate seed คงที่ทำให้ความล้มเหลวทำซ้ำได้ การรันแบบ
+stress จะเปลี่ยนลำดับ task และ latency ของข้อความ สถานการณ์จำลองจะ inject การหลุดของการเชื่อมต่อ, การแบ่ง
+เครือข่ายและการซ่อมแซม, peer ที่ค้าง, handshake ที่ล้มเหลว และการ disconnect ระหว่าง backoff หรือการกู้คืน
+การ assert ครอบคลุมสถานะสุดท้าย, ขีดจำกัดจำนวนครั้งที่ลอง, พฤติกรรมของ heartbeat, ลำดับข้อความ, การกั้นด้วยการ
+ยืนยันตัวตน และการ shutdown ที่เรียบร้อย ชุด test แยกต่างหากทดสอบ backend Tungstenite และ Sockudo บน
+โปรโตคอลจำลองเดียวกัน
 
-Default tests keep real Tokio loopback networking and exclude the simulation-only suites. Enabling
-the `turmoil` feature swaps the TCP layer and includes those suites:
+test ค่าเริ่มต้นใช้เครือข่าย loopback ของ Tokio จริงและไม่รวมชุด test ที่ใช้เฉพาะการจำลอง การเปิด feature
+`turmoil` จะสลับชั้น TCP และรวมชุด test เหล่านั้นเข้ามา:
 
 ```bash
 cargo nextest run -p nautilus-network

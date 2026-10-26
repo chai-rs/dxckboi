@@ -1,177 +1,175 @@
 # Databento
 
-NautilusTrader includes an adapter for the [Databento](https://databento.com/) API and for data in
-[Databento Binary Encoding (DBN)](https://databento.com/docs/standards-and-conventions/databento-binary-encoding).
-Databento is a market data provider only, so the adapter does not include an execution client. For execution
-or signal use, you can:
+NautilusTrader มี adapter สำหรับ API ของ [Databento](https://databento.com/) และสำหรับข้อมูลในรูปแบบ
+[Databento Binary Encoding (DBN)](https://databento.com/docs/standards-and-conventions/databento-binary-encoding)
+Databento เป็นผู้ให้บริการ market data เท่านั้น adapter จึงไม่มี execution client หากต้องการใช้เพื่อ execution
+หรือสร้าง signal สามารถ:
 
-- Pair it with a sandbox for simulated execution.
-- Route execution through another adapter, such as Interactive Brokers.
-- Use it to calculate traditional asset class signals for crypto trading.
+- ใช้คู่กับ sandbox เพื่อจำลอง execution
+- route execution ผ่าน adapter อื่น เช่น Interactive Brokers
+- ใช้คำนวณ signal จาก asset class ดั้งเดิมสำหรับการเทรด crypto
 
-The adapter supports:
+adapter รองรับ:
 
-- Loading historical data from DBN files and decoding to Nautilus objects for backtesting or catalog storage.
-- Requesting historical data decoded to Nautilus objects for live trading and backtesting.
-- Subscribing to real-time data feeds decoded to Nautilus objects for live trading and sandbox environments.
+- การโหลดข้อมูลย้อนหลังจากไฟล์ DBN และ decode เป็น object ของ Nautilus สำหรับ backtest หรือจัดเก็บใน catalog
+- การ request ข้อมูลย้อนหลังที่ decode เป็น object ของ Nautilus สำหรับ live trading และ backtest
+- การ subscribe data feed แบบ real-time ที่ decode เป็น object ของ Nautilus สำหรับ live trading และ sandbox
 
 :::tip
-[Databento](https://databento.com/signup) offers $125 in free data credits for new sign-ups.
-Apply the credits to historical data requests, or offset them against a subscription plan. Credits
-are shared across a team and expire six months after signup.
+[Databento](https://databento.com/signup) ให้เครดิตข้อมูลฟรี $125 สำหรับผู้สมัครใหม่
+นำเครดิตไปใช้กับ request ข้อมูลย้อนหลัง หรือหักลบกับแผน subscription ได้ เครดิต
+ใช้ร่วมกันภายในทีมและหมดอายุหกเดือนหลังสมัคร
 
-With careful requests, this covers testing and evaluation. Check the
-[metadata.get_cost](https://databento.com/docs/api-reference-historical/metadata/metadata-get-cost)
-endpoint before requesting data.
+หาก request อย่างระมัดระวัง เครดิตนี้เพียงพอสำหรับการทดสอบและประเมิน ให้ตรวจสอบ
+endpoint [metadata.get_cost](https://databento.com/docs/api-reference-historical/metadata/metadata-get-cost)
+ก่อน request ข้อมูล
 :::
 
-## Overview
+## ภาพรวม {#overview}
 
-The adapter uses the [databento-rs](https://crates.io/crates/databento) crate,
-Databento's official Rust client library.
+adapter ใช้ crate [databento-rs](https://crates.io/crates/databento)
+ซึ่งเป็น Rust client library อย่างเป็นทางการของ Databento
 
 :::info
-You do not need to install `databento` separately. The adapter compiles as a
-static library and links automatically during the build.
+ไม่ต้องติดตั้ง `databento` แยกต่างหาก adapter จะ compile เป็น
+static library และ link ให้อัตโนมัติระหว่าง build
 :::
 
-The following adapter classes are available:
+adapter class ที่มีให้ใช้ได้แก่:
 
-- `DatabentoDataLoader`: Loads DBN data from files.
-- `DatabentoHistoricalClient`: Fetches historical market data and instrument definitions via the Databento HTTP API.
-- `DatabentoLiveClient`: Subscribes to real-time data feeds via Databento's raw TCP API.
-- `DatabentoDataClient`: Data client for live trading nodes, wrapping the historical and live clients.
-- `DatabentoDataClientFactory`: Builds the data client from a `DatabentoDataClientConfig` for `LiveNode`.
+- `DatabentoDataLoader`: โหลดข้อมูล DBN จากไฟล์
+- `DatabentoHistoricalClient`: ดึง market data ย้อนหลังและ instrument definition ผ่าน HTTP API ของ Databento
+- `DatabentoLiveClient`: subscribe data feed แบบ real-time ผ่าน raw TCP API ของ Databento
+- `DatabentoDataClient`: data client สำหรับ live trading node ซึ่งห่อ historical client และ live client ไว้
+- `DatabentoDataClientFactory`: สร้าง data client จาก `DatabentoDataClientConfig` สำหรับ `LiveNode`
 
 :::note
-Most users configure a live trading node (covered below) and do not work with
-these components directly.
+ผู้ใช้ส่วนใหญ่จะตั้งค่า live trading node (อธิบายด้านล่าง) และไม่ได้ทำงานกับ
+component เหล่านี้โดยตรง
 :::
 
-## Examples
+## ตัวอย่าง {#examples}
 
-- [Python examples](https://github.com/nautechsystems/nautilus_trader/tree/develop/examples/live/databento/)
-
-Rust examples live under
-[`crates/adapters/databento/examples/`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/databento/examples/).
-The data tester subscribes to live quotes and trades for the configured instrument when run:
+ตัวอย่าง Rust อยู่ภายใต้
+[`crates/adapters/databento/examples/`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/databento/examples/)
+data tester จะ subscribe quote และ trade แบบ live ของ instrument ที่ตั้งค่าไว้เมื่อรัน:
 
 ```bash
 cargo run --example databento-data-tester --package nautilus-databento
 ```
 
-## Databento documentation
+## เอกสารของ Databento {#databento-documentation}
 
-See the [Databento new users guide](https://databento.com/docs/quickstart/new-user-guides).
-Refer to it alongside this integration guide.
+ดู [Databento new users guide](https://databento.com/docs/quickstart/new-user-guides)
+และใช้อ้างอิงควบคู่กับคู่มือ integration นี้
 
-## Databento Binary Encoding (DBN)
+## Databento Binary Encoding (DBN) {#databento-binary-encoding-dbn}
 
-Databento Binary Encoding (DBN) is a fast message encoding and storage format for
-normalized market data. The [DBN spec](https://databento.com/docs/standards-and-conventions/databento-binary-encoding)
-includes a self-describing metadata header and a fixed set of struct definitions
-that standardize how market data is normalized.
+Databento Binary Encoding (DBN) เป็นรูปแบบการเข้ารหัส message และการจัดเก็บที่รวดเร็วสำหรับ
+market data ที่ normalize แล้ว [DBN spec](https://databento.com/docs/standards-and-conventions/databento-binary-encoding)
+มี metadata header ที่อธิบายตัวเองได้ และชุดนิยาม struct ที่ตายตัว
+ซึ่งกำหนดมาตรฐานการ normalize market data
 
-The adapter decodes DBN data to Nautilus objects. The same Rust decoder handles:
+adapter decode ข้อมูล DBN เป็น object ของ Nautilus โดย Rust decoder ตัวเดียวกันรองรับ:
 
-- Loading and decoding DBN files from disk.
-- Decoding historical and live data in real time.
+- การโหลดและ decode ไฟล์ DBN จากดิสก์
+- การ decode ข้อมูลย้อนหลังและข้อมูล live แบบ real-time
 
-## Supported schemas
+## Schema ที่รองรับ {#supported-schemas}
 
-The following Databento schemas are supported by NautilusTrader:
+NautilusTrader รองรับ schema ของ Databento ต่อไปนี้:
 
-| Databento schema                                                             | Nautilus data type               | Description                     |
+| Databento schema                                                             | Nautilus data type               | คำอธิบาย                     |
 | :--------------------------------------------------------------------------- | :------------------------------- | :------------------------------ |
-| [MBO](https://databento.com/docs/schemas-and-data-formats/mbo)               | `OrderBookDelta \| TradeTick`    | Market by order (L3).           |
-| [MBP_1](https://databento.com/docs/schemas-and-data-formats/mbp-1)           | `(QuoteTick, TradeTick \| None)` | Market by price (L1).           |
-| [MBP_10](https://databento.com/docs/schemas-and-data-formats/mbp-10)         | `OrderBookDepth`                 | Market depth (L2).              |
-| [BBO_1S](https://databento.com/docs/schemas-and-data-formats/bbo-1s)         | `QuoteTick`                      | 1-second best bid/offer.        |
-| [BBO_1M](https://databento.com/docs/schemas-and-data-formats/bbo-1m)         | `QuoteTick`                      | 1-minute best bid/offer.        |
-| [CMBP_1](https://databento.com/docs/schemas-and-data-formats/cmbp-1)         | `(QuoteTick, TradeTick \| None)` | Consolidated MBP across venues. |
-| [CBBO_1S](https://databento.com/docs/schemas-and-data-formats/cbbo-1s)       | `QuoteTick`                      | Consolidated 1-second BBO.      |
-| [CBBO_1M](https://databento.com/docs/schemas-and-data-formats/cbbo-1m)       | `QuoteTick`                      | Consolidated 1-minute BBO.      |
-| [TCBBO](https://databento.com/docs/schemas-and-data-formats/tcbbo)           | `(QuoteTick, TradeTick)`         | Trade-sampled consolidated BBO. |
-| [TBBO](https://databento.com/docs/schemas-and-data-formats/tbbo)             | `(QuoteTick, TradeTick)`         | Trade-sampled best bid/offer.   |
-| [TRADES](https://databento.com/docs/schemas-and-data-formats/trades)         | `TradeTick`                      | Trade ticks.                    |
-| [OHLCV_1S](https://databento.com/docs/schemas-and-data-formats/ohlcv-1s)     | `Bar`                            | 1-second bars.                  |
-| [OHLCV_1M](https://databento.com/docs/schemas-and-data-formats/ohlcv-1m)     | `Bar`                            | 1-minute bars.                  |
-| [OHLCV_1H](https://databento.com/docs/schemas-and-data-formats/ohlcv-1h)     | `Bar`                            | 1-hour bars.                    |
-| [OHLCV_1D](https://databento.com/docs/schemas-and-data-formats/ohlcv-1d)     | `Bar`                            | Daily bars.                     |
-| [DEFINITION](https://databento.com/docs/schemas-and-data-formats/definition) | `Instrument` (various types)     | Instrument definitions.         |
-| [IMBALANCE](https://databento.com/docs/schemas-and-data-formats/imbalance)   | `DatabentoImbalance`             | Auction imbalance data.         |
-| [STATISTICS](https://databento.com/docs/schemas-and-data-formats/statistics) | `DatabentoStatistics`            | Market statistics.              |
-| [STATUS](https://databento.com/docs/schemas-and-data-formats/status)         | `InstrumentStatus`               | Market status updates.          |
+| [MBO](https://databento.com/docs/schemas-and-data-formats/mbo)               | `OrderBookDelta \| TradeTick`    | Market by order (L3)           |
+| [MBP_1](https://databento.com/docs/schemas-and-data-formats/mbp-1)           | `(QuoteTick, TradeTick \| None)` | Market by price (L1)           |
+| [MBP_10](https://databento.com/docs/schemas-and-data-formats/mbp-10)         | `OrderBookDepth`                 | Market depth (L2)              |
+| [BBO_1S](https://databento.com/docs/schemas-and-data-formats/bbo-1s)         | `QuoteTick`                      | best bid/offer ราย 1 วินาที        |
+| [BBO_1M](https://databento.com/docs/schemas-and-data-formats/bbo-1m)         | `QuoteTick`                      | best bid/offer ราย 1 นาที        |
+| [CMBP_1](https://databento.com/docs/schemas-and-data-formats/cmbp-1)         | `(QuoteTick, TradeTick \| None)` | MBP แบบรวม (consolidated) ข้ามหลาย venue |
+| [CBBO_1S](https://databento.com/docs/schemas-and-data-formats/cbbo-1s)       | `QuoteTick`                      | BBO แบบรวม ราย 1 วินาที      |
+| [CBBO_1M](https://databento.com/docs/schemas-and-data-formats/cbbo-1m)       | `QuoteTick`                      | BBO แบบรวม ราย 1 นาที      |
+| [TCBBO](https://databento.com/docs/schemas-and-data-formats/tcbbo)           | `(QuoteTick, TradeTick)`         | BBO แบบรวมที่สุ่มตาม trade |
+| [TBBO](https://databento.com/docs/schemas-and-data-formats/tbbo)             | `(QuoteTick, TradeTick)`         | best bid/offer ที่สุ่มตาม trade   |
+| [TRADES](https://databento.com/docs/schemas-and-data-formats/trades)         | `TradeTick`                      | trade tick                    |
+| [OHLCV_1S](https://databento.com/docs/schemas-and-data-formats/ohlcv-1s)     | `Bar`                            | bar ราย 1 วินาที                  |
+| [OHLCV_1M](https://databento.com/docs/schemas-and-data-formats/ohlcv-1m)     | `Bar`                            | bar ราย 1 นาที                  |
+| [OHLCV_1H](https://databento.com/docs/schemas-and-data-formats/ohlcv-1h)     | `Bar`                            | bar ราย 1 ชั่วโมง                    |
+| [OHLCV_1D](https://databento.com/docs/schemas-and-data-formats/ohlcv-1d)     | `Bar`                            | bar รายวัน                      |
+| [DEFINITION](https://databento.com/docs/schemas-and-data-formats/definition) | `Instrument` (หลายชนิด)     | instrument definition         |
+| [IMBALANCE](https://databento.com/docs/schemas-and-data-formats/imbalance)   | `DatabentoImbalance`             | ข้อมูล auction imbalance         |
+| [STATISTICS](https://databento.com/docs/schemas-and-data-formats/statistics) | `DatabentoStatistics`            | สถิติของตลาด              |
+| [STATUS](https://databento.com/docs/schemas-and-data-formats/status)         | `InstrumentStatus`               | การอัปเดตสถานะตลาด          |
 
 :::note
-Databento also documents reference schemas, including corporate actions,
-adjustment factors, and security master data. This adapter maps only the schemas
-listed above to Nautilus data types. Daily Databento OHLCV uses `ohlcv-1d`, and
-`ohlcv-eod` records also decode to daily bars. Official settlement prices and
-open interest come from the `statistics` schema, not OHLCV bars.
+Databento ยังมีเอกสารของ reference schema อีกหลายชนิด เช่น corporate action,
+adjustment factor และ security master data adapter นี้ map เฉพาะ schema
+ที่ระบุข้างต้นเป็น data type ของ Nautilus OHLCV รายวันของ Databento ใช้ `ohlcv-1d` และ
+record แบบ `ohlcv-eod` ก็ decode เป็น bar รายวันเช่นกัน ราคา settlement อย่างเป็นทางการและ
+open interest มาจาก schema `statistics` ไม่ใช่จาก bar แบบ OHLCV
 :::
 
 :::info
-Instrument definitions for unsupported `instrument_class` values (`'I'` Index, `'B'` Bond) are skipped with a
-warning rather than aborting the batch. FX spot definitions with currencies that Nautilus cannot map are also
-skipped. Index definitions come mainly from the Cboe Global Indices Feed (`MAIN.CGIF`) and the OPRA options
-publishers. `publishers.json` lists every publisher ID with its dataset and venue. Open an issue if you need
-Nautilus modeling for these.
+instrument definition ที่มีค่า `instrument_class` ที่ไม่รองรับ (`'I'` Index, `'B'` Bond) จะถูกข้ามพร้อม
+warning แทนที่จะยกเลิกทั้ง batch definition ของ FX spot ที่มีสกุลเงินซึ่ง Nautilus map ไม่ได้ก็จะถูก
+ข้ามเช่นกัน definition ของ index ส่วนใหญ่มาจาก Cboe Global Indices Feed (`MAIN.CGIF`) และ publisher ของ OPRA options
+`publishers.json` แสดง publisher ID ทุกตัวพร้อม dataset และ venue ของมัน เปิด issue หากต้องการให้
+Nautilus รองรับโมเดลของสิ่งเหล่านี้
 
-Statistics messages with `stat_type` values outside the modeled range (1-20) are
-also skipped with a warning. This includes the venue-specific values
-`VenueSpecificVolume1` (10001) and `VenueSpecificPrice1` (10002), which exceed
-the `u8` Arrow column width used for persistence.
+statistics message ที่มีค่า `stat_type` อยู่นอกช่วงที่รองรับ (1-20) จะ
+ถูกข้ามพร้อม warning เช่นกัน รวมถึงค่าเฉพาะ venue
+`VenueSpecificVolume1` (10001) และ `VenueSpecificPrice1` (10002) ซึ่งเกิน
+ความกว้างของคอลัมน์ Arrow แบบ `u8` ที่ใช้ในการ persist
 :::
 
-### Schema considerations
+### ข้อพิจารณาในการเลือก schema {#schema-considerations}
 
-- **TBBO and TCBBO**: Trade-sampled feeds that pair every trade with the BBO
-  immediately *before* the trade's effect. Use them for trades aligned with
-  contemporaneous quotes without managing two streams.
-- **MBP-1 and CMBP-1 (L1)**: Event-level updates that emit trades only on trade
-  events. Choose them for a complete top-of-book event tape. For quote and trade
-  alignment, prefer TBBO or TCBBO.
-- **MBP-10 (L2)**: Top 10 levels with trades. Use it for depth-aware strategies
-  that do not need full MBO data. Includes orders per level. Databento serves
-  this schema at 10 levels only, so depth requests must use `depth=10`.
-- **MBO (L3)**: Per-order events for queue position modeling and exact book
-  reconstruction. `subscribe_book_deltas()` requests no snapshot, so a node
-  subscription streams from the point of subscription with no initial book state.
-  A strategy that needs a complete book must start before the trading session,
-  seed the book from a historical request, or drive `DatabentoLiveClient.subscribe`
-  directly with `snapshot=True`.
-- **BBO_1S/BBO_1M and CBBO_1S/CBBO_1M**: Sampled top-of-book updates at fixed
-  intervals (1s or 1m). The adapter emits `QuoteTick` only for these schemas.
-  Use them for monitoring, spreads, and low-cost signals. They are not suited
-  for microstructure work.
-- **TRADES**: Trades only. For quote context alongside trades, subscribe with
-  MBP-1, which emits a `TradeTick` on every trade event, or use TBBO or TCBBO.
-- **OHLCV**: Aggregated bars from trades. Use them for higher-timeframe analytics. Bars carry close timestamps
-  by default. Set `bars_timestamp_on_close=False` to timestamp on the interval open. Daily bars use
-  `ohlcv-1d`. Use `statistics` for official settlements and open interest.
-- **Imbalance and statistics**: Venue operational data with no built-in Nautilus
-  equivalent. Subscribe through `subscribe_data()`, or reach them through the
-  historical client, the data loader, or the direct live client (see
-  [Imbalance and statistics](#imbalance-and-statistics)).
-- **Status**: Venue trading-state updates. Subscribe via
-  `subscribe_instrument_status`.
+- **TBBO และ TCBBO**: feed ที่สุ่มตาม trade โดยจับคู่ทุก trade กับ BBO
+  ณ ขณะ *ก่อน* ที่ trade จะมีผล ใช้เมื่อต้องการ trade ที่ตรงกับ
+  quote ณ เวลาเดียวกันโดยไม่ต้องจัดการสอง stream
+- **MBP-1 และ CMBP-1 (L1)**: update ระดับ event ที่ปล่อย trade เฉพาะเมื่อเกิด
+  trade event เลือกใช้เมื่อต้องการ event tape ของ top-of-book ที่สมบูรณ์ หากต้องการให้ quote และ trade
+  ตรงกัน ควรใช้ TBBO หรือ TCBBO
+- **MBP-10 (L2)**: 10 ระดับบนสุดพร้อม trade ใช้กับ strategy ที่คำนึงถึง depth
+  แต่ไม่ต้องการข้อมูล MBO ทั้งหมด มีจำนวน order ต่อระดับด้วย Databento ให้บริการ
+  schema นี้ที่ 10 ระดับเท่านั้น request depth จึงต้องใช้ `depth=10`
+- **MBO (L3)**: event ราย order สำหรับการจำลองตำแหน่งในคิวและการสร้าง book
+  ขึ้นใหม่อย่างแม่นยำ `subscribe_book_deltas()` ไม่ได้ request snapshot ดังนั้น subscription ของ node
+  จะ stream ตั้งแต่จุดที่ subscribe โดยไม่มีสถานะ book เริ่มต้น
+  strategy ที่ต้องการ book ที่สมบูรณ์ต้องเริ่มก่อน trading session,
+  seed book จาก historical request หรือเรียก `DatabentoLiveClient.subscribe`
+  โดยตรงพร้อม `snapshot=True`
+- **BBO_1S/BBO_1M และ CBBO_1S/CBBO_1M**: update ของ top-of-book แบบสุ่มตามช่วงเวลา
+  คงที่ (1s หรือ 1m) adapter ปล่อยเฉพาะ `QuoteTick` สำหรับ schema เหล่านี้
+  ใช้สำหรับ monitoring, spread และ signal ต้นทุนต่ำ ไม่เหมาะ
+  กับงานด้าน microstructure
+- **TRADES**: trade เท่านั้น หากต้องการบริบทของ quote ควบคู่กับ trade ให้ subscribe ด้วย
+  MBP-1 ซึ่งปล่อย `TradeTick` ทุกครั้งที่มี trade event หรือใช้ TBBO หรือ TCBBO
+- **OHLCV**: bar ที่ aggregate จาก trade ใช้สำหรับ analytics ใน timeframe ที่สูงขึ้น bar มี timestamp ตอนปิด
+  โดย default ตั้ง `bars_timestamp_on_close=False` เพื่อใช้ timestamp ตอนเปิดของช่วง bar รายวันใช้
+  `ohlcv-1d` ใช้ `statistics` สำหรับ settlement อย่างเป็นทางการและ open interest
+- **Imbalance และ statistics**: ข้อมูลเชิงปฏิบัติการของ venue ที่ไม่มีชนิดข้อมูลเทียบเท่าใน
+  Nautilus แบบ built-in subscribe ผ่าน `subscribe_data()` หรือเข้าถึงผ่าน
+  historical client, data loader หรือ live client โดยตรง (ดู
+  [Imbalance และ statistics](#imbalance-and-statistics))
+- **Status**: update สถานะการเทรดของ venue subscribe ผ่าน
+  `subscribe_instrument_status`
 
 :::tip
-Consolidated schemas (CMBP_1, CBBO_1S, CBBO_1M, TCBBO) aggregate data across
-multiple venues. Useful for cross-venue analysis.
+schema แบบรวม (CMBP_1, CBBO_1S, CBBO_1M, TCBBO) จะ aggregate ข้อมูลข้าม
+หลาย venue มีประโยชน์สำหรับการวิเคราะห์ข้าม venue
 :::
 
 :::info
-See also the Databento [Schemas and data formats](https://databento.com/docs/schemas-and-data-formats) guide.
+ดูคู่มือ [Schemas and data formats](https://databento.com/docs/schemas-and-data-formats) ของ Databento ประกอบ
 :::
 
-## Dataset availability and selection
+## ความพร้อมใช้งานและการเลือก dataset {#dataset-availability-and-selection}
 
-Databento dataset IDs are separate from Nautilus venue identifiers. The adapter
-supports the schemas listed above, but each Databento dataset exposes its own
-subset. Check the metadata endpoints before adding a new dataset or schema to a
-live configuration:
+dataset ID ของ Databento แยกจาก venue identifier ของ Nautilus adapter
+รองรับ schema ที่ระบุข้างต้น แต่ dataset แต่ละตัวของ Databento เปิดให้ใช้เพียงบางส่วนเท่านั้น ให้ตรวจสอบ
+metadata endpoint ก่อนเพิ่ม dataset หรือ schema ใหม่ลงใน
+config ของ live:
 
 ```bash
 databento_auth="$(printf '%s:' "$DATABENTO_API_KEY" | base64 | tr -d '\n')"
@@ -192,41 +190,41 @@ curl --header "Authorization: Basic ${databento_auth}" \
   --data-urlencode "end=2026-06-24T14:31:00Z"
 ```
 
-For the two common evaluation datasets:
+สำหรับ dataset ที่นิยมใช้ประเมินสองตัว:
 
-- `GLBX.MDP3` is the CME Globex MDP 3.0 dataset for CME, CBOT, NYMEX, and
-  COMEX futures, options on futures, and spreads. It supports MBO, MBP-1,
-  MBP-10, TBBO, trades, BBO intervals, OHLCV, definitions, statistics, and
-  status. It does not expose the consolidated equity schemas (`cmbp-1`,
-  `cbbo-*`, or `tcbbo`).
-- `EQUS.MINI` is Databento US Equities Mini. It is a derived aggregated
-  top-of-book dataset with anonymized component venues. It supports MBP-1,
-  TBBO, trades, BBO intervals, OHLCV, and definitions. It does not support
-  MBO, MBP-10, imbalance, statistics, status, or consolidated schemas.
+- `GLBX.MDP3` คือ dataset CME Globex MDP 3.0 สำหรับ futures, options on futures และ spread ของ CME, CBOT, NYMEX และ
+  COMEX รองรับ MBO, MBP-1,
+  MBP-10, TBBO, trades, BBO แบบช่วงเวลา, OHLCV, definitions, statistics และ
+  status แต่ไม่มี schema ของหุ้นแบบรวม (`cmbp-1`,
+  `cbbo-*` หรือ `tcbbo`)
+- `EQUS.MINI` คือ Databento US Equities Mini เป็น dataset top-of-book แบบ aggregate
+  ที่ derive มา โดยปกปิด venue ที่เป็นส่วนประกอบ รองรับ MBP-1,
+  TBBO, trades, BBO แบบช่วงเวลา, OHLCV และ definitions ไม่รองรับ
+  MBO, MBP-10, imbalance, statistics, status หรือ schema แบบรวม
 
-Use `EQUS` as the Nautilus venue for US Equities Mini instruments:
-`AAPL.EQUS`, `MSFT.EQUS`, and so on. The built-in venue-to-dataset map routes
-`EQUS` to `EQUS.MINI`. Venue codes such as `XNAS` and `XNYS` refer to
-venue-specific datasets unless you override them with `venue_dataset_map`.
+ใช้ `EQUS` เป็น venue ของ Nautilus สำหรับ instrument ของ US Equities Mini เช่น
+`AAPL.EQUS`, `MSFT.EQUS` เป็นต้น แผนที่ venue-to-dataset แบบ built-in จะ route
+`EQUS` ไปยัง `EQUS.MINI` ส่วนรหัส venue เช่น `XNAS` และ `XNYS` หมายถึง
+dataset เฉพาะ venue เว้นแต่จะ override ด้วย `venue_dataset_map`
 
 :::warning
-If you override a venue such as `XNAS` to `EQUS.MINI`, keep downstream
-instrument IDs consistent. Mini records carry the consolidated `EQUS` publisher,
-and file or historical decoding without an explicit `instrument_id` emits
-`*.EQUS` identifiers.
+หาก override venue เช่น `XNAS` ไปเป็น `EQUS.MINI` ให้รักษาความสอดคล้องของ
+instrument ID ในขั้นถัดไป record ของ Mini มี publisher แบบรวม `EQUS`
+และการ decode จากไฟล์หรือข้อมูลย้อนหลังที่ไม่ระบุ `instrument_id` อย่างชัดเจนจะได้
+identifier แบบ `*.EQUS`
 :::
 
-Cost depends on the schema, symbols, and time range. For exploration, start with
-tight ranges, `definition`, `bbo-1s`, `bbo-1m`, or `trades`, and call
-`metadata.get_cost` before pulling historical time series data. Avoid duplicate
-quote and trade subscriptions when a combined schema such as `mbp-1` or `tbbo`
-already carries the data needed by the strategy.
+ค่าใช้จ่ายขึ้นกับ schema, symbol และช่วงเวลา สำหรับการสำรวจ ให้เริ่มด้วย
+ช่วงเวลาแคบ ๆ กับ `definition`, `bbo-1s`, `bbo-1m` หรือ `trades` และเรียก
+`metadata.get_cost` ก่อนดึงข้อมูล time series ย้อนหลัง หลีกเลี่ยงการ subscribe
+quote และ trade ซ้ำซ้อนเมื่อ schema แบบรวมอย่าง `mbp-1` หรือ `tbbo`
+มีข้อมูลที่ strategy ต้องการอยู่แล้ว
 
-## Subscriptions and requests
+## Subscription และ request {#subscriptions-and-requests}
 
-Nautilus subscription methods map to Databento schemas as follows:
+method สำหรับ subscribe ของ Nautilus map กับ schema ของ Databento ดังนี้:
 
-| Nautilus subscription method    | Default schema | Available Databento schemas                                                  | Nautilus data type                          |
+| Method สำหรับ subscribe ของ Nautilus    | Schema default | Schema ของ Databento ที่ใช้ได้                                                  | Nautilus data type                          |
 | :------------------------------ | :------------- | :--------------------------------------------------------------------------- | :------------------------------------------ |
 | `subscribe_instrument()`        | `definition`   | `definition`                                                                 | `Instrument`                                |
 | `subscribe_quotes()`            | `mbp-1`        | `mbp-1`, `bbo-1s`, `bbo-1m`, `cmbp-1`, `cbbo-1s`, `cbbo-1m`, `tbbo`, `tcbbo` | `QuoteTick`                                 |
@@ -237,281 +235,157 @@ Nautilus subscription methods map to Databento schemas as follows:
 | `subscribe_data()`              | none           | `statistics`, `imbalance`                                                    | `DatabentoStatistics`, `DatabentoImbalance` |
 | `subscribe_instrument_status()` | `status`       | `status`                                                                     | `InstrumentStatus`                          |
 
-Pass a non-default schema through the `schema` subscription parameter, as shown in the examples
-below. Only `subscribe_quotes()` and `subscribe_trades()` accept a choice. `subscribe_bars()` takes
-its schema from the bar aggregation, and `subscribe_data()` from the data type name
-(`DatabentoStatistics` or `DatabentoImbalance`). The other methods always use the single schema
-listed. The matching historical requests, `request_quotes()` and `request_trades()`, take the same
-`schema` values and defaults.
+ส่ง schema ที่ไม่ใช่ค่า default ผ่านพารามิเตอร์ `schema` ของ subscription มีเพียง
+`subscribe_quotes()` และ `subscribe_trades()` ที่ให้เลือกได้ `subscribe_bars()` ใช้
+schema ตาม bar aggregation และ `subscribe_data()` ใช้ตามชื่อ data type
+(`DatabentoStatistics` หรือ `DatabentoImbalance`) method อื่น ๆ ใช้ schema เดียวที่ระบุไว้
+เสมอ historical request ที่คู่กัน คือ `request_quotes()` และ `request_trades()` รับค่า `schema`
+และค่า default แบบเดียวกัน
 
-`request_instrument()`, `request_quotes()`, and `request_trades()` accept identifier lists. The adapter
-groups identifiers by dataset and preserves successful groups if another group fails. Check
-`on_data_response()` for the completion state and failure reason. Quote and trade requests with
-multiple IDs do not accept a record limit.
+`request_instrument()`, `request_quotes()` และ `request_trades()` รับรายการ identifier ได้ adapter
+จัดกลุ่ม identifier ตาม dataset และเก็บผลของกลุ่มที่สำเร็จไว้แม้กลุ่มอื่นจะล้มเหลว ให้ตรวจสอบ
+`on_data_response()` เพื่อดูสถานะการเสร็จสิ้นและเหตุผลของความล้มเหลว request ของ quote และ trade ที่มี
+หลาย ID จะไม่รับค่า limit ของจำนวน record
 
-Book and bar requests require one list member. A parent-symbol `request_book_deltas()` can return
-several book payloads under the same correlation ID; completion follows the last payload.
+request ของ book และ bar ต้องมีสมาชิกในรายการเพียงหนึ่งตัว `request_book_deltas()` ที่ใช้ parent symbol อาจ return
+book payload หลายชุดภายใต้ correlation ID เดียวกัน โดยการเสร็จสิ้นจะตามหลัง payload สุดท้าย
 
-Actor and Strategy historical requests include both bounds on `ts_init`. Bar requests select bars
-by close time even when `bars_timestamp_on_close=False`.
+historical request ของ actor และ strategy รวมขอบเขตทั้งสองด้านของ `ts_init` request ของ bar เลือก bar
+ตามเวลาปิดแม้จะตั้ง `bars_timestamp_on_close=False` ไว้ก็ตาม
 
 :::warning
-The "Available Databento schemas" column lists adapter-supported choices for
-that Nautilus subscription method. The selected dataset must also support the
-schema. For example, `EQUS.MINI` cannot serve `mbo`, `mbp-10`, `statistics`, or
-`status`.
+คอลัมน์ "Schema ของ Databento ที่ใช้ได้" แสดงตัวเลือกที่ adapter รองรับสำหรับ
+method สำหรับ subscribe นั้น ๆ dataset ที่เลือกต้องรองรับ
+schema นั้นด้วย เช่น `EQUS.MINI` ให้บริการ `mbo`, `mbp-10`, `statistics` หรือ
+`status` ไม่ได้
 :::
+
+### Subscription ของ instrument definition {#instrument-definition-subscriptions}
+
+`subscribe_instrument()` จะ stream definition message ซึ่งช่วยเติม price precision map ของ live ด้วย
+
+### รายการ subscription {#subscription-lists}
+
+instrument subscription ที่ implement แล้วรับ ID เดียวหรือรายการที่ไม่ว่างผ่าน `instrument_id`
+external bar subscription รับ bar type แบบเต็มผ่าน `bar_type`
+
+#### การรวม batch ของ quote และ trade {#quote-and-trade-batching}
+
+quote และ trade ใช้หนึ่ง subscription ต่อ dataset adapter ตรวจสอบทุก ID ก่อน dispatch
+และใช้ `price_precision` กับแต่ละ symbol
+
+- การ enqueue ของ dataset ที่ล้มเหลวจะถูก log และไม่หยุด dataset ถัดไป
+- dataset ที่รับไปแล้วจะไม่ถูก rollback client รายงานเฉพาะ ID ที่ถูกรับไปแล้วอย่างแม่นยำ
+- client adapter ติดตามสมาชิกที่ถูกรับแล้ว และจะส่งเฉพาะ ID ที่ขาดไปเมื่อมี subscribe
+  command อื่นมาถึง ไม่มีการ retry อัตโนมัติ
 
 :::note
-The examples below assume a `Strategy` or `DataActor` context where `self` has
-subscription methods. Import the required types:
-
-```python
-from nautilus_trader.model import BarType
-from nautilus_trader.model import BookType
-from nautilus_trader.model import ClientId
-from nautilus_trader.model import DataType
-from nautilus_trader.model import InstrumentId
-
-
-DATABENTO_CLIENT_ID = ClientId.from_str("DATABENTO")
-instrument_id = InstrumentId.from_str("ES.c.0.GLBX")
-```
-
+การเรียก subscribe ซ้ำบน actor ตัวเดิมจะไม่ส่ง command ใดออกไปตราบที่ actor นั้นยังถือ
+subscription ภายในของตนอยู่ หากต้องการ retry ให้ปล่อย subscription ภายในนั้นก่อน หรือ subscribe จากเจ้าของอื่น
 :::
 
-### Instrument definition subscriptions
+#### Subscription อื่น ๆ {#other-subscriptions}
 
-```python
-# Stream definition messages, which also populate the live price precision map
-self.subscribe_instrument(
-    instrument_id=instrument_id,
-    client_id=DATABENTO_CLIENT_ID,
-)
-```
+hook ของ instrument อื่นที่ implement แล้วและ hook ของ external bar จะวนทำงานกับสมาชิกทีละตัวภายในเครื่อง:
 
-### Subscription lists
+- กฎของ dataset และ schema ที่มีอยู่ใช้กับสมาชิกแต่ละตัว
+- ความล้มเหลวของสมาชิกจะรายงานชุดย่อยที่ถูกรับแบบ synchronous อย่างแม่นยำ
+- bar type แบบเต็มบน instrument เดียวกันยังคงแยกจากกัน
 
-Implemented instrument subscriptions accept one ID or a non-empty list through `instrument_id`.
-External bar subscriptions accept full bar types through `bar_type`.
+การ unsubscribe ทีละรายการเป็น no-op สำหรับสมาชิกทุกตัวตามที่ระบุไว้ ให้หยุด live session เพื่อลบ subscription
 
-#### Quote and trade batching
+### Subscription ของ quote (MBP และ L1) {#quote-subscriptions-mbp-and-l1}
 
-Quotes and trades use one subscription per dataset. The adapter validates every ID before dispatch
-and applies `price_precision` to each symbol.
+ตัวเลือกของ `subscribe_quotes()` ได้แก่:
 
-- A dataset enqueue failure is logged and does not stop later datasets.
-- Accepted datasets are not rolled back. The client reports exactly their accepted IDs.
-- The client adapter tracks accepted members and sends only missing IDs when another subscribe
-  command reaches it. Retry is not automatic.
+- ค่า default เป็น quote แบบ MBP-1 (ปล่อย trade ด้วยเมื่อเกิด trade event)
+- subscription เดียวสำหรับ raw symbol หลายตัวใน `GLBX.MDP3` (เช่น `ESZ6.GLBX` และ `NQZ6.GLBX`) พร้อมพารามิเตอร์ `price_precision`
+- ระบุ schema `mbp-1` อย่างชัดเจน
+- snapshot ของ BBO ราย 1 วินาทีด้วย `bbo-1s` (adapter ปล่อยเฉพาะ `QuoteTick`)
+- quote แบบรวมข้ามหลาย venue ด้วย `cbbo-1s` (หรือ `cmbp-1` สำหรับ MBP แบบรวม)
+- BBO ที่สุ่มตาม trade ด้วย `tbbo` ซึ่งจะได้ทั้ง `QuoteTick` และ `TradeTick` บน message bus
 
-:::note
-Repeating a subscribe call on the same actor sends no command while that actor retains its local
-subscription. To retry, release that local subscription first, or subscribe from another owner.
-:::
+### Subscription ของ trade {#trade-subscriptions}
 
-#### Other subscriptions
+การเรียก trade รับรายการ instrument ตามที่อธิบายใน
+[การรวม batch ของ quote และ trade](#quote-and-trade-batching)
 
-Other implemented instrument hooks and external bar hooks iterate members locally:
+ตัวเลือกของ `subscribe_trades()` ได้แก่:
 
-- Existing dataset and schema rules apply to each member.
-- A member failure reports the exact synchronous accepted subset.
-- Full bar types on the same instrument remain distinct.
+- trade tick เท่านั้น (ค่า default)
+- trade จาก feed `mbp-1` (เฉพาะเมื่อเกิด trade event)
+- ข้อมูลที่สุ่มตาม trade ด้วย `tbbo` (ให้ quote ณ เวลาที่เกิด trade ด้วย)
 
-Granular unsubscribe is a documented no-op for every member. Stop the live session to remove its subscriptions.
+### Subscription ของ order book delta (MBO และ L3) {#order-book-deltas-subscriptions-mbo-and-l3}
 
-### Quote subscriptions (MBP and L1)
+subscribe update ของ order book แบบเต็ม (market by order) ด้วย `subscribe_book_deltas()` และ book type `L3_MBO`
+ซึ่งใช้ schema MBO delta จะ stream ตั้งแต่จุดที่ subscribe โดยไม่มี snapshot ของ book เริ่มต้น
 
-```python
-# Default MBP-1 quotes (also emits trades on trade events)
-self.subscribe_quotes(instrument_id, client_id=DATABENTO_CLIENT_ID)
+### Subscription ของ instrument status {#instrument-status-subscriptions}
 
-# One subscription for both raw symbols in GLBX.MDP3
-self.subscribe_quotes(
-    instrument_id=[InstrumentId.from_str("ESZ6.GLBX"), InstrumentId.from_str("NQZ6.GLBX")],
-    params={"price_precision": 2},
-    client_id=DATABENTO_CLIENT_ID,
-)
+subscribe update สถานะการเทรดของ venue ด้วย `subscribe_instrument_status()`
 
-# Explicit MBP-1 schema
-self.subscribe_quotes(
-    instrument_id=instrument_id,
-    params={"schema": "mbp-1"},
-    client_id=DATABENTO_CLIENT_ID,
-)
+### Subscription ของ depth, bar และ custom data {#depth-bar-and-custom-data-subscriptions}
 
-# 1-second BBO snapshots (adapter emits QuoteTick only)
-self.subscribe_quotes(
-    instrument_id=instrument_id,
-    params={"schema": "bbo-1s"},
-    client_id=DATABENTO_CLIENT_ID,
-)
+`subscribe_book_depth()` stream depth snapshot แบบ `mbp-10` ของ instrument หนึ่งตัว Databento ให้บริการ
+depth ที่ 10 เท่านั้น ดังนั้น depth ที่ระบุชัดเจนเป็นค่าอื่นนอกจาก 10 จะถูกปฏิเสธ bar aggregation ใน
+`BarType` เป็นตัวเลือก schema OHLCV สำหรับ `subscribe_bars()` (`ohlcv-1s`, `ohlcv-1m`, `ohlcv-1h` หรือ
+`ohlcv-1d`) step ต้องเป็น 1 และ price type ต้องเป็น `LAST` ซึ่งเป็น price type เดียวที่ decoder
+ปล่อยออกมา `subscribe_data()` stream record แบบ `DatabentoStatistics` หรือ `DatabentoImbalance` ของ
+instrument ID ที่ระบุเป็น identifier ของ data type และจะปฏิเสธ data type ที่มี metadata record จะถูก
+publish พร้อม identifier นั้น ดังนั้น subscriber จะได้รับเฉพาะ record ของ instrument ของตนเอง
 
-# Consolidated quotes across venues
-self.subscribe_quotes(
-    instrument_id=instrument_id,
-    params={"schema": "cbbo-1s"},  # or "cmbp-1" for consolidated MBP
-    client_id=DATABENTO_CLIENT_ID,
-)
+subscription ทั้งสามแบบนี้รับเฉพาะ raw symbol เช่น `ESM4.GLBX` เท่านั้น record จะ resolve ไปยัง
+สัญญาที่อยู่เบื้องหลัง ดังนั้น continuous symbol (`ES.c.0`) และ parent symbol (`ES.FUT`) จะถูกปฏิเสธ แทนที่จะ
+ถูก publish บน topic ที่ subscriber ไม่ได้ฟังอยู่
 
-# Trade-sampled BBO (includes quotes and trades)
-self.subscribe_quotes(
-    instrument_id=instrument_id,
-    params={"schema": "tbbo"},  # Receives QuoteTick and TradeTick on the message bus
-    client_id=DATABENTO_CLIENT_ID,
-)
-```
+subscription แบบ live ของ Databento ไม่สามารถลบทีละรายการได้ ดังนั้น command `unsubscribe_*`
+ที่คู่กันจะถูกละเว้น
 
-### Trade subscriptions
+### Historical request สำหรับ depth และ bar {#historical-requests-for-depth-and-bars}
 
-Trade calls accept an instrument list as described in
-[Quote and trade batching](#quote-and-trade-batching).
+depth แบบ MBP-10 และ bar แบบ OHLCV สามารถ request ย้อนหลังได้ bar aggregation ใน
+`BarType` เป็นตัวเลือก schema OHLCV (`ohlcv-1s`, `ohlcv-1m`, `ohlcv-1h` หรือ `ohlcv-1d`) และ request ของ depth
+ใช้ `mbp-10` (Databento ให้บริการเฉพาะ `depth=10`)
 
-```python
-# Trade ticks only
-self.subscribe_trades(instrument_id, client_id=DATABENTO_CLIENT_ID)
+## Instrument ID และ symbology {#instrument-ids-and-symbology}
 
-# Trades from MBP-1 feed (only when trade events occur)
-self.subscribe_trades(
-    instrument_id=instrument_id,
-    params={"schema": "mbp-1"},
-    client_id=DATABENTO_CLIENT_ID,
-)
+market data ของ Databento มีฟิลด์ `instrument_id` แบบตัวเลข ซึ่งปกติ publisher จะเป็นผู้กำหนด
+หาก publisher ไม่ได้ให้มา Databento จะสังเคราะห์ขึ้นเอง Databento รับประกันเพียงว่า ID นี้ไม่ซ้ำ
+ภายในวันเดียวกัน ซึ่งต่างจาก `InstrumentId` ของ Nautilus ที่เป็น string ของ symbol + venue คั่นด้วย
+จุด: `"{symbol}.{venue}"`
 
-# Trade-sampled data (includes quotes at trade time)
-self.subscribe_trades(
-    instrument_id=instrument_id,
-    params={"schema": "tbbo"},  # Also provides quotes at trade events
-    client_id=DATABENTO_CLIENT_ID,
-)
-```
+decoder map `raw_symbol` ของ Databento ไปเป็น `symbol` ของ Nautilus publisher
+ID จะ map ไปยัง venue default ของ Nautilus ผ่าน `publishers.json` metadata ของ `InstrumentId`
+ใน subscription ยังช่วย seed แผนที่ symbol-to-venue ได้ก่อนที่ market data
+จะมาถึง
 
-### Order book deltas subscriptions (MBO and L3)
+dataset ID เป็นไปตาม
+[แบบแผนการตั้งชื่อ dataset](https://databento.com/docs/api-reference-historical/basics/datasets) ของ Databento
+ซึ่งแยกจากรหัส venue ใน `InstrumentId` ของ Nautilus
 
-```python
-# Subscribe to full order book updates (market by order)
-self.subscribe_book_deltas(
-    instrument_id=instrument_id,
-    book_type=BookType.L3_MBO,  # Uses MBO schema
-    client_id=DATABENTO_CLIENT_ID,
-)
+สำหรับ historical request และ live subscription adapter จะส่งส่วน symbol ของ Nautilus
+ของแต่ละ `InstrumentId` เป็น symbol ของ Databento และอนุมาน
+`stype_in` จาก string นั้น:
 
-# Deltas stream from the point of subscription with no initial book snapshot
-```
+- symbol ที่ลงท้ายด้วย `.FUT` หรือ `.OPT` ใช้ parent symbology ของ Databento เช่น
+  `ES.FUT.XCME`
+- symbol สามส่วนที่ส่วนสุดท้ายเป็นตัวเลขใช้ continuous symbology เช่น
+  `ES.c.0.GLBX`
+- symbol ที่เป็นตัวเลขทั้งหมดใช้ symbology แบบ `instrument_id` ของ Databento
+- symbol อื่น ๆ ทั้งหมดใช้ raw symbol symbology เช่น `ESZ6.XCME` หรือ
+  `AAPL.EQUS`
 
-### Instrument status subscriptions
+symbol ทั้งหมดใน request หรือ subscription เดียวกันต้องใช้ symbology ชนิดเดียวกัน
+รวม `AAPL.EQUS` กับ `MSFT.EQUS` หรือ `ES.FUT.XCME` กับ `NQ.FUT.XCME` ได้ แต่
+อย่าผสม raw symbol กับ parent symbol ใน request ของ Databento เดียวกัน
 
-```python
-# Subscribe to venue trading-state updates
-self.subscribe_instrument_status(
-    instrument_id=instrument_id,
-    client_id=DATABENTO_CLIENT_ID,
-)
-```
+สำหรับ CME Globex MDP 3.0 (`GLBX.MDP3`) ค่า default ของ publisher จะ map ไปยัง venue `GLBX`
+เมื่อตั้ง `use_exchange_as_venue=True` definition message สามารถ override
+`GLBX` ด้วย MIC ของ exchange ของ instrument ได้:
 
-### Depth, bar, and custom data subscriptions
-
-`subscribe_book_depth()` streams `mbp-10` depth snapshots for one instrument. Databento serves a
-depth of 10 only, so an explicit depth other than 10 is rejected. The bar aggregation in the
-`BarType` selects the OHLCV schema for `subscribe_bars()` (`ohlcv-1s`, `ohlcv-1m`, `ohlcv-1h`, or
-`ohlcv-1d`). The step must be 1 and the price type must be `LAST`, the only price type the decoder
-emits. `subscribe_data()` streams `DatabentoStatistics` or `DatabentoImbalance` records for the
-instrument ID given as the data type identifier, and rejects a data type with metadata. Records are
-published with that identifier, so a subscriber receives only the records of its own instrument.
-
-These three subscriptions accept raw symbols such as `ESM4.GLBX` only. Records resolve to the
-underlying contract, so continuous (`ES.c.0`) and parent (`ES.FUT`) symbols are rejected rather than
-published on topics the subscriber does not listen on. The examples use a raw symbol:
-
-```python
-raw_instrument_id = InstrumentId.from_str("ESM4.GLBX")
-
-self.subscribe_book_depth(
-    instrument_id=raw_instrument_id,
-    book_type=BookType.L2_MBP,
-    client_id=DATABENTO_CLIENT_ID,
-)
-
-self.subscribe_bars(
-    BarType.from_str(f"{raw_instrument_id}-1-MINUTE-LAST-EXTERNAL"),
-    client_id=DATABENTO_CLIENT_ID,
-)
-
-self.subscribe_data(
-    DataType("DatabentoStatistics", identifier=str(raw_instrument_id)),
-    client_id=DATABENTO_CLIENT_ID,
-)
-```
-
-Databento live subscriptions cannot be removed one at a time, so the matching `unsubscribe_*`
-commands are ignored.
-
-### Historical requests for depth and bars
-
-MBP-10 depth and OHLCV bars are available as historical requests. The bar aggregation in the
-`BarType` selects the OHLCV schema (`ohlcv-1s`, `ohlcv-1m`, `ohlcv-1h`, or `ohlcv-1d`), and depth
-requests use `mbp-10`:
-
-```python
-import pandas as pd
-
-
-# Request 1-minute bars (uses the ohlcv-1m schema)
-self.request_bars(
-    bar_type=BarType.from_str(f"{instrument_id}-1-MINUTE-LAST-EXTERNAL"),
-    start=pd.Timestamp("2024-03-06", tz="UTC"),
-    end=pd.Timestamp("2024-03-07", tz="UTC"),
-    client_id=DATABENTO_CLIENT_ID,
-)
-
-# Request top 10 levels of market depth (Databento serves depth=10 only)
-self.request_book_depth(
-    instrument_id=instrument_id,
-    depth=10,
-    start=pd.Timestamp("2024-03-06T14:30", tz="UTC"),
-    end=pd.Timestamp("2024-03-06T14:31", tz="UTC"),
-    client_id=DATABENTO_CLIENT_ID,
-)
-```
-
-## Instrument IDs and symbology
-
-Databento market data includes a numeric `instrument_id` field. The publisher usually assigns this ID.
-Databento synthesizes one if the publisher does not provide it. Databento only guarantees this ID is unique
-within a given day. This differs from the Nautilus `InstrumentId`, a string of symbol + venue separated by a
-period: `"{symbol}.{venue}"`.
-
-The decoder maps the Databento `raw_symbol` to the Nautilus `symbol`. Publisher
-IDs map to the default Nautilus venue through `publishers.json`. Subscription
-`InstrumentId` metadata can also seed the symbol-to-venue map before market data
-arrives.
-
-Dataset IDs follow Databento's
-[dataset naming conventions](https://databento.com/docs/api-reference-historical/basics/datasets),
-which are distinct from the venue code in a Nautilus `InstrumentId`.
-
-For historical requests and live subscriptions, the adapter sends the Nautilus
-symbol portion of each `InstrumentId` as the Databento symbol and infers
-`stype_in` from that string:
-
-- Symbols ending in `.FUT` or `.OPT` use Databento parent symbology, for example
-  `ES.FUT.XCME`.
-- Three-part symbols whose last part is numeric use continuous symbology, for
-  example `ES.c.0.GLBX`.
-- All-numeric symbols use Databento `instrument_id` symbology.
-- All other symbols use raw symbol symbology, for example `ESZ6.XCME` or
-  `AAPL.EQUS`.
-
-All symbols in one request or subscription must use the same symbology type.
-Batch `AAPL.EQUS` with `MSFT.EQUS`, or `ES.FUT.XCME` with `NQ.FUT.XCME`, but do
-not mix raw and parent symbols in one Databento request.
-
-For CME Globex MDP 3.0 (`GLBX.MDP3`), publisher defaults map to the `GLBX`
-venue. When `use_exchange_as_venue=True`, definition messages can override
-`GLBX` with the instrument's exchange MIC:
-
-- `CBCM`: XCME-XCBT inter-exchange spread
-- `NYUM`: XNYM-DUMX inter-exchange spread
+- `CBCM`: inter-exchange spread ระหว่าง XCME-XCBT
+- `NYUM`: inter-exchange spread ระหว่าง XNYM-DUMX
 - `XCBT`: Chicago Board of Trade (CBOT)
 - `XCEC`: Commodities Exchange Center (COMEX)
 - `XCME`: Chicago Mercantile Exchange (CME)
@@ -519,52 +393,52 @@ venue. When `use_exchange_as_venue=True`, definition messages can override
 - `XNYM`: New York Mercantile Exchange (NYMEX)
 
 :::info
-Other venue MICs are in the `venue` field of responses from
-the [metadata.list_publishers](https://databento.com/docs/api-reference-historical/metadata/metadata-list-publishers) endpoint.
+MIC ของ venue อื่น ๆ อยู่ในฟิลด์ `venue` ของ response จาก
+endpoint [metadata.list_publishers](https://databento.com/docs/api-reference-historical/metadata/metadata-list-publishers)
 :::
 
-## Timestamps
+## Timestamp {#timestamps}
 
-Databento data includes these timestamp fields:
+ข้อมูลของ Databento มีฟิลด์ timestamp ดังนี้:
 
-- `ts_event`: Matching-engine-received timestamp in nanoseconds since the UNIX epoch.
-- `ts_in_delta`: Matching-engine-sending timestamp in nanoseconds before `ts_recv`.
-- `ts_recv`: Capture-server-received timestamp in nanoseconds since the UNIX epoch.
-- `ts_out`: Databento sending timestamp (live only).
+- `ts_event`: timestamp ที่ matching engine ได้รับ หน่วยนาโนวินาทีนับจาก UNIX epoch
+- `ts_in_delta`: timestamp ที่ matching engine ส่ง หน่วยนาโนวินาทีก่อน `ts_recv`
+- `ts_recv`: timestamp ที่ capture server ได้รับ หน่วยนาโนวินาทีนับจาก UNIX epoch
+- `ts_out`: timestamp ที่ Databento ส่ง (เฉพาะ live)
 
-Nautilus data requires at least two timestamps (per the `Data` contract):
+ข้อมูลของ Nautilus ต้องมี timestamp อย่างน้อยสองตัว (ตาม contract ของ `Data`):
 
-- `ts_event`: UNIX timestamp (nanoseconds) when the data event occurred.
-- `ts_init`: UNIX timestamp (nanoseconds) when the data instance was created.
+- `ts_event`: UNIX timestamp (นาโนวินาที) ที่ data event เกิดขึ้น
+- `ts_init`: UNIX timestamp (นาโนวินาที) ที่ data instance ถูกสร้าง
 
-Quote and trade-like schemas map Databento `ts_recv` to Nautilus `ts_event` because it is more reliable and
-monotonically increases per Databento symbol. Bars use the DBN bar interval timestamp.
-`bars_timestamp_on_close` controls whether Nautilus bars use the interval open or close timestamp.
-`InstrumentStatus` uses the DBN record header `ts_event`. `DatabentoImbalance` and `DatabentoStatistics`
-preserve Databento timestamp fields because they are adapter-specific types.
+schema ที่คล้าย quote และ trade จะ map `ts_recv` ของ Databento ไปเป็น `ts_event` ของ Nautilus เพราะเชื่อถือได้มากกว่าและ
+เพิ่มขึ้นเสมอต่อ symbol ของ Databento bar ใช้ timestamp ของช่วง bar ใน DBN
+`bars_timestamp_on_close` ควบคุมว่า bar ของ Nautilus จะใช้ timestamp ตอนเปิดหรือปิดของช่วง
+`InstrumentStatus` ใช้ `ts_event` จาก record header ของ DBN ส่วน `DatabentoImbalance` และ `DatabentoStatistics`
+คงฟิลด์ timestamp ของ Databento ไว้ เพราะเป็น type เฉพาะของ adapter
 
 :::info
-See these Databento docs for details:
+ดูรายละเอียดในเอกสารของ Databento เหล่านี้:
 
 - [Databento standards and conventions - timestamps](https://databento.com/docs/standards-and-conventions/common-fields-enums-types#timestamps)
 - [Databento timestamping guide](https://databento.com/docs/architecture/timestamping-guide)
 
 :::
 
-## Data types
+## Data type {#data-types}
 
-This section maps Databento schemas to Nautilus data types.
+section นี้แสดงการ map schema ของ Databento ไปเป็น data type ของ Nautilus
 
 :::info
-See Databento [schemas and data formats](https://databento.com/docs/schemas-and-data-formats).
+ดู [schemas and data formats](https://databento.com/docs/schemas-and-data-formats) ของ Databento
 :::
 
-### Instrument definitions
+### Instrument definition {#instrument-definitions}
 
-Databento uses a single schema for all instrument classes. The decoder maps each
-to the appropriate Nautilus `Instrument` type.
+Databento ใช้ schema เดียวสำหรับ instrument ทุก class decoder จะ map แต่ละ class
+ไปยัง type `Instrument` ของ Nautilus ที่เหมาะสม
 
-| Databento instrument class | Code | Nautilus instrument type |
+| Instrument class ของ Databento | Code | Instrument type ของ Nautilus |
 | -------------------------- | ---- | ------------------------ |
 | Stock                      | `K`  | `Equity`                 |
 | Future                     | `F`  | `FuturesContract`        |
@@ -574,188 +448,154 @@ to the appropriate Nautilus `Instrument` type.
 | Option spread              | `T`  | `OptionSpread`           |
 | Mixed spread               | `M`  | `OptionSpread`           |
 | FX spot                    | `X`  | `CurrencyPair`           |
-| Index                      | `I`  | Not yet available        |
-| Bond                       | `B`  | Not yet available        |
+| Index                      | `I`  | ยังไม่รองรับ        |
+| Bond                       | `B`  | ยังไม่รองรับ        |
 
-### Option expiration correction
+### การแก้ไขเวลาหมดอายุของ option {#option-expiration-correction}
 
-OPRA option definitions (dataset `OPRA.PILLAR`) carry the expiration with date-level precision: the
-time-of-day is zeroed to midnight UTC. Thus, an option expiring at 16:00 New York time arrives stamped on the
-prior evening in New York. The matching engine then treats the contract as expired before its final trading
-session. By default, the loader corrects such midnight-UTC OPRA expirations to 16:00 New York time. It leaves
-every other dataset untouched. It also leaves expirations with an intraday time, such as CME Globex,
-untouched.
+option definition ของ OPRA (dataset `OPRA.PILLAR`) ระบุเวลาหมดอายุด้วยความละเอียดระดับวัน: เวลาของวัน
+ถูกตั้งเป็นศูนย์ที่เที่ยงคืน UTC ดังนั้น option ที่หมดอายุเวลา 16:00 ตามเวลานิวยอร์กจะถูกประทับเวลาเป็น
+ค่ำวันก่อนหน้าตามเวลานิวยอร์ก matching engine จึงถือว่าสัญญาหมดอายุก่อน trading session สุดท้าย
+โดย default loader จะแก้เวลาหมดอายุของ OPRA ที่เป็นเที่ยงคืน UTC ดังกล่าวเป็น 16:00 ตามเวลานิวยอร์ก โดยไม่แตะ
+dataset อื่นใด และไม่แตะเวลาหมดอายุที่มีเวลาระหว่างวัน เช่น CME Globex
 
-Override the default, or set per-underlying times, with `expiration_overrides`. It maps a dataset to
-a mapping of underlying symbol to time, where the reserved key `default` sets the dataset-wide time:
+override ค่า default หรือกำหนดเวลาต่อ underlying ได้ด้วย `expiration_overrides` ซึ่ง map dataset ไปยัง
+mapping ของ underlying symbol กับเวลา โดย key สงวน `default` ใช้กำหนดเวลาของทั้ง dataset
+(เช่น `"OPRA.PILLAR": {"default": "16:00", "SPX": "09:30"}`)
 
-```python
-loader.load_instruments(
-    filepath=path,
-    use_exchange_as_venue=False,
-    expiration_overrides={
-        "OPRA.PILLAR": {"default": "16:00", "SPX": "09:30"},
-    },
-)
-```
+เวลาใช้รูปแบบ `HH:MM` หรือ `HH:MM:SS` ตาม timezone ท้องถิ่นของ exchange (นิวยอร์กสำหรับ OPRA) ปรับได้เฉพาะ dataset ที่มี
+กฎการแก้ไขแบบ built-in และ `OPRA.PILLAR` เป็น dataset เดียวที่มี dataset ที่ไม่รู้จักหรือไม่มีกฎ
+เช่น `GLBX.MDP3` จะทำให้เกิด error การแก้ไขอิงตาม underlying ของ option จึง
+ไม่สามารถแยก series ที่ใช้ underlying ร่วมกันแต่ settle ต่างเวลากันได้ (เช่น SPX ที่ settle ช่วงเช้า
+กับ SPXW ที่ settle ช่วงบ่าย) ให้ตั้งเวลาที่ตรงกับสัญญาที่กำลังโหลด
 
-Times use `HH:MM` or `HH:MM:SS` in the exchange-local timezone (New York for OPRA). Only a dataset with a
-built-in correction rule can be tuned, and `OPRA.PILLAR` is the only such dataset. An unknown or rule-less
-dataset such as `GLBX.MDP3` raises a `ValueError`. The correction keys on the option's underlying, so it
-cannot distinguish series that share an underlying but settle at different times (for example AM-settled SPX
-versus PM-settled SPXW). Set the time that matches the contracts you are loading.
+### Price precision {#price-precision}
 
-### Price precision
+ราคาดิบของ Databento เป็นจำนวนเต็มแบบ fixed-point ที่ scale ด้วย 1e-9 adapter derive
+price precision จาก tick size ของ instrument ใน definition message
 
-Databento raw prices are fixed-point integers scaled by 1e-9. The adapter derives
-price precision from the instrument's tick size in the definition message.
+สำหรับ live feed feed handler จะดูแล precision map ต่อ instrument ซึ่งเติมข้อมูล
+จาก record `InstrumentDefMsg` เมื่อมาถึง handler ของ market data จะ resolve
+precision ตามลำดับนี้:
 
-For live feeds, the feed handler maintains a per-instrument precision map populated
-from `InstrumentDefMsg` records as they arrive. Market data handlers resolve
-precision in this order:
+1. precision จาก `InstrumentDefMsg` ที่เคยเห็นแล้วสำหรับ `instrument_id` ของ record ของ Databento
+2. precision ที่ส่งมากับ subscription ซึ่ง match กับ `instrument_id` ของ record ผ่าน symbol mapping message
+3. precision ที่ส่งมากับ subscription ซึ่ง match โดยตรงกับ symbol ของ Nautilus
+4. precision default ของ USD คือ 2
 
-1. Precision from an `InstrumentDefMsg` already seen for the Databento record `instrument_id`.
-2. Subscription-supplied precision matched to the record `instrument_id` through a symbol mapping message.
-3. Subscription-supplied precision matched directly on the Nautilus symbol.
-4. The USD default precision of 2.
+ระบุ precision ด้วยพารามิเตอร์ `price_precision` บน `subscribe_quotes()` หรือ
+`subscribe_trades()` หรือด้วย `price_precisions` บน live client โดยตรง method สำหรับ subscribe อื่น
+ไม่อ่านพารามิเตอร์นี้ ขั้นที่ 2 และ 3 ใช้ override เดียวกันในสองรูปแบบ: การ match `instrument_id` ของ record
+หลัง symbol mapping ทำให้ subscription แบบ parent, continuous และ symbology อื่นที่ไม่ใช่ raw
+ใช้ override ได้ก่อนที่ definition metadata จะมาถึง
 
-Supply precision with the `price_precision` parameter on `subscribe_quotes()` or
-`subscribe_trades()`, or with `price_precisions` on the direct live client. No other subscription
-method reads the parameter. Steps 2 and 3 key the same override two ways: matching the record
-`instrument_id` after symbol mapping lets parent, continuous, and other non-raw symbology
-subscriptions apply the override before definition metadata arrives.
+**Instrument definition ต้องมาถึงก่อน market data** เพื่อให้ precision ถูกต้องสำหรับ
+instrument ที่มี tick size ไม่มาตรฐาน (เช่น treasury futures ที่มี tick เป็นเศษส่วน
+อย่าง 1/256) ให้ subscribe instrument definition (schema `definition` ของ Databento)
+ก่อนหรือพร้อมกับ subscription ของ market data
 
-**Instrument definitions must arrive before market data** for correct precision on
-instruments with non-standard tick sizes (e.g., treasury futures with fractional
-ticks like 1/256). Subscribe to instrument definitions (the Databento `definition`
-schema) before or alongside market data subscriptions.
+สำหรับ historical request และการโหลดจากไฟล์ precision จะถูก resolve ต่อ
+record ตามลำดับนี้:
 
-For historical requests and file-based loading, precision is resolved per
-record in this order:
+1. อาร์กิวเมนต์ `price_precision` ที่ระบุชัดเจนในการเรียก
+2. cache ต่อ symbol ที่เติมข้อมูลจากการโหลด definition (`load_instruments`
+   บน file loader, `get_range_instruments` บน historical client) หรือ
+   จากการเรียก `set_price_precision(symbol, precision)` อย่างชัดเจน
 
-1. An explicit `price_precision` argument on the call.
-2. A per-symbol cache populated by loading definitions (`load_instruments`
-   on the file loader, `get_range_instruments` on the historical client) or
-   by an explicit `set_price_precision(symbol, precision)` call.
+data client จะดึง definition ของ instrument ที่ request เมื่อไม่มี
+แหล่งใดให้ precision การค้นหาเริ่มที่เที่ยงคืน UTC ของวันเริ่มต้นของ request เพื่อรวม
+definition snapshot ตอนเที่ยงคืนของ Databento ส่วน request ของ market data
+ยังใช้ช่วงเวลาเดิม
 
-The data client fetches the requested instrument's definition when neither
-source supplies precision. The lookup starts at UTC midnight on the request's
-start date to include Databento's midnight definition snapshots. The market data
-request keeps its original time range.
-
-Unresolved precision never defaults to USD precision. Historical client and loader calls return an error. Data
-client requests log the error and return an empty response.
+precision ที่ resolve ไม่ได้จะไม่ default เป็น precision ของ USD การเรียกของ historical client และ loader จะ return error
+ส่วน request ของ data client จะ log error และ return response ว่าง
 
 :::tip
-Call `subscribe_instrument()` for each instrument at strategy start so definition messages populate the live
-precision map. The feed handler keeps a `price_precision` override per symbol for the whole dataset session.
-An override on one quote or trade subscription also covers that symbol's order book deltas, depth, bars,
-statistics, and imbalance. `InstrumentStatus` carries no prices and needs no precision.
+เรียก `subscribe_instrument()` สำหรับแต่ละ instrument ตอนเริ่ม strategy เพื่อให้ definition message เติมข้อมูลลงใน
+precision map ของ live feed handler จะเก็บ override ของ `price_precision` ต่อ symbol ไว้ตลอด session ของ dataset
+override บน subscription ของ quote หรือ trade หนึ่งตัวจะครอบคลุม order book delta, depth, bar,
+statistics และ imbalance ของ symbol นั้นด้วย `InstrumentStatus` ไม่มีราคาจึงไม่ต้องใช้ precision
 :::
 
-### MBO (market by order)
+### MBO (market by order) {#mbo-market-by-order}
 
-MBO is the highest granularity data from Databento, representing full order book
-depth. Some messages include trade data. The decoder produces an `OrderBookDelta`
-and optionally a `TradeTick`. The live client emits a `TradeTick` only after the
-instrument has received its first delta.
+MBO เป็นข้อมูลที่ละเอียดที่สุดจาก Databento แทน depth ของ order book
+แบบเต็ม บาง message มีข้อมูล trade ด้วย decoder จะสร้าง `OrderBookDelta`
+และอาจสร้าง `TradeTick` ด้วย live client จะปล่อย `TradeTick` หลังจากที่
+instrument ได้รับ delta แรกแล้วเท่านั้น
 
-The live client buffers MBO messages until a record carries the `F_LAST` flag closing the match event, then
-passes one `OrderBookDeltas` container to the handler. Records that decode to no delta (a fill attribution, a
-status action, or a trade) can still carry `F_LAST`. Thus, the client honors the raw flag independently of the
-decoded payload. Otherwise, a partial event would be stranded and merged into the next event. When MBO carries
-the instrument's trades (see [Real-time client architecture](#real-time-client-architecture)), a trade that
-closes the event follows the flushed container.
+live client จะ buffer MBO message จนกว่าจะมี record ที่มี flag `F_LAST` ซึ่งปิด match event แล้วจึง
+ส่ง container `OrderBookDeltas` หนึ่งตัวไปยัง handler record ที่ decode แล้วไม่ได้ delta (fill attribution,
+status action หรือ trade) ก็ยังอาจมี `F_LAST` ได้ client จึงยึดตาม raw flag โดยไม่ขึ้นกับ
+payload ที่ decode ได้ มิฉะนั้น event ที่ไม่สมบูรณ์จะค้างอยู่และถูกรวมเข้ากับ event ถัดไป เมื่อ MBO นำ
+trade ของ instrument มาด้วย (ดู [สถาปัตยกรรมของ real-time client](#real-time-client-architecture)) trade ที่
+ปิด event จะตามหลัง container ที่ถูก flush
 
-Snapshot records (`F_SNAPSHOT`) accumulate into the same buffer and flush with the first non-snapshot event
-boundary. Thus, a snapshot reaches the handler as one `OrderBookDeltas` container rather than individual
-deltas. When a subscription carries a replay `start` anchor, the client keeps replayed history out of the live
-stream until an event timestamp passes the session start time. It holds replayed deltas and flushes them with
-that first live event, and drops replayed trades.
+record แบบ snapshot (`F_SNAPSHOT`) จะสะสมใน buffer เดียวกันและ flush พร้อมขอบเขต event แรกที่ไม่ใช่ snapshot
+ดังนั้น snapshot จะไปถึง handler เป็น container `OrderBookDeltas` ตัวเดียวแทนที่จะเป็น delta
+ทีละตัว เมื่อ subscription มี anchor `start` สำหรับ replay client จะกันประวัติที่ replay ไว้นอก live
+stream จนกว่า timestamp ของ event จะผ่านเวลาเริ่ม session มันจะถือ delta ที่ replay ไว้และ flush พร้อม
+live event แรกนั้น และทิ้ง trade ที่ replay
 
-### MBP-1 (market by price, top-of-book)
+### MBP-1 (market by price, top-of-book) {#mbp-1-market-by-price-top-of-book}
 
-MBP-1 represents top-of-book quotes and trades. Some messages carry trade data.
-The decoder produces a `QuoteTick` and also a `TradeTick` when the message is
-a trade.
+MBP-1 แทน quote และ trade ของ top-of-book บาง message มีข้อมูล trade
+decoder จะสร้าง `QuoteTick` และสร้าง `TradeTick` ด้วยเมื่อ message
+เป็น trade
 
-### TBBO and TCBBO (top-of-book with trades)
+### TBBO และ TCBBO (top-of-book พร้อม trade) {#tbbo-and-tcbbo-top-of-book-with-trades}
 
-TBBO and TCBBO provide both quote and trade data in each message. Both schemas
-emit a `TradeTick` per message plus a `QuoteTick`, more efficient than separate
-quote and trade subscriptions. The quote is skipped when either the bid or ask
-price is undefined. TCBBO provides consolidated data across venues.
+TBBO และ TCBBO ให้ทั้งข้อมูล quote และ trade ในแต่ละ message ทั้งสอง schema
+ปล่อย `TradeTick` หนึ่งตัวต่อ message พร้อม `QuoteTick` ซึ่งมีประสิทธิภาพกว่าการ subscribe
+quote และ trade แยกกัน quote จะถูกข้ามเมื่อราคา bid หรือ ask
+ไม่ได้กำหนดไว้ TCBBO ให้ข้อมูลแบบรวมข้ามหลาย venue
 
-#### Trade ID derivation (CMBP-1 and TCBBO)
+#### การ derive trade ID (CMBP-1 และ TCBBO) {#trade-id-derivation-cmbp-1-and-tcbbo}
 
-The CMBP-1 and TCBBO schemas do not publish a native trade identifier. The decoder derives a deterministic
-`TradeId` by FNV-1a hashing the instrument ID, `ts_event`, `ts_recv`, price, size, and aggressor side of the
-trade. The same venue event yields the same trade ID across replays, so downstream dedup stays intact. Two
-logically distinct trades with identical fields collide. This matches the venue's inability to distinguish
-them.
+schema CMBP-1 และ TCBBO ไม่ได้ publish trade identifier ดั้งเดิม decoder จึง derive
+`TradeId` แบบ deterministic ด้วยการ hash แบบ FNV-1a จาก instrument ID, `ts_event`, `ts_recv`, ราคา, ขนาด และ aggressor side ของ
+trade venue event เดียวกันจะได้ trade ID เดียวกันข้ามการ replay การ dedup ในขั้นถัดไปจึงยังทำงานได้ trade
+สองตัวที่แตกต่างกันในเชิงตรรกะแต่มีฟิลด์เหมือนกันจะชนกัน ซึ่งสอดคล้องกับการที่ venue เองก็แยก
+มันไม่ได้
 
-### OHLCV (bar aggregates)
+### OHLCV (bar aggregate) {#ohlcv-bar-aggregates}
 
-Databento timestamps bar messages at the **open** of the interval. By default,
-the decoder normalizes bar `ts_event` to the bar **close**: the original
-`ts_event` plus the interval. `ts_init` uses the live receipt time, or the close
-time for historical and file-based loads when no explicit init timestamp is
-supplied. Set `bars_timestamp_on_close=False` to timestamp bar `ts_event` on
-the interval open.
+Databento ประทับ timestamp ของ bar message ที่ **ตอนเปิด** ของช่วง โดย default
+decoder จะ normalize `ts_event` ของ bar ไปเป็น **ตอนปิด** ของ bar คือ
+`ts_event` เดิมบวกด้วยช่วงเวลา `ts_init` ใช้เวลาที่ได้รับแบบ live หรือเวลาปิด
+สำหรับการโหลดข้อมูลย้อนหลังและจากไฟล์เมื่อไม่ได้ระบุ init timestamp ไว้ชัดเจน
+ตั้ง `bars_timestamp_on_close=False` เพื่อประทับ `ts_event` ของ bar ด้วย
+เวลาเปิดของช่วง
 
-### Imbalance and statistics
+### Imbalance และ statistics {#imbalance-and-statistics}
 
-The `imbalance` and `statistics` schemas have no built-in Nautilus equivalents.
-The adapter defines `DatabentoImbalance` and `DatabentoStatistics` in Rust, and
-Python bindings expose both types from `nautilus_trader.adapters.databento`.
+schema `imbalance` และ `statistics` ไม่มีชนิดข้อมูลเทียบเท่าใน Nautilus แบบ built-in
+adapter นิยาม `DatabentoImbalance` และ `DatabentoStatistics` ไว้ใน Rust
 
-Subscribe to live records with `subscribe_data()` and a `DataType` named `DatabentoStatistics` or
-`DatabentoImbalance` whose identifier is the instrument ID. Historical requests and files use:
+subscribe record แบบ live ด้วย `subscribe_data()` และ `DataType` ที่ชื่อ `DatabentoStatistics` หรือ
+`DatabentoImbalance` ซึ่งมี identifier เป็น instrument ID ส่วน historical request และไฟล์ใช้:
 
-- `DatabentoDataLoader.load_imbalance` and `load_statistics` for DBN files.
-- `DatabentoHistoricalClient.get_range_imbalance` and `get_range_statistics` for historical ranges.
+- `DatabentoDataLoader.load_imbalance` และ `load_statistics` สำหรับไฟล์ DBN
+- `DatabentoHistoricalClient.get_range_imbalance` และ `get_range_statistics` สำหรับช่วงข้อมูลย้อนหลัง
 
-`DatabentoLiveClient.subscribe` with the `imbalance` or `statistics` schema also streams them
-outside a node.
+`DatabentoLiveClient.subscribe` ด้วย schema `imbalance` หรือ `statistics` ก็ stream ข้อมูลเหล่านี้
+นอก node ได้เช่นกัน
 
-Request a bounded range of `statistics` for the `ES.FUT` parent symbol
-(all active E-mini S&P 500 futures). Both `get_range_*` methods are asynchronous.
-Use Databento's Historical
+method `get_range_*` ทั้งสองเป็นแบบ asynchronous ให้ใช้ endpoint
 [`metadata.get_cost`](https://databento.com/docs/api-reference-historical/metadata/metadata-get-cost)
-endpoint before real historical pulls:
+ของ Databento Historical ก่อนดึงข้อมูลย้อนหลังจริง
 
-```python
-import os
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python (request `statistics` ของ parent symbol `ES.FUT`) จึงตัดออก
 
-from nautilus_trader.adapters.databento import DatabentoHistoricalClient
-from nautilus_trader.core import dt_to_unix_nanos
-from nautilus_trader.model import InstrumentId
+historical client ที่สร้างใหม่จะไม่มี precision ใน cache ดังนั้น request จึงต้องมี `price_precision` หรือเรียก
+`get_range_instruments` สำหรับช่วงเวลาเดียวกันก่อน มิฉะนั้น record แรกที่ decode จะทำให้ request ถูกยกเลิก
+parent symbol เช่น `ES.FUT` ไม่สามารถ seed ด้วย `set_price_precision` ได้ เพราะ record จะ resolve ไปยัง
+symbol ของสัญญาแต่ละตัวที่อยู่เบื้องหลัง parent
 
+### การเข้ารหัส Arrow สำหรับ imbalance และ statistics {#arrow-encoding-for-imbalance-and-statistics}
 
-client = DatabentoHistoricalClient(
-    key=os.environ["DATABENTO_API_KEY"],
-    publishers_filepath="publishers.json",
-    use_exchange_as_venue=False,
-)
-
-statistics = await client.get_range_statistics(
-    dataset="GLBX.MDP3",
-    instrument_ids=[InstrumentId.from_str("ES.FUT.GLBX")],
-    start=dt_to_unix_nanos("2024-03-06T00:00:00Z"),
-    end=dt_to_unix_nanos("2024-03-07T00:00:00Z"),
-    price_precision=2,
-)
-```
-
-A fresh historical client holds no cached precision. Thus, the request needs `price_precision` or a preceding
-`get_range_instruments` call for the same range. Otherwise, the first decoded record aborts the request. A
-parent symbol such as `ES.FUT` cannot be seeded with `set_price_precision`, because records resolve to the
-individual contract symbols behind the parent.
-
-### Arrow encoding for imbalance and statistics
-
-Both types implement Arrow record batch encoding and decoding. The
-`nautilus_databento::arrow` module exposes it in Rust behind the `arrow` feature flag:
+ทั้งสอง type implement การ encode และ decode แบบ Arrow record batch โดย
+module `nautilus_databento::arrow` เปิดให้ใช้ใน Rust ภายใต้ feature flag `arrow`:
 
 ```rust
 use nautilus_databento::arrow::imbalance::{
@@ -769,208 +609,164 @@ let metadata = batch.schema().metadata().clone();
 let decoded = decode_imbalance_batch(&metadata, &batch)?;
 ```
 
-The `statistics` module follows the same pattern with
-`decode_statistics_batch` and `statistics_to_arrow_record_batch`. Call
-`get_databento_arrow_schema_map(DatabentoImbalance)` from Python to inspect the
-Arrow field map for either type.
+module `statistics` ใช้รูปแบบเดียวกันด้วย
+`decode_statistics_batch` และ `statistics_to_arrow_record_batch`
 
 :::info
-Neither type is registered with the `ParquetDataCatalog` custom data encoders. Thus, `write_custom_data` and
-`query_custom_data` fail with an unregistered-type error. Neither type streams through `BacktestNode` or
-`BacktestEngine`. For research with imbalance or statistics data, load or request the records and process them
-directly.
+ทั้งสอง type ไม่ได้ลงทะเบียนกับ custom data encoder ของ `ParquetDataCatalog` ดังนั้น `write_custom_data` และ
+`query_custom_data` จะล้มเหลวด้วย error ว่า type ไม่ได้ลงทะเบียน ทั้งสอง type ไม่ stream ผ่าน `BacktestNode` หรือ
+`BacktestEngine` สำหรับงานวิจัยที่ใช้ข้อมูล imbalance หรือ statistics ให้โหลดหรือ request record แล้วประมวลผล
+โดยตรง
 :::
 
-## Performance considerations
+## ข้อพิจารณาด้านประสิทธิภาพ {#performance-considerations}
 
-Two options for backtesting with DBN data:
+ทางเลือกสองแบบสำหรับ backtest ด้วยข้อมูล DBN:
 
-- Store data as DBN (`.dbn.zst`) files and decode to Nautilus objects every run.
-- Convert DBN files to Nautilus objects once and write to the data catalog (Nautilus Parquet format).
+- เก็บข้อมูลเป็นไฟล์ DBN (`.dbn.zst`) และ decode เป็น object ของ Nautilus ทุกครั้งที่รัน
+- แปลงไฟล์ DBN เป็น object ของ Nautilus ครั้งเดียว แล้วเขียนลง data catalog (รูปแบบ Nautilus Parquet)
 
-The DBN decoder is optimized Rust, but writing to the catalog once gives the
-best backtest performance.
+DBN decoder เป็น Rust ที่ optimize แล้ว แต่การเขียนลง catalog ครั้งเดียวจะให้
+ประสิทธิภาพ backtest ดีที่สุด
 
-[DataFusion](https://arrow.apache.org/datafusion/) streams Nautilus Parquet data
-from disk at high throughput, at least an order of magnitude faster than
-decoding DBN per run.
+[DataFusion](https://arrow.apache.org/datafusion/) stream ข้อมูล Nautilus Parquet
+จากดิสก์ด้วย throughput สูง เร็วกว่าการ decode DBN ทุกครั้งที่รันอย่างน้อยหนึ่งระดับขนาด (order of magnitude)
 
 :::note
-Measured decode and client throughput for this adapter is recorded in
-[`crates/adapters/databento/benches/BENCHMARKS.md`](https://github.com/nautechsystems/nautilus_trader/blob/develop/crates/adapters/databento/benches/BENCHMARKS.md),
-along with the command that reproduces it. Absolute numbers vary by machine, so
-only same-machine deltas are meaningful.
+throughput ของการ decode และของ client ที่วัดได้สำหรับ adapter นี้บันทึกไว้ใน
+[`crates/adapters/databento/benches/BENCHMARKS.md`](https://github.com/nautechsystems/nautilus_trader/blob/develop/crates/adapters/databento/benches/BENCHMARKS.md)
+พร้อมคำสั่งสำหรับวัดซ้ำ ตัวเลขสัมบูรณ์แตกต่างกันไปตามเครื่อง จึง
+มีเพียงผลต่างบนเครื่องเดียวกันเท่านั้นที่มีความหมาย
 :::
 
-For live data, decoded delivery from the feed handler to Nautilus is intentionally unbounded. This prevents
-slow consumers from stalling the feed path. A process under memory pressure should fail rather than block live
-decoding.
+สำหรับข้อมูล live การส่งข้อมูลที่ decode แล้วจาก feed handler ไปยัง Nautilus ไม่มีขอบเขตจำกัดโดยเจตนา เพื่อป้องกัน
+ไม่ให้ consumer ที่ช้าทำให้เส้นทาง feed ค้าง process ที่อยู่ภายใต้แรงกดดันด้านหน่วยความจำควรล้มเหลวแทนที่จะ block การ decode
+ข้อมูล live
 
-## Loading DBN data
+## การโหลดข้อมูล DBN {#loading-dbn-data}
 
-`DatabentoDataLoader` decodes DBN files directly into Nautilus objects. It exposes a method for
-each supported output type, including `load_instruments`, `load_order_book_deltas`,
+`DatabentoDataLoader` decode ไฟล์ DBN เป็น object ของ Nautilus โดยตรง มี method สำหรับ
+output type ที่รองรับแต่ละชนิด ได้แก่ `load_instruments`, `load_order_book_deltas`,
 `load_order_book_depth`, `load_quotes`, `load_trades`, `load_bars`, `load_status`,
-`load_imbalance`, and `load_statistics`.
+`load_imbalance` และ `load_statistics`
 
-Pass the publisher metadata file when it is not available beside the running executable:
+ให้ส่งไฟล์ metadata ของ publisher (เช่น `publishers.json`) เมื่อไฟล์นั้นไม่ได้อยู่ข้าง executable ที่กำลังรัน
 
-```python
-from nautilus_trader.adapters.databento import DatabentoDataLoader
-from nautilus_trader.model import InstrumentId
+เมื่อเขียนลง `ParquetDataCatalog` ให้เขียนข้อมูล definition ก่อน market data เพราะ catalog
+ต้องมี instrument ก่อนจึงจะเขียน record ของ instrument นั้นได้
 
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-loader = DatabentoDataLoader(publishers_filepath="publishers.json")
+ใช้ method เฉพาะ schema สำหรับไฟล์ที่ schema ไม่ใช่ค่า default ของ output type นั้น:
 
-instruments = loader.load_instruments(
-    filepath="equity-definitions.dbn.zst",
-    use_exchange_as_venue=True,
-)
-trades = loader.load_trades(
-    filepath="aapl-trades.dbn.zst",
-    instrument_id=InstrumentId.from_str("AAPL.XNAS"),
-)
-```
+- `load_bbo_quotes` สำหรับ quote แบบ BBO ตามช่วงเวลา
+- `load_cmbp_quotes` สำหรับ quote แบบ CMBP-1
+- `load_cbbo_quotes` สำหรับ quote แบบ CBBO
+- `load_tbbo_trades` สำหรับ trade แบบ TBBO
+- `load_tcbbo_trades` สำหรับ trade แบบ TCBBO
 
-Write definition data before market data when writing to a `ParquetDataCatalog`, because the catalog
-needs the instrument before it can write records for that instrument:
+เรียก `schema_for_file` เพื่ออ่าน schema ของไฟล์จาก metadata header ของ DBN เมื่อต้องเลือก method
+ของ loader
 
-```python
-from nautilus_trader.persistence import ParquetDataCatalog
+อาร์กิวเมนต์ `instrument_id` และ `price_precision` (optional) ใช้ข้ามการค้นหา symbology หรือ precision เมื่อ
+ทราบค่าเหล่านั้นอยู่แล้ว loader ของ bar ยังรับ `timestamp_on_close` ด้วย
 
+## สถาปัตยกรรมของ real-time client {#real-time-client-architecture}
 
-catalog = ParquetDataCatalog(base_path="catalog")
-catalog.write_instruments(instruments)
-catalog.write_trade_ticks(trades)
-```
+`DatabentoDataClient` ห่อ adapter class อื่น ๆ ของ Databento ไว้ มันสร้าง live feed handler หนึ่งตัวต่อ
+dataset เมื่อมี subscription แรกของ dataset นั้น และทุก schema ของ dataset นั้นใช้ handler ร่วมกัน
+handler ทำงานด้วย async task เดียวที่แข่งระหว่าง record ถัดไปจาก gateway กับ command ถัดไปจาก engine ดังนั้น
+subscription ที่ตามมาภายหลังจะไปถึง session ที่ทำงานอยู่ได้โดยไม่ต้อง reconnect
 
-Use the schema-specific methods for files whose schema is not the default for that output type:
+schema `trades`, `mbp-1`, `tbbo`, `cmbp-1`, `tcbbo` และ `mbo` ล้วนนำ trade ของ instrument มาด้วย เมื่อ
+instrument เดียวกันถูก subscribe บนหลาย schema เช่น quote บน `mbp-1` คู่กับ trade บน `trades`
+handler จะส่ง trade แต่ละตัวเพียงครั้งเดียว schema แรกที่ส่ง trade ของ instrument มาจะเป็นผู้นำ trade
+จนกว่า handler จะ reconnect และ trade ที่ decode จาก schema อื่นจะถูกทิ้ง ส่วน quote และ book delta
+จาก schema เหล่านั้นยังคงถูกส่ง schema ที่ส่งมาก่อนอาจต่างกันในแต่ละ session ดังนั้นเมื่อใช้ `mbo`
+คู่กับ schema ของ trade อื่น trade จะไม่ได้ตามหลัง book delta ของ event นั้นเสมอไป ข้อจำกัด:
 
-- `load_bbo_quotes` for BBO interval quotes.
-- `load_cmbp_quotes` for CMBP-1 quotes.
-- `load_cbbo_quotes` for CBBO quotes.
-- `load_tbbo_trades` for TBBO trades.
-- `load_tcbbo_trades` for TCBBO trades.
+- schema `mbp-1` และ `tbbo` ใช้ record type เดียวกัน ดังนั้นการ subscribe ทั้งสองสำหรับ instrument เดียวกันจะยัง
+  ส่ง trade แต่ละตัว และ quote ณ แต่ละ trade ซ้ำสองครั้ง
+- continuous symbol จะหยุดนำสัญญาเดิมมาเมื่อเกิดการ roll หาก schema ที่ subscribe บน continuous symbol
+  เป็นผู้นำ trade ของสัญญาหนึ่ง trade ของสัญญานั้นจาก schema อื่นจะยังคงถูกทิ้งหลังการ roll
 
-Call `schema_for_file` to read a file's schema from its DBN metadata header when picking the loader
-method.
-
-Optional `instrument_id` and `price_precision` arguments bypass symbology or precision lookup when
-those values are already known. The bar loader also accepts `timestamp_on_close`.
-
-## Real-time client architecture
-
-The `DatabentoDataClient` wraps the other Databento adapter classes. It creates one live feed handler per
-dataset on the first subscription for that dataset, and every schema for that dataset shares the handler. The
-handler runs one async task that races the next gateway record against the next engine command. Thus, later
-subscriptions reach the running session without a reconnect.
-
-The `trades`, `mbp-1`, `tbbo`, `cmbp-1`, `tcbbo`, and `mbo` schemas all carry an instrument's trades. When
-one instrument is subscribed on several of them, such as quotes on `mbp-1` beside trades on `trades`, the
-handler sends each trade only once. The first schema to deliver a trade for the instrument carries its trades
-until the handler reconnects, and trades decoded from the other schemas are dropped. Quotes and book deltas
-from those schemas are still sent. Which schema delivers first can differ between sessions, so with `mbo`
-beside another trade schema, a trade does not always follow its event's book deltas. Limitations:
-
-- The `mbp-1` and `tbbo` schemas share a record type, so subscribing to both for one instrument still
-  delivers each trade, and the quote at each trade, twice.
-- A continuous symbol stops carrying a contract when it rolls. If a schema subscribed on a continuous symbol
-  carries a contract's trades, the other schemas' trades for that contract stay dropped after the roll.
-
-A single `DatabentoHistoricalClient` serves every historical request from the
-data client, including the instrument definitions fetched to seed price precision.
+`DatabentoHistoricalClient` ตัวเดียวรองรับ historical request ทุกตัวจาก
+data client รวมถึง instrument definition ที่ดึงมาเพื่อ seed price precision
 
 :::warning
-Databento drops a replay `start` anchor sent after a live session has started, so a subscription made
-mid-session streams from that point forward with no history. The feed handler logs an error for a late
-`start`. It strips `start` from stored subscriptions, so a reconnect never replays history a second time.
+Databento จะทิ้ง anchor `start` สำหรับ replay ที่ส่งมาหลังจาก live session เริ่มแล้ว ดังนั้น subscription ที่ทำ
+กลาง session จะ stream ตั้งแต่จุดนั้นเป็นต้นไปโดยไม่มีประวัติ feed handler จะ log error สำหรับ
+`start` ที่มาช้า และจะตัด `start` ออกจาก subscription ที่เก็บไว้ ดังนั้นการ reconnect จะไม่ replay ประวัติซ้ำอีก
 :::
 
-## Configuration
+## การตั้งค่า {#configuration}
 
-Create `DatabentoDataClientConfig` from the adapter's public Python module. The API key and
-`publishers.json` path are required:
+`DatabentoDataClientConfig` ต้องระบุ API key และ path ของ
+`publishers.json`
 
-```python
-import os
-from pathlib import Path
-
-from nautilus_trader.adapters.databento import DatabentoDataClientConfig
-
-
-config = DatabentoDataClientConfig(
-    api_key=os.environ["DATABENTO_API_KEY"],
-    publishers_filepath=Path("publishers.json"),
-    use_exchange_as_venue=False,
-)
-```
-
-Download the canonical
+ดาวน์โหลด
 [`publishers.json`](https://github.com/nautechsystems/nautilus_trader/blob/develop/crates/adapters/databento/publishers.json)
-and point `publishers_filepath` at the local copy.
+ฉบับมาตรฐาน แล้วชี้ `publishers_filepath` ไปยังสำเนาในเครื่อง
 
-| Option                    | Default  | Description                                             |
+| Option                    | Default  | คำอธิบาย                                             |
 | ------------------------- | -------- | ------------------------------------------------------- |
-| `api_key`                 | Required | Databento API key.                                      |
-| `publishers_filepath`     | Required | Local path to Databento publisher metadata.             |
-| `use_exchange_as_venue`   | `False`  | Use exchange MIC venues for GLBX instruments.           |
-| `bars_timestamp_on_close` | `True`   | Timestamp bars on close instead of the interval open.   |
-| `venue_dataset_map`       | `None`   | Override venue-to-dataset mappings from publisher data. |
-| `historical_base_url`     | `None`   | Override the Historical API base URL.                   |
-| `live_gateway_addr`       | `None`   | Override the live gateway socket address (`host:port`). |
+| `api_key`                 | Required | API key ของ Databento                                      |
+| `publishers_filepath`     | Required | path ในเครื่องของ publisher metadata ของ Databento             |
+| `use_exchange_as_venue`   | `False`  | ใช้ MIC ของ exchange เป็น venue สำหรับ instrument ของ GLBX           |
+| `bars_timestamp_on_close` | `True`   | ประทับ timestamp ของ bar ตอนปิดแทนตอนเปิดของช่วง   |
+| `venue_dataset_map`       | `None`   | override การ map venue-to-dataset จากข้อมูลของ publisher |
+| `historical_base_url`     | `None`   | override base URL ของ Historical API                   |
+| `live_gateway_addr`       | `None`   | override socket address ของ live gateway (`host:port`) |
 
-Use `DatabentoDataClientConfig` with `DatabentoDataClientFactory`. The current
-[Python example](https://github.com/nautechsystems/nautilus_trader/blob/develop/examples/live/databento/data_tester.py)
-shows the complete `LiveNode.builder(...)` configuration.
+ใช้ `DatabentoDataClientConfig` คู่กับ `DatabentoDataClientFactory` ดูตัวอย่าง Rust ได้ที่
+[`crates/adapters/databento/examples/`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/databento/examples/)
 
-### Connection stability
+### ความเสถียรของการเชื่อมต่อ {#connection-stability}
 
-The live client reconnects automatically on:
+live client จะ reconnect อัตโนมัติเมื่อเกิด:
 
-- **Network interruptions**: Temporary connectivity issues.
-- **Gateway restarts**: Databento scheduled live gateway restarts. See the
-  [maintenance schedule](https://databento.com/docs/api-reference-live/basics/maintenance-schedule).
-- **Market closures**: Sessions ending during off-hours.
+- **เครือข่ายขัดข้อง**: ปัญหาการเชื่อมต่อชั่วคราว
+- **Gateway restart**: Databento restart live gateway ตามกำหนดการ ดู
+  [maintenance schedule](https://databento.com/docs/api-reference-live/basics/maintenance-schedule)
+- **ตลาดปิด**: session จบลงในช่วงนอกเวลาทำการ
 
-#### Reconnection strategy
+#### กลยุทธ์การ reconnect {#reconnection-strategy}
 
-The factory-backed live client uses an internal 10-minute reconnection window with exponential
-backoff from 1 second, capped at 60 seconds. The Python `DatabentoDataClientConfig` constructor does
-not expose a reconnection timeout. Once the window elapses without a successful session, the client
-gives up and reports an error rather than retrying indefinitely.
+live client ที่สร้างจาก factory ใช้หน้าต่างการ reconnect ภายใน 10 นาที พร้อม exponential
+backoff เริ่มที่ 1 วินาทีและสูงสุด 60 วินาที เมื่อหน้าต่างนี้หมดลงโดยไม่มี session ที่สำเร็จ client
+จะยอมแพ้และรายงาน error แทนการ retry ไปเรื่อย ๆ
 
-Stalled connections are detected by the upstream Databento client, which raises a heartbeat timeout
-when no data arrives within the heartbeat interval plus 5 seconds. The feed handler treats that as a
-connection error and enters the same backoff loop.
+การเชื่อมต่อที่ค้างจะถูกตรวจพบโดย Databento client ต้นทาง ซึ่งจะเกิด heartbeat timeout
+เมื่อไม่มีข้อมูลมาถึงภายในช่วง heartbeat บวก 5 วินาที feed handler จะถือว่าเป็น
+connection error และเข้าสู่ backoff loop เดียวกัน
 
-All reconnections include:
+การ reconnect ทุกครั้งประกอบด้วย:
 
-- **Jitter**: Random delay (up to 1 second) to prevent simultaneous reconnection storms.
-- **Automatic resubscription**: Restores all active subscriptions after reconnecting.
-- **Cycle reset**: Each successful session (>60s) resets the timeout clock and the backoff delay.
-- **Command buffering**: Commands received during backoff are applied to the next session.
+- **Jitter**: delay แบบสุ่ม (สูงสุด 1 วินาที) เพื่อป้องกันการ reconnect พร้อมกันจำนวนมาก
+- **Resubscribe อัตโนมัติ**: กู้คืน subscription ที่ active ทั้งหมดหลัง reconnect
+- **Reset รอบ**: session ที่สำเร็จแต่ละครั้ง (>60s) จะ reset นาฬิกา timeout และ backoff delay
+- **Buffer command**: command ที่ได้รับระหว่าง backoff จะถูกนำไปใช้กับ session ถัดไป
 
-Individual unsubscribe requests log at debug level and are ignored because Databento
-live sessions do not support granular unsubscribe. Stop the session to remove a
-subscription from the live gateway.
+request unsubscribe ทีละรายการจะ log ที่ระดับ debug และถูกละเว้น เพราะ live session ของ Databento
+ไม่รองรับการ unsubscribe ทีละรายการ ให้หยุด session เพื่อลบ
+subscription ออกจาก live gateway
 
-#### Scheduled maintenance
+#### Maintenance ตามกำหนดการ {#scheduled-maintenance}
 
-Databento restarts live gateways on this schedule (all clients disconnect):
+Databento restart live gateway ตามกำหนดการนี้ (client ทั้งหมดจะถูกตัดการเชื่อมต่อ):
 
-| Dataset            | Restart time      |
+| Dataset            | เวลา restart      |
 | ------------------ | ----------------- |
 | CME Globex         | Saturday 02:15 CT |
 | All ICE venues     | Sunday 09:45 UTC  |
 | All other datasets | Sunday 10:30 UTC  |
 
-The internal 10-minute timeout covers typical restarts. See the
+timeout ภายใน 10 นาทีครอบคลุมการ restart ทั่วไป ดูรายละเอียดที่
 [Databento Maintenance Schedule](https://databento.com/docs/api-reference-live/basics/maintenance-schedule)
-for details.
 
-## Contributing
+## การมีส่วนร่วม {#contributing}
 
 :::info
-To contribute, see the
-[contributing guide](https://github.com/nautechsystems/nautilus_trader/blob/develop/CONTRIBUTING.md).
+หากต้องการมีส่วนร่วม ดู
+[contributing guide](https://github.com/nautechsystems/nautilus_trader/blob/develop/CONTRIBUTING.md)
 :::

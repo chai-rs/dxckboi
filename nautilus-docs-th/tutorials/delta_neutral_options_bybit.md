@@ -1,58 +1,47 @@
-# Delta-Neutral Options Strategy (Bybit)
+# Strategy option แบบ delta-neutral (Bybit)
 
 :::note
-This **Rust-only** tutorial runs a live delta-neutral
-short-volatility strategy on Bybit using the Rust `LiveNode`.
+Tutorial นี้เป็นแบบ **Rust-only** โดยรัน strategy แบบ short-volatility ที่เป็น delta-neutral บน Bybit แบบ live
+ด้วย `LiveNode` ของ Rust
 :::
 
-This tutorial runs a short out-of-the-money (OTM) strangle on Bybit BTC options and delta-hedges with the
-BTCUSDT perpetual. The strategy selects call and put strikes at startup and enters through implied-volatility
-limit orders. It tracks portfolio delta from venue-provided Greeks. When delta moves beyond a threshold, it
-submits market hedge orders on the perpetual.
+Tutorial นี้รัน short strangle แบบ out-of-the-money (OTM) บน BTC option ของ Bybit และ delta-hedge ด้วย BTCUSDT
+perpetual strategy จะเลือก strike ของ call และ put ตอน startup และเข้า position ผ่าน limit order ที่กำหนดราคาด้วย
+implied volatility โดยติดตาม delta ของ portfolio จาก Greeks ที่ venue ส่งมาให้ เมื่อ delta เคลื่อนเกิน threshold
+จะส่ง market order เพื่อ hedge บน perpetual
 
 :::warning
-This strategy trades real money on mainnet. Setting `enter_strangle: false`
-only disables the initial strangle entry orders.
-The strategy still loads existing positions from the cache at startup.
-It still submits hedge orders on the perpetual when portfolio delta breaches the threshold.
-If the account holds option or hedge positions from a prior
-session, the strategy will trade.
+Strategy นี้เทรดด้วยเงินจริงบน mainnet การตั้ง `enter_strangle: false` จะปิดเฉพาะ entry order ชุดแรกของ strangle เท่านั้น
+strategy ยังคงโหลด position ที่มีอยู่จาก cache ตอน startup และยังคงส่ง hedge order บน perpetual เมื่อ delta ของ portfolio
+เกิน threshold หาก account มี position ของ option หรือ hedge ค้างจาก session ก่อนหน้า strategy จะเทรด
 :::
 
-## Prerequisites
+## สิ่งที่ต้องมีก่อน {#prerequisites}
 
-- Completion of the [options data tutorial](options_data_bybit.md), which
-  covers instrument discovery, Greeks subscriptions, and the `DataActor`
-  pattern.
-- A Bybit API key with **trading permissions** for options and linear
-  perpetuals.
-- Environment variables for Bybit mainnet, which the example targets by
-  default (see [Running the example](#running-the-example) for testnet):
+- ทำ [tutorial ข้อมูล option](options_data_bybit.md) ให้เสร็จก่อน ซึ่งครอบคลุมการค้นหา instrument, การ subscribe Greeks
+  และ pattern ของ `DataActor`
+- Bybit API key ที่มี **สิทธิ์ในการเทรด** สำหรับ option และ linear perpetual
+- Environment variable สำหรับ Bybit mainnet ซึ่งตัวอย่างใช้เป็นค่าเริ่มต้น (ดู [การรันตัวอย่าง](#running-the-example)
+  สำหรับ testnet):
 
 ```bash
 export BYBIT_API_KEY="your-api-key"
 export BYBIT_API_SECRET="your-api-secret"
 ```
 
-## Strategy overview
+## ภาพรวมของ strategy {#strategy-overview}
 
-The `DeltaNeutralVol` strategy ships in the trading crate's `examples`
-module and runs in five stages:
+Strategy `DeltaNeutralVol` มาพร้อมกับ module `examples` ของ trading crate และทำงานเป็นห้าขั้น:
 
-1. **Strike selection**: queries the instrument cache for all BTC
-   options, filters to the nearest expiry, selects OTM call and put
-   strikes by percentile rank.
-1. **Entry**: places SELL limit orders on both legs priced by implied
-   volatility (through Bybit's `order_iv` parameter). Entry is optional and
-   disabled by default in the example.
-1. **Greeks tracking**: subscribes to `OptionGreeks` for both legs.
-   Deltas and IVs come directly from Bybit's option ticker stream.
-1. **Rehedging**: calculates portfolio delta and submits a market order on
-   the BTCUSDT perpetual when the threshold is breached. Triggers on
-   every Greeks update and on a periodic safety timer.
-1. **Position tracking**: tracks call, put, and hedge positions through
-   `on_order_filled`. Loads existing positions from the cache at
-   startup.
+1. **การเลือก strike**: query instrument cache เพื่อหา BTC option ทั้งหมด กรองเฉพาะวันหมดอายุที่ใกล้ที่สุด แล้วเลือก
+   strike ของ call และ put แบบ OTM ตามอันดับ percentile
+1. **การเข้า position**: วาง SELL limit order ทั้งสองขา โดยกำหนดราคาด้วย implied volatility (ผ่านพารามิเตอร์
+   `order_iv` ของ Bybit) การเข้า position เป็น optional และปิดไว้เป็นค่าเริ่มต้นในตัวอย่าง
+1. **การติดตาม Greeks**: subscribe `OptionGreeks` ของทั้งสองขา ค่า delta และ IV มาจาก option ticker stream ของ Bybit โดยตรง
+1. **การ rehedge**: คำนวณ delta ของ portfolio และส่ง market order บน BTCUSDT perpetual เมื่อเกิน threshold
+   trigger ทุกครั้งที่มีการอัปเดต Greeks และจาก safety timer ที่ทำงานเป็นระยะ
+1. **การติดตาม position**: ติดตาม position ของ call, put และ hedge ผ่าน `on_order_filled` และโหลด position ที่มีอยู่จาก
+   cache ตอน startup
 
 ```mermaid
 flowchart LR
@@ -87,9 +76,9 @@ flowchart LR
     OF --> PD
 ```
 
-### Portfolio delta
+### Delta ของ portfolio {#portfolio-delta}
 
-The strategy calculates net exposure as:
+Strategy คำนวณ exposure สุทธิดังนี้:
 
 ```text
 portfolio_delta = call_delta * call_position
@@ -97,17 +86,15 @@ portfolio_delta = call_delta * call_position
                 + hedge_position
 ```
 
-A short strangle starts near delta-neutral because the call and put
-deltas offset. With the default `target_call_delta = 0.20` and
-`target_put_delta = -0.20`, the two legs cancel at entry. As the
-underlying moves, net delta drifts and the strategy hedges to bring it
-back toward zero.
+Short strangle เริ่มต้นใกล้เคียง delta-neutral เพราะ delta ของ call และ put หักล้างกัน เมื่อใช้ค่าเริ่มต้น
+`target_call_delta = 0.20` และ `target_put_delta = -0.20` สองขาจะหักล้างกันตอนเข้า position เมื่อ underlying
+เคลื่อนไหว delta สุทธิจะค่อย ๆ เบี่ยงไป และ strategy จะ hedge เพื่อดึงกลับมาใกล้ศูนย์
 
-## Configuration
+## Configuration {#configuration}
 
-The example file at
+ไฟล์ตัวอย่างที่
 [`crates/adapters/bybit/examples/node_delta_neutral.rs`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/bybit/examples/node_delta_neutral.rs)
-configures the strategy:
+กำหนด config ของ strategy ดังนี้:
 
 ```rust
 let hedge_instrument_id = InstrumentId::from("BTCUSDT-LINEAR.BYBIT");
@@ -126,31 +113,29 @@ let strategy_config = DeltaNeutralVolConfig::builder()
 let strategy = DeltaNeutralVol::new(strategy_config);
 ```
 
-The table shows struct defaults and example overrides. The example overrides `enter_strangle` to `false` and
-`iv_param_key` to `"order_iv"`:
+ตารางแสดงค่าเริ่มต้นของ struct และค่าที่ตัวอย่าง override ไว้ ตัวอย่าง override `enter_strangle` เป็น `false` และ
+`iv_param_key` เป็น `"order_iv"`:
 
-| Parameter                 | Default    | Example          | Description                                 |
-| ------------------------- | ---------- | ---------------- | ------------------------------------------- |
-| `option_family`           | required   | `"BTC"`          | Underlying filter for instrument discovery. |
-| `hedge_instrument_id`     | required   | `BTCUSDT-LINEAR` | Perpetual used for delta hedging.           |
-| `client_id`               | required   | `"BYBIT"`        | Data and execution client identifier.       |
-| `target_call_delta`       | `0.20`     | -                | Target call delta for strike selection.     |
-| `target_put_delta`        | `-0.20`    | -                | Target put delta for strike selection.      |
-| `contracts`               | `1`        | -                | Contracts per leg.                          |
-| `rehedge_delta_threshold` | `0.5`      | -                | Portfolio delta that triggers a hedge.      |
-| `rehedge_interval_secs`   | `30`       | -                | Periodic rehedge timer interval.            |
-| `enter_strangle`          | `true`     | `false`          | Place entry orders when Greeks arrive.      |
-| `entry_iv_offset`         | `0.0`      | -                | Vol points below mark IV for entry pricing. |
-| `iv_param_key`            | `"px_vol"` | `"order_iv"`     | Adapter-specific IV parameter key.          |
+| พารามิเตอร์                 | ค่าเริ่มต้น   | ตัวอย่าง          | คำอธิบาย                                       |
+| ------------------------- | ---------- | ---------------- | --------------------------------------------- |
+| `option_family`           | required   | `"BTC"`          | ตัวกรอง underlying สำหรับการค้นหา instrument     |
+| `hedge_instrument_id`     | required   | `BTCUSDT-LINEAR` | Perpetual ที่ใช้ delta hedge                    |
+| `client_id`               | required   | `"BYBIT"`        | Identifier ของ data client และ execution client |
+| `target_call_delta`       | `0.20`     | -                | Delta เป้าหมายของ call สำหรับเลือก strike        |
+| `target_put_delta`        | `-0.20`    | -                | Delta เป้าหมายของ put สำหรับเลือก strike         |
+| `contracts`               | `1`        | -                | จำนวนสัญญาต่อขา                                 |
+| `rehedge_delta_threshold` | `0.5`      | -                | Delta ของ portfolio ที่ trigger การ hedge        |
+| `rehedge_interval_secs`   | `30`       | -                | ช่วงเวลาของ timer สำหรับ rehedge เป็นระยะ          |
+| `enter_strangle`          | `true`     | `false`          | วาง entry order เมื่อ Greeks เข้ามา              |
+| `entry_iv_offset`         | `0.0`      | -                | จำนวน vol point ที่ต่ำกว่า mark IV สำหรับราคาเข้า   |
+| `iv_param_key`            | `"px_vol"` | `"order_iv"`     | Key ของพารามิเตอร์ IV เฉพาะ adapter              |
 
-The `iv_param_key` differs between venues. Bybit uses `order_iv`, which the adapter maps to the `orderIv`
-field in the place-order API. OKX uses `px_vol`. For IV-based order placement, set the correct key for the
-venue.
+`iv_param_key` แตกต่างกันในแต่ละ venue Bybit ใช้ `order_iv` ซึ่ง adapter จะ map ไปเป็น field `orderIv` ใน API
+สำหรับวาง order ส่วน OKX ใช้ `px_vol` สำหรับการวาง order ตาม IV ให้ตั้ง key ให้ถูกต้องตาม venue
 
-## Node setup
+## การตั้งค่า node {#node-setup}
 
-The example configures both data and execution clients with `Option` and
-`Linear` product types:
+ตัวอย่างกำหนด config ของทั้ง data client และ execution client ด้วย product type `Option` และ `Linear`:
 
 ```rust
 let data_config = BybitDataClientConfig {
@@ -169,9 +154,8 @@ let exec_config = BybitExecutionClientConfig {
 };
 ```
 
-Both product types are needed: `Option` for the strangle legs, `Linear`
-for the BTCUSDT perpetual hedge instrument. The execution client requires
-`account_id` for order identity tracking.
+ต้องใช้ทั้งสอง product type: `Option` สำหรับขาของ strangle และ `Linear` สำหรับ instrument ที่ใช้ hedge คือ BTCUSDT
+perpetual execution client ต้องมี `account_id` เพื่อติดตาม identity ของ order
 
 ```rust
 let mut node = LiveNode::builder(trader_id, environment)?
@@ -186,33 +170,29 @@ node.add_strategy(strategy)?;
 node.run().await?;
 ```
 
-At startup, `with_reconciliation(true)` queries Bybit for open orders and positions. Reconciliation loads the
-cache before the strategy starts. The strategy then loads any existing positions from a prior session.
+ตอน startup `with_reconciliation(true)` จะ query order และ position ที่เปิดอยู่จาก Bybit reconciliation จะโหลดข้อมูลเข้า
+cache ก่อน strategy เริ่มทำงาน จากนั้น strategy จะโหลด position ที่มีอยู่จาก session ก่อนหน้า
 
-## How the strategy works
+## Strategy ทำงานอย่างไร {#how-the-strategy-works}
 
-### Strike selection
+### การเลือก strike {#strike-selection}
 
-At startup, the strategy queries the cache for all option instruments that match `option_family`. It removes
-expired options and selects the nearest expiry. It separates calls and puts, then sorts each list by strike
-price.
+ตอน startup strategy จะ query cache เพื่อหา option instrument ทั้งหมดที่ตรงกับ `option_family` ตัด option ที่หมดอายุแล้ว
+ออก และเลือกวันหมดอายุที่ใกล้ที่สุด แยก call กับ put ออกจากกัน แล้วเรียงแต่ละรายการตาม strike price
 
-The strategy selects strikes by percentile in the sorted list:
+Strategy เลือก strike ตาม percentile ในรายการที่เรียงแล้ว:
 
-- **Call**: index = `(1.0 - target_call_delta) * count`. With 0.20
-  target delta and 50 calls, this selects the 40th strike (80th
-  percentile, OTM).
-- **Put**: index = `|target_put_delta| * count`. With -0.20 target
-  delta, this selects the 10th strike (20th percentile, OTM).
+- **Call**: index = `(1.0 - target_call_delta) * count` เมื่อ target delta เป็น 0.20 และมี call 50 ตัว จะได้ strike
+  ตัวที่ 40 (percentile ที่ 80, OTM)
+- **Put**: index = `|target_put_delta| * count` เมื่อ target delta เป็น -0.20 จะได้ strike ตัวที่ 10 (percentile ที่ 20, OTM)
 
-This is a heuristic. Strike price ordering approximates delta ordering
-for options at the same expiry. A production strategy would subscribe
-to Greeks for all strikes first, then select by actual delta.
+นี่เป็นวิธี heuristic ลำดับของ strike price ใช้ประมาณลำดับของ delta สำหรับ option ที่หมดอายุวันเดียวกัน strategy ที่ใช้
+ใน production ควร subscribe Greeks ของทุก strike ก่อน แล้วจึงเลือกตาม delta จริง
 
-### Entry via implied volatility
+### การเข้า position ผ่าน implied volatility {#entry-via-implied-volatility}
 
-When `enter_strangle` is `true` and both mark IVs have arrived, the
-strategy places SELL limit orders using the `order_iv` parameter:
+เมื่อ `enter_strangle` เป็น `true` และได้รับ mark IV ของทั้งสองขาแล้ว strategy จะวาง SELL limit order โดยใช้พารามิเตอร์
+`order_iv`:
 
 ```rust
 let call_params = Params::new(
@@ -222,54 +202,50 @@ let call_params = Params::new(
 self.submit_order(call_order, None, Some(client_id), Some(call_params))?;
 ```
 
-Bybit converts `orderIv` to a limit price on the server and gives it priority over any explicit price. The
-`entry_iv_offset` setting subtracts vol points from mark IV. An offset of 0.02 sells two vol points below mark
-for faster fills.
+Bybit จะแปลง `orderIv` เป็น limit price บนฝั่ง server และให้ความสำคัญกับค่านี้มากกว่าราคาที่ระบุไว้ ค่า `entry_iv_offset`
+จะลบ vol point ออกจาก mark IV เช่น offset 0.02 จะขายต่ำกว่า mark สอง vol point เพื่อให้ fill เร็วขึ้น
 
 :::note
-In Bybit's demo environment, new orders carry `order_iv` through the HTTP create-order endpoint.
-Demo does not support order amendments through `order_iv`.
-The adapter discards the modification with a warning before it reaches the API.
+ใน demo environment ของ Bybit order ใหม่จะส่ง `order_iv` ผ่าน HTTP endpoint สำหรับสร้าง order แต่ demo ไม่รองรับการแก้ไข
+order ผ่าน `order_iv` adapter จะทิ้งการแก้ไขนั้นพร้อม warning ก่อนจะถึง API
 :::
 
-### Rehedging
+### การ rehedge {#rehedging}
 
-Two triggers check portfolio delta:
+มีสอง trigger ที่ตรวจสอบ delta ของ portfolio:
 
-- **Greeks updates**: On each update, `on_option_greeks` updates the leg's delta value, then calculates portfolio delta again.
-- **Periodic timer**: checks every `rehedge_interval_secs`, including when Greeks updates stop.
+- **การอัปเดต Greeks**: ทุกครั้งที่มีการอัปเดต `on_option_greeks` จะอัปเดตค่า delta ของขานั้น แล้วคำนวณ delta ของ
+  portfolio ใหม่
+- **Timer เป็นระยะ**: ตรวจสอบทุก `rehedge_interval_secs` รวมถึงในกรณีที่การอัปเดต Greeks หยุดไป
 
-When `|portfolio_delta| > rehedge_delta_threshold`, the strategy submits
-a market order on the hedge instrument. A `hedge_pending` flag prevents
-duplicate submissions while an order is in flight.
+เมื่อ `|portfolio_delta| > rehedge_delta_threshold` strategy จะส่ง market order บน hedge instrument flag `hedge_pending`
+จะป้องกันการส่งซ้ำขณะที่ยังมี order ค้างอยู่ระหว่างทาง
 
-### Position tracking
+### การติดตาม position {#position-tracking}
 
-The strategy tracks positions through `on_order_filled`. It does not query the cache on every tick. Each fill
-updates the corresponding position counter (call, put, or hedge).
+Strategy ติดตาม position ผ่าน `on_order_filled` โดยไม่ query cache ทุก tick แต่ละ fill จะอัปเดตตัวนับ position ที่ตรงกัน
+(call, put หรือ hedge)
 
-At startup, the strategy loads the counters from the cache that reconciliation populates. For the selected
-call, selected put, and hedge instrument, it sums the signed quantity of every open position. It does not
-filter by strategy, so positions opened elsewhere on those instruments count. Option positions on other
-strikes do not count.
+ตอน startup strategy จะโหลดตัวนับจาก cache ที่ reconciliation เติมข้อมูลไว้ สำหรับ call ที่เลือก, put ที่เลือก และ hedge
+instrument จะรวมปริมาณแบบมีเครื่องหมายของทุก position ที่เปิดอยู่ โดยไม่กรองตาม strategy ดังนั้น position ที่เปิดจากที่อื่นบน
+instrument เหล่านั้นก็จะถูกนับด้วย ส่วน option position บน strike อื่นจะไม่ถูกนับ
 
 :::warning
-Use an account with no unrelated positions on the hedge instrument.
-At startup, the strategy treats any open `BTCUSDT-LINEAR` position as part of the hedge.
-With no option positions, an unrelated perpetual position larger than `rehedge_delta_threshold` exceeds the threshold
-once Greeks arrive for both legs. The strategy then submits a market order to close that position.
+ใช้ account ที่ไม่มี position อื่นที่ไม่เกี่ยวข้องบน hedge instrument ตอน startup strategy จะถือว่า position
+`BTCUSDT-LINEAR` ที่เปิดอยู่ทุกตัวเป็นส่วนหนึ่งของ hedge หากไม่มี option position แต่มี perpetual position ที่ไม่เกี่ยวข้อง
+ซึ่งใหญ่กว่า `rehedge_delta_threshold` จะเกิน threshold ทันทีที่ Greeks ของทั้งสองขาเข้ามา แล้ว strategy จะส่ง market
+order เพื่อปิด position นั้น
 :::
 
-### Shutdown
+### การปิดการทำงาน {#shutdown}
 
-On stop the strategy cancels open orders, unsubscribes from all data feeds, and resets the hedge-pending flag.
-It does not close positions. To close the strangle and hedge, use manual action or a separate exit strategy.
+เมื่อหยุด strategy จะยกเลิก order ที่เปิดอยู่, unsubscribe จาก data feed ทั้งหมด และ reset flag hedge-pending โดยจะไม่ปิด
+position หากต้องการปิด strangle และ hedge ให้ทำด้วยมือหรือใช้ exit strategy แยกต่างหาก
 
-## What the run produces
+## ผลลัพธ์จากการรัน {#what-the-run-produces}
 
-A 30-second mainnet run with `enter_strangle: false` against a clean
-account places no orders. The strategy logs the discovered instruments
-and the strike selection:
+การรันบน mainnet 30 วินาทีด้วย `enter_strangle: false` กับ account ที่ไม่มี position จะไม่วาง order ใดเลย strategy จะ log
+instrument ที่ค้นพบและการเลือก strike:
 
 ```text
 Selected call: BTC-28APR26-81000-C-USDT-OPTION.BYBIT (strike=81000)
@@ -277,105 +253,88 @@ Selected put: BTC-28APR26-75000-P-USDT-OPTION.BYBIT (strike=75000)
 Strangle: 1 contracts per leg, hedge on BTCUSDT-LINEAR.BYBIT
 ```
 
-The log shows instrument discovery and strike selection. The panels below show the mechanics around the actual
-selected strikes (75,000 / 81,000) at the captured underlying.
+Log แสดงการค้นหา instrument และการเลือก strike ส่วน panel ด้านล่างแสดงกลไกรอบ ๆ strike ที่ถูกเลือกจริง (75,000 / 81,000)
+ที่ราคา underlying ขณะบันทึก
 
-![Short strangle payoff at expiry](./assets/delta_neutral_options_bybit/panel_a_strangle_payoff.png)
+![Payoff ของ short strangle ณ วันหมดอายุ](./assets/delta_neutral_options_bybit/panel_a_strangle_payoff.png)
 
-**Figure 1.** *Pnl at expiry of the short 75,000 PUT plus short 81,000 CALL combination, assuming a 1,500 USDT
-total premium and zero discount. The flat top is the credit-only zone between strikes. Loss increases linearly
-past either strike.*
+**รูปที่ 1.** *PnL ณ วันหมดอายุของการรวม short PUT 75,000 กับ short CALL 81,000 โดยสมมติ premium รวม 1,500 USDT และ
+ไม่มี discount ส่วนบนที่แบนราบคือโซนที่ได้แต่ credit ระหว่างสอง strike และขาดทุนจะเพิ่มขึ้นแบบเชิงเส้นเมื่อเลย strike ใด
+strike หนึ่งไป*
 
-![Synthetic delta drift with rehedge](./assets/delta_neutral_options_bybit/panel_c_hedge_threshold.png)
+![Delta drift สังเคราะห์พร้อมการ rehedge](./assets/delta_neutral_options_bybit/panel_c_hedge_threshold.png)
 
-**Figure 2.** *Synthetic Brownian delta drift over 150 seconds with `rehedge_delta_threshold=0.5`. The dotted
-curve is the unhedged drift. The line is the strategy's portfolio delta after each market hedge (crosses).*
+**รูปที่ 2.** *Delta drift แบบ Brownian สังเคราะห์ในช่วง 150 วินาที ด้วย `rehedge_delta_threshold=0.5` เส้นประคือ drift
+ที่ไม่ได้ hedge ส่วนเส้นทึบคือ delta ของ portfolio ของ strategy หลังการ hedge ด้วย market order แต่ละครั้ง (เครื่องหมายกากบาท)*
 
-![Portfolio delta drift around entry](./assets/delta_neutral_options_bybit/panel_b_delta_drift.png)
+![Delta ของ portfolio รอบจุดเข้า position](./assets/delta_neutral_options_bybit/panel_b_delta_drift.png)
 
-**Figure 3.** *Illustrative short call and short put deltas across a 5% spot range around entry. The panel
-also shows the resulting portfolio delta before hedging. Negative gamma compresses the curve in the wings and
-steepens it across the strikes.*
+**รูปที่ 3.** *ตัวอย่าง delta ของ short call และ short put ในช่วงราคา spot 5% รอบจุดเข้า position panel นี้ยังแสดง delta
+ของ portfolio ที่ได้ก่อนการ hedge ด้วย gamma ที่เป็นลบทำให้เส้นโค้งแบนลงที่ปีกทั้งสองข้าง และชันขึ้นในช่วงระหว่าง strike*
 
-![Strike selection on the IV smile](./assets/delta_neutral_options_bybit/panel_d_strike_picker.png)
+![การเลือก strike บน IV smile](./assets/delta_neutral_options_bybit/panel_d_strike_picker.png)
 
-**Figure 4.** *The strike-selection heuristic against an illustrative IV smile. The CALL strike is at the (1 -
-0.20) percentile and the PUT at the 0.20 percentile. Both legs are OTM with approximately equal-magnitude
-deltas around the underlying.*
+**รูปที่ 4.** *Heuristic การเลือก strike เทียบกับตัวอย่าง IV smile strike ของ CALL อยู่ที่ percentile (1 - 0.20) และของ PUT
+อยู่ที่ percentile 0.20 ทั้งสองขาเป็น OTM และมี delta ขนาดใกล้เคียงกันรอบ underlying*
 
-### Regenerate the panels
+### สร้าง panel ใหม่ {#regenerate-the-panels}
 
-The log comes from `bybit-delta-neutral`, the live trading binary. It connects to Bybit mainnet with your API
-keys. With the default config, it places no entry orders. It submits hedge orders if the account holds
-positions on the selected legs or the hedge instrument.
+Log มาจาก `bybit-delta-neutral` ซึ่งเป็น binary สำหรับ live trading โดยจะเชื่อมต่อกับ Bybit mainnet ด้วย API key ของคุณ
+เมื่อใช้ config เริ่มต้นจะไม่วาง entry order แต่จะส่ง hedge order หาก account มี position บนขาที่เลือกหรือบน hedge instrument
 
-After building NautilusTrader from source, run these commands from the repository root:
+หลัง build NautilusTrader จาก source แล้ว ให้รันคำสั่งเหล่านี้จาก root ของ repository เพื่อสร้าง log:
 
 ```bash
-make sync
-
 cargo build --release --example bybit-delta-neutral --package nautilus-bybit --features examples
 timeout 30 ./target/release/examples/bybit-delta-neutral > /tmp/bybit_dn.log 2>&1
-
-DN_LOG=/tmp/bybit_dn.log \
-    uv run --project python --no-sync \
-        python docs/tutorials/assets/delta_neutral_options_bybit/render_panels.py
 ```
 
-The renderer parses selected strikes from the log. The panels are illustrative: the captured run uses a clean
-account and places no orders.
+> หมายเหตุ: ต้นฉบับใช้ script Python (`render_panels.py`) ในการวาด panel จาก log จึงตัดออก
 
-## Risk considerations
+Panel เหล่านี้เป็นเพียงภาพประกอบ: การรันที่บันทึกไว้ใช้ account ที่ไม่มี position และไม่ได้วาง order ใดเลย
 
-- **Gamma risk**: a short strangle has negative gamma. Large underlying
-  moves increase delta exposure faster than the rehedge timer responds.
-  Tighten `rehedge_delta_threshold` and reduce `rehedge_interval_secs`
-  for faster response, at the cost of more hedge trades.
-- **Vega risk**: an IV spike increases mark-to-market loss on the short
-  options. The strategy does not manage vega exposure.
-- **Liquidity**: OTM crypto options can have wide spreads. Hedge quality
-  degrades when the underlying gaps or the perpetual trades in coarse
-  size increments.
-- **Lifecycle risk**: stopping the strategy stops hedging. Positions
-  remain open and unhedged until manually managed.
+## ข้อควรพิจารณาด้านความเสี่ยง {#risk-considerations}
 
-## Running the example
+- **ความเสี่ยงด้าน gamma**: short strangle มี gamma เป็นลบ การเคลื่อนไหวขนาดใหญ่ของ underlying จะเพิ่ม delta exposure
+  เร็วกว่าที่ rehedge timer ตอบสนองได้ ลด `rehedge_delta_threshold` และ `rehedge_interval_secs` เพื่อให้ตอบสนองเร็วขึ้น
+  แลกกับจำนวน hedge trade ที่มากขึ้น
+- **ความเสี่ยงด้าน vega**: IV ที่พุ่งขึ้นจะเพิ่มผลขาดทุนแบบ mark-to-market ของ short option strategy ไม่ได้จัดการ vega exposure
+- **Liquidity**: crypto option แบบ OTM อาจมี spread กว้าง คุณภาพของการ hedge จะลดลงเมื่อ underlying เกิด gap หรือเมื่อ
+  perpetual เทรดด้วยขั้นของขนาดที่หยาบ
+- **ความเสี่ยงด้านวงจรชีวิต**: การหยุด strategy คือการหยุด hedge ด้วย position จะยังเปิดอยู่และไม่มีการ hedge จนกว่าจะจัดการด้วยมือ
+
+## การรันตัวอย่าง {#running-the-example}
 
 :::warning
-The example trades on Bybit **mainnet** by default. It has no network
-constant: both client configs use `..Default::default()`, which selects
-`BybitEnvironment::Mainnet` and reads `BYBIT_API_KEY` and
-`BYBIT_API_SECRET`. To run on testnet:
+ตัวอย่างนี้เทรดบน Bybit **mainnet** เป็นค่าเริ่มต้น โดยไม่มีค่าคงที่ระบุ network: config ของ client ทั้งสองใช้
+`..Default::default()` ซึ่งเลือก `BybitEnvironment::Mainnet` และอ่าน `BYBIT_API_KEY` และ `BYBIT_API_SECRET`
+หากต้องการรันบน testnet:
 
-1. Import `BybitEnvironment` from `nautilus_bybit::common::enums` in `node_delta_neutral.rs`.
-1. Add `environment: BybitEnvironment::Testnet` to both `data_config` and `exec_config`.
-1. Rebuild the example.
+1. Import `BybitEnvironment` จาก `nautilus_bybit::common::enums` ใน `node_delta_neutral.rs`
+1. เพิ่ม `environment: BybitEnvironment::Testnet` ให้ทั้ง `data_config` และ `exec_config`
+1. Build ตัวอย่างใหม่
 
-On testnet, the adapter reads `BYBIT_TESTNET_API_KEY` and `BYBIT_TESTNET_API_SECRET`.
+บน testnet adapter จะอ่าน `BYBIT_TESTNET_API_KEY` และ `BYBIT_TESTNET_API_SECRET`
 :::
 
 ```bash
 cargo run --example bybit-delta-neutral --package nautilus-bybit --features examples
 ```
 
-The example runs with `enter_strangle: false` by default, so it does not place strangle entry orders. It still
-loads existing positions and submits hedge orders if portfolio delta breaches the threshold. On a clean
-account with no prior positions, the strategy places no orders.
+ตัวอย่างรันด้วย `enter_strangle: false` เป็นค่าเริ่มต้น จึงไม่วาง entry order ของ strangle แต่ยังคงโหลด position ที่มีอยู่และ
+ส่ง hedge order หาก delta ของ portfolio เกิน threshold บน account ที่ไม่มี position ค้างอยู่ strategy จะไม่วาง order ใดเลย
 
-Stop with Ctrl+C. The strategy cancels open orders and unsubscribes
-before shutdown.
+หยุดด้วย Ctrl+C strategy จะยกเลิก order ที่เปิดอยู่และ unsubscribe ก่อนปิดการทำงาน
 
-## Complete source
+## Source code ฉบับสมบูรณ์ {#complete-source}
 
-- Example runner: [`crates/adapters/bybit/examples/node_delta_neutral.rs`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/bybit/examples/node_delta_neutral.rs)
-- Strategy implementation: [`crates/trading/src/examples/strategies/delta_neutral_vol/`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/trading/src/examples/strategies/delta_neutral_vol/)
-- Strategy README with full config reference: [`crates/trading/src/examples/strategies/delta_neutral_vol/README.md`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/trading/src/examples/strategies/delta_neutral_vol/README.md)
+- ตัวรันตัวอย่าง: [`crates/adapters/bybit/examples/node_delta_neutral.rs`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/bybit/examples/node_delta_neutral.rs)
+- Implementation ของ strategy: [`crates/trading/src/examples/strategies/delta_neutral_vol/`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/trading/src/examples/strategies/delta_neutral_vol/)
+- README ของ strategy พร้อม config reference ฉบับเต็ม: [`crates/trading/src/examples/strategies/delta_neutral_vol/README.md`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/trading/src/examples/strategies/delta_neutral_vol/README.md)
 
-## See also
+## ดูเพิ่มเติม {#see-also}
 
-- [Options data and Greeks on Bybit](options_data_bybit.md): prerequisite
-  tutorial covering Greeks subscriptions and option chain snapshots.
-- [Options](../concepts/options.md): option instrument types and data
-  architecture.
-- [Bybit integration](../integrations/bybit.md#options-trading): options
-  order parameters including `order_iv` and `mmp`.
+- [ข้อมูล option และ Greeks บน Bybit](options_data_bybit.md): tutorial ที่ต้องทำก่อน ครอบคลุมการ subscribe Greeks และ
+  snapshot ของ option chain
+- [Options](../concepts/options.md): ประเภทของ option instrument และสถาปัตยกรรมข้อมูล
+- [Bybit integration](../integrations/bybit.md#options-trading): พารามิเตอร์ของ order สำหรับ option รวมถึง `order_iv` และ `mmp`

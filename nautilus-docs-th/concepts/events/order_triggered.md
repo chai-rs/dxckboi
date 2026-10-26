@@ -1,33 +1,24 @@
 # OrderTriggered
 
-`OrderTriggered` records that a limit-style conditional order has triggered. The execution pipeline
-applies it to the order, updates the `Cache`, and publishes it on the `MessageBus`. A trading venue,
-simulated matching engine, or reconciliation can report the trigger for a `StopLimit`,
-`LimitIfTouched`, or `TrailingStopLimit` order.
+`OrderTriggered` บันทึกว่า conditional order แบบ limit ถูก trigger แล้ว execution pipeline จะนำ event
+นี้ไปใช้กับ order อัปเดต `Cache` และ publish บน `MessageBus` โดย trading venue, simulated matching
+engine หรือ reconciliation สามารถรายงานการ trigger ของ order แบบ `StopLimit`, `LimitIfTouched` หรือ
+`TrailingStopLimit` ได้
 
-Typical transition: `ACCEPTED` -> `TRIGGERED`. Handler: `on_order_triggered`.
+Transition ทั่วไป: `ACCEPTED` -> `TRIGGERED` Handler: `on_order_triggered`
 
-## Fields
+## ฟิลด์ {#fields}
 
-Beyond the [common Python order event fields](index.md#common-python-order-event-fields),
-`OrderTriggered` carries:
+นอกจาก[ฟิลด์ร่วมของ order event](index.md#common-python-order-event-fields) แล้ว `OrderTriggered`
+ยังมีฟิลด์:
 
-| Field            | Python type              | Required/default | Description                                      |
-| ---------------- | ------------------------ | ---------------- | ------------------------------------------------ |
-| `venue_order_id` | `VenueOrderId` or `None` | `None`           | The venue-assigned order identifier, if known.   |
-| `account_id`     | `AccountId` or `None`    | `None`           | The account associated with the order, if known. |
-| `reconciliation` | `bool`                   | Required         | If generated during reconciliation.              |
+| ฟิลด์             | จำเป็น/ค่าเริ่มต้น  | คำอธิบาย                                          |
+| ---------------- | ---------------- | ------------------------------------------------ |
+| `venue_order_id` | `None`           | ตัวระบุ order ที่ venue กำหนด หากทราบ                |
+| `account_id`     | `None`           | account ที่เกี่ยวข้องกับ order หากทราบ               |
+| `reconciliation` | Required         | event ถูกสร้างระหว่าง reconciliation หรือไม่          |
 
-## Example
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-Reading the event in a strategy handler:
-
-```python
-def on_order_triggered(self, event: OrderTriggered) -> None:
-    self.log.info(f"Order {event.client_order_id} triggered")
-```
-
-## Related guides
-
-- [Events](index.md) - Event categories, dispatch, and the common order event fields.
-- [Orders](../orders/) - Order types and the state machine.
+- [Events](index.md) - หมวดหมู่ของ event, การ dispatch และฟิลด์ร่วมของ order event
+- [Orders](../orders/) - ชนิดของ order และ state machine

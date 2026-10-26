@@ -1,22 +1,20 @@
 # Plugins
 
-The `nautilus-plugin` crate defines the artifact contract for NautilusTrader plug-ins. A plug-in is an
-independently compiled Rust `cdylib`. It identifies itself with a versioned manifest and exchanges values
-across a C-ABI boundary.
+crate `nautilus-plugin` กำหนดสัญญา (contract) ของ artifact สำหรับ plug-in ของ NautilusTrader plug-in คือ
+Rust `cdylib` ที่คอมไพล์แยกอิสระ ระบุตัวตนด้วย manifest ที่มีเวอร์ชัน และแลกเปลี่ยนค่าข้ามขอบเขต C-ABI
 
-The crate covers artifact identity and boundary primitives only. It does not load, register, or run plug-ins.
-The loading host is an internal Nautilus deployment detail outside this repository.
+crate นี้ครอบคลุมเพียงการระบุตัวตนของ artifact และ primitive สำหรับขอบเขตเท่านั้น ไม่ได้ทำหน้าที่ load,
+register หรือรัน plug-in ตัว host ที่ทำการ load เป็นรายละเอียดภายในของการ deploy Nautilus ซึ่งอยู่นอก repository นี้
 
 :::warning
-The plug-in ABI is early alpha and the contract is unstable. Pin plug-in builds to the matching
-`nautilus-plugin` version.
+ABI ของ plug-in ยังอยู่ในระยะ early alpha และ contract ยังไม่เสถียร ควร pin การ build plug-in ให้ตรงกับ
+เวอร์ชันของ `nautilus-plugin`
 :::
 
-## Artifact contract
+## สัญญาของ artifact {#artifact-contract}
 
-A plug-in is a Rust `cdylib` that exports a single entry symbol, `nautilus_plugin_init`. The
-`nautilus_plugin!` macro generates that symbol together with the static manifest carrying the build
-identity:
+plug-in คือ Rust `cdylib` ที่ export entry symbol เพียงตัวเดียวคือ `nautilus_plugin_init`
+macro `nautilus_plugin!` จะสร้าง symbol นั้นพร้อมกับ manifest แบบ static ที่บรรจุข้อมูลระบุตัวตนของ build:
 
 ```rust
 nautilus_plugin::nautilus_plugin! {
@@ -26,36 +24,33 @@ nautilus_plugin::nautilus_plugin! {
 }
 ```
 
-`name` and `version` are required, `vendor` defaults to an empty string. Invoke the macro once per
-artifact at module scope, set `crate-type = ["cdylib"]` in the artifact's `Cargo.toml`, and depend on
-the matching `nautilus-plugin` version.
+`name` และ `version` เป็นค่าบังคับ ส่วน `vendor` มีค่าเริ่มต้นเป็น string ว่าง เรียก macro เพียงครั้งเดียวต่อ
+artifact ที่ระดับ module ตั้ง `crate-type = ["cdylib"]` ใน `Cargo.toml` ของ artifact และใช้ dependency
+`nautilus-plugin` เวอร์ชันที่ตรงกัน
 
-## Manifest compatibility
+## ความเข้ากันได้ของ manifest {#manifest-compatibility}
 
-`nautilus_plugin_init` takes an opaque host pointer. It returns a `PluginManifest` in process-lifetime
-storage. If the host pointer is null or the call panics, it returns null. `PluginManifest::validate` checks
-the invariants a host relies on before registration. It reports each structural problem it finds and fails
-when:
+`nautilus_plugin_init` รับ host pointer แบบ opaque และคืน `PluginManifest` ที่เก็บอยู่ในหน่วยความจำซึ่งมีอายุเท่ากับ
+process หาก host pointer เป็น null หรือการเรียกเกิด panic จะคืนค่า null `PluginManifest::validate` ตรวจสอบ
+invariant ที่ host ต้องพึ่งพาก่อนการ register โดยจะรายงานปัญหาเชิงโครงสร้างทุกข้อที่พบ และล้มเหลวเมื่อ:
 
-- `abi_version` does not equal `NAUTILUS_PLUGIN_ABI_VERSION`, or `build_id.schema_version` does not
-  equal `PLUGIN_BUILD_ID_VERSION`.
-- `plugin_name` or `plugin_version` is empty.
-- Any manifest string is malformed: a null pointer with non-zero length, or bytes that are not valid
-  UTF-8.
-- `build_id.precision_mode` or `build_id.fixed_precision` differs from the host build.
+- `abi_version` ไม่เท่ากับ `NAUTILUS_PLUGIN_ABI_VERSION` หรือ `build_id.schema_version` ไม่เท่ากับ
+  `PLUGIN_BUILD_ID_VERSION`
+- `plugin_name` หรือ `plugin_version` ว่าง
+- string ใดใน manifest ผิดรูปแบบ: เป็น null pointer แต่มีความยาวไม่เป็นศูนย์ หรือมี byte ที่ไม่ใช่
+  UTF-8 ที่ถูกต้อง
+- `build_id.precision_mode` หรือ `build_id.fixed_precision` ต่างจากของ host build
 
-Precision is validated because it changes model type layout across the boundary. The remaining build
-identity fields (`nautilus-plugin` version, `rustc` version, target triple, and build profile) are
-diagnostic.
+ต้องตรวจสอบ precision เพราะมันเปลี่ยน layout ของ model type ที่ข้ามขอบเขต ส่วนฟิลด์ระบุตัวตนของ build ที่เหลือ
+(เวอร์ชัน `nautilus-plugin`, เวอร์ชัน `rustc`, target triple และ build profile) ใช้สำหรับการวินิจฉัยเท่านั้น
 
-## Boundary rules
+## กฎของขอบเขต {#boundary-rules}
 
-Only the `#[repr(C)]` types in `nautilus_plugin::boundary`, and `#[repr(C)]` types built from them, may appear
-in a signature that crosses the boundary. `String`, `Vec`, and `Box<dyn Trait>` rely on Rust's unstable ABI
-and must never cross it. Panics must not unwind across the boundary either. The generated entry symbol catches
-them and returns null.
+เฉพาะ type แบบ `#[repr(C)]` ใน `nautilus_plugin::boundary` และ type แบบ `#[repr(C)]` ที่สร้างจาก type เหล่านั้น
+เท่านั้นที่ปรากฏใน signature ที่ข้ามขอบเขตได้ `String`, `Vec` และ `Box<dyn Trait>` อาศัย ABI ของ Rust ซึ่งไม่เสถียร
+จึงห้ามข้ามขอบเขตเด็ดขาด panic ก็ห้าม unwind ข้ามขอบเขตเช่นกัน entry symbol ที่ถูกสร้างขึ้นจะดักจับ panic
+และคืนค่า null
 
-Under the current ABI, plug-ins are not unloaded, so manifest storage stays valid for the life of the
-process.
+ภายใต้ ABI ปัจจุบัน plug-in จะไม่ถูก unload ดังนั้นหน่วยความจำของ manifest จึงใช้ได้ตลอดอายุของ process
 
-See [the crate docs](https://docs.rs/nautilus-plugin) for the boundary and manifest types.
+ดู type ของขอบเขตและ manifest ได้ที่[เอกสารของ crate](https://docs.rs/nautilus-plugin)

@@ -1,22 +1,22 @@
 # Execution
 
-NautilusTrader coordinates order submission, risk checks, venue execution, reconciliation, and
-position updates across multiple strategies and venues. This page explains the components and
-message flows that support execution.
+NautilusTrader ประสานงานการส่ง order, การตรวจสอบความเสี่ยง, การ execution ที่ venue, reconciliation
+และการอัปเดต position ข้ามหลาย strategy และหลาย venue หน้านี้อธิบาย component และ message flow
+ที่รองรับการ execution
 
-Use the execution guides according to the question you need to answer:
+เลือกใช้คู่มือด้าน execution ตามคำถามที่ต้องการคำตอบ:
 
-| Question                                             | Guide                                                              |
+| คำถาม                                                  | คู่มือ                                                               |
 | ---------------------------------------------------- | ------------------------------------------------------------------ |
-| Which components handle an order command?            | This page: [Execution flow](#execution-flow).                      |
-| Which statuses and transitions can an order have?    | [Orders: order state flow](../orders/index.md#order-state-flow).   |
-| Which policies govern venue-boundary execution?      | [Execution policies](policies.md).                                 |
-| How do execution algorithms split and manage orders? | [Execution algorithms](algorithms.md).                             |
-| How does live state recover and stay consistent?     | [Execution reconciliation](reconciliation.md).                     |
-| How do I configure a live node?                      | [Live node configuration](../../how_to/configure_live_trading.md). |
-| How does a live node schedule and monitor execution? | [Live trading](../live.md).                                        |
+| component ใดบ้างที่จัดการคำสั่ง (command) ของ order?          | หน้านี้: [Execution flow](#execution-flow)                           |
+| order มีสถานะและการเปลี่ยนสถานะอะไรได้บ้าง?                   | [Orders: order state flow](../orders/index.md#order-state-flow)    |
+| นโยบายใดกำกับการ execution ที่ขอบเขตของ venue?              | [Execution policies](policies.md)                                  |
+| execution algorithm แบ่งและจัดการ order อย่างไร?             | [Execution algorithms](algorithms.md)                              |
+| state ฝั่ง live กู้คืนและรักษาความสอดคล้องอย่างไร?               | [Execution reconciliation](reconciliation.md)                      |
+| จะตั้งค่า live node อย่างไร?                                 | [การตั้งค่า live node](../../how_to/configure_live_trading.md)       |
+| live node จัดตารางและเฝ้าติดตามการ execution อย่างไร?          | [Live trading](../live.md)                                         |
 
-The main execution components are:
+component หลักของการ execution ได้แก่:
 
 - `Strategy`
 - `ExecutionAlgorithm`
@@ -25,9 +25,9 @@ The main execution components are:
 - `ExecutionEngine`
 - `ExecutionClient`
 
-## Execution flow
+## Execution flow {#execution-flow}
 
-A `Strategy` builds on data actor capabilities and adds methods for managing orders and execution:
+`Strategy` ต่อยอดจากความสามารถของ data actor และเพิ่ม method สำหรับจัดการ order และการ execution:
 
 - `submit_order(...)`
 - `submit_order_list(...)`
@@ -40,28 +40,27 @@ A `Strategy` builds on data actor capabilities and adds methods for managing ord
 - `query_account(...)`
 - `query_order(...)`
 
-These methods send point-to-point execution commands over the message bus. Order creation also
-publishes events such as `OrderInitialized`.
+method เหล่านี้ส่ง execution command แบบ point-to-point ผ่าน message bus นอกจากนี้การสร้าง order
+ยัง publish event อย่าง `OrderInitialized` ด้วย
 
-Commands follow different routes:
+command แต่ละแบบมีเส้นทางต่างกัน:
 
-- `submit_order(...)` routes to `OrderEmulator` for emulated orders, to an `ExecutionAlgorithm` when
-  `exec_algorithm_id` is set, and to the `RiskEngine` otherwise.
-- `submit_order_list(...)` follows the same branching behavior based on emulation and
-  `exec_algorithm_id`.
-- For emulated orders, `modify_order(...)` routes to the `OrderEmulator`. For non-emulated orders, it routes
-  to an `ExecutionAlgorithm` if the order has an `exec_algorithm_id` and is still active within the local
-  system. Otherwise, it routes to the `RiskEngine`.
-- Cancel and query commands can route directly to the `OrderEmulator`, `ExecutionAlgorithm`, or
-  `ExecutionEngine`, depending on the command and order state.
+- `submit_order(...)` ถูกส่งไปที่ `OrderEmulator` สำหรับ order ที่ emulate, ไปที่ `ExecutionAlgorithm` เมื่อตั้ง
+  `exec_algorithm_id` ไว้ และไปที่ `RiskEngine` ในกรณีอื่น
+- `submit_order_list(...)` แตกแขนงแบบเดียวกันตามการ emulate และ `exec_algorithm_id`
+- สำหรับ order ที่ emulate `modify_order(...)` จะถูกส่งไปที่ `OrderEmulator` ส่วน order ที่ไม่ได้ emulate จะถูกส่งไปที่
+  `ExecutionAlgorithm` หาก order มี `exec_algorithm_id` และยัง active อยู่ภายในระบบ local มิฉะนั้นจะถูกส่งไปที่
+  `RiskEngine`
+- command สำหรับ cancel และ query อาจถูกส่งตรงไปที่ `OrderEmulator`, `ExecutionAlgorithm` หรือ
+  `ExecutionEngine` ขึ้นอยู่กับ command และสถานะของ order
 
-New orders typically enter one of these paths:
+order ใหม่มักเข้าสู่เส้นทางใดเส้นทางหนึ่งต่อไปนี้:
 
-`Strategy` -> `OrderEmulator` or `ExecutionAlgorithm` or `RiskEngine`
+`Strategy` -> `OrderEmulator` หรือ `ExecutionAlgorithm` หรือ `RiskEngine`
 
-The downstream flow is:
+flow ถัดไปปลายน้ำคือ:
 
-`OrderEmulator` -> `ExecutionAlgorithm` or `RiskEngine`
+`OrderEmulator` -> `ExecutionAlgorithm` หรือ `RiskEngine`
 
 `ExecutionAlgorithm` -> `RiskEngine` -> `ExecutionEngine` -> `ExecutionClient`
 
@@ -87,261 +86,250 @@ flowchart LR
     engine <--> client
 ```
 
-Execution paths branch by emulation and algorithm routing before reaching the execution engine and
-client.
+เส้นทางการ execution แตกแขนงตามการ emulate และการ route ไปยัง algorithm ก่อนจะไปถึง execution engine
+และ client
 
-## Order management system (OMS)
+## Order management system (OMS) {#order-management-system-oms}
 
-An **order management system (OMS)** type determines how orders map to positions for an instrument.
-Strategies and venues, whether simulated or live, each use an OMS type defined by the `OmsType`
-enum.
+ประเภทของ **order management system (OMS)** เป็นตัวกำหนดว่า order จะจับคู่กับ position ของ instrument อย่างไร
+ทั้ง strategy และ venue ไม่ว่าจะจำลองหรือ live ต่างใช้ OMS type ที่นิยามโดย enum `OmsType`
 
-The `OmsType` enum has three variants:
+enum `OmsType` มีสาม variant:
 
-- `UNSPECIFIED`: The strategy uses the owning execution client's OMS type.
-- `NETTING`: Positions combine into one position per instrument and strategy.
-- `HEDGING`: Multiple positions per instrument and strategy can stay open.
+- `UNSPECIFIED`: strategy ใช้ OMS type ของ execution client ที่เป็นเจ้าของ
+- `NETTING`: position ถูกรวมเป็น position เดียวต่อ instrument และ strategy
+- `HEDGING`: เปิด position ได้หลายตัวต่อ instrument และ strategy
 
-When the strategy and venue OMS types differ, the `ExecutionEngine` assigns or overrides
-`position_id` values on `OrderFilled` events. A **virtual position** exists in NautilusTrader but not
-as a separate venue position.
+เมื่อ OMS type ของ strategy กับ venue ต่างกัน `ExecutionEngine` จะกำหนดหรือเขียนทับค่า `position_id`
+บน event `OrderFilled` **virtual position** คือ position ที่มีอยู่ใน NautilusTrader แต่ไม่ได้เป็น position
+แยกต่างหากที่ venue
 
-| Strategy OMS | Venue OMS | Result                                                              |
+| Strategy OMS | Venue OMS | ผลลัพธ์                                                                |
 | ------------ | --------- | ------------------------------------------------------------------- |
-| `NETTING`    | `NETTING` | One position per instrument and strategy.                           |
-| `HEDGING`    | `HEDGING` | Multiple positions per instrument and strategy.                     |
-| `NETTING`    | `HEDGING` | One virtual position across the venue positions.                    |
-| `HEDGING`    | `NETTING` | Multiple virtual positions against the venue's single net position. |
+| `NETTING`    | `NETTING` | position เดียวต่อ instrument และ strategy                              |
+| `HEDGING`    | `HEDGING` | หลาย position ต่อ instrument และ strategy                              |
+| `NETTING`    | `HEDGING` | virtual position เดียวครอบคลุม position หลายตัวที่ venue                 |
+| `HEDGING`    | `NETTING` | virtual position หลายตัวเทียบกับ net position เดียวของ venue            |
 
-If a fill resolves to a cached position for a different instrument, the `ExecutionEngine` logs an error and
-drops the fill. The order stays non-terminal so a subsequent valid fill can be applied.
+หาก fill ชี้ไปยัง position ใน cache ที่เป็นของ instrument อื่น `ExecutionEngine` จะ log error และทิ้ง fill นั้น
+order จะยังไม่อยู่ในสถานะสิ้นสุด (non-terminal) เพื่อให้ fill ที่ถูกต้องในภายหลังยังนำมาใช้ได้
 
-For reductions of inherited inventory, see [Reducing external positions](reconciliation.md#reducing-external-positions).
+สำหรับการลด inventory ที่สืบทอดมา ดู [การลด position ภายนอก](reconciliation.md#reducing-external-positions)
 
-### OMS configuration
+### การตั้งค่า OMS {#oms-configuration}
 
-When a strategy omits `oms_type` or uses `UNSPECIFIED`, the `ExecutionEngine` uses the owning
-execution client's OMS type. An explicit `NETTING` or `HEDGING` strategy override takes precedence.
+เมื่อ strategy ไม่ระบุ `oms_type` หรือใช้ `UNSPECIFIED` `ExecutionEngine` จะใช้ OMS type ของ execution
+client ที่เป็นเจ้าของ การ override ของ strategy แบบระบุชัดเป็น `NETTING` หรือ `HEDGING` จะมีลำดับความสำคัญสูงกว่า
 
-The engine identifies ownership according to the operation:
+engine ระบุความเป็นเจ้าของตามประเภทของการทำงาน:
 
-- **Submission validation**: uses the client selected by command routing.
-- **Fill processing**: uses the cached order's client origin. When that origin is unavailable, it
-  uses the one registered client that matches the fill's account and handles its instrument venue.
-  This account lookup also covers spread-leg fills without a cached order.
+- **การตรวจสอบตอน submit**: ใช้ client ที่ถูกเลือกจากการ route command
+- **การประมวลผล fill**: ใช้ client ต้นทางของ order ใน cache หากไม่มีข้อมูลต้นทางนั้น จะใช้ client ที่ลงทะเบียนไว้
+  เพียงตัวเดียวที่ตรงกับ account ของ fill และดูแล venue ของ instrument นั้น การค้นหาตาม account นี้ครอบคลุม
+  fill ของ spread leg ที่ไม่มี order ใน cache ด้วย
 
-For fills associated with an order, an existing cached position keeps its recorded OMS type.
+สำหรับ fill ที่ผูกกับ order position ที่มีอยู่แล้วใน cache จะคง OMS type ที่บันทึกไว้
 
-If ownership is absent or ambiguous, fills use `NETTING` unless the strategy supplies an explicit
-override. Venue and default command routes do not select the fill's OMS type. Configure a backtest
-venue with the OMS type used by the venue being modeled.
+หากไม่มีข้อมูลความเป็นเจ้าของหรือกำกวม fill จะใช้ `NETTING` เว้นแต่ strategy จะ override ไว้ชัดเจน
+เส้นทาง route ตาม venue และเส้นทางค่าเริ่มต้นของ command ไม่ได้เป็นตัวเลือก OMS type ของ fill ควรตั้งค่า
+venue ใน backtest ด้วย OMS type เดียวกับ venue จริงที่กำลังจำลอง
 
-Venue position modes may require adapter-specific configuration. For example, see
-[Binance Futures hedge mode](../../integrations/binance.md#futures-hedge-mode).
+โหมด position ของ venue อาจต้องการ configuration เฉพาะของ adapter ตัวอย่างเช่น ดู
+[Binance Futures hedge mode](../../integrations/binance.md#futures-hedge-mode)
 
-### Custom position IDs and NETTING
+### Position ID แบบกำหนดเองกับ NETTING {#custom-position-ids-and-netting}
 
-Custom position IDs are only valid under `HEDGING` OMS. `NETTING` has one position per instrument
-and strategy, with a deterministic ID of the form `{instrument_id}-{strategy_id}`.
+position ID แบบกำหนดเองใช้ได้เฉพาะภายใต้ OMS แบบ `HEDGING` เท่านั้น `NETTING` มี position เดียวต่อ instrument
+และ strategy โดยมี ID ที่กำหนดแน่นอน (deterministic) ในรูปแบบ `{instrument_id}-{strategy_id}`
 
-The `ExecutionEngine` enforces this at submit time. If the effective OMS resolves to `NETTING`, a supplied
-`position_id` must match `{instrument_id}-{strategy_id}` in `submit_order` (or `submit_order_list`). A
-mismatch denies the order with an `OrderDenied` event that explains the mismatch.
+`ExecutionEngine` บังคับกฎนี้ตอน submit หาก OMS ที่มีผลจริงคือ `NETTING` ค่า `position_id` ที่ส่งมาใน
+`submit_order` (หรือ `submit_order_list`) ต้องตรงกับ `{instrument_id}-{strategy_id}` หากไม่ตรง order จะถูก
+deny ด้วย event `OrderDenied` ที่อธิบายความไม่ตรงกันนั้น
 
-This rule still permits the common closing idiom: `Strategy.close_position(position)`
-forwards `position.id`, which under `NETTING` is exactly the deterministic ID, so it is
-accepted. To label or partition positions with arbitrary IDs, configure the strategy
-with `oms_type=HEDGING`.
+กฎนี้ยังคงรองรับรูปแบบการปิด position ที่ใช้กันทั่วไป: `Strategy.close_position(position)` ส่งต่อ `position.id`
+ซึ่งภายใต้ `NETTING` ก็คือ ID แบบ deterministic พอดี จึงผ่าน หากต้องการติดป้ายหรือแบ่ง position ด้วย ID
+ตามใจชอบ ให้ตั้งค่า strategy เป็น `oms_type=HEDGING`
 
-For `submit_order_list`, the engine additionally denies any mixed-instrument list when a
-`position_id` is supplied, regardless of OMS. A position belongs to a single instrument,
-so the combination is rejected with an explicit `OrderDenied` reason. See
-[Order lists](../orders/advanced.md#order-lists) for the broader set of mixed-instrument caveats.
+สำหรับ `submit_order_list` engine ยัง deny list ที่มีหลาย instrument ปนกันเมื่อมีการระบุ `position_id` ไม่ว่า
+OMS จะเป็นแบบใด เพราะ position หนึ่งเป็นของ instrument เดียว การผสมเช่นนี้จึงถูกปฏิเสธพร้อมเหตุผล
+`OrderDenied` ที่ชัดเจน ดู [Order lists](../orders/advanced.md#order-lists) สำหรับข้อควรระวังอื่น ๆ
+เกี่ยวกับ list ที่มีหลาย instrument
 
-### Position replay across NETTING cycles
+### การ replay position ข้ามรอบของ NETTING {#position-replay-across-netting-cycles}
 
-Under `NETTING` the engine reuses one position ID across close and reopen cycles. Thus, a position's replay
-log can accumulate each fill ever applied to that ID. The
-`ExecutionEngineConfig.carry_replay_events_on_reopen` option controls whether that log survives a reopen:
+ภายใต้ `NETTING` engine ใช้ position ID เดิมซ้ำข้ามรอบการปิดและเปิดใหม่ ดังนั้น replay log ของ position
+อาจสะสม fill ทุกตัวที่เคยใช้กับ ID นั้น ตัวเลือก `ExecutionEngineConfig.carry_replay_events_on_reopen`
+ควบคุมว่า log นี้จะยังอยู่หลังการเปิดใหม่หรือไม่:
 
-| `carry_replay_events_on_reopen` | Behavior                                                       |
+| `carry_replay_events_on_reopen` | พฤติกรรม                                                         |
 | ------------------------------- | -------------------------------------------------------------- |
-| `False` (default)               | Keeps only current-cycle state, bounding the per-fill cost.    |
-| `True`                          | Keeps earlier fills correctable while position state can grow. |
+| `False` (ค่าเริ่มต้น)               | เก็บเฉพาะ state ของรอบปัจจุบัน จำกัดต้นทุนต่อ fill ไว้                  |
+| `True`                          | fill ในรอบก่อน ๆ ยังแก้ไขได้ แต่ state ของ position อาจโตขึ้นเรื่อย ๆ      |
 
-- **Live trading**: `LiveExecutionEngineConfig` always carries the replay log (`True`), so a venue
-  [`OrderFillVoided`](../events/order_fill_voided.md) referencing an earlier cycle still resolves.
-- **Backtesting**: the simulated venue never emits fill voids, so backtests take the bounded default.
-- **Custom or external execution clients**: enable the option explicitly if the client can correct a
-  fill from a prior cycle. Without the carried log, the engine finds no matching position fragment
-  and rejects the correction.
+- **Live trading**: `LiveExecutionEngineConfig` นำ replay log ติดไปด้วยเสมอ (`True`) ดังนั้น
+  [`OrderFillVoided`](../events/order_fill_voided.md) จาก venue ที่อ้างถึงรอบก่อนหน้ายังแก้ไขได้
+- **Backtesting**: venue จำลองไม่เคยส่ง fill void ออกมา backtest จึงใช้ค่าเริ่มต้นแบบจำกัด
+- **Execution client แบบกำหนดเองหรือภายนอก**: เปิดตัวเลือกนี้อย่างชัดเจนหาก client อาจแก้ไข fill จากรอบก่อนหน้า
+  หากไม่มี log ที่นำติดมา engine จะหา fragment ของ position ที่ตรงกันไม่พบและปฏิเสธการแก้ไขนั้น
 
-Realized-PnL snapshots follow the correction. A fill void that reaches an earlier cycle rebuilds the position
-across the cycle boundary. This moves the boundaries its archived snapshots describe. Thus, the engine settles
-those snapshots into the corrected history's own closed cycles, and realized PnL counts each cycle once. A
-void confined to the current cycle leaves the archive intact. See
-[Position snapshotting](../positions.md#position-snapshotting).
+snapshot ของ realized PnL จะเปลี่ยนตามการแก้ไข fill void ที่ย้อนไปถึงรอบก่อนหน้าจะสร้าง position ใหม่ข้ามเส้นแบ่ง
+ของรอบ ซึ่งทำให้เส้นแบ่งที่ snapshot ที่เก็บไว้อธิบายเลื่อนไป engine จึงจัด snapshot เหล่านั้นเข้ากับรอบที่ปิดแล้ว
+ของประวัติที่แก้ไขแล้ว และ realized PnL นับแต่ละรอบเพียงครั้งเดียว void ที่จำกัดอยู่ในรอบปัจจุบันจะไม่กระทบ
+archive ดู [Position snapshotting](../positions.md#position-snapshotting)
 
-## Risk engine
+## Risk engine {#risk-engine}
 
-The `RiskEngine` is a component of each Nautilus system, including backtest, sandbox, and live environments.
-It sits on the submit and modify path, and it also receives order events such as `OrderReleased` from the
-`OrderEmulator`. Cancel and query commands route directly to other execution components and do not pass
-through the `RiskEngine`.
+`RiskEngine` เป็น component ของทุกระบบ Nautilus ทั้งสภาพแวดล้อม backtest, sandbox และ live มันอยู่บนเส้นทาง
+submit และ modify และยังรับ order event เช่น `OrderReleased` จาก `OrderEmulator` ด้วย ส่วน command สำหรับ
+cancel และ query จะถูกส่งตรงไปยัง component อื่นของการ execution โดยไม่ผ่าน `RiskEngine`
 
-Unless bypassed in `RiskEngineConfig`, the engine validates:
+เว้นแต่จะ bypass ไว้ใน `RiskEngineConfig` engine จะตรวจสอบ:
 
-- Price and trigger-price precision for the instrument.
-- Positive prices, unless the instrument allows negative prices (futures, options, futures
-  spreads, option spreads, and spot commodities). Inverse futures and futures spreads require positive prices.
-- Quantity precision and base-quantity minimum and maximum bounds.
-- GTD orders have not already expired.
-- `reduce_only` orders do not increase the referenced position.
-- Engine-level `max_notional_per_order` limits and the instrument's `min_notional` and `max_notional` fields,
-  compared by notional magnitude.
-- Cash-account balance impact for non-margin accounts.
-- Submit and modify rate limits.
-- Trading-state restrictions (`ACTIVE`, `HALTED`, `REDUCING`).
+- ความละเอียด (precision) ของราคาและราคา trigger สำหรับ instrument
+- ราคาต้องเป็นบวก เว้นแต่ instrument อนุญาตราคาติดลบ (futures, options, futures spread, option spread
+  และ spot commodity) ทั้งนี้ inverse futures และ futures spread ต้องใช้ราคาบวก
+- precision ของจำนวน และขอบเขตต่ำสุดและสูงสุดของ base quantity
+- order แบบ GTD ต้องยังไม่หมดอายุ
+- order แบบ `reduce_only` ต้องไม่เพิ่มขนาด position ที่อ้างถึง
+- ขีดจำกัด `max_notional_per_order` ระดับ engine และฟิลด์ `min_notional` กับ `max_notional` ของ instrument
+  โดยเปรียบเทียบตามขนาดของ notional
+- ผลกระทบต่อยอดเงินของ cash account สำหรับ account ที่ไม่ใช่ margin
+- rate limit ของการ submit และ modify
+- ข้อจำกัดตาม trading state (`ACTIVE`, `HALTED`, `REDUCING`)
 
-If a submit-time risk check fails, the system generates an `OrderDenied` event with a
-standardized [reason code](#order-denied-reasons). If a modify-time risk check fails, it
-generates an `OrderModifyRejected` event.
+หากการตรวจสอบความเสี่ยงตอน submit ล้มเหลว ระบบจะสร้าง event `OrderDenied` พร้อม
+[reason code](#order-denied-reasons) มาตรฐาน หากการตรวจสอบตอน modify ล้มเหลว จะสร้าง event
+`OrderModifyRejected`
 
-### Account selection
+### การเลือก account {#account-selection}
 
-Balance, margin, and position checks use the account of the execution client that will run the
-command, before `OrderSubmitted` assigns the order's account. The risk engine selects the account
-in this order:
+การตรวจสอบยอดเงิน, margin และ position ใช้ account ของ execution client ที่จะรัน command นั้น ก่อนที่
+`OrderSubmitted` จะกำหนด account ให้ order risk engine เลือก account ตามลำดับนี้:
 
-1. An order that already has an account, such as an order being modified, uses that account.
-1. A command for an external client (`external_clients`) uses the venue's account only when exactly
-   one account is issued under the venue.
-1. A command `client_id` that names a registered execution client uses that client's account.
-1. Any other command uses the account of the client routed for the instrument's venue, then the
-   default client's account. This includes a command whose `client_id` names neither a registered
-   nor an external client, which the execution engine routes the same way.
-1. A command with no venue route or default client uses the venue's account only when exactly one
-   account is issued under the venue.
+1. order ที่มี account อยู่แล้ว เช่น order ที่กำลังถูก modify จะใช้ account นั้น
+1. command สำหรับ client ภายนอก (`external_clients`) จะใช้ account ของ venue ก็ต่อเมื่อมี account ภายใต้ venue
+   นั้นเพียงตัวเดียวเท่านั้น
+1. command ที่ `client_id` ระบุ execution client ที่ลงทะเบียนไว้ จะใช้ account ของ client นั้น
+1. command อื่น ๆ ใช้ account ของ client ที่ถูก route สำหรับ venue ของ instrument แล้วจึงเป็น account ของ client
+   ค่าเริ่มต้น รวมถึง command ที่ `client_id` ไม่ได้ระบุทั้ง client ที่ลงทะเบียนไว้และ client ภายนอก ซึ่ง
+   execution engine ก็ route ในแบบเดียวกัน
+1. command ที่ไม่มีเส้นทาง route ตาม venue และไม่มี client ค่าเริ่มต้น จะใช้ account ของ venue ก็ต่อเมื่อมี account
+   ภายใต้ venue นั้นเพียงตัวเดียวเท่านั้น
 
-An order list selects one account from the command's `client_id` and instrument. When no account
-resolves, or the selected client's account is not cached yet, the risk engine denies the order or
-rejects the modification with `VALIDATION_FAILED`. It never falls back to another account. Positions
-and open orders count toward position-reducing checks only when they belong to the selected account.
+order list จะเลือก account เดียวจาก `client_id` และ instrument ของ command หากหา account ไม่ได้ หรือ account
+ของ client ที่เลือกยังไม่อยู่ใน cache risk engine จะ deny order หรือปฏิเสธการ modify ด้วย `VALIDATION_FAILED`
+และจะไม่ fallback ไปใช้ account อื่น position และ open order จะถูกนับในการตรวจสอบการลด position ก็ต่อเมื่อเป็น
+ของ account ที่เลือกเท่านั้น
 
-### Whole-position conditional exits
+### Conditional exit แบบปิดทั้ง position {#whole-position-conditional-exits}
 
-Some execution clients support conditional exits whose venue determines the closing quantity from
-the open position when the trigger fires. Nautilus orders still carry a placeholder quantity for
-local validation. The `full_position_exit_venues` setting on `RiskEngineConfig` and
-`LiveRiskEngineConfig` identifies venues whose execution clients enforce these semantics. It
-defaults to empty.
+execution client บางตัวรองรับ conditional exit ที่ venue กำหนดจำนวนที่จะปิดจาก position ที่เปิดอยู่ ณ ตอนที่
+trigger ทำงาน แต่ order ของ Nautilus ยังต้องมีจำนวนตัวยึดตำแหน่ง (placeholder quantity) เพื่อใช้ตรวจสอบภายใน
+การตั้งค่า `full_position_exit_venues` บน `RiskEngineConfig` และ `LiveRiskEngineConfig` ใช้ระบุ venue ที่
+execution client บังคับใช้ความหมายนี้ ค่าเริ่มต้นคือว่าง
 
-An order qualifies for the placeholder exemption only when all of these conditions hold:
+order จะได้รับการยกเว้นสำหรับ placeholder ก็ต่อเมื่อเป็นไปตามเงื่อนไขทั้งหมดนี้:
 
-- The order is submitted individually, not in an order list.
-- Its venue is listed in `full_position_exit_venues`.
-- It uses a supported futures or perpetual instrument.
-- It is a `StopMarket` or `MarketIfTouched` order with a trigger price and
-  `close_position=true`.
-- It has a positive placeholder quantity and sets `reduce_only=true`.
-- The command, order, and linked cached position use the same instrument and position ID.
-- The linked position belongs to the [selected account](#account-selection).
-- The linked position is open, the order side closes it, and the placeholder quantity does not
-  exceed the position quantity.
+- order ถูก submit เดี่ยว ๆ ไม่ได้อยู่ใน order list
+- venue ของ order อยู่ใน `full_position_exit_venues`
+- ใช้ instrument ประเภท futures หรือ perpetual ที่รองรับ
+- เป็น order แบบ `StopMarket` หรือ `MarketIfTouched` ที่มีราคา trigger และ `close_position=true`
+- มี placeholder quantity เป็นบวก และตั้ง `reduce_only=true`
+- command, order และ position ที่ผูกไว้ใน cache ใช้ instrument และ position ID เดียวกัน
+- position ที่ผูกไว้เป็นของ [account ที่เลือก](#account-selection)
+- position ที่ผูกไว้ยังเปิดอยู่ ฝั่งของ order เป็นฝั่งที่ปิด position และ placeholder quantity ไม่เกินจำนวนของ
+  position
 
-For a qualifying exit, the risk engine treats checks as follows:
+สำหรับ exit ที่ผ่านเงื่อนไข risk engine จะจัดการการตรวจสอบดังนี้:
 
-| Risk check                                                            | Treatment                                   |
+| การตรวจสอบความเสี่ยง                                                     | การจัดการ                                     |
 | --------------------------------------------------------------------- | ------------------------------------------- |
-| Quantity precision and positivity                                     | Enforced.                                   |
-| Price and trigger-price precision and positivity                      | Enforced.                                   |
-| GTD expiration, trading-state restrictions, and submission rate limit | Enforced.                                   |
-| Position exposure, margin, and balance                                | Treated as position-reducing.               |
-| Instrument minimum and maximum quantity                               | Skipped for the placeholder quantity.       |
-| Instrument minimum and maximum notional                               | Skipped for the placeholder notional.       |
-| Configured `max_notional_per_order`                                   | Skipped for the placeholder notional.       |
-| Non-qualifying orders                                                 | All ordinary risk checks continue to apply. |
+| precision และความเป็นบวกของจำนวน                                        | บังคับใช้                                      |
+| precision และความเป็นบวกของราคาและราคา trigger                           | บังคับใช้                                      |
+| การหมดอายุ GTD, ข้อจำกัดของ trading state และ rate limit ของการ submit   | บังคับใช้                                      |
+| exposure ของ position, margin และยอดเงิน                                | ถือว่าเป็นการลด position                       |
+| จำนวนต่ำสุดและสูงสุดของ instrument                                       | ข้ามสำหรับ placeholder quantity                |
+| notional ต่ำสุดและสูงสุดของ instrument                                   | ข้ามสำหรับ placeholder notional                |
+| `max_notional_per_order` ที่ตั้งค่าไว้                                    | ข้ามสำหรับ placeholder notional                |
+| order ที่ไม่ผ่านเงื่อนไข                                                  | การตรวจสอบความเสี่ยงปกติทั้งหมดยังมีผล               |
 
-Only allowlist a venue when its downstream execution client enforces whole-position closing. See
-[Binance Futures close-position orders](../../integrations/binance.md#close-position) for a supported
-configuration.
+ให้ใส่ venue ใน allowlist เฉพาะเมื่อ execution client ปลายน้ำบังคับการปิดทั้ง position จริงเท่านั้น ดู
+[Binance Futures close-position orders](../../integrations/binance.md#close-position) สำหรับ configuration
+ที่รองรับ
 
 :::warning
-The simulated exchange does not interpret `close_position` or replace the placeholder with the open position
-quantity. Leave simulated backtest venues out of `full_position_exit_venues`. Model a backtest exit with an
-explicit quantity and `reduce_only` instead.
+exchange จำลองไม่ได้ตีความ `close_position` และไม่ได้แทนที่ placeholder ด้วยจำนวนของ position ที่เปิดอยู่
+อย่าใส่ venue จำลองของ backtest ไว้ใน `full_position_exit_venues` ให้จำลอง exit ใน backtest ด้วยจำนวนที่ระบุชัด
+และ `reduce_only` แทน
 :::
 
-### Trading state
+### Trading state {#trading-state}
 
-The states become progressively more restrictive:
+แต่ละ state จะเข้มงวดขึ้นตามลำดับ:
 
-| State      | Numeric value | Permitted commands                                                           |
-| ---------- | ------------: | ---------------------------------------------------------------------------- |
-| `ACTIVE`   |             1 | Submit, modify, cancel, and query commands operate normally.                 |
-| `REDUCING` |             2 | Eligible individual reduce-only submissions, cancels, and queries.           |
-| `HALTED`   |             3 | Cancels and queries only. New submissions and modifications are not allowed. |
+| State      | ค่าตัวเลข | command ที่อนุญาต                                                               |
+| ---------- | ------: | ---------------------------------------------------------------------------- |
+| `ACTIVE`   |       1 | command สำหรับ submit, modify, cancel และ query ทำงานตามปกติ                    |
+| `REDUCING` |       2 | การ submit แบบ reduce-only เดี่ยว ๆ ที่เข้าเงื่อนไข, การ cancel และการ query          |
+| `HALTED`   |       3 | cancel และ query เท่านั้น ไม่อนุญาตการ submit และ modify ใหม่                       |
 
-In `REDUCING`, an individual `SubmitOrder` is eligible only when all of these conditions hold:
+ใน `REDUCING` `SubmitOrder` เดี่ยว ๆ จะเข้าเงื่อนไขก็ต่อเมื่อเป็นไปตามเงื่อนไขทั้งหมดนี้:
 
-- The order sets `reduce_only=true`.
-- The command and order identify the same instrument.
-- The supplied position ID matches the order's cached open position on the
-  [selected account](#account-selection).
-- The order side opposes the position.
-- The submitted quantity does not exceed the cached position quantity.
+- order ตั้ง `reduce_only=true`
+- command และ order ระบุ instrument เดียวกัน
+- position ID ที่ส่งมาตรงกับ open position ของ order ใน cache บน [account ที่เลือก](#account-selection)
+- ฝั่งของ order อยู่ตรงข้ามกับ position
+- จำนวนที่ submit ไม่เกินจำนวนของ position ใน cache
 
-Order lists and modifications are denied.
+order list และการ modify จะถูก deny
 
-The risk engine applies these rules before forwarding commands to execution. Released emulated orders follow the same
-rules: a protective stop must set `reduce_only=true` and satisfy the conditions above to pass in
-`REDUCING`. `HALTED` denies released orders, including protective stops. Modifications of held
-emulated orders stay local to the emulator and bypass these risk-engine restrictions.
+risk engine ใช้กฎเหล่านี้ก่อนส่งต่อ command ไปยังการ execution order ที่ emulate แล้วถูกปล่อยออกมาก็อยู่ภายใต้กฎ
+เดียวกัน: stop ป้องกันความเสี่ยงต้องตั้ง `reduce_only=true` และผ่านเงื่อนไขข้างต้นจึงจะผ่านใน `REDUCING`
+ส่วน `HALTED` จะ deny order ที่ถูกปล่อยออกมาทั้งหมด รวมถึง stop ป้องกันความเสี่ยงด้วย การ modify order ที่ emulate
+และยังถูกถือไว้จะอยู่ภายใน emulator และไม่ผ่านข้อจำกัดของ risk engine เหล่านี้
 
-:::warning[Bypassing trading-state checks]
-When `RiskEngineConfig.bypass` is enabled, trading state is not enforced. Execution clients still follow
-the [reduce-only send-or-reject contract](../adapters.md#reduce-only-execution-contract).
+:::warning[การ bypass การตรวจสอบ trading state]
+เมื่อเปิด `RiskEngineConfig.bypass` trading state จะไม่ถูกบังคับใช้ แต่ execution client ยังคงปฏิบัติตาม
+[ข้อตกลงแบบส่งหรือปฏิเสธของ reduce-only](../adapters.md#reduce-only-execution-contract)
 :::
 
-See the
-[`RiskEngineConfig` API reference](/docs/python-api-latest/config.html#nautilus_trader.risk.RiskEngineConfig)
-for configuration details.
+ดูรายละเอียดของ configuration ได้ใน [Rust API reference](https://nautilustrader.io/docs/core-latest/)
+(`RiskEngineConfig`)
 
-## Execution algorithms
+## Execution algorithm {#execution-algorithms}
 
-An `ExecutionAlgorithm` receives primary orders selected by `exec_algorithm_id` and can split them
-into smaller spawned orders. NautilusTrader supports custom algorithms and includes a native Rust
-TWAP implementation.
+`ExecutionAlgorithm` รับ primary order ที่ถูกเลือกด้วย `exec_algorithm_id` และสามารถแบ่งออกเป็น spawned order
+ที่เล็กลงได้ NautilusTrader รองรับ algorithm แบบกำหนดเอง และมี TWAP ที่ implement แบบ native ใน Rust มาให้
 
-See [Execution algorithms](algorithms.md) for TWAP configuration, custom algorithms,
-spawned-order behavior, and cache queries.
+ดู [Execution algorithms](algorithms.md) สำหรับการตั้งค่า TWAP, algorithm แบบกำหนดเอง, พฤติกรรมของ
+spawned order และการ query จาก cache
 
-## Cancel-all routing
+## การ route ของ cancel-all {#cancel-all-routing}
 
-`Strategy.cancel_all_orders(...)` supports strategy-scoped and broad cancellation:
+`Strategy.cancel_all_orders(...)` รองรับทั้งการยกเลิกเฉพาะใน strategy และการยกเลิกแบบกว้าง:
 
-| `strategy_only` | Strategy output                                         | Scope                                                          | Downstream routing                                  |
+| `strategy_only` | ผลลัพธ์จาก strategy                                        | ขอบเขต                                                          | การ route ปลายน้ำ                                     |
 | --------------- | ------------------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------- |
-| `True`          | One `CancelOrder` per matching order.                   | Matching orders associated with the calling strategy.          | Each order follows its normal cancel route.         |
-| `False`         | One root `CancelAllOrders`, even without local matches. | Matching orders for one resolved execution client and account. | The execution engine creates the required children. |
+| `True`          | `CancelOrder` หนึ่งตัวต่อ order ที่ตรงเงื่อนไข                  | order ที่ตรงเงื่อนไขและผูกกับ strategy ที่เรียก                      | แต่ละ order ไปตามเส้นทาง cancel ปกติของตัวเอง           |
+| `False`         | `CancelAllOrders` ระดับ root หนึ่งตัว แม้ไม่มี order ใน local ที่ตรง | order ที่ตรงเงื่อนไขของ execution client และ account ที่ resolve ได้หนึ่งชุด | execution engine สร้าง command ลูกที่จำเป็น             |
 
-Broad mode delegates before the strategy inspects its cache. The command thus reaches the resolved execution
-client even when NautilusTrader has no matching local order. This allows a venue bulk-cancel endpoint to
-remove an order that exists at the venue but is missing from the local cache. When the adapter provides such
-an endpoint, the single command can also reduce cancel request volume.
+โหมดกว้างจะมอบหมายงานต่อก่อนที่ strategy จะตรวจ cache ของตัวเอง command จึงไปถึง execution client ที่ resolve
+ได้แม้ NautilusTrader จะไม่มี order ใน local ที่ตรงเงื่อนไขเลย ซึ่งช่วยให้ endpoint สำหรับ bulk-cancel ของ venue
+ลบ order ที่มีอยู่ที่ venue แต่ไม่อยู่ใน cache ของ local ได้ เมื่อ adapter มี endpoint แบบนี้ command เดียวยังช่วยลด
+ปริมาณคำขอ cancel ได้ด้วย
 
-For a local execution client, the `ExecutionEngine` resolves the root command to exactly one client
-in this order:
+สำหรับ execution client แบบ local `ExecutionEngine` จะ resolve command ระดับ root ให้เหลือ client เพียงตัวเดียว
+ตามลำดับนี้:
 
-1. The explicit `client_id`, when it identifies a registered local client.
-1. The client routed for the instrument's venue.
-1. The default execution client.
+1. `client_id` ที่ระบุชัด หากระบุ client แบบ local ที่ลงทะเบียนไว้
+1. client ที่ถูก route สำหรับ venue ของ instrument
+1. execution client ค่าเริ่มต้น
 
-The engine then creates fresh child commands for the selected client and its account:
+จากนั้น engine จะสร้าง command ลูกชุดใหม่สำหรับ client ที่เลือกและ account ของมัน:
 
-- One `CancelAllOrders` for the execution client, covering matching venue orders.
-- One `CancelAllOrders` for the `OrderEmulator`, covering matching emulated orders.
-- One `CancelOrder` per eligible active-local execution-algorithm order.
+- `CancelAllOrders` หนึ่งตัวสำหรับ execution client ครอบคลุม order ที่ venue ที่ตรงเงื่อนไข
+- `CancelAllOrders` หนึ่งตัวสำหรับ `OrderEmulator` ครอบคลุม order ที่ emulate ที่ตรงเงื่อนไข
+- `CancelOrder` หนึ่งตัวต่อ order ของ execution algorithm ที่ active อยู่ใน local และเข้าเงื่อนไข
 
 ```mermaid
 flowchart LR
@@ -367,58 +355,57 @@ flowchart LR
     resolve --> algo
 ```
 
-Broad mode selects one client before fan-out. It never broadcasts across all execution clients. Call
-`cancel_all_orders(...)` once per client to cancel across several clients.
+โหมดกว้างเลือก client เพียงตัวเดียวก่อนกระจาย command และไม่เคย broadcast ไปยัง execution client ทุกตัว
+หากต้องการยกเลิกข้ามหลาย client ให้เรียก `cancel_all_orders(...)` หนึ่งครั้งต่อ client
 
-Each child has a new command ID, copies the root parameters, correlates to the root operation, and records the
-root command as its cause. Instrument and optional side filters apply to each local route. The selected
-execution account also bounds matching-engine cancellation, including orders in `SUBMITTED` and other
-cancelable in-flight states.
+command ลูกแต่ละตัวมี command ID ใหม่ คัดลอกพารามิเตอร์จาก root, เชื่อมโยง (correlate) กับการทำงานระดับ root
+และบันทึก command ระดับ root เป็นสาเหตุ ตัวกรอง instrument และฝั่ง (side) ที่ไม่บังคับจะมีผลกับแต่ละเส้นทาง local
+account ของการ execution ที่เลือกยังเป็นขอบเขตของการยกเลิกใน matching engine ด้วย รวมถึง order ในสถานะ
+`SUBMITTED` และสถานะระหว่างทางอื่นที่ยกเลิกได้
 
-Client ownership applies to local emulated and execution-algorithm orders:
+ความเป็นเจ้าของของ client มีผลกับ order ที่ emulate และ order ของ execution algorithm ใน local:
 
-- Orders already assigned to another client stay untouched.
-- When the root omits `client_id`, matching unassigned orders are claimed by the client selected by
-  the engine before local cancellation.
-- When the root supplies `client_id`, unassigned orders stay untouched because the engine cannot infer that
-  they belong to the explicit client.
-- An emulated order matches its traded instrument, even when another instrument supplies its trigger.
+- order ที่ถูกกำหนดให้ client อื่นแล้วจะไม่ถูกแตะต้อง
+- เมื่อ root ไม่ระบุ `client_id` order ที่ยังไม่ถูกกำหนดและตรงเงื่อนไขจะถูก client ที่ engine เลือกไว้รับเป็นเจ้าของ
+  ก่อนการยกเลิกใน local
+- เมื่อ root ระบุ `client_id` order ที่ยังไม่ถูกกำหนดจะไม่ถูกแตะต้อง เพราะ engine อนุมานไม่ได้ว่าเป็นของ client
+  ที่ระบุไว้
+- order ที่ emulate จะจับคู่กับ instrument ที่ซื้อขายจริงของมัน แม้ trigger จะมาจาก instrument อื่นก็ตาม
 
-An explicitly configured external execution client receives the original root command unchanged.
-The external client owns any fan-out needed behind that boundary.
+execution client ภายนอกที่ตั้งค่าไว้อย่างชัดเจนจะได้รับ command ระดับ root ตัวเดิมโดยไม่เปลี่ยนแปลง
+client ภายนอกเป็นผู้รับผิดชอบการกระจาย command ที่จำเป็นหลังขอบเขตนั้นเอง
 
-## Command outcomes
+## ผลลัพธ์ของ command {#command-outcomes}
 
-Execution commands distinguish definitive local failures, definitive venue results, and unknown live outcomes.
-An unknown outcome stays in flight for stream updates, polling, queries, or reconciliation. Retry exhaustion
-can later apply a synthetic terminal reconciliation event.
+execution command แยกแยะระหว่างความล้มเหลวใน local ที่แน่นอน, ผลลัพธ์จาก venue ที่แน่นอน และผลลัพธ์ของ live
+ที่ยังไม่ทราบ ผลลัพธ์ที่ยังไม่ทราบจะคงสถานะระหว่างทางไว้รอการอัปเดตจาก stream, polling, query หรือ
+reconciliation เมื่อ retry จนหมดแล้วอาจมีการใช้ event reconciliation สิ้นสุดแบบสังเคราะห์ (synthetic) ในภายหลัง
 
-See [Execution policies](policies.md#command-outcomes) for the evidence classes,
-delivery and retry limits, persistence boundary, and terminal reconciliation provenance. See
-[Runtime checks](reconciliation.md#runtime-checks) for the continuous reconciliation procedure.
+ดู [Execution policies](policies.md#command-outcomes) สำหรับประเภทของหลักฐาน, ขีดจำกัดของการส่งและการ retry,
+ขอบเขตของ persistence และที่มาของ reconciliation สิ้นสุด ดู [Runtime checks](reconciliation.md#runtime-checks)
+สำหรับขั้นตอน reconciliation ต่อเนื่อง
 
-## Order denied reasons
+## เหตุผลที่ order ถูก deny {#order-denied-reasons}
 
-A local denial (`OrderDenied`) carries a standardized `CATEGORY_CONDITION` reason code and may
-include a diagnostic suffix. Only the leading code is canonical. Messages use these forms:
+การ deny ใน local (`OrderDenied`) มี reason code มาตรฐานรูปแบบ `CATEGORY_CONDITION` และอาจมีส่วนต่อท้าย
+สำหรับวินิจฉัย เฉพาะ code ที่อยู่ข้างหน้าเท่านั้นที่เป็นค่ามาตรฐาน ข้อความมีรูปแบบดังนี้:
 
-- `CODE` when the denial needs no diagnostic suffix.
-- `CODE: value` for one typed value or a free-text diagnostic.
-- `CODE: key=value, key=value` when multiple typed values need disambiguation.
-- `CODE: value; free text` when one typed value precedes a free-text diagnostic.
+- `CODE` เมื่อการ deny ไม่ต้องมีส่วนต่อท้ายสำหรับวินิจฉัย
+- `CODE: value` สำหรับค่าที่มี type หนึ่งค่า หรือข้อความวินิจฉัยแบบอิสระ
+- `CODE: key=value, key=value` เมื่อมีค่าที่มี type หลายค่าและต้องแยกให้ชัด
+- `CODE: value; free text` เมื่อมีค่าที่มี type หนึ่งค่านำหน้าข้อความวินิจฉัยแบบอิสระ
 
-The table covers local denials emitted by execution algorithms and clients as well as the risk and
-execution engines. These codes are the source of truth for locally denied orders.
+ตารางนี้ครอบคลุมการ deny ใน local ที่มาจาก execution algorithm และ client รวมถึง risk engine และ execution
+engine code เหล่านี้เป็นแหล่งข้อมูลอ้างอิงหลักสำหรับ order ที่ถูก deny ใน local
 
-`OrderRejected` reasons depend on their source:
+เหตุผลของ `OrderRejected` ขึ้นอยู่กับแหล่งที่มา:
 
-- **Venue-confirmed rejections**: carry the venue-provided meaning. Adapters remove protocol wrappers
-  and bound untrusted venue text before emission without replacing it with a standardized local
-  denial code.
-- **Synthetic reconciliation rejections**: use the reasons documented under
-  [Terminal reconciliation provenance](policies.md#terminal-reconciliation-provenance).
+- **การปฏิเสธที่ venue ยืนยัน**: มีความหมายตามที่ venue ให้มา adapter จะลบ wrapper ของ protocol ออกและจำกัด
+  ขนาดข้อความจาก venue ที่ไม่น่าเชื่อถือก่อนส่งออก โดยไม่แทนที่ด้วย denial code มาตรฐานของ local
+- **การปฏิเสธจาก reconciliation แบบสังเคราะห์**: ใช้เหตุผลที่อธิบายไว้ใน
+  [Terminal reconciliation provenance](policies.md#terminal-reconciliation-provenance)
 
-Price and quantity checks can also emit these code-led reasons on `OrderModifyRejected`:
+การตรวจสอบราคาและจำนวนยังอาจส่งเหตุผลที่ขึ้นต้นด้วย code เหล่านี้ใน `OrderModifyRejected`:
 
 - `PRICE_PRECISION_EXCEEDS_MAXIMUM`
 - `PRICE_NOT_POSITIVE`
@@ -426,248 +413,227 @@ Price and quantity checks can also emit these code-led reasons on `OrderModifyRe
 - `QUANTITY_EXCEEDS_MAXIMUM`
 - `QUANTITY_BELOW_MINIMUM`
 
-For price reasons, `field` is `PRICE` or `TRIGGER_PRICE` and names the rejected command field. Other
-modification rejection reasons stay free-form. `OrderDeniedCode` does not classify them.
+สำหรับเหตุผลด้านราคา `field` จะเป็น `PRICE` หรือ `TRIGGER_PRICE` และระบุฟิลด์ของ command ที่ถูกปฏิเสธ เหตุผล
+การปฏิเสธการ modify แบบอื่นยังเป็นข้อความอิสระ และ `OrderDeniedCode` ไม่ได้จัดประเภทไว้
 
-`OrderRejected.due_post_only` is `true` only when venue evidence proves that a post-only order would
-cross or immediately match. Other venue rejections leave it `false`.
+`OrderRejected.due_post_only` จะเป็น `true` ก็ต่อเมื่อหลักฐานจาก venue พิสูจน์ได้ว่า order แบบ post-only จะ cross
+หรือจับคู่ทันที การปฏิเสธอื่นจาก venue จะคงค่าเป็น `false`
 
 <!-- Generated from the `OrderDeniedReason` enum (crates/model). Regenerate with: cargo test -p nautilus-model regenerate_order_denied_reasons_doc -- --ignored -->
 <!-- BEGIN GENERATED: order-denied-reasons -->
 
-| Code                                             | Description                                                                           |
+| Code                                             | คำอธิบาย                                                                                |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------- |
-| `PRICE_PRECISION_EXCEEDS_MAXIMUM`                | The price precision exceeds the instrument maximum.                                   |
-| `PRICE_NOT_POSITIVE`                             | The price is not positive.                                                            |
-| `QUANTITY_PRECISION_EXCEEDS_MAXIMUM`             | The quantity precision exceeds the instrument maximum.                                |
-| `QUANTITY_CONVERSION_FAILED`                     | The order quantity could not be converted for risk checks.                            |
-| `QUANTITY_EXCEEDS_MAXIMUM`                       | The effective order quantity exceeds the instrument maximum.                          |
-| `QUANTITY_BELOW_MINIMUM`                         | The effective order quantity is below the instrument minimum.                         |
-| `INVALID_MAX_NOTIONAL_PER_ORDER`                 | The configured maximum notional per order is invalid.                                 |
-| `MISSING_EXPIRE_TIME`                            | A GTD order is missing its expire time.                                               |
-| `EXPIRE_TIME_IN_PAST`                            | The order's expire time is in the past.                                               |
-| `MISSING_TRAILING_OFFSET_TYPE`                   | The order is missing a required trailing offset type.                                 |
-| `UNSUPPORTED_TRAILING_OFFSET_TYPE`               | The order's trailing offset type is not supported.                                    |
-| `MISSING_TRIGGER_TYPE`                           | The order is missing a required trigger type.                                         |
-| `MISSING_TRAILING_OFFSET`                        | The order is missing a required trailing offset.                                      |
-| `INSTRUMENT_NOT_FOUND`                           | The instrument was not found in the cache.                                            |
-| `POSITION_NOT_FOUND`                             | The position for a reduce-only order was not found.                                   |
-| `MARKET_PRICE_UNAVAILABLE`                       | No market price is available for the order risk check.                                |
-| `TRAILING_STOP_CALCULATION_FAILED`               | The trailing stop trigger price could not be calculated.                              |
-| `NOTIONAL_CALCULATION_FAILED`                    | The order notional value could not be calculated.                                     |
-| `NOTIONAL_BELOW_MINIMUM`                         | The order notional is below the instrument minimum.                                   |
-| `NOTIONAL_EXCEEDS_MAXIMUM`                       | The order notional exceeds the instrument maximum.                                    |
-| `NOTIONAL_EXCEEDS_MAX_PER_ORDER`                 | The order notional exceeds the configured maximum per order.                          |
-| `NOTIONAL_EXCEEDS_FREE_BALANCE`                  | The order notional exceeds the account free balance.                                  |
-| `INITIAL_MARGIN_CALCULATION_FAILED`              | The order initial margin could not be calculated.                                     |
-| `INITIAL_MARGIN_EXCEEDS_FREE_BALANCE`            | The order initial margin exceeds the account free balance.                            |
-| `BETTING_BALANCE_LOCKED_CALCULATION_FAILED`      | The balance to lock for the betting order could not be calculated.                    |
-| `CUMULATIVE_NOTIONAL_EXCEEDS_FREE_BALANCE`       | The cumulative order notional exceeds the account free balance.                       |
-| `CUMULATIVE_INITIAL_MARGIN_CALCULATION_FAILED`   | The cumulative initial margin could not be calculated.                                |
-| `CUMULATIVE_INITIAL_MARGIN_EXCEEDS_FREE_BALANCE` | The cumulative initial margin exceeds the account free balance.                       |
-| `REDUCE_ONLY_WOULD_INCREASE_POSITION`            | A reduce-only order would increase the position.                                      |
-| `ORDER_LIST_INCOMPLETE`                          | The order list is missing orders in the cache.                                        |
-| `ORDER_LIST_DENIED`                              | The order was denied because its order list failed risk checks.                       |
-| `TRADING_HALTED`                                 | Trading is halted; new submissions and modifications are denied.                      |
-| `TRADING_STATE_REDUCING`                         | Trading is reducing; only eligible reduce-only submissions are permitted.             |
-| `RATE_LIMIT_EXCEEDED`                            | The order submission rate limit was exceeded.                                         |
-| `STREAM_RECONCILING`                             | The execution stream is unavailable or recovering; retry after recovery.              |
-| `NO_EXECUTION_CLIENT`                            | No execution client was found for the routed command.                                 |
-| `CLIENT_VENUE_MISMATCH`                          | The execution client does not handle the order venue.                                 |
-| `SUBMIT_FAILED`                                  | Submitting the order to the execution client failed.                                  |
-| `INVALID_CLIENT_ORDER_ID`                        | The client order ID is invalid for the venue.                                         |
-| `INVALID_POSITION_ID`                            | The supplied position ID is invalid for the order submission.                         |
-| `UNSUPPORTED_ORDER_LIST`                         | The venue does not support the requested order list.                                  |
-| `UNSUPPORTED_ORDER_TYPE`                         | The order type is not supported.                                                      |
-| `UNSUPPORTED_QUOTE_QUANTITY`                     | The execution client or venue does not support quote quantity for the order.          |
-| `UNSUPPORTED_POST_ONLY`                          | The execution client or venue does not support the requested post-only instruction.   |
-| `UNSUPPORTED_REDUCE_ONLY`                        | The execution client or venue does not support the requested reduce-only instruction. |
-| `UNSUPPORTED_TIME_IN_FORCE`                      | The order's time in force is not supported.                                           |
-| `UNSUPPORTED_TP_SL`                              | The venue does not support the requested take-profit/stop-loss parameters.            |
-| `VALIDATION_FAILED`                              | The order failed validation before submission.                                        |
+| `PRICE_PRECISION_EXCEEDS_MAXIMUM`                | precision ของราคาเกินค่าสูงสุดของ instrument                                              |
+| `PRICE_NOT_POSITIVE`                             | ราคาไม่เป็นบวก                                                                         |
+| `QUANTITY_PRECISION_EXCEEDS_MAXIMUM`             | precision ของจำนวนเกินค่าสูงสุดของ instrument                                             |
+| `QUANTITY_CONVERSION_FAILED`                     | ไม่สามารถแปลงจำนวนของ order สำหรับการตรวจสอบความเสี่ยงได้                                     |
+| `QUANTITY_EXCEEDS_MAXIMUM`                       | จำนวนที่มีผลจริงของ order เกินค่าสูงสุดของ instrument                                         |
+| `QUANTITY_BELOW_MINIMUM`                         | จำนวนที่มีผลจริงของ order ต่ำกว่าค่าต่ำสุดของ instrument                                       |
+| `INVALID_MAX_NOTIONAL_PER_ORDER`                 | ค่า notional สูงสุดต่อ order ที่ตั้งไว้ไม่ถูกต้อง                                               |
+| `MISSING_EXPIRE_TIME`                            | order แบบ GTD ไม่มีเวลาหมดอายุ                                                          |
+| `EXPIRE_TIME_IN_PAST`                            | เวลาหมดอายุของ order อยู่ในอดีต                                                         |
+| `MISSING_TRAILING_OFFSET_TYPE`                   | order ไม่มี trailing offset type ที่จำเป็น                                                |
+| `UNSUPPORTED_TRAILING_OFFSET_TYPE`               | ไม่รองรับ trailing offset type ของ order                                                 |
+| `MISSING_TRIGGER_TYPE`                           | order ไม่มี trigger type ที่จำเป็น                                                       |
+| `MISSING_TRAILING_OFFSET`                        | order ไม่มี trailing offset ที่จำเป็น                                                     |
+| `INSTRUMENT_NOT_FOUND`                           | ไม่พบ instrument ใน cache                                                             |
+| `POSITION_NOT_FOUND`                             | ไม่พบ position สำหรับ order แบบ reduce-only                                             |
+| `MARKET_PRICE_UNAVAILABLE`                       | ไม่มีราคาตลาดสำหรับการตรวจสอบความเสี่ยงของ order                                           |
+| `TRAILING_STOP_CALCULATION_FAILED`               | ไม่สามารถคำนวณราคา trigger ของ trailing stop ได้                                         |
+| `NOTIONAL_CALCULATION_FAILED`                    | ไม่สามารถคำนวณมูลค่า notional ของ order ได้                                              |
+| `NOTIONAL_BELOW_MINIMUM`                         | notional ของ order ต่ำกว่าค่าต่ำสุดของ instrument                                         |
+| `NOTIONAL_EXCEEDS_MAXIMUM`                       | notional ของ order เกินค่าสูงสุดของ instrument                                           |
+| `NOTIONAL_EXCEEDS_MAX_PER_ORDER`                 | notional ของ order เกินค่าสูงสุดต่อ order ที่ตั้งไว้                                         |
+| `NOTIONAL_EXCEEDS_FREE_BALANCE`                  | notional ของ order เกินยอดเงินที่ใช้ได้ (free balance) ของ account                          |
+| `INITIAL_MARGIN_CALCULATION_FAILED`              | ไม่สามารถคำนวณ initial margin ของ order ได้                                              |
+| `INITIAL_MARGIN_EXCEEDS_FREE_BALANCE`            | initial margin ของ order เกินยอดเงินที่ใช้ได้ของ account                                    |
+| `BETTING_BALANCE_LOCKED_CALCULATION_FAILED`      | ไม่สามารถคำนวณยอดเงินที่ต้องล็อกสำหรับ order แบบ betting ได้                                  |
+| `CUMULATIVE_NOTIONAL_EXCEEDS_FREE_BALANCE`       | notional สะสมของ order เกินยอดเงินที่ใช้ได้ของ account                                      |
+| `CUMULATIVE_INITIAL_MARGIN_CALCULATION_FAILED`   | ไม่สามารถคำนวณ initial margin สะสมได้                                                    |
+| `CUMULATIVE_INITIAL_MARGIN_EXCEEDS_FREE_BALANCE` | initial margin สะสมเกินยอดเงินที่ใช้ได้ของ account                                          |
+| `REDUCE_ONLY_WOULD_INCREASE_POSITION`            | order แบบ reduce-only จะทำให้ position เพิ่มขึ้น                                          |
+| `ORDER_LIST_INCOMPLETE`                          | order list ขาด order บางตัวใน cache                                                    |
+| `ORDER_LIST_DENIED`                              | order ถูก deny เพราะ order list ของมันไม่ผ่านการตรวจสอบความเสี่ยง                            |
+| `TRADING_HALTED`                                 | การเทรดถูกหยุด การ submit และ modify ใหม่จะถูก deny                                      |
+| `TRADING_STATE_REDUCING`                         | การเทรดอยู่ในสถานะ reducing อนุญาตเฉพาะการ submit แบบ reduce-only ที่เข้าเงื่อนไข              |
+| `RATE_LIMIT_EXCEEDED`                            | เกิน rate limit ของการ submit order                                                    |
+| `STREAM_RECONCILING`                             | execution stream ใช้งานไม่ได้หรือกำลังกู้คืน ให้ retry หลังกู้คืนเสร็จ                          |
+| `NO_EXECUTION_CLIENT`                            | ไม่พบ execution client สำหรับ command ที่ถูก route                                       |
+| `CLIENT_VENUE_MISMATCH`                          | execution client ไม่ได้ดูแล venue ของ order                                              |
+| `SUBMIT_FAILED`                                  | การ submit order ไปยัง execution client ล้มเหลว                                         |
+| `INVALID_CLIENT_ORDER_ID`                        | client order ID ไม่ถูกต้องสำหรับ venue                                                   |
+| `INVALID_POSITION_ID`                            | position ID ที่ส่งมาไม่ถูกต้องสำหรับการ submit order                                      |
+| `UNSUPPORTED_ORDER_LIST`                         | venue ไม่รองรับ order list ที่ร้องขอ                                                     |
+| `UNSUPPORTED_ORDER_TYPE`                         | ไม่รองรับประเภทของ order                                                               |
+| `UNSUPPORTED_QUOTE_QUANTITY`                     | execution client หรือ venue ไม่รองรับ quote quantity สำหรับ order นี้                     |
+| `UNSUPPORTED_POST_ONLY`                          | execution client หรือ venue ไม่รองรับคำสั่ง post-only ที่ร้องขอ                            |
+| `UNSUPPORTED_REDUCE_ONLY`                        | execution client หรือ venue ไม่รองรับคำสั่ง reduce-only ที่ร้องขอ                          |
+| `UNSUPPORTED_TIME_IN_FORCE`                      | ไม่รองรับ time in force ของ order                                                       |
+| `UNSUPPORTED_TP_SL`                              | venue ไม่รองรับพารามิเตอร์ take-profit/stop-loss ที่ร้องขอ                                 |
+| `VALIDATION_FAILED`                              | order ไม่ผ่านการตรวจสอบก่อน submit                                                      |
 
 <!-- END GENERATED: order-denied-reasons -->
 
-## Own order books
+## Own order book {#own-order-books}
 
-When `manage_own_order_books` is enabled, the `ExecutionEngine` maintains a market-by-order
-(MBO/L3) view of your working orders for each instrument. Strategies can subtract these orders from
-the public book to estimate net available liquidity. See [Own order book](../order_book.md#own-order-book)
-for lifecycle, queries, filtering, and auditing.
+เมื่อเปิด `manage_own_order_books` `ExecutionEngine` จะดูแลมุมมองแบบ market-by-order (MBO/L3) ของ order ที่
+กำลังทำงานอยู่ของคุณสำหรับแต่ละ instrument strategy สามารถหัก order เหล่านี้ออกจาก public book เพื่อประมาณ
+liquidity สุทธิที่ใช้ได้ ดู [Own order book](../order_book.md#own-order-book) สำหรับวงจรชีวิต, การ query,
+การกรอง และการตรวจสอบ (auditing)
 
-### Safe cancellation queries
+### การ query สำหรับการยกเลิกอย่างปลอดภัย {#safe-cancellation-queries}
 
-When querying an own order book for cancellation candidates, exclude `PENDING_CANCEL` from the
-`status` filter.
+เมื่อ query own order book เพื่อหา order ที่จะยกเลิก ให้ตัด `PENDING_CANCEL` ออกจากตัวกรอง `status`
 
 :::warning
-Including `PENDING_CANCEL` can issue duplicate cancel requests and repeatedly select orders that
-already await confirmation.
+การรวม `PENDING_CANCEL` อาจทำให้ส่งคำขอ cancel ซ้ำ และเลือก order ที่กำลังรอการยืนยันอยู่แล้วซ้ำแล้วซ้ำอีก
 :::
 
-## Overfills
+## Overfill {#overfills}
 
-An **overfill** occurs when an order's cumulative filled quantity exceeds its original quantity. For
-example, fills totaling 110 units overfill a 100-unit order by 10 units.
+**overfill** เกิดขึ้นเมื่อจำนวนที่ fill สะสมของ order เกินจำนวนเดิมของมัน ตัวอย่างเช่น fill รวม 110 หน่วยของ order
+ขนาด 100 หน่วยถือว่า overfill ไป 10 หน่วย
 
-### How overfills occur
+### Overfill เกิดขึ้นได้อย่างไร {#how-overfills-occur}
 
-The engine observes an overfill when reported quantities exceed the order quantity. This can
-represent a genuine venue result, duplicate delivery under different trade IDs, or inconsistent
-venue reporting. Quantity alone does not identify the cause.
+engine จะพบ overfill เมื่อจำนวนที่รายงานมาเกินจำนวนของ order ซึ่งอาจเป็นผลลัพธ์จริงจาก venue, การส่งซ้ำภายใต้
+trade ID ที่ต่างกัน หรือการรายงานที่ไม่สอดคล้องกันของ venue ก็ได้ จำนวนเพียงอย่างเดียวบอกสาเหตุไม่ได้
 
-Live fills can arrive through two channels:
+fill ใน live อาจมาถึงผ่านสองช่องทาง:
 
-- Real-time fill events arriving through WebSocket.
-- Periodic reconciliation polling the venue for fill history and position status.
+- fill event แบบ real-time ที่มาทาง WebSocket
+- reconciliation แบบเป็นระยะที่ poll venue เพื่อดูประวัติ fill และสถานะ position
 
-Stable `trade_id` values let the engine deduplicate the same fill across both channels. If the
-logical fill arrives with different IDs, the engine treats the reports as distinct. See
-[Continuous reconciliation](../../how_to/configure_live_trading.md#continuous-reconciliation) for
-configuration details.
+ค่า `trade_id` ที่คงที่ช่วยให้ engine กำจัด fill ซ้ำตัวเดียวกันข้ามทั้งสองช่องทางได้ หาก fill เชิงตรรกะเดียวกันมาถึง
+ด้วย ID ที่ต่างกัน engine จะถือว่าเป็นรายงานคนละตัว ดู
+[Continuous reconciliation](../../how_to/configure_live_trading.md#continuous-reconciliation) สำหรับรายละเอียด
+ของ configuration
 
-### System behavior
+### พฤติกรรมของระบบ {#system-behavior}
 
-The `ExecutionEngine` checks for potential overfills before applying each fill event by comparing
-the order's current `filled_qty` plus the incoming `last_qty` against the original `quantity`.
+`ExecutionEngine` ตรวจสอบ overfill ที่อาจเกิดขึ้นก่อนใช้ fill event แต่ละตัว โดยเปรียบเทียบ `filled_qty` ปัจจุบัน
+ของ order บวกกับ `last_qty` ที่เข้ามา กับ `quantity` เดิม
 
-The `allow_overfills` configuration option (default: `False`) controls how overfills are handled:
+ตัวเลือก configuration `allow_overfills` (ค่าเริ่มต้น: `False`) ควบคุมวิธีจัดการ overfill:
 
-| `allow_overfills` | Behavior                                                                              |
+| `allow_overfills` | พฤติกรรม                                                                                |
 | ----------------- | ------------------------------------------------------------------------------------- |
-| `False`           | Logs and rejects the fill. A standalone reconciliation fill may raise quantity first. |
-| `True`            | Logs a warning, applies the fill, and tracks the excess in `overfill_qty`.            |
+| `False`           | log และปฏิเสธ fill ทั้งนี้ fill จาก reconciliation แบบเดี่ยวอาจเพิ่มจำนวนของ order ก่อนได้       |
+| `True`            | log คำเตือน ใช้ fill นั้น และติดตามส่วนเกินไว้ใน `overfill_qty`                                |
 
-When `allow_overfills` is false and the execution client allows that overfill, the engine raises the order
-quantity to the filled quantity plus that fill. It then applies the fill. An already filled order is not
-raised. Adapter fill events, fills bundled with an order report, and live-manager projected fills do not use
-this raise.
+เมื่อ `allow_overfills` เป็น false และ execution client อนุญาต overfill นั้น engine จะเพิ่มจำนวนของ order ให้เท่ากับ
+จำนวนที่ fill แล้วบวก fill นั้น แล้วจึงใช้ fill order ที่ fill ครบแล้วจะไม่ถูกเพิ่มจำนวน fill event จาก adapter, fill ที่มา
+พร้อม order report และ fill ที่ live manager คาดการณ์ (projected) ไม่ได้ใช้การเพิ่มจำนวนนี้
 
-When overfills are allowed, the order's `overfill_qty` field tracks the excess quantity.
-The order transitions to `FILLED` status and `leaves_qty` is clamped to zero.
+เมื่ออนุญาต overfill ฟิลด์ `overfill_qty` ของ order จะติดตามจำนวนส่วนเกิน order จะเปลี่ยนเป็นสถานะ `FILLED`
+และ `leaves_qty` จะถูกจำกัดไว้ที่ศูนย์
 
-### Duplicate fill detection
+### การตรวจจับ fill ซ้ำ {#duplicate-fill-detection}
 
-The `Order` model enforces one quantity-bearing fill per `trade_id`. A repeated fill at the
-latest recorded price for that trade is rejected as a duplicate. A repeated fill at a new price
-restates the price that trade contributes to `avg_px` without changing quantity, status, or the
-original stored fill.
+model ของ `Order` บังคับให้มี fill ที่มีจำนวนได้เพียงหนึ่งตัวต่อ `trade_id` fill ที่ซ้ำที่ราคาล่าสุดที่บันทึกไว้ของ trade
+นั้นจะถูกปฏิเสธในฐานะ fill ซ้ำ ส่วน fill ที่ซ้ำแต่ราคาใหม่จะปรับราคาที่ trade นั้นมีส่วนต่อ `avg_px` โดยไม่เปลี่ยนจำนวน,
+สถานะ หรือ fill เดิมที่เก็บไว้
 
-#### Core engine path
+#### เส้นทางของ core engine {#core-engine-path}
 
-Before applying a fill, the `ExecutionEngine` calls `Order.is_duplicate_fill()`, which compares
-the latest fill for the `trade_id` on:
+ก่อนใช้ fill `ExecutionEngine` จะเรียก `Order.is_duplicate_fill()` ซึ่งเปรียบเทียบ fill ล่าสุดของ `trade_id` นั้นตาม:
 
 - `trade_id`
 - `order_side`
 - `last_px`
 - `last_qty`
 
-An exact match is skipped with a warning. If the `trade_id` matches but the price differs, the fill is a price
-restatement. The order restates its average price, and the engine restates the open position's average without
-applying quantity. If another field differs, `Order.apply()` rejects the reused ID, and the engine logs and
-drops the fill.
+หากตรงกันทั้งหมดจะถูกข้ามพร้อมคำเตือน หาก `trade_id` ตรงแต่ราคาต่างกัน fill นั้นคือการปรับราคา (price
+restatement) order จะปรับราคาเฉลี่ยของตัวเอง และ engine จะปรับราคาเฉลี่ยของ open position โดยไม่ใช้จำนวน
+หากฟิลด์อื่นต่างกัน `Order.apply()` จะปฏิเสธ ID ที่ถูกใช้ซ้ำ และ engine จะ log และทิ้ง fill นั้น
 
-#### Reconciliation path
+#### เส้นทางของ reconciliation {#reconciliation-path}
 
-The reconciliation path checks `trade_id` before generating an `OrderFilled` event. It drops a
-report when that ID already exists on the order, regardless of its price or quantity.
+เส้นทางของ reconciliation ตรวจ `trade_id` ก่อนสร้าง event `OrderFilled` และจะทิ้งรายงานเมื่อ ID นั้นมีอยู่แล้วบน
+order ไม่ว่าราคาหรือจำนวนจะเป็นเท่าใด
 
-Synthetic and inferred reconciliation fills use deterministic IDs. Replaying the same inputs after a restart
-thus produces the same `trade_id` and is deduplicated.
+fill จาก reconciliation แบบสังเคราะห์และแบบอนุมานใช้ ID แบบ deterministic ดังนั้นการ replay input ชุดเดิมหลัง
+restart จะได้ `trade_id` เดิมและถูกกำจัดความซ้ำ
 
-### Declined fill notification
+### การแจ้งเตือน fill ที่ถูกปฏิเสธ {#declined-fill-notification}
 
-When the `ExecutionEngine` rejects an `OrderFilled` or `OrderFillVoided` instead of applying it, it publishes
-the unchanged event on `events.order_fill_declined.{instrument_id}`. For example, it rejects duplicates,
-overfills, or events for orders it cannot find. An adapter that tracks whether its fills and corrections were
-applied can subscribe to this topic.
+เมื่อ `ExecutionEngine` ปฏิเสธ `OrderFilled` หรือ `OrderFillVoided` แทนที่จะนำไปใช้ มันจะ publish event เดิมโดย
+ไม่เปลี่ยนแปลงบน `events.order_fill_declined.{instrument_id}` ตัวอย่างเช่น การปฏิเสธ fill ซ้ำ, overfill หรือ event
+ของ order ที่หาไม่พบ adapter ที่ติดตามว่า fill และการแก้ไขของตนถูกนำไปใช้หรือไม่สามารถ subscribe topic นี้ได้
 
-Each rejection site logs the reason. The published event does not carry it. The engine does not publish on
-this topic for reconciliation projections, which update only the order.
+จุดที่ปฏิเสธแต่ละจุดจะ log เหตุผลไว้ แต่ event ที่ publish ไม่ได้แนบเหตุผลไปด้วย engine จะไม่ publish บน topic นี้
+สำหรับ projection จาก reconciliation ซึ่งอัปเดตเฉพาะ order
 
-### Configuration
+### Configuration {#configuration}
 
-For live trading, enable overfill tolerance in the `LiveExecutionEngineConfig`:
-
-```python
-from nautilus_trader.config import LiveExecutionEngineConfig
-
-config = LiveExecutionEngineConfig(
-    allow_overfills=True,
-)
-```
+สำหรับ live trading ให้เปิดการยอมรับ overfill ใน `LiveExecutionEngineConfig` ด้วยการตั้ง `allow_overfills` เป็น true
 
 :::warning
-Choose this setting from the venue's execution contract. The default `False` protects local state
-but can leave a discrepancy after a legitimate venue overfill. `True` applies the excess quantity
-and is not a substitute for duplicate-fill detection. Use
-[execution reconciliation](reconciliation.md) to detect discrepancies.
+ให้เลือกค่านี้ตามข้อตกลงด้านการ execution ของ venue ค่าเริ่มต้น `False` ปกป้อง state ใน local แต่อาจทิ้งความ
+คลาดเคลื่อนไว้หลังจากเกิด overfill ที่ชอบธรรมจาก venue ส่วน `True` จะใช้จำนวนส่วนเกินและไม่ได้ทดแทนการตรวจจับ
+fill ซ้ำ ใช้ [execution reconciliation](reconciliation.md) เพื่อตรวจหาความคลาดเคลื่อน
 :::
 
-## Fill corrections
+## การแก้ไข fill {#fill-corrections}
 
-Some venues can later reduce or invalidate a fill. Nautilus records this as an
-[`OrderFillVoided`](../events/order_fill_voided.md) event, never as an opposite-side fill. The event
-identifies the original trade and carries the cumulative voided quantity and fee correction.
+venue บางแห่งอาจลดหรือยกเลิกผลของ fill ในภายหลัง Nautilus บันทึกกรณีนี้เป็น event
+[`OrderFillVoided`](../events/order_fill_voided.md) และไม่เคยบันทึกเป็น fill ฝั่งตรงข้าม event นี้ระบุ trade เดิม และ
+มีจำนวนที่ถูก void สะสมกับการแก้ไขค่าธรรมเนียม
 
-The execution engine rebuilds the affected order and positions and refreshes portfolio position and
-PnL caches before publishing the correction to strategies and execution algorithms. Adapters that
-support fill corrections request an authoritative account refresh after a void.
+execution engine จะสร้าง order และ position ที่ได้รับผลกระทบขึ้นใหม่ และรีเฟรช cache ของ position และ PnL
+ใน portfolio ก่อน publish การแก้ไขให้ strategy และ execution algorithm adapter ที่รองรับการแก้ไข fill จะขอรีเฟรช
+account จากแหล่งที่เชื่อถือได้หลังจากเกิด void
 
-Adapters must publish the referenced fill before a reopened correction or a partial correction that
-leaves the order executable. Without a local fill, a non-reopened correction makes the whole order
-terminal, even when `voided_qty` is less than the order quantity. A later working status report does
-not reopen `VOIDED`. See the complete
-[`OrderFillVoided` contract](../events/order_fill_voided.md#contract).
+adapter ต้อง publish fill ที่ถูกอ้างถึงก่อนการแก้ไขที่ทำให้ order กลับมาเปิด (reopened) หรือการแก้ไขบางส่วนที่ทำให้
+order ยัง execute ได้ หากไม่มี fill ใน local การแก้ไขที่ไม่ได้ reopen จะทำให้ order ทั้งตัวเข้าสู่สถานะสิ้นสุด แม้
+`voided_qty` จะน้อยกว่าจำนวนของ order ก็ตาม status report แบบ working ที่มาภายหลังจะไม่ทำให้ `VOIDED` กลับมาเปิด
+ดู[ข้อตกลงของ `OrderFillVoided`](../events/order_fill_voided.md#contract)ฉบับเต็ม
 
-### How voided fills occur
+### Fill ถูก void ได้อย่างไร {#how-voided-fills-occur}
 
-A void is a venue action on a trade it already reported. The causes recur across asset classes:
+void คือการกระทำของ venue ต่อ trade ที่ได้รายงานไปแล้ว สาเหตุที่พบซ้ำได้ในทุก asset class ได้แก่:
 
-- **Erroneous execution review**: the venue nullifies a print that is substantially inconsistent with the
-  market at the time of execution. It also nullifies prints caused by an exchange system fault.
-- **Settlement failure**: a matched trade fails to settle, so the fill never takes economic effect.
-- **Event invalidation**: the underlying event is abandoned or a competitor is withdrawn, so matched
-  positions carry no exposure.
-- **Post-trade restatement**: the venue restates the quantity or fees of a trade during clearing.
+- **การทบทวนการ execution ที่ผิดพลาด**: venue ยกเลิกรายการซื้อขาย (print) ที่ไม่สอดคล้องกับตลาดอย่างมีนัยสำคัญ ณ
+  เวลาที่ execute รวมถึง print ที่เกิดจากความผิดพลาดของระบบ exchange
+- **การ settle ล้มเหลว**: trade ที่จับคู่แล้วไม่สามารถ settle ได้ fill จึงไม่มีผลทางเศรษฐกิจเลย
+- **การยกเลิกผลของเหตุการณ์**: เหตุการณ์อ้างอิงถูกยกเลิก หรือผู้แข่งขันถอนตัว position ที่จับคู่แล้วจึงไม่มี exposure
+- **การปรับรายการหลังการซื้อขาย**: venue ปรับจำนวนหรือค่าธรรมเนียมของ trade ระหว่างกระบวนการ clearing
 
-A venue price adjustment uses a new `OrderFilled` with the same `trade_id` at the new price. This restates the
-trade's accounting without changing its matched quantity. The `OrderFillVoided` event itself corrects
-quantity, not price.
+การปรับราคาโดย venue ใช้ `OrderFilled` ตัวใหม่ที่มี `trade_id` เดิมในราคาใหม่ ซึ่งปรับการบันทึกบัญชีของ trade
+โดยไม่เปลี่ยนจำนวนที่จับคู่ ส่วน event `OrderFillVoided` เองแก้ไขจำนวน ไม่ใช่ราคา
 
-A break reaches the client differently by venue. FIX venues signal one through
-[`ExecType <150>`](https://www.onixs.biz/fix-dictionary/5.0.sp2/tagnum_150.html) values `H` (trade
-cancel) and `G` (trade correct). Venues that notify out of band leave the break to surface through
-[execution reconciliation](reconciliation.md).
+การยกเลิก trade (break) ไปถึง client ต่างกันในแต่ละ venue venue แบบ FIX ส่งสัญญาณผ่านค่า
+[`ExecType <150>`](https://www.onixs.biz/fix-dictionary/5.0.sp2/tagnum_150.html) คือ `H` (trade cancel) และ `G`
+(trade correct) ส่วน venue ที่แจ้งผ่านช่องทางอื่น (out of band) จะปล่อยให้ break ปรากฏผ่าน
+[execution reconciliation](reconciliation.md)
 
-### Venue references
+### แหล่งอ้างอิงของ venue {#venue-references}
 
-Each venue publishes the conditions under which it acts:
+venue แต่ละแห่งเผยแพร่เงื่อนไขที่ตนจะดำเนินการ:
 
-| Venue            | Mechanism                                                | Reference                                                                                                                                        |
+| Venue            | กลไก                                                      | แหล่งอ้างอิง                                                                                                                                       |
 | ---------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Nasdaq           | Clearly erroneous transactions (Rule 11890).             | [Clearly erroneous transactions policy](https://www.nasdaqtrader.com/Trader.aspx?id=ClearlyErroneous).                                           |
-| NYSE             | Clearly erroneous executions (Rule 7.10).                | [Clearly erroneous execution review](https://www.nyse.com/trade/cee).                                                                            |
-| Cboe US equities | Clearly erroneous executions (BZX Rule 11.17).           | [Clearly erroneous execution form](https://www.cboe.com/us/equities/trading/cee_form/).                                                          |
-| CME Group        | Trade cancellations and price adjustments (Rule 588).    | [CME rulebook chapter 5](https://www.cmegroup.com/rulebook/CME/I/5/5.pdf).                                                                       |
-| Betfair          | Voided bets, reported as cumulative size voided (`sv`).  | [Void bets on the Stream API](https://support.developer.betfair.com/hc/en-us/articles/360000391492-How-are-void-bets-treated-by-the-Stream-API). |
-| Polymarket       | `FAILED` trade status after an on-chain revert or reorg. | [User channel](https://docs.polymarket.com/developers/CLOB/websocket/user-channel).                                                              |
+| Nasdaq           | Clearly erroneous transactions (Rule 11890)              | [Clearly erroneous transactions policy](https://www.nasdaqtrader.com/Trader.aspx?id=ClearlyErroneous)                                            |
+| NYSE             | Clearly erroneous executions (Rule 7.10)                 | [Clearly erroneous execution review](https://www.nyse.com/trade/cee)                                                                             |
+| Cboe US equities | Clearly erroneous executions (BZX Rule 11.17)            | [Clearly erroneous execution form](https://www.cboe.com/us/equities/trading/cee_form/)                                                           |
+| CME Group        | การยกเลิก trade และการปรับราคา (Rule 588)                    | [CME rulebook chapter 5](https://www.cmegroup.com/rulebook/CME/I/5/5.pdf)                                                                        |
+| Betfair          | bet ที่ถูก void รายงานเป็นขนาดที่ void สะสม (`sv`)             | [Void bets on the Stream API](https://support.developer.betfair.com/hc/en-us/articles/360000391492-How-are-void-bets-treated-by-the-Stream-API)  |
+| Polymarket       | สถานะ trade เป็น `FAILED` หลัง on-chain revert หรือ reorg     | [User channel](https://docs.polymarket.com/developers/CLOB/websocket/user-channel)                                                               |
 
-Nautilus adapters emit `OrderFillVoided` where the venue publishes the void on a stream the adapter consumes.
-The supported adapters and sources are:
+adapter ของ Nautilus จะส่ง `OrderFillVoided` ในกรณีที่ venue เผยแพร่ void ผ่าน stream ที่ adapter รับข้อมูลอยู่
+adapter และแหล่งข้อมูลที่รองรับได้แก่:
 
-- [Betfair](../../integrations/betfair.md#voided-fills): the order change message `sv` field.
-- [Polymarket](../../integrations/polymarket.md#trades): the user channel trade status.
+- [Betfair](../../integrations/betfair.md#voided-fills): ฟิลด์ `sv` ใน order change message
+- [Polymarket](../../integrations/polymarket.md#trades): สถานะ trade ใน user channel
 
-## Related guides
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-- [Events](../events/): Order and position event types and dispatch.
-- [Execution algorithms](algorithms.md): TWAP, custom algorithms, and spawned orders.
-- [Execution policies](policies.md): Delivery, state, persistence, and recovery
-  boundaries.
-- [Execution reconciliation](reconciliation.md): Live state recovery and runtime consistency checks.
-- [Order book](../order_book.md): Public and own order book behavior.
-- [Orders](../orders/): Order types and management.
-- [Positions](../positions.md): Position tracking from executions.
-- [Strategies](../strategies.md): Order submission from strategies.
+- [Events](../events/): ประเภทของ order event และ position event และการ dispatch
+- [Execution algorithms](algorithms.md): TWAP, algorithm แบบกำหนดเอง และ spawned order
+- [Execution policies](policies.md): ขอบเขตของการส่ง, state, persistence และการกู้คืน
+- [Execution reconciliation](reconciliation.md): การกู้คืน state ฝั่ง live และการตรวจสอบความสอดคล้องขณะรัน
+- [Order book](../order_book.md): พฤติกรรมของ public order book และ own order book
+- [Orders](../orders/): ประเภทของ order และการจัดการ
+- [Positions](../positions.md): การติดตาม position จากการ execution
+- [Strategies](../strategies.md): การส่ง order จาก strategy

@@ -1,53 +1,52 @@
 # Perpetual Contract
 
-`PerpetualContract` represents a generic perpetual futures contract across asset classes.
-Use it when a venue exposes a perpetual swap that is not specifically modeled as
-`CryptoPerpetual`.
+`PerpetualContract` แทนสัญญา perpetual futures แบบทั่วไปที่ใช้ได้กับทุก asset class ใช้เมื่อ venue
+มี perpetual swap ที่ไม่ได้ถูก model ไว้เป็น `CryptoPerpetual` โดยเฉพาะ
 
-Examples include non-crypto perpetual contracts and venue-specific synthetic swaps.
+ตัวอย่างเช่น สัญญา perpetual ที่ไม่ใช่ crypto และ synthetic swap เฉพาะของแต่ละ venue
 
-## Fields
+## ฟิลด์ {#fields}
 
-| Field                 | Rust type          | Required/default | Notes                                    |
+| Field                 | Rust type          | Required/default | หมายเหตุ |
 | --------------------- | ------------------ | ---------------- | ---------------------------------------- |
-| `instrument_id`       | `InstrumentId`     | Required         | Stored as `id` in Rust.                  |
-| `raw_symbol`          | `Symbol`           | Required         | Native venue symbol.                     |
-| `underlying`          | `Ustr`             | Required         | Underlying asset or reference market.    |
-| `asset_class`         | `AssetClass`       | Required         | Asset class of the underlying.           |
-| `base_currency`       | `Option<Currency>` | `None`           | Base currency, required for inverse.     |
-| `quote_currency`      | `Currency`         | Required         | Currency used to quote the price.        |
-| `settlement_currency` | `Currency`         | Required         | Currency used to settle PnL and fees.    |
-| `is_inverse`          | `bool`             | Required         | True when sizing/costing is inverse.     |
-| `price_precision`     | `u8`               | Required         | Decimal places allowed for prices.       |
-| `size_precision`      | `u8`               | Required         | Decimal places allowed for order sizes.  |
-| `price_increment`     | `Price`            | Required         | Smallest valid price step.               |
-| `size_increment`      | `Quantity`         | Required         | Smallest valid size step.                |
-| `multiplier`          | `Quantity`         | `1`              | Contract multiplier.                     |
-| `lot_size`            | `Quantity`         | `1`              | Rounded lot or board size.               |
-| `max_quantity`        | `Option<Quantity>` | `None`           | Maximum order quantity.                  |
-| `min_quantity`        | `Option<Quantity>` | `None`           | Minimum order quantity.                  |
-| `max_notional`        | `Option<Money>`    | `None`           | Maximum order notional value.            |
-| `min_notional`        | `Option<Money>`    | `None`           | Minimum order notional value.            |
-| `max_price`           | `Option<Price>`    | `None`           | Maximum valid quote or order price.      |
-| `min_price`           | `Option<Price>`    | `None`           | Minimum valid quote or order price.      |
-| `margin_init`         | `Option<Decimal>`  | `0`              | Initial margin rate.                     |
-| `margin_maint`        | `Option<Decimal>`  | `0`              | Maintenance margin rate.                 |
-| `tick_scheme`         | `Option<Ustr>`     | `None`           | Registered variable tick scheme name.    |
-| `info`                | `Option<Params>`   | `None`           | Adapter metadata.                        |
-| `ts_event`            | `UnixNanos`        | Required         | Event timestamp in nanoseconds.          |
-| `ts_init`             | `UnixNanos`        | Required         | Initialization timestamp in nanoseconds. |
+| `instrument_id`       | `InstrumentId`     | Required         | Rust เก็บไว้ในชื่อ `id`                  |
+| `raw_symbol`          | `Symbol`           | Required         | symbol ดั้งเดิมของ venue                     |
+| `underlying`          | `Ustr`             | Required         | สินทรัพย์อ้างอิงหรือตลาดอ้างอิง    |
+| `asset_class`         | `AssetClass`       | Required         | asset class ของสินทรัพย์อ้างอิง           |
+| `base_currency`       | `Option<Currency>` | `None`           | สกุลเงินหลัก จำเป็นสำหรับแบบ inverse     |
+| `quote_currency`      | `Currency`         | Required         | สกุลเงินที่ใช้ quote ราคา        |
+| `settlement_currency` | `Currency`         | Required         | สกุลเงินที่ใช้ settle PnL และค่าธรรมเนียม    |
+| `is_inverse`          | `bool`             | Required         | เป็น true เมื่อการคิดขนาด/ต้นทุนเป็นแบบ inverse     |
+| `price_precision`     | `u8`               | Required         | จำนวนทศนิยมที่อนุญาตสำหรับราคา       |
+| `size_precision`      | `u8`               | Required         | จำนวนทศนิยมที่อนุญาตสำหรับขนาด order  |
+| `price_increment`     | `Price`            | Required         | ขั้นราคาที่เล็กที่สุดที่ใช้ได้               |
+| `size_increment`      | `Quantity`         | Required         | ขั้นขนาดที่เล็กที่สุดที่ใช้ได้                |
+| `multiplier`          | `Quantity`         | `1`              | ตัวคูณของสัญญา                     |
+| `lot_size`            | `Quantity`         | `1`              | ขนาด lot หรือ board ที่ปัดแล้ว               |
+| `max_quantity`        | `Option<Quantity>` | `None`           | ปริมาณ order สูงสุด                  |
+| `min_quantity`        | `Option<Quantity>` | `None`           | ปริมาณ order ต่ำสุด                  |
+| `max_notional`        | `Option<Money>`    | `None`           | มูลค่า notional ของ order สูงสุด            |
+| `min_notional`        | `Option<Money>`    | `None`           | มูลค่า notional ของ order ต่ำสุด            |
+| `max_price`           | `Option<Price>`    | `None`           | ราคา quote หรือ order สูงสุดที่ใช้ได้      |
+| `min_price`           | `Option<Price>`    | `None`           | ราคา quote หรือ order ต่ำสุดที่ใช้ได้      |
+| `margin_init`         | `Option<Decimal>`  | `0`              | อัตรา initial margin                     |
+| `margin_maint`        | `Option<Decimal>`  | `0`              | อัตรา maintenance margin                 |
+| `tick_scheme`         | `Option<Ustr>`     | `None`           | ชื่อ variable tick scheme ที่ลงทะเบียนไว้    |
+| `info`                | `Option<Params>`   | `None`           | metadata ของ adapter                        |
+| `ts_event`            | `UnixNanos`        | Required         | timestamp ของ event หน่วย nanoseconds          |
+| `ts_init`             | `UnixNanos`        | Required         | timestamp ตอนสร้าง object หน่วย nanoseconds |
 
-**Note**: Python constructors use `instrument_id`. Rust stores the same value as `id`.
+**หมายเหตุ**: Rust เก็บค่า `instrument_id` ไว้ในชื่อ `id`
 
-## Behavior
+## พฤติกรรม {#behavior}
 
-- `PerpetualContract` has instrument class `Swap`.
-- It has no activation timestamp or expiration timestamp.
-- Inverse contracts require a base currency.
-- Linear contracts typically settle in the quote currency.
-- Use `CryptoPerpetual` for crypto perpetuals where the base asset is a currency.
+- `PerpetualContract` มี instrument class เป็น `Swap`
+- ไม่มี activation timestamp หรือ expiration timestamp
+- สัญญาแบบ inverse ต้องมี base currency
+- สัญญาแบบ linear โดยทั่วไป settle ด้วย quote currency
+- ใช้ `CryptoPerpetual` สำหรับ crypto perpetual ที่ base asset เป็นสกุลเงิน
 
-## Example
+## ตัวอย่าง {#example}
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -81,15 +80,14 @@ let eurusd_perp = PerpetualContract::builder()
     .unwrap();
 ```
 
+## Adapter {#adapters}
 
-## Adapters
+**Adapter ที่สร้างหรือใช้ instrument แบบ `PerpetualContract` ได้แก่**:
 
-**Adapters that create or consume `PerpetualContract` instruments include**:
+- [Architect AX](../../integrations/architect_ax.md) สำหรับสัญญา perpetual ที่ venue กำหนด
+- [Binance](../../integrations/binance.md) สำหรับสัญญา perpetual แบบ USD-M TradFi
 
-- [Architect AX](../../integrations/architect_ax.md) for venue-defined perpetual contracts.
-- [Binance](../../integrations/binance.md) for USD-M TradFi perpetual contracts.
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-## Related guides
-
-- [Crypto Perpetual](crypto_perpetual.md) covers crypto perpetual futures.
-- [Data](../data/) covers mark prices, index prices, and funding rate updates.
+- [Crypto Perpetual](crypto_perpetual.md) อธิบาย crypto perpetual futures
+- [Data](../data/) อธิบาย mark price, index price และ funding rate update

@@ -1,61 +1,60 @@
 # OrderBookDelta
 
-`OrderBookDelta` represents one change to an order book. It is the most granular built-in book data
-type and supports the book types NautilusTrader uses for incremental updates:
+`OrderBookDelta` แทนการเปลี่ยนแปลงหนึ่งครั้งของ order book เป็นชนิดข้อมูล book ที่ละเอียดที่สุดในบรรดาที่มี
+มาให้ในตัว และรองรับ book type ที่ NautilusTrader ใช้กับ incremental update:
 
-- `L3_MBO`: Level 3 market-by-order (MBO) data.
-- `L2_MBP`: Level 2 market-by-price (MBP) data.
-- `L1_MBP`: Level 1 market-by-price (MBP) top-of-book data.
+- `L3_MBO`: ข้อมูล Level 3 market-by-order (MBO)
+- `L2_MBP`: ข้อมูล Level 2 market-by-price (MBP)
+- `L1_MBP`: ข้อมูล Level 1 market-by-price (MBP) เฉพาะ top-of-book
 
-The source feed and target `BookType` determine which granularity a delta carries.
+feed ต้นทางและ `BookType` เป้าหมายเป็นตัวกำหนดว่า delta หนึ่งตัวมีความละเอียดระดับใด
 
-Use it when a venue or data provider publishes incremental book changes and NautilusTrader
-should maintain the book state locally.
+ใช้ชนิดนี้เมื่อ venue หรือผู้ให้บริการข้อมูล publish การเปลี่ยนแปลงของ book แบบ incremental และต้องการให้
+NautilusTrader ดูแล state ของ book ไว้ในเครื่อง
 
-## Fields
+## ฟิลด์ {#fields}
 
-| Field           | Rust type      | Python type    | Required/default | Notes                                      |
-| --------------- | -------------- | -------------- | ---------------- | ------------------------------------------ |
-| `instrument_id` | `InstrumentId` | `InstrumentId` | Required         | Instrument whose book is changing.         |
-| `action`        | `BookAction`   | `BookAction`   | Required         | `ADD`, `UPDATE`, `DELETE`, or `CLEAR`.     |
-| `order`         | `BookOrder`    | `BookOrder`    | Required         | Price, size, side, and order ID payload.   |
-| `flags`         | `u8`           | `int`          | Required         | `RecordFlag` bit field for event metadata. |
-| `sequence`      | `u64`          | `int`          | Required         | Venue sequence number, or zero if absent.  |
-| `ts_event`      | `UnixNanos`    | `int`          | Required         | Event timestamp in nanoseconds.            |
-| `ts_init`       | `UnixNanos`    | `int`          | Required         | Initialization timestamp in nanoseconds.   |
+| ฟิลด์            | Rust type      | Required/default | หมายเหตุ                                        |
+| --------------- | -------------- | ---------------- | ---------------------------------------------- |
+| `instrument_id` | `InstrumentId` | Required         | instrument ที่ book กำลังเปลี่ยน                   |
+| `action`        | `BookAction`   | Required         | `ADD`, `UPDATE`, `DELETE` หรือ `CLEAR`          |
+| `order`         | `BookOrder`    | Required         | payload ที่มี price, size, side และ order ID      |
+| `flags`         | `u8`           | Required         | bit field ของ `RecordFlag` สำหรับ metadata ของ event |
+| `sequence`      | `u64`          | Required         | sequence number จาก venue หรือศูนย์ถ้าไม่มี         |
+| `ts_event`      | `UnixNanos`    | Required         | timestamp ของ event หน่วยนาโนวินาที               |
+| `ts_init`       | `UnixNanos`    | Required         | timestamp ตอน initialize หน่วยนาโนวินาที           |
 
-## BookOrder fields
+## ฟิลด์ของ BookOrder {#bookorder-fields}
 
-The `order` field contains the `BookOrder` payload for the delta.
+ฟิลด์ `order` เก็บ payload `BookOrder` ของ delta
 
-| Field      | Rust type           | Python type         | Notes                                |
-| ---------- | ------------------- | ------------------- | ------------------------------------ |
-| `side`     | `Option<OrderSide>` | `OrderSide \| None` | Order side.                          |
-| `price`    | `Price`             | `Price`             | Order price.                         |
-| `size`     | `Quantity`          | `Quantity`          | Order size.                          |
-| `order_id` | `OrderId` (`u64`)   | `int`               | Order ID carried by the source feed. |
+| ฟิลด์       | Rust type           | หมายเหตุ                              |
+| ---------- | ------------------- | ------------------------------------ |
+| `side`     | `Option<OrderSide>` | ฝั่งของ order                          |
+| `price`    | `Price`             | ราคาของ order                         |
+| `size`     | `Quantity`          | ขนาดของ order                         |
+| `order_id` | `OrderId` (`u64`)   | order ID ที่มากับ feed ต้นทาง            |
 
-The null/default order uses `None` for its side, with zero price, zero size, and zero order ID.
+order แบบ null/default ใช้ `None` เป็น side พร้อม price, size และ order ID เป็นศูนย์
 
-## BookAction variants
+## variant ของ BookAction {#bookaction-variants}
 
-| Rust variant         | Python variant | Value | Meaning                                |
-| -------------------- | -------------- | ----- | -------------------------------------- |
-| `BookAction::Add`    | `ADD`          | `1`   | Adds an order to the book.             |
-| `BookAction::Update` | `UPDATE`       | `2`   | Updates an existing order in the book. |
-| `BookAction::Delete` | `DELETE`       | `3`   | Deletes an existing order in the book. |
-| `BookAction::Clear`  | `CLEAR`        | `4`   | Clears the order book state.           |
+| Rust variant         | Value | ความหมาย                                |
+| -------------------- | ----- | -------------------------------------- |
+| `BookAction::Add`    | `1`   | เพิ่ม order เข้า book                     |
+| `BookAction::Update` | `2`   | อัปเดต order ที่มีอยู่แล้วใน book            |
+| `BookAction::Delete` | `3`   | ลบ order ที่มีอยู่แล้วใน book               |
+| `BookAction::Clear`  | `4`   | ล้าง state ของ order book                |
 
-## Behavior
+## พฤติกรรม {#behavior}
 
-- `ADD` and `UPDATE` deltas require a positive order size.
-- `CLEAR` deltas reset book state and use a null book order.
-- `flags` carries event boundary and snapshot metadata. See
-  [Delta flags and event boundaries](index.md#delta-flags-and-event-boundaries).
-- Use `OrderBookDelta::clear(...)` in Rust or `OrderBookDelta.clear(...)` in Python to construct
-  clear deltas.
+- delta แบบ `ADD` และ `UPDATE` ต้องมี order size เป็นบวก
+- delta แบบ `CLEAR` จะ reset state ของ book และใช้ book order แบบ null
+- `flags` เก็บ metadata ของขอบเขต event และ snapshot ดู
+  [Delta flags และขอบเขตของ event](index.md#delta-flags-and-event-boundaries)
+- ใช้ `OrderBookDelta::clear(...)` เพื่อสร้าง clear delta
 
-## Example
+## ตัวอย่าง {#example}
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -82,34 +81,8 @@ let delta = OrderBookDelta::new(
 );
 ```
 
-```python tab="Python"
-from nautilus_trader.model import InstrumentId
-from nautilus_trader.model import Price
-from nautilus_trader.model import Quantity
-from nautilus_trader.model import BookAction
-from nautilus_trader.model import BookOrder
-from nautilus_trader.model import OrderBookDelta
-from nautilus_trader.model import OrderSide
-from nautilus_trader.model import RecordFlag
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-delta = OrderBookDelta(
-    instrument_id=InstrumentId.from_str("ETHUSDT-PERP.BINANCE"),
-    action=BookAction.ADD,
-    order=BookOrder(
-        OrderSide.BUY,
-        Price.from_str("2500.10"),
-        Quantity.from_str("3.5"),
-        12_345,
-    ),
-    flags=RecordFlag.F_LAST,
-    sequence=42,
-    ts_event=1_000_000_000,
-    ts_init=1_000_000_100,
-)
-```
-
-## Related guides
-
-- [OrderBookDeltas](order_book_deltas.md) covers batching deltas.
-- [Order books](../order_book.md) explains book types and local book state.
-- [Python API reference](/docs/python-api-latest/model/data.html) lists Python members.
+- [OrderBookDeltas](order_book_deltas.md) อธิบายการรวม delta เป็นชุด (batching)
+- [Order books](../order_book.md) อธิบาย book type และ state ของ book ในเครื่อง
+- [Rust API reference](https://nautilustrader.io/docs/core-latest/) รวมรายละเอียด API ฝั่ง Rust

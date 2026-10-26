@@ -1,50 +1,37 @@
 # Deribit
 
-Founded in 2016, Deribit is a cryptocurrency derivatives exchange for options, futures,
-perpetuals, spot, and combo instruments. It is one of the largest crypto options exchanges
-by volume, and a leading platform for crypto derivatives trading.
+Deribit ก่อตั้งในปี 2016 เป็น exchange สำหรับ crypto derivative ทั้ง options, futures, perpetual, spot
+และ combo instrument เป็นหนึ่งใน exchange crypto options ที่ใหญ่ที่สุดตาม volume และเป็นแพลตฟอร์มชั้นนำ
+สำหรับการเทรด crypto derivative
 
-This integration supports live market data ingest and order execution with Deribit.
+integration นี้รองรับการรับ market data แบบ live และการ execute order กับ Deribit
 
-## Overview
+## ภาพรวม {#overview}
 
-The Deribit adapter is implemented in Rust and exposed to Python through configurations,
-factories, clients, enums, and constants. Deribit uses JSON-RPC 2.0 over both HTTP and WebSocket
-transports. The adapter prefers WebSocket for subscriptions, real-time data, and order
-operations, and uses HTTP for instrument loading, historical requests, and reconciliation.
+adapter ของ Deribit implement ด้วย Rust Deribit ใช้ JSON-RPC 2.0 บนทั้ง transport แบบ HTTP และ WebSocket
+adapter เลือกใช้ WebSocket สำหรับ subscription, ข้อมูล real-time และการทำงานกับ order และใช้ HTTP สำหรับการโหลด
+instrument, request ข้อมูลย้อนหลัง และ reconciliation
 
-Components:
+Component:
 
-- `DeribitRawHttpClient`: Low-level HTTP client owning JSON-RPC framing, signing, rate limits, and retries.
-- `DeribitHttpClient`: Domain HTTP client parsing venue responses into Nautilus types. Reach the raw client
-  with `inner()`.
-- `DeribitWebSocketClient`: Low-level WebSocket connectivity for Rust callers.
-- `DeribitDataClient`: Market data feed manager.
-- `DeribitDataClientFactory`: Data client factory.
-- `DeribitExecutionClient`: Account management and trade execution gateway.
-- `DeribitExecutionClientFactory`: Execution client factory.
-
-Python surface available from `nautilus_trader.adapters.deribit`:
-
-- `DeribitDataClientConfig`, `DeribitExecutionClientConfig`
-- `DeribitDataClientFactory`, `DeribitExecutionClientFactory`
-- `DeribitHttpClient`
-- `DeribitCurrency`, `DeribitEnvironment`, `DeribitProductType`
-- `DeribitBookSummary`, `DeribitVolatilityIndex`
-- `get_deribit_http_base_url`, `get_deribit_ws_url`
-- `DERIBIT`, `DERIBIT_CLIENT_ID`, and `DERIBIT_VENUE`
+- `DeribitRawHttpClient`: HTTP client ระดับ low-level ที่ดูแล JSON-RPC framing, การ sign, rate limit และการ retry
+- `DeribitHttpClient`: HTTP client ระดับ domain ที่ parse response ของ venue เป็น type ของ Nautilus เข้าถึง raw client
+  ได้ด้วย `inner()`
+- `DeribitWebSocketClient`: การเชื่อมต่อ WebSocket ระดับ low-level สำหรับผู้เรียกจาก Rust
+- `DeribitDataClient`: ตัวจัดการ market data feed
+- `DeribitDataClientFactory`: factory ของ data client
+- `DeribitExecutionClient`: gateway สำหรับการจัดการ account และการ execute trade
+- `DeribitExecutionClientFactory`: factory ของ execution client
 
 :::note
-Most users configure a live trading node as shown below. They do not need to use these lower-level components
-directly.
+ผู้ใช้ส่วนใหญ่ตั้งค่า live trading node และไม่จำเป็นต้องใช้ component ระดับ low-level เหล่านี้โดยตรง
 :::
 
-## Examples
+## ตัวอย่าง {#examples}
 
-- [Python examples](https://github.com/nautechsystems/nautilus_trader/tree/develop/examples/live/deribit/)
-- [Rust examples](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/deribit/examples/)
+- [ตัวอย่าง Rust](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/deribit/examples/)
 
-## Deribit documentation
+## เอกสารของ Deribit {#deribit-documentation}
 
 - [API reference](https://docs.deribit.com/)
 - [Rate limits](https://docs.deribit.com/articles/rate-limits)
@@ -53,143 +40,127 @@ directly.
 - [Order management](https://docs.deribit.com/articles/order-management-best-practices)
 - [Access scope](https://docs.deribit.com/articles/access-scope)
 
-Read the Deribit documentation with this NautilusTrader integration guide.
+อ่านเอกสารของ Deribit ควบคู่กับคู่มือ integration ของ NautilusTrader ฉบับนี้
 
-## Product support
+## ผลิตภัณฑ์ที่รองรับ {#product-support}
 
-Each client loads only the product families listed in its `product_types` configuration, once on connect.
-Neither client refreshes the instrument set afterwards, so restart the node to pick up newly listed
-instruments. On the data client, `auto_load_missing_instruments` instead fetches an uncached instrument on
-first subscribe. See [Lazy-load on subscribe](#lazy-load-on-subscribe).
+client แต่ละตัวโหลดเฉพาะกลุ่มผลิตภัณฑ์ที่ระบุใน configuration `product_types` ของตัวเอง ครั้งเดียวตอน connect
+ไม่มี client ตัวใด refresh ชุด instrument หลังจากนั้น จึงต้อง restart node เพื่อรับ instrument ที่เพิ่ง list ใหม่
+ฝั่ง data client นั้น `auto_load_missing_instruments` จะดึง instrument ที่ไม่อยู่ใน cache ตอน subscribe ครั้งแรกแทน
+ดู [Lazy-load ตอน subscribe](#lazy-load-on-subscribe)
 
-| Product type      | Data feed | Trading | Notes                                          |
+| ประเภทผลิตภัณฑ์       | Data feed | Trading | หมายเหตุ                                        |
 | ----------------- | --------- | ------- | ---------------------------------------------- |
-| Perpetual futures | ✓         | ✓       | Loaded with `DeribitProductType.FUTURE`.       |
-| Dated futures     | ✓         | ✓       | Loaded with `DeribitProductType.FUTURE`.       |
-| Options           | ✓         | ✓       | Loaded with `DeribitProductType.OPTION`.       |
-| Spot              | ✓         | ✓       | Loaded with `DeribitProductType.SPOT`.         |
-| Future combos     | ✓         | ✓       | Loaded with `DeribitProductType.FUTURE_COMBO`. |
-| Option combos     | ✓         | ✓       | Loaded with `DeribitProductType.OPTION_COMBO`. |
+| Perpetual futures | ✓         | ✓       | โหลดด้วย product type `FUTURE`                  |
+| Dated futures     | ✓         | ✓       | โหลดด้วย product type `FUTURE`                  |
+| Options           | ✓         | ✓       | โหลดด้วย product type `OPTION`                  |
+| Spot              | ✓         | ✓       | โหลดด้วย product type `SPOT`                    |
+| Future combos     | ✓         | ✓       | โหลดด้วย product type `FUTURE_COMBO`            |
+| Option combos     | ✓         | ✓       | โหลดด้วย product type `OPTION_COMBO`            |
 
-## Symbology
+## Symbology {#symbology}
 
-Deribit uses specific symbol conventions for different instrument types.
-All instrument IDs should include the `.DERIBIT` suffix when referencing them
-(e.g., `BTC-PERPETUAL.DERIBIT` for BTC perpetual).
+Deribit ใช้ข้อตกลงการตั้งชื่อ symbol เฉพาะสำหรับ instrument แต่ละประเภท
+instrument ID ทุกตัวควรมี suffix `.DERIBIT` เมื่ออ้างถึง
+(เช่น `BTC-PERPETUAL.DERIBIT` สำหรับ BTC perpetual)
 
-### Quantity units
+### หน่วยของ quantity {#quantity-units}
 
-Nautilus quantities map to Deribit's `amount` field, not the optional `contracts` field. Deribit reports
-perpetual and inverse futures amounts in USD units, and reports options and linear futures amounts in the
-underlying base currency. The Deribit `contract_size` field converts between `amount` and contract count. The
-adapter does not apply it again as the Nautilus multiplier.
+quantity ของ Nautilus map ไปยังฟิลด์ `amount` ของ Deribit ไม่ใช่ฟิลด์ `contracts` ที่เป็นทางเลือก Deribit
+รายงาน amount ของ perpetual และ inverse futures เป็นหน่วย USD และรายงาน amount ของ options และ linear futures
+เป็นสกุลเงิน base ของสินทรัพย์อ้างอิง ฟิลด์ `contract_size` ของ Deribit ใช้แปลงระหว่าง `amount` กับจำนวนสัญญา
+adapter ไม่ได้นำค่านี้ไปใช้ซ้ำเป็น multiplier ของ Nautilus
 
-### Perpetual futures
+### Perpetual futures {#perpetual-futures}
 
-Format: `{Currency}-PERPETUAL`
+รูปแบบ: `{Currency}-PERPETUAL`
 
-Examples:
+ตัวอย่าง:
 
-- `BTC-PERPETUAL` - Bitcoin perpetual swap.
-- `ETH-PERPETUAL` - Ethereum perpetual swap.
+- `BTC-PERPETUAL` - Bitcoin perpetual swap
+- `ETH-PERPETUAL` - Ethereum perpetual swap
 
-To subscribe to BTC perpetual in your strategy:
+instrument ID ที่ใช้ subscribe BTC perpetual ใน strategy คือ `BTC-PERPETUAL.DERIBIT`
 
-```python
-InstrumentId.from_str("BTC-PERPETUAL.DERIBIT")
-```
+### Dated futures {#dated-futures}
 
-### Dated futures
+รูปแบบ: `{Currency}-{DDMMMYY}`
 
-Format: `{Currency}-{DDMMMYY}`
+ตัวอย่าง:
 
-Examples:
+- `BTC-25DEC26` - Bitcoin future หมดอายุ 25 ธันวาคม 2026
+- `ETH-26MAR27` - Ethereum future หมดอายุ 26 มีนาคม 2027
 
-- `BTC-25DEC26` - Bitcoin future expiring December 25, 2026.
-- `ETH-26MAR27` - Ethereum future expiring March 26, 2027.
+instrument ID: `BTC-25DEC26.DERIBIT`
 
-```python
-InstrumentId.from_str("BTC-25DEC26.DERIBIT")
-```
+### Options {#options}
 
-### Options
+รูปแบบ: `{Currency}-{DDMMMYY}-{Strike}-{Type}`
 
-Format: `{Currency}-{DDMMMYY}-{Strike}-{Type}`
+ตัวอย่าง:
 
-Examples:
+- `BTC-25DEC26-100000-C` - Bitcoin call option, strike $100,000, หมดอายุ 25 ธันวาคม 2026
+- `BTC-25DEC26-80000-P` - Bitcoin put option, strike $80,000, หมดอายุ 25 ธันวาคม 2026
+- `ETH-26MAR27-4000-C` - Ethereum call option, strike $4,000, หมดอายุ 26 มีนาคม 2027
 
-- `BTC-25DEC26-100000-C` - Bitcoin call option, $100,000 strike, expiring December 25, 2026.
-- `BTC-25DEC26-80000-P` - Bitcoin put option, $80,000 strike, expiring December 25, 2026.
-- `ETH-26MAR27-4000-C` - Ethereum call option, $4,000 strike, expiring March 26, 2027.
+โดยที่:
 
-Where:
+- `C` = Call option
+- `P` = Put option
 
-- `C` = Call option.
-- `P` = Put option.
+instrument ID: `BTC-25DEC26-100000-C.DERIBIT`
 
-```python
-InstrumentId.from_str("BTC-25DEC26-100000-C.DERIBIT")
-```
+### Spot {#spot}
 
-### Spot
+รูปแบบ: `{BaseCurrency}_{QuoteCurrency}`
 
-Format: `{BaseCurrency}_{QuoteCurrency}`
+ตัวอย่าง:
 
-Examples:
+- `BTC_USDC` - Bitcoin เทียบกับ USDC
+- `ETH_USDC` - Ethereum เทียบกับ USDC
 
-- `BTC_USDC` - Bitcoin against USDC.
-- `ETH_USDC` - Ethereum against USDC.
+instrument ID: `BTC_USDC.DERIBIT`
 
-```python
-InstrumentId.from_str("BTC_USDC.DERIBIT")
-```
+### Future combos {#future-combos}
 
-### Future combos
+รูปแบบ: `{Currency}-FS-{LegA}_{LegB}`
 
-Format: `{Currency}-FS-{LegA}_{LegB}`
+leg เป็น dated futures หรือ perpetual (ใช้ `PERP` ในชื่อ combo แม้ว่า instrument เดี่ยวจะชื่อ `BTC-PERPETUAL`)
+combo หมดอายุพร้อมกับ leg ที่หมดอายุเร็วที่สุด
 
-Legs are dated futures or the perpetual (denoted `PERP` inside combo names, even though the
-standalone instrument is `BTC-PERPETUAL`). The combo expires with its earliest leg.
+ตัวอย่าง:
 
-Examples:
+- `BTC-FS-25DEC26_PERP` - calendar spread ระหว่าง future เดือนธันวาคม 2026 กับ perpetual
+- `BTC-FS-26MAR27_25DEC26` - inter-month spread ระหว่าง dated futures สองตัว
 
-- `BTC-FS-25DEC26_PERP` - calendar spread between the December 2026 future and the perpetual.
-- `BTC-FS-26MAR27_25DEC26` - inter-month spread between two dated futures.
+instrument ID: `BTC-FS-25DEC26_PERP.DERIBIT`
 
-```python
-InstrumentId.from_str("BTC-FS-25DEC26_PERP.DERIBIT")
-```
+adapter จำลอง future combo เป็น `CryptoFuturesSpread` ตั้งราคาเป็น USD ตาม spread ระหว่าง leg มีสกุลเงิน settle
+เป็น crypto และตั้ง `is_inverse` ตาม `instrument_type` จากต้นทาง
 
-The adapter models future combos as `CryptoFuturesSpread`, priced in USD as the spread
-between legs, with crypto settlement currency and `is_inverse` set per the upstream
-`instrument_type`.
+### Option combos {#option-combos}
 
-### Option combos
+รูปแบบ: `{Currency}-{Strategy}-{DDMMMYY}-{Strikes}`
 
-Format: `{Currency}-{Strategy}-{DDMMMYY}-{Strikes}`
+รหัส strategy ได้แก่ CS (call spread), PS (put spread), STRG (strangle), STRD (straddle), BOX (box) และ RR
+(risk reversal) ส่วน strike คั่น strike หลายตัวด้วย `_`
 
-Strategy codes include CS (call spread), PS (put spread), STRG (strangle), STRD (straddle),
-BOX (box), and RR (risk reversal). The strikes segment separates multiple strikes with `_`.
+ตัวอย่าง:
 
-Examples:
+- `BTC-CS-25DEC26-70000_75000` - call spread 70k / 75k หมดอายุ 25 ธันวาคม 2026
+- `BTC-STRG-26MAR27-72000_80000` - strangle 72k / 80k หมดอายุ 26 มีนาคม 2027
+- `BTC-STRD-26MAR27-77000` - straddle 77k หมดอายุ 26 มีนาคม 2027
+- `BTC-BOX-26MAR27-58000_60000` - box 58k / 60k หมดอายุ 26 มีนาคม 2027
 
-- `BTC-CS-25DEC26-70000_75000` - 70k / 75k call spread expiring December 25, 2026.
-- `BTC-STRG-26MAR27-72000_80000` - 72k / 80k strangle expiring March 26, 2027.
-- `BTC-STRD-26MAR27-77000` - 77k straddle expiring March 26, 2027.
-- `BTC-BOX-26MAR27-58000_60000` - 58k / 60k box expiring March 26, 2027.
+instrument ID: `BTC-STRG-26MAR27-72000_80000.DERIBIT`
 
-```python
-InstrumentId.from_str("BTC-STRG-26MAR27-72000_80000.DERIBIT")
-```
+adapter จำลอง option combo เป็น `CryptoOptionSpread` ตั้งราคาเป็นสกุลเงิน base ตามข้อตกลง inverse-option
+ของ Deribit `size_increment` ที่เป็นเศษส่วน (เช่น `0.1`) ถูกรักษาไว้ตลอดทาง
 
-The adapter models option combos as `CryptoOptionSpread`, priced in the base currency under Deribit's
-inverse-option convention. Fractional `size_increment` (e.g. `0.1`) is preserved end-to-end.
+## วันหมดอายุที่มีการเทรด {#traded-expirations}
 
-## Traded expirations
-
-Deribit exposes active traded expirations through the `public/get_expirations` HTTP endpoint.
-Option-chain loaders can use the high-level HTTP client to refresh active option series without
-scanning every instrument.
+Deribit เปิดเผยวันหมดอายุที่มีการเทรดอยู่ผ่าน HTTP endpoint `public/get_expirations` loader ของ option chain
+ใช้ HTTP client ระดับสูงเพื่อ refresh option series ที่ active ได้โดยไม่ต้อง scan ทุก instrument
 
 ```rust tab="Rust"
 use nautilus_deribit::http::models::DeribitCurrency;
@@ -199,59 +170,46 @@ let expirations = client
     .await?;
 ```
 
-```python tab="Python"
-from nautilus_trader.adapters.deribit import DeribitCurrency
-from nautilus_trader.adapters.deribit import DeribitHttpClient
+method ระดับสูงคืนเฉพาะวันหมดอายุของ option สำหรับ request ระดับ low-level ใน Rust ให้เรียก
+`client.inner().get_expirations(...)` พร้อม `GetExpirationsParams` Deribit คืนผลลัพธ์ที่มี key เป็นสกุลเงินสำหรับ
+สกุลเงินที่ระบุชัดเจน เช่น `BTC` และคืนผลลัพธ์ที่มี key เป็น kind โดยตรงสำหรับ `currency=any` adapter
+รองรับทั้งสองรูปแบบ
 
-client = DeribitHttpClient()
-expirations = await client.request_option_expirations(DeribitCurrency.BTC)
-```
+## Combo instrument {#combo-instruments}
 
-The high-level method returns option expirations only. For lower-level Rust requests, call
-`client.inner().get_expirations(...)` with `GetExpirationsParams`. Deribit returns a currency-keyed result for
-concrete currencies such as `BTC`, and a direct kind-keyed result for `currency=any`. The adapter handles both
-shapes.
+การโหลด instrument จะรวม combo เมื่อ `product_types` มี variant แบบ future-combo หรือ option-combo
+Deribit เปิดเผยองค์ประกอบ leg ของทุก combo ที่ active ผ่าน `/public/get_combos` และ metadata การเทรดของ combo
+(tick size, contract size, วันหมดอายุ, min trade amount) ผ่าน response มาตรฐานของ
+`/public/get_instruments?kind=option_combo|future_combo` adapter รวมทั้งสองเข้าด้วยกัน โดยแนบ
+`deribit_combo_id`, `deribit_combo_state` และ `deribit_combo_legs` ไว้ใน map `info` ของ instrument ที่โหลด
+เพื่อให้ strategy resolve leg ได้โดยไม่ต้องเรียก venue ซ้ำ
 
-## Combo instruments
+### การ publish trade {#trade-publishing}
 
-Instrument loading includes combos when `product_types` contains the future-combo or
-option-combo variant. In Python, use `DeribitProductType.FUTURE_COMBO` or
-`DeribitProductType.OPTION_COMBO`. Deribit exposes the leg makeup of every active combo on
-`/public/get_combos`, and the combo's trading metadata (tick size, contract size, expiration,
-min trade amount) on the standard `/public/get_instruments?kind=option_combo|future_combo`
-response. The adapter merges both, attaching `deribit_combo_id`, `deribit_combo_state`, and
-`deribit_combo_legs` to the loaded instrument's `info` map so strategies can resolve legs
-without a second venue call.
+Deribit publish trade ของ combo แต่ละรายการสองครั้ง:
 
-### Trade publishing
+- บน trade channel ของ combo (`trades.{combo_name}.{interval}`): trade หลักพร้อม array `legs[]` ที่อธิบาย
+  fill ของแต่ละ leg
+- บน trade channel ของแต่ละ leg (`trades.{leg_instrument}.{interval}`): trade เดี่ยวของ leg ที่ติด tag
+  `combo_id` และ `combo_trade_id` ชี้กลับไปยัง trade หลัก
 
-Deribit publishes each combo trade twice:
+ผู้ subscribe option หรือ future ธรรมดาจึงเห็น fill ที่มาจาก combo บน trade stream เดิมของตน และผู้ subscribe
+combo เองจะเห็น trade ระดับ combo adapter ไม่แตก message หลักของ combo ออกเป็น tick ของ leg เพิ่ม แต่จะส่งต่อ
+message หลักและ message ราย leg จากต้นทางเป็น `TradeTick` แยกกันตาม `InstrumentId` ของแต่ละตัว ผู้ที่ subscribe
+ทั้ง combo และ leg อ้างอิงจึงเห็น tick ของ combo หนึ่งตัวและ tick ของ leg หนึ่งตัวสำหรับ trade combo นั้น โดยไม่ได้รับ
+tick ซ้ำสำหรับ instrument เดียวกัน
 
-- On the combo's trade channel (`trades.{combo_name}.{interval}`): the parent trade plus a
-  `legs[]` array describing each leg fill.
-- On each leg's trade channel (`trades.{leg_instrument}.{interval}`): a standalone trade for the
-  leg, tagged with `combo_id` and `combo_trade_id` pointing back to the parent.
+หากต้องการให้ data client ของ Deribit เปิด trade channel จริงของ leg ไปพร้อมกับ trade subscription ของ combo
+ให้ส่ง param `subscribe_combo_legs` เป็น true ให้ `subscribe_trades` เมื่อ unsubscribe trade stream ของ combo นั้น
+Nautilus จะปิด subscription ของ leg ที่เปิดจาก opt-in นี้ด้วย
 
-A subscriber to a plain option or future therefore sees combo-origin fills on its existing trade stream, and a
-subscriber to the combo itself sees the combo-level trade. The adapter does not fan out combo parent messages
-into extra leg ticks. It forwards upstream parent and per-leg messages as separate `TradeTick`s against their
-respective `InstrumentId`s. Thus, a subscriber to both the combo and an underlying leg sees one combo tick
-plus one leg tick for that combo trade. It does not receive duplicate ticks against the same instrument.
+Deribit publish block trade และ Block RFQ ราย leg อยู่แล้ว adapter จึงส่งต่อผ่านเส้นทาง trade แบบ 1:1 มาตรฐาน
+ดู [ที่มาของ trade ID](#trade-id-provenance) สำหรับวิธีติด tag trade ที่มาจาก block และ RFQ บน `TradeTick`
 
-To have the Deribit data client open the real leg trade channels alongside a combo trade
-subscription, pass `params={"subscribe_combo_legs": True}` to `subscribe_trades`. When
-unsubscribing that combo trade stream, Nautilus also closes the leg subscriptions opened by
-this opt-in.
+### Trade ย้อนหลังของ combo {#historical-combo-trades}
 
-Deribit already publishes block trades and Block RFQs per leg, so the adapter forwards
-them through the standard 1:1 trade path. See [Trade ID provenance](#trade-id-provenance)
-for how block- and RFQ-origin trades are tagged on the resulting `TradeTick`.
-
-### Historical combo trades
-
-The standard per-instrument trades endpoint accepts combo instrument names. To sweep all combos
-of a given product kind in one call, use `get_last_trades_by_currency` via
-`DeribitHttpClient::inner()`:
+endpoint trade ราย instrument มาตรฐานรับชื่อ combo instrument ได้ หากต้องการดึง combo ทั้งหมดของผลิตภัณฑ์ประเภท
+หนึ่งในการเรียกครั้งเดียว ให้ใช้ `get_last_trades_by_currency` ผ่าน `DeribitHttpClient::inner()`:
 
 ```rust
 use nautilus_deribit::http::{
@@ -268,852 +226,679 @@ let params = GetLastTradesByCurrencyParams::builder()
 let resp = client.inner().get_last_trades_by_currency(params).await?;
 ```
 
-Each returned `DeribitPublicTrade` carries `legs: Option<Vec<DeribitTradeLeg>>` plus the
-`combo_id` and `combo_trade_id` fields used to correlate per-leg trades.
+`DeribitPublicTrade` แต่ละตัวที่คืนมามี `legs: Option<Vec<DeribitTradeLeg>>` พร้อมฟิลด์ `combo_id` และ
+`combo_trade_id` ที่ใช้ correlate trade ราย leg
 
-## Trade ID provenance
+## ที่มาของ trade ID {#trade-id-provenance}
 
-Public `TradeTick`s emitted by the adapter prefix the venue trade ID when the trade
-originated from a Block RFQ, a block trade, or a combo. Strategies that need to
-distinguish these from plain trades can pattern-match the prefix on `TradeTick.trade_id`.
-The raw Deribit `trade_id` is preserved after the prefix, so reconciliation against
-Deribit's own IDs is a prefix strip.
+`TradeTick` สาธารณะที่ adapter ปล่อยจะเติม prefix หน้า trade ID ของ venue เมื่อ trade มาจาก Block RFQ,
+block trade หรือ combo strategy ที่ต้องแยก trade เหล่านี้ออกจาก trade ธรรมดาสามารถ match prefix บน
+`TradeTick.trade_id` ได้ `trade_id` ดิบของ Deribit ยังอยู่หลัง prefix การ reconcile กับ ID ของ Deribit
+จึงทำได้ด้วยการตัด prefix ออก
 
-| Prefix       | Source field     | Meaning                                                        |
-| ------------ | ---------------- | -------------------------------------------------------------- |
-| `RFQ-`       | `block_rfq_id`   | Trade originated from a Block RFQ.                             |
-| `BLK-`       | `block_trade_id` | Trade is a non-RFQ block trade.                                |
-| `COMBO-`     | `combo_id`       | Per-leg trade whose parent originated from a combo instrument. |
-| *unprefixed* | (none of above)  | Standard trade.                                                |
+| Prefix       | ฟิลด์ต้นทาง        | ความหมาย                                                     |
+| ------------ | ---------------- | ------------------------------------------------------------ |
+| `RFQ-`       | `block_rfq_id`   | trade มาจาก Block RFQ                                         |
+| `BLK-`       | `block_trade_id` | trade เป็น block trade ที่ไม่ใช่ RFQ                             |
+| `COMBO-`     | `combo_id`       | trade ราย leg ที่ trade หลักมาจาก combo instrument              |
+| *ไม่มี prefix* | (ไม่มีข้างต้น)     | trade มาตรฐาน                                                 |
 
-Precedence when multiple tags are present: `RFQ-` > `BLK-` > `COMBO-`. Block RFQs are themselves block trades
-on Deribit, so the RFQ tag wins. Combos executed as block trades are tagged `BLK-` because the block flow is
-the more important reconciliation signal.
+ลำดับความสำคัญเมื่อมีหลาย tag: `RFQ-` > `BLK-` > `COMBO-` บน Deribit นั้น Block RFQ เองก็เป็น block trade
+tag ของ RFQ จึงชนะ ส่วน combo ที่ execute เป็น block trade จะติด tag `BLK-` เพราะ flow ของ block เป็นสัญญาณที่
+สำคัญกว่าสำหรับ reconciliation
 
-This applies only to public trades (`TradeTick`). `FillReport.trade_id` is unchanged so
-reconciliation against `get_user_trades_*` keeps working.
+หลักนี้ใช้กับ public trade (`TradeTick`) เท่านั้น `FillReport.trade_id` ไม่เปลี่ยน การ reconcile กับ
+`get_user_trades_*` จึงยังทำงานได้
 
 :::note
-This is a one-way convention introduced in NautilusTrader 1.228.0. Replay data captured before that release
-lacks prefixes. If you store and compare `trade_id` strings across releases, strip the prefix on the new-data
-side. Alternatively, filter by prefix only on data captured after the upgrade.
+นี่เป็นข้อตกลงทางเดียวที่เริ่มใช้ใน NautilusTrader 1.228.0 ข้อมูล replay ที่บันทึกก่อน release นั้นไม่มี prefix
+ถ้าคุณเก็บและเปรียบเทียบ string ของ `trade_id` ข้าม release ให้ตัด prefix ฝั่งข้อมูลใหม่ออก หรือกรองตาม prefix
+เฉพาะกับข้อมูลที่บันทึกหลังการอัปเกรด
 :::
 
-## Market data
+## Market data {#market-data}
 
-Live subscriptions are served from WebSocket channels. Historical requests go over HTTP. Every channel that
-takes an `{interval}` resolves it through the `interval` subscription parameter and the default selection
-rules described under [Order book subscriptions](#order-book-subscriptions).
+subscription แบบ live ให้บริการจาก WebSocket channel ส่วน request ข้อมูลย้อนหลังใช้ HTTP ทุก channel ที่รับ
+`{interval}` จะ resolve ค่านี้ผ่าน subscription parameter `interval` และกฎการเลือกค่าเริ่มต้นที่อธิบายไว้ใน
+[Order book subscription](#order-book-subscriptions)
 
-| Nautilus subscription | Deribit channel                                                           | Notes                                                                      |
+| Nautilus subscription | Deribit channel                                                           | หมายเหตุ                                                                      |
 | --------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Instruments           | `instrument.state.{kind}.{currency}`                                      | `kind` and `currency` params both default to `any`.                        |
-| Instrument status     | `instrument.state.{kind}.{currency}`                                      | Channel derived from the instrument ID; every instrument on it is emitted. |
-| Book deltas           | `book.{instrument}.raw` or `book.{instrument}.{group}.{depth}.{interval}` | `L2_MBP` only; see [Order book subscriptions](#order-book-subscriptions).  |
-| Book depth            | `book.{instrument}.{group}.10.{interval}`                                 | Always the grouped channel, fixed at depth 10.                             |
-| Quotes                | `quote.{instrument}`                                                      | Top of book; this channel takes no interval.                               |
-| Trades                | `trades.{instrument}.{interval}`                                          | See [Trade publishing](#trade-publishing) for combo behavior.              |
-| Bars                  | `chart.trades.{instrument}.{resolution}`                                  | See [Bars](#bars).                                                         |
-| Mark prices           | `ticker.{instrument}.{interval}`                                          | Parsed from the ticker payload.                                            |
-| Index prices          | `ticker.{instrument}.{interval}`                                          | Parsed from the ticker payload.                                            |
-| Option greeks         | `ticker.{instrument}.{interval}`                                          | Options only.                                                              |
-| Funding rates         | `perpetual.{instrument}.{interval}`                                       | Perpetuals only; other instruments are rejected.                           |
-| Volatility index      | `deribit_volatility_index.{index_name}`                                   | Custom data; see [Volatility index](#volatility-index).                    |
+| Instruments           | `instrument.state.{kind}.{currency}`                                      | param `kind` และ `currency` มีค่าเริ่มต้นเป็น `any` ทั้งคู่                        |
+| Instrument status     | `instrument.state.{kind}.{currency}`                                      | channel ได้จาก instrument ID; ทุก instrument บน channel จะถูกปล่อยออกมา          |
+| Book deltas           | `book.{instrument}.raw` or `book.{instrument}.{group}.{depth}.{interval}` | `L2_MBP` เท่านั้น; ดู [Order book subscription](#order-book-subscriptions)     |
+| Book depth            | `book.{instrument}.{group}.10.{interval}`                                 | ใช้ grouped channel เสมอ ที่ depth คงที่ 10                                    |
+| Quotes                | `quote.{instrument}`                                                      | top of book; channel นี้ไม่รับ interval                                       |
+| Trades                | `trades.{instrument}.{interval}`                                          | ดู [การ publish trade](#trade-publishing) สำหรับพฤติกรรมของ combo              |
+| Bars                  | `chart.trades.{instrument}.{resolution}`                                  | ดู [Bar](#bars)                                                             |
+| Mark prices           | `ticker.{instrument}.{interval}`                                          | parse จาก payload ของ ticker                                                |
+| Index prices          | `ticker.{instrument}.{interval}`                                          | parse จาก payload ของ ticker                                                |
+| Option greeks         | `ticker.{instrument}.{interval}`                                          | เฉพาะ options                                                               |
+| Funding rates         | `perpetual.{instrument}.{interval}`                                       | เฉพาะ perpetual; instrument อื่นจะถูกปฏิเสธ                                    |
+| Volatility index      | `deribit_volatility_index.{index_name}`                                   | custom data; ดู [Volatility index](#volatility-index)                       |
 
-| Nautilus request             | Deribit endpoint                                | Notes                                               |
+| Nautilus request             | Deribit endpoint                                | หมายเหตุ                                               |
 | ---------------------------- | ----------------------------------------------- | --------------------------------------------------- |
-| Instruments                  | `public/get_instruments`                        | Scoped to the configured `product_types`.           |
-| Trades                       | `public/get_last_trades_by_instrument_and_time` | Accepts combo instrument names.                     |
-| Bars                         | `public/get_tradingview_chart_data`             | See [Bars](#bars).                                  |
-| Book snapshot                | `public/get_order_book`                         | Requires the instrument in the client cache.        |
-| Option-chain reference price | `public/ticker`                                 | Used internally to bootstrap dynamic strike ranges. |
-| `DeribitBookSummary`         | `public/get_book_summary_by_currency`           | Custom data; see [Book summaries](#book-summaries). |
+| Instruments                  | `public/get_instruments`                        | จำกัดตาม `product_types` ที่ตั้งค่าไว้                    |
+| Trades                       | `public/get_last_trades_by_instrument_and_time` | รับชื่อ combo instrument ได้                          |
+| Bars                         | `public/get_tradingview_chart_data`             | ดู [Bar](#bars)                                      |
+| Book snapshot                | `public/get_order_book`                         | ต้องมี instrument อยู่ใน cache ของ client               |
+| Option-chain reference price | `public/ticker`                                 | ใช้ภายในเพื่อตั้งต้นช่วง strike แบบ dynamic                |
+| `DeribitBookSummary`         | `public/get_book_summary_by_currency`           | custom data; ดู [Book summary](#book-summaries)       |
 
-### Bars
+### Bar {#bars}
 
-Deribit chart resolutions are `1`, `3`, `5`, `10`, `15`, `30`, `60`, `120`, `180`, `360`, and
-`720` minutes, plus `1D`. Both the live and historical paths require `EXTERNAL` aggregation.
+resolution ของ chart ของ Deribit คือ `1`, `3`, `5`, `10`, `15`, `30`, `60`, `120`, `180`, `360` และ
+`720` นาที รวมถึง `1D` ทั้งเส้นทาง live และย้อนหลังต้องใช้ aggregation แบบ `EXTERNAL`
 
-Historical requests are strict: a bar type that does not map onto one of those resolutions is
-rejected, as is any aggregation other than minute, hour, and day.
+request ข้อมูลย้อนหลังเข้มงวด: bar type ที่ map ไปยัง resolution ข้างต้นไม่ได้จะถูกปฏิเสธ เช่นเดียวกับ aggregation
+ใดๆ ที่ไม่ใช่ minute, hour และ day
 
-Live subscriptions snap instead. The requested step is rounded **up** to the next supported resolution, so a
-2-minute step opens Deribit's 3-minute channel and a 6-minute step opens the 10-minute channel. Anything
-longer than 720 minutes becomes `1D`. Aggregations other than minute, hour, and day fall back to 1 minute with
-a warning.
+subscription แบบ live จะปัดค่าแทน step ที่ขอจะถูกปัด**ขึ้น**เป็น resolution ที่รองรับถัดไป step 2 นาทีจึงเปิด
+channel 3 นาทีของ Deribit และ step 6 นาทีเปิด channel 10 นาที ค่าที่ยาวกว่า 720 นาทีจะกลายเป็น `1D`
+aggregation ที่ไม่ใช่ minute, hour และ day จะใช้ 1 นาทีแทนพร้อม warning
 
-Each received candle is stamped with the `BarType` derived from the venue resolution, always with a `LAST`
-price type. Subscribe with a bar type that names a supported resolution and `LAST`. Otherwise, bars publish
-under a different `BarType` than your subscription and never reach your handler.
+candle แต่ละแท่งที่ได้รับจะถูกติด `BarType` ที่ได้จาก resolution ของ venue โดยมี price type เป็น `LAST` เสมอ
+ให้ subscribe ด้วย bar type ที่ระบุ resolution ที่รองรับและ `LAST` มิฉะนั้น bar จะ publish ภายใต้ `BarType`
+ที่ต่างจาก subscription ของคุณและไม่มีวันถึง handler
 
-`Bar.volume` comes from the chart `cost` field (USD) for inverse perpetuals and inverse futures,
-and from the `volume` field (base currency) for everything else, including options and option
-spreads flagged inverse. This keeps `Bar.volume` and `TradeTick.size` on one unit per instrument.
+`Bar.volume` มาจากฟิลด์ `cost` ของ chart (USD) สำหรับ inverse perpetual และ inverse futures และมาจากฟิลด์
+`volume` (สกุลเงิน base) สำหรับอย่างอื่นทั้งหมด รวมถึง options และ option spread ที่ติด flag inverse ทำให้
+`Bar.volume` และ `TradeTick.size` ใช้หน่วยเดียวกันต่อ instrument
 
-## Order book subscriptions
+## Order book subscription {#order-book-subscriptions}
 
-Deribit publishes L2 (market-by-price) book data only, so `subscribe_book_deltas` and
-`subscribe_book_depth` reject any book type other than `BookType.L2_MBP`. Two feed families
-are available, each suited to different use cases.
+Deribit publish ข้อมูล book แบบ L2 (market-by-price) เท่านั้น `subscribe_book_deltas` และ
+`subscribe_book_depth` จึงปฏิเสธ book type ใดๆ ที่ไม่ใช่ `L2_MBP` มี feed ให้เลือกสองกลุ่ม แต่ละกลุ่มเหมาะกับ
+กรณีการใช้งานต่างกัน
 
-### Raw feeds (tick-by-tick)
+### Raw feed (tick-by-tick) {#raw-feeds-tick-by-tick}
 
-Raw channels deliver every single update as an individual message. Subscribing to a raw order book
-gives you a notification for every order insertion, update, or deletion in the book.
+raw channel ส่งทุกการอัปเดตเป็น message แยกกัน การ subscribe raw order book จะได้รับ notification สำหรับ
+ทุกการเพิ่ม, อัปเดต หรือลบ order ใน book
 
-- Requires authenticated connection (safeguard against abuse).
-- Use when you need every price level change for HFT or market making.
-- Higher message volume.
-- Delivers one initial snapshot of the full book, then incremental deltas.
+- ต้องใช้ connection ที่ยืนยันตัวตนแล้ว (เพื่อป้องกันการใช้งานในทางที่ผิด)
+- ใช้เมื่อต้องการทุกการเปลี่ยนแปลงของ price level สำหรับ HFT หรือ market making
+- ปริมาณ message สูงกว่า
+- ส่ง snapshot เริ่มต้นของ book ทั้งหมดหนึ่งครั้ง แล้วตามด้วย delta แบบ incremental
 
-### Aggregated feeds (batched)
+### Aggregated feed (แบบ batch) {#aggregated-feeds-batched}
 
-Aggregated channels deliver updates in batches at a fixed interval (e.g., every 100ms).
-This groups multiple order book changes into single messages.
+aggregated channel ส่งการอัปเดตเป็น batch ตาม interval คงที่ (เช่น ทุก 100ms) โดยรวมการเปลี่ยนแปลงของ order book
+หลายรายการไว้ใน message เดียว
 
-- Available without authentication.
-- Recommended for most use cases.
-- Lower message volume, easier to process.
-- Default unauthenticated interval: 100ms.
-- Every message is a complete depth-limited snapshot, so each update replaces the book
-  rather than patching it.
+- ใช้ได้โดยไม่ต้องยืนยันตัวตน
+- แนะนำสำหรับกรณีการใช้งานส่วนใหญ่
+- ปริมาณ message ต่ำกว่า ประมวลผลง่ายกว่า
+- interval ค่าเริ่มต้นเมื่อไม่ยืนยันตัวตน: 100ms
+- ทุก message เป็น snapshot ที่สมบูรณ์แบบจำกัดความลึก การอัปเดตแต่ละครั้งจึงแทนที่ book แทนการ patch
 
-`subscribe_book_depth` emits `OrderBookDepth` snapshots with up to 10 levels per side and zero order counts
-because Deribit does not supply counts. These snapshots do not replace a raw-delta book or change its
-sequence tracking. Grouped `subscribe_book_deltas` subscriptions emit deltas that replace the subscribed
-book, including when they share a channel with a depth subscription.
+`subscribe_book_depth` ปล่อย snapshot `OrderBookDepth` ได้สูงสุด 10 ระดับต่อฝั่ง และมีจำนวน order เป็นศูนย์
+เพราะ Deribit ไม่ส่งจำนวนมาให้ snapshot เหล่านี้ไม่แทนที่ book แบบ raw-delta หรือเปลี่ยนการติดตาม sequence ของมัน
+subscription `subscribe_book_deltas` แบบ grouped จะปล่อย delta ที่แทนที่ book ที่ subscribe ไว้ รวมถึงเมื่อใช้
+channel ร่วมกับ depth subscription
 
-### Subscription parameters
+### Subscription parameter {#subscription-parameters}
 
-The Nautilus adapter supports both feed types via subscription parameters:
+adapter ของ Nautilus รองรับ feed ทั้งสองแบบผ่าน subscription parameter:
 
-| Parameter  | Values                 | Notes                                                                     |
+| Parameter  | ค่า                     | หมายเหตุ                                                                    |
 | ---------- | ---------------------- | ------------------------------------------------------------------------- |
-| `interval` | `raw`, `100ms`, `agg2` | `agg2` batches at about 1 second intervals. `raw` requires auth.          |
-| `group`    | `none`, price group    | Default: `none`. Applies only to grouped non-raw book channels.           |
-| `depth`    | `1`, `10`, `20`        | Default: `10`. Number of price levels per side for grouped book channels. |
+| `interval` | `raw`, `100ms`, `agg2` | `agg2` รวม batch ราว 1 วินาที `raw` ต้องยืนยันตัวตน                            |
+| `group`    | `none`, price group    | ค่าเริ่มต้น: `none` ใช้เฉพาะกับ grouped book channel ที่ไม่ใช่ raw               |
+| `depth`    | `1`, `10`, `20`        | ค่าเริ่มต้น: `10` จำนวน price level ต่อฝั่งสำหรับ grouped book channel          |
 
-The data client chooses the order book interval as follows:
+data client เลือก interval ของ order book ดังนี้:
 
-1. Uses `params["interval"]` when supplied.
-2. Uses `raw` when the WebSocket connection is authenticated and no interval is supplied.
-3. Uses Deribit's public `100ms` grouped feed when the connection is not authenticated.
-
-```python
-from nautilus_trader.model import BookType
-from nautilus_trader.model import InstrumentId
-
-instrument_id = InstrumentId.from_str("BTC-PERPETUAL.DERIBIT")
-
-# Public 100ms aggregated feed when no API credentials are configured.
-strategy.subscribe_book_deltas(instrument_id, BookType.L2_MBP)
-
-# Raw feed. This is also the authenticated default when no interval is supplied.
-strategy.subscribe_book_deltas(
-    instrument_id,
-    BookType.L2_MBP,
-    params={"interval": "raw"},
-)
-
-# Force an aggregated feed on an authenticated connection.
-strategy.subscribe_book_deltas(
-    instrument_id,
-    BookType.L2_MBP,
-    params={"interval": "100ms", "depth": 10},
-)
-```
+1. ใช้ `params["interval"]` เมื่อระบุไว้
+2. ใช้ `raw` เมื่อ WebSocket connection ยืนยันตัวตนแล้วและไม่ได้ระบุ interval
+3. ใช้ grouped feed สาธารณะ `100ms` ของ Deribit เมื่อ connection ไม่ได้ยืนยันตัวตน
 
 :::note
-Raw order book feeds require an authenticated WebSocket connection. Ensure API credentials are
-configured before subscribing to raw feeds.
+raw order book feed ต้องใช้ WebSocket connection ที่ยืนยันตัวตนแล้ว ตรวจให้แน่ใจว่าตั้งค่า API credential
+ไว้ก่อน subscribe raw feed
 :::
 
 :::tip
-For most strategies, the 100ms aggregated feed provides sufficient granularity with lower message
-overhead. Set `params={"interval": "100ms"}` when you provide credentials but do not need raw
-tick-by-tick book updates.
+สำหรับ strategy ส่วนใหญ่ aggregated feed 100ms ให้ความละเอียดเพียงพอโดยมี overhead ของ message ต่ำกว่า
+ตั้ง param `interval` เป็น `100ms` เมื่อคุณให้ credential ไว้แต่ไม่ต้องการการอัปเดต book แบบ raw tick-by-tick
 :::
 
-### Sequence gap recovery
+### การกู้คืนเมื่อ sequence ขาดช่วง {#sequence-gap-recovery}
 
-The adapter records the `change_id` of each non-grouped book message it applies and checks the
-`prev_change_id` of each incremental update against it. Grouped snapshots do not read or update this
-sequence state.
+adapter บันทึก `change_id` ของ book message แบบ non-grouped แต่ละตัวที่นำไปใช้ และตรวจ `prev_change_id`
+ของการอัปเดต incremental แต่ละตัวเทียบกับค่านั้น snapshot แบบ grouped ไม่อ่านหรืออัปเดต state ของ sequence นี้
 
-When a gap is detected (a missed message), or a level in a book message fails conversion to `Price`
-or `Quantity` (for example, a value beyond their range), the adapter automatically:
+เมื่อตรวจพบช่องว่าง (message หายไป) หรือ level ใน book message แปลงเป็น `Price` หรือ `Quantity` ไม่ได้
+(เช่น ค่าเกินช่วงที่รองรับ) adapter จะทำโดยอัตโนมัติ:
 
-1. Drops that message, and every further delta for the affected instrument.
-2. Unsubscribes from that instrument's non-grouped book channels.
-3. Resubscribes once the unsubscribe is acknowledged, to obtain a fresh snapshot.
-4. Resumes normal processing once each resubscribed channel delivers a snapshot that converts,
-   reseeding the sequence from it.
+1. ทิ้ง message นั้น และทุก delta ที่ตามมาของ instrument ที่ได้รับผลกระทบ
+2. unsubscribe จาก book channel แบบ non-grouped ของ instrument นั้น
+3. subscribe ใหม่เมื่อการ unsubscribe ได้รับการยืนยัน เพื่อรับ snapshot ใหม่
+4. กลับมาประมวลผลตามปกติเมื่อแต่ละ channel ที่ subscribe ใหม่ส่ง snapshot ที่แปลงได้ และตั้ง sequence ใหม่จากมัน
 
-During resync, the strategy will not receive stale or incomplete book updates. A user-initiated
-unsubscribe while a resync is pending cancels the resubscribe instead of reopening the channel.
+ระหว่าง resync strategy จะไม่ได้รับการอัปเดต book ที่เก่าหรือไม่สมบูรณ์ การ unsubscribe ที่ผู้ใช้เริ่มเองขณะที่
+resync ค้างอยู่จะยกเลิกการ subscribe ใหม่แทนการเปิด channel อีกครั้ง
 
-A grouped book channel (`book.{instrument}.{group}.{depth}.{interval}`) sends a full snapshot every interval,
-so the adapter never resyncs it. It drops a snapshot that fails conversion. The next snapshot replaces the
-book.
+grouped book channel (`book.{instrument}.{group}.{depth}.{interval}`) ส่ง snapshot เต็มทุก interval adapter
+จึงไม่เคย resync channel นี้ มันจะทิ้ง snapshot ที่แปลงไม่ได้ และ snapshot ถัดไปจะแทนที่ book
 
-:::warning[Subscribe each instrument to one non-grouped book channel]
-`DeribitWebSocketClient::subscribe_book` can open non-grouped channels such as `book.{instrument}.raw`
-and `book.{instrument}.100ms`. These channels share one sequence and resync state per instrument.
-If a resync starts while one still awaits its initial snapshot, that channel can stay unsubscribed
-until the next reconnect. This warning does not apply to grouped depth subscriptions.
+:::warning[Subscribe แต่ละ instrument กับ book channel แบบ non-grouped เพียงช่องเดียว]
+`DeribitWebSocketClient::subscribe_book` เปิด channel แบบ non-grouped เช่น `book.{instrument}.raw`
+และ `book.{instrument}.100ms` ได้ channel เหล่านี้ใช้ sequence และ state ของ resync ร่วมกันต่อ instrument
+ถ้า resync เริ่มขณะที่ channel หนึ่งยังรอ snapshot เริ่มต้น channel นั้นอาจค้างอยู่ในสถานะ unsubscribe
+จนถึงการ reconnect ครั้งถัดไป คำเตือนนี้ไม่เกี่ยวกับ grouped depth subscription
 :::
 
-The adapter logs a warning and skips a malformed level, including a value that does not parse as a
-decimal. A level whose amount rounds to zero at the instrument's size precision is treated as
-absent: snapshots skip it, incremental updates delete it, and the adapter logs a warning.
+adapter จะ log warning และข้าม level ที่ผิดรูปแบบ รวมถึงค่าที่ parse เป็น decimal ไม่ได้ level ที่ amount ปัดเป็นศูนย์
+ตาม size precision ของ instrument จะถือว่าไม่มีอยู่: snapshot จะข้าม การอัปเดต incremental จะลบ และ adapter
+จะ log warning
 
-## Funding rates
+## Funding rate {#funding-rates}
 
-Deribit exchanges funding continuously (every few seconds) rather than at fixed intervals
-like most other exchanges. The `interval` field on `FundingRateUpdate` is `None` for
-Deribit because this continuous model does not map to a discrete period.
+Deribit แลกเปลี่ยน funding อย่างต่อเนื่อง (ทุกไม่กี่วินาที) แทนการใช้ interval คงที่เหมือน exchange อื่นส่วนใหญ่
+ฟิลด์ `interval` ของ `FundingRateUpdate` จึงเป็น `None` สำหรับ Deribit เพราะโมเดลแบบต่อเนื่องนี้ map ไปยัง
+ช่วงเวลาแบบไม่ต่อเนื่องไม่ได้
 
-## Deribit specific data
+## ข้อมูลเฉพาะของ Deribit {#deribit-specific-data}
 
-### Book summaries
+### Book summary {#book-summaries}
 
-Request `DeribitBookSummary` custom data to fetch one bulk snapshot filtered by currency and product
-kind. Each response item includes the Nautilus instrument ID, implied volatility, open interest,
-prices, volume, and other fields returned by `public/get_book_summary_by_currency`.
+request custom data `DeribitBookSummary` เพื่อดึง snapshot แบบ bulk หนึ่งชุดที่กรองตามสกุลเงินและประเภทผลิตภัณฑ์
+แต่ละรายการใน response มี instrument ID ของ Nautilus, implied volatility, open interest, ราคา, volume และฟิลด์อื่น
+ที่ `public/get_book_summary_by_currency` คืนมา
 
-The actor or strategy receives the complete response through one `on_historical_data` callback.
-Each item is a `CustomData` wrapper containing a `DeribitBookSummary` in its `data` field:
+actor หรือ strategy จะได้รับ response ทั้งหมดผ่าน callback `on_historical_data` ครั้งเดียว แต่ละรายการเป็น
+wrapper `CustomData` ที่มี `DeribitBookSummary` อยู่ในฟิลด์ `data`
 
-```python
-from nautilus_trader.adapters.deribit import DERIBIT_CLIENT_ID
-from nautilus_trader.adapters.deribit import DeribitBookSummary
-from nautilus_trader.model import CustomData
-from nautilus_trader.model import DataType
+ฟิลด์ metadata `currency` เป็นฟิลด์บังคับ ส่วนฟิลด์ `kind` ที่เป็นทางเลือกมีค่าเริ่มต้นเป็น `option`
+response ที่ว่างจะเรียก `on_historical_data` หนึ่งครั้งพร้อม list ว่าง request ไปยัง venue ที่ล้มเหลวก็จะเรียก
+callback พร้อม list ว่างหลังจาก log error request ที่ถูกปฏิเสธก่อนถึง venue เช่น request ที่ไม่มี `currency`
+จะไม่เรียก callback
 
+### Volatility index {#volatility-index}
 
-def on_start(self) -> None:
-    self.request_data(
-        DataType(
-            DeribitBookSummary.__name__,
-            metadata={"currency": "BTC", "kind": "option"},
-        ),
-        DERIBIT_CLIENT_ID,
-    )
+adapter ปล่อย custom data `DeribitVolatilityIndex` จาก WebSocket channel
+`deribit_volatility_index.{index_name}` ของ Deribit ซึ่งมี stream ของ volatility index เช่น `btc_usd` และ `eth_usd`
 
+| Field        | คำอธิบาย                                                 |
+| ------------ | -------------------------------------------------------- |
+| `index_name` | ชื่อ volatility index ของ Deribit เช่น `btc_usd`           |
+| `volatility` | ค่า volatility index ปัจจุบัน                               |
+| `ts_event`   | UNIX timestamp เป็น nanosecond ของเวลาที่การอัปเดตเกิดขึ้น      |
+| `ts_init`    | UNIX timestamp เป็น nanosecond ของเวลาที่สร้าง object        |
 
-def on_historical_data(self, data: list[CustomData]) -> None:
-    for item in data:
-        summary = item.data
-        if isinstance(summary, DeribitBookSummary):
-            self.log.info(
-                f"{summary.instrument_id}: mark_iv={summary.mark_iv}, "
-                f"open_interest={summary.open_interest}",
-            )
-```
+subscribe จาก actor หรือ strategy ด้วย data type `DeribitVolatilityIndex` บน client `DERIBIT`
+โดยต้องระบุ metadata key `index_name` (เช่น `btc_usd`)
 
-The `currency` metadata field is required. The optional `kind` field defaults to `option`.
-Decimal-backed venue fields, such as `mark_iv` and `open_interest`, are exposed to Python as strings
-or `None`. An empty response invokes `on_historical_data` once with an empty list. A failed venue
-request also invokes the callback with an empty list after logging an error. A request rejected
-before it reaches the venue, such as one missing `currency`, produces no callback.
+## ความสามารถด้าน order {#orders-capability}
 
-### Volatility index
+adapter ตรวจสอบ parameter ของ order และเข้าคิว `OrderSubmitted` ก่อนส่ง order ถ้าการตรวจสอบหรือการเข้าคิว
+event ล้มเหลว adapter จะคืน error โดยไม่ส่ง order และ execution engine จะจัดการ error นั้นเป็น `OrderDenied`
 
-The adapter emits `DeribitVolatilityIndex` custom data from Deribit's
-`deribit_volatility_index.{index_name}` WebSocket channel. Deribit provides
-volatility index streams such as `btc_usd` and `eth_usd`.
+สำหรับ order list นั้น adapter ตรวจสอบทุกสมาชิกและเข้าคิว event `OrderSubmitted` ทั้งหมดก่อนส่งสมาชิกตัวใด
+ความล้มเหลวของการตรวจสอบหรือการเข้าคิวจะกัน request ไปยัง venue ทั้งหมดของ list นั้น
 
-| Field        | Type    | Description                                              |
-| ------------ | ------- | -------------------------------------------------------- |
-| `index_name` | `str`   | Deribit volatility index name, for example `btc_usd`.    |
-| `volatility` | `float` | Current volatility index value.                          |
-| `ts_event`   | `int`   | UNIX timestamp in nanoseconds when the update occurred.  |
-| `ts_init`    | `int`   | UNIX timestamp in nanoseconds when the object was built. |
+ด้านล่างคือประเภท order, คำสั่งการ execute และตัวเลือก time-in-force ที่รองรับบน Deribit
 
-Subscribe from an actor or strategy with `DataType(DeribitVolatilityIndex.__name__)`.
-The `index_name` metadata key is required:
+### ประเภทของ order {#order-types}
 
-```python
-from nautilus_trader.adapters.deribit import DeribitVolatilityIndex
-from nautilus_trader.model import ClientId
-from nautilus_trader.model import DataType
+| ประเภท order ของ Nautilus | ประเภท order ของ Deribit | รองรับ | หมายเหตุ                                   |
+| ---------------------- | ------------------ | ------ | --------------------------------------- |
+| `MARKET`               | `market`           | ✓      | execute ทันทีที่ราคาตลาด                   |
+| `LIMIT`                | `limit`            | ✓      | execute ที่ราคาที่กำหนดหรือดีกว่า                |
+| `STOP_MARKET`          | `stop_market`      | ✓      | market order แบบมีเงื่อนไขเมื่อ trigger        |
+| `STOP_LIMIT`           | `stop_limit`       | ✓      | limit order แบบมีเงื่อนไขเมื่อ trigger         |
+| `MARKET_IF_TOUCHED`    | `take_market`      | ✓      | market order แบบ take-profit              |
+| `LIMIT_IF_TOUCHED`     | `take_limit`       | ✓      | limit order แบบ take-profit               |
+| `TRAILING_STOP_MARKET` | `trailing_stop`    | -      | *ยังไม่ได้ implement*                       |
+| `TRAILING_STOP_LIMIT`  | N/A                | -      | *Deribit ไม่รองรับ*                        |
+| `MARKET_TO_LIMIT`      | `market_limit`     | -      | *ยังไม่ได้ implement*                       |
 
-self.subscribe_data(
-    data_type=DataType(DeribitVolatilityIndex.__name__, metadata={"index_name": "btc_usd"}),
-    client_id=ClientId.from_str("DERIBIT"),
-)
-```
+### คำสั่งการ execute {#execution-instructions}
 
-## Orders capability
+| คำสั่ง          | รองรับ | หมายเหตุ                                                                          |
+| ------------- | ------ | -------------------------------------------------------------------------------- |
+| `post_only`   | ✓      | order จะถูกปฏิเสธถ้าจะไปกิน liquidity ใช้ `reject_post_only=true`                   |
+| `reduce_only` | ✓      | order ลด position ที่มีอยู่ได้เท่านั้น                                               |
 
-The adapter validates order parameters and queues `OrderSubmitted` before sending an order.
-If validation or event queuing fails, the adapter returns an error without sending the order.
-The execution engine handles that error as `OrderDenied`.
+### Time in force {#time-in-force}
 
-For order lists, the adapter validates every member and queues all `OrderSubmitted` events
-before sending any member. A validation or queuing failure prevents all venue requests for that list.
+| Time in force | รองรับ | หมายเหตุ                                                |
+| ------------- | ------ | ---------------------------------------------------- |
+| `GTC`         | ✓      | Good till canceled (`good_til_cancelled`)            |
+| `GTD`         | ✓      | Good till day หมดอายุเวลา 8:00 UTC (`good_til_day`)  |
+| `IOC`         | ✓      | Immediate or cancel (`immediate_or_cancel`)          |
+| `FOK`         | ✓      | Fill or kill (`fill_or_kill`)                        |
 
-Below are the order types, execution instructions, and time-in-force options supported on Deribit.
-
-### Order types
-
-| Nautilus order type    | Deribit order type | Supported | Notes                                   |
-| ---------------------- | ------------------ | --------- | --------------------------------------- |
-| `MARKET`               | `market`           | ✓         | Immediate execution at market price.    |
-| `LIMIT`                | `limit`            | ✓         | Execution at specified price or better. |
-| `STOP_MARKET`          | `stop_market`      | ✓         | Conditional market order on trigger.    |
-| `STOP_LIMIT`           | `stop_limit`       | ✓         | Conditional limit order on trigger.     |
-| `MARKET_IF_TOUCHED`    | `take_market`      | ✓         | Take-profit style market order.         |
-| `LIMIT_IF_TOUCHED`     | `take_limit`       | ✓         | Take-profit style limit order.          |
-| `TRAILING_STOP_MARKET` | `trailing_stop`    | -         | *Not currently implemented*.            |
-| `TRAILING_STOP_LIMIT`  | N/A                | -         | *Not supported by Deribit*.             |
-| `MARKET_TO_LIMIT`      | `market_limit`     | -         | *Not currently implemented*.            |
-
-### Execution instructions
-
-| Instruction   | Supported | Notes                                                                            |
-| ------------- | --------- | -------------------------------------------------------------------------------- |
-| `post_only`   | ✓         | Order will be rejected if it would take liquidity. Uses `reject_post_only=true`. |
-| `reduce_only` | ✓         | Order can only reduce an existing position.                                      |
-
-### Time in force
-
-| Time in force | Supported | Notes                                                |
-| ------------- | --------- | ---------------------------------------------------- |
-| `GTC`         | ✓         | Good till canceled (`good_til_cancelled`).           |
-| `GTD`         | ✓         | Good till day. Expires at 8:00 UTC (`good_til_day`). |
-| `IOC`         | ✓         | Immediate or cancel (`immediate_or_cancel`).         |
-| `FOK`         | ✓         | Fill or kill (`fill_or_kill`).                       |
-
-Deribit applies time in force to limit-style orders. The adapter omits `time_in_force`
-for `MARKET`, `STOP_MARKET`, and `MARKET_IF_TOUCHED` orders because Deribit rejects that
-parameter on market-style order types.
+Deribit ใช้ time in force กับ order แบบ limit adapter จึงละ `time_in_force` สำหรับ order แบบ `MARKET`,
+`STOP_MARKET` และ `MARKET_IF_TOUCHED` เพราะ Deribit ปฏิเสธ parameter นั้นสำหรับ order แบบ market
 
 :::note
-**GTD on Deribit**: Unlike other exchanges where GTD accepts an arbitrary expiry time,
-Deribit's `good_til_day` always expires at 8:00 UTC the same or next day. Custom expiry times
-will be logged as warnings and the order will use the exchange's fixed expiry behavior.
+**GTD บน Deribit**: ต่างจาก exchange อื่นที่ GTD รับเวลาหมดอายุใดก็ได้ `good_til_day` ของ Deribit หมดอายุ
+เวลา 8:00 UTC ของวันเดียวกันหรือวันถัดไปเสมอ เวลาหมดอายุที่กำหนดเองจะถูก log เป็น warning และ order
+จะใช้พฤติกรรมเวลาหมดอายุคงที่ของ exchange
 :::
 
-### Trigger types
+### ประเภทของ trigger {#trigger-types}
 
-Conditional orders (stop orders) support different trigger price sources:
+conditional order (stop order) รองรับแหล่งราคา trigger ต่างกัน:
 
-| Trigger type  | Supported | Notes                                                |
-| ------------- | --------- | ---------------------------------------------------- |
-| `last_price`  | ✓         | Uses the last traded price. Also used for `DEFAULT`. |
-| `mark_price`  | ✓         | Uses the mark price.                                 |
-| `index_price` | ✓         | Uses the underlying index price.                     |
+| ประเภท trigger  | รองรับ | หมายเหตุ                                                |
+| ------------- | ------ | ---------------------------------------------------- |
+| `last_price`  | ✓      | ใช้ราคาที่เทรดล่าสุด และใช้กับ `DEFAULT` ด้วย              |
+| `mark_price`  | ✓      | ใช้ mark price                                       |
+| `index_price` | ✓      | ใช้ราคา index ของสินทรัพย์อ้างอิง                          |
 
-Any other Nautilus trigger type is dropped from the request rather than mapped. Deribit requires
-`trigger` on stop-loss and take-profit orders, so use one of the three above for conditional
-orders.
+trigger type อื่นของ Nautilus จะถูกตัดออกจาก request แทนการ map Deribit ต้องการ `trigger` สำหรับ order
+แบบ stop-loss และ take-profit จึงต้องใช้หนึ่งในสามแบบข้างต้นสำหรับ conditional order
 
-```python
-# Example: Stop loss using mark price trigger
-stop_order = order_factory.stop_market(
-    instrument_id=instrument_id,
-    order_side=OrderSide.SELL,
-    quantity=Quantity.from_str("0.1"),
-    trigger_price=Price.from_str("45000.0"),
-    trigger_type=TriggerType.MARK_PRICE,  # Use mark price for trigger
-)
-strategy.submit_order(stop_order)
-```
+### การทำงานแบบ batch {#batch-operations}
 
-### Batch operations
+| การทำงาน                  | รองรับ | หมายเหตุ                                                                    |
+| ------------------------ | ------ | ------------------------------------------------------------------------ |
+| Submit order list        | ✓      | ส่งแต่ละ order เป็น order เดี่ยวของ Deribit ไม่มี batch แบบ atomic ที่ venue     |
+| Batch cancel by order ID | ✓      | ส่ง request `private/cancel` แยกสำหรับแต่ละ venue order ID                 |
+| Cancel all by instrument | ✓      | ใช้ `private/cancel_all_by_instrument` เมื่อไม่ได้ระบุ filter ด้าน side       |
+| Side-filtered cancel all | ✓      | กรอง order ที่เปิดอยู่ใน cache ฝั่ง local แล้ว cancel ทีละ order ที่ตรงเงื่อนไข     |
+| Batch modify             | -      | *ยังไม่ได้ implement*: รองรับการแก้ไข order เดี่ยว                           |
 
-| Operation                | Supported | Notes                                                                    |
-| ------------------------ | --------- | ------------------------------------------------------------------------ |
-| Submit order list        | ✓         | Sends each order as an individual Deribit order. No atomic venue batch.  |
-| Batch cancel by order ID | ✓         | Sends individual `private/cancel` requests for each venue order ID.      |
-| Cancel all by instrument | ✓         | Uses `private/cancel_all_by_instrument` when no side filter is supplied. |
-| Side-filtered cancel all | ✓         | Filters cached open orders locally, then cancels each matching order.    |
-| Batch modify             | -         | *Not currently implemented*: single order modify is supported.           |
+### พฤติกรรมของ post-only {#post-only-behavior}
 
-### Post-only behavior
+Deribit มีโหมด post-only สองแบบ:
 
-Deribit offers two post-only modes:
+1. **ปรับราคา (ค่าเริ่มต้นของ Deribit)**: ถ้า order แบบ post-only จะข้าม spread และถูก execute Deribit
+   จะปรับราคาให้อยู่ภายใน spread หนึ่ง tick โดยอัตโนมัติ
+2. **โหมดปฏิเสธ**: order จะถูกปฏิเสธทันทีถ้าจะข้าม spread
 
-1. **Price adjustment (Deribit default)**: If a post-only order would cross the spread and execute,
-   Deribit automatically adjusts the price to one tick inside the spread.
-2. **Reject mode**: Order is immediately rejected if it would cross the spread.
+adapter ของ Nautilus ใช้**โหมดปฏิเสธ** (`reject_post_only=true`) เพื่อให้พฤติกรรม deterministic ถ้า order
+แบบ post-only จะไปกิน liquidity จะถูกปฏิเสธด้วย error code `11054` และปล่อย event `OrderRejected` ที่ตั้ง flag
+`due_post_only` เป็น `true`
 
-The Nautilus adapter uses **reject mode** (`reject_post_only=true`) for deterministic behavior.
-If a post-only order would take liquidity, it is rejected with error code `11054`, and an `OrderRejected`
-event is emitted with the `due_post_only` flag set to `true`.
+ทำให้ strategy แยกความแตกต่างได้ระหว่าง:
 
-This allows strategies to differentiate between:
+- order ที่ถูกปฏิเสธเพราะละเมิด post-only (พยายามกิน liquidity)
+- order ที่ถูกปฏิเสธด้วยเหตุผลอื่น (margin ไม่พอ, ราคาไม่ถูกต้อง ฯลฯ)
 
-- Orders rejected due to post-only violation (attempted to take liquidity).
-- Orders rejected for other reasons (insufficient margin, invalid price, etc.).
+### การแก้ไข order {#order-modification}
 
-### Order modification
+adapter ใช้ endpoint `private/edit` แบบ native ของ Deribit แทนการ cancel แล้ววางใหม่ ซึ่งมีข้อดีหลายประการ:
 
-The adapter uses Deribit's native `private/edit` endpoint rather than cancel-and-replace.
-This provides several advantages:
-
-| Benefit                     | Description                                                       |
+| ข้อดี                         | คำอธิบาย                                                             |
 | --------------------------- | ----------------------------------------------------------------- |
-| Single request              | Faster execution, lower latency than cancel + new order.          |
-| Queue priority preservation | Keeps position when only reducing quantity or keeping same price. |
-| Fill history maintained     | Partial fills remain linked to the same order ID.                 |
+| Request เดียว                 | execute เร็วกว่า latency ต่ำกว่าการ cancel + order ใหม่                |
+| คงลำดับในคิว                    | คงตำแหน่งในคิวเมื่อลด quantity อย่างเดียวหรือใช้ราคาเดิม                    |
+| คงประวัติ fill                   | partial fill ยังผูกกับ order ID เดิม                                 |
 
-**Queue priority rules**:
+**กฎลำดับในคิว**:
 
-- **Decreasing quantity only**: Keeps queue position.
-- **Same price**: Keeps queue position.
-- **Increasing quantity or changing price**: Loses queue position (treated as new order).
+- **ลด quantity อย่างเดียว**: คงตำแหน่งในคิว
+- **ราคาเดิม**: คงตำแหน่งในคิว
+- **เพิ่ม quantity หรือเปลี่ยนราคา**: เสียตำแหน่งในคิว (ถือเป็น order ใหม่)
 
-A modify command must carry the venue order ID and a price. If either is missing, the adapter rejects the
-command locally without reaching Deribit. Quantity is optional and falls back to the cached order's current
-quantity.
+คำสั่ง modify ต้องมี venue order ID และราคา ถ้าขาดอย่างใดอย่างหนึ่ง adapter จะปฏิเสธคำสั่งฝั่ง local โดยไม่ส่งไปถึง
+Deribit quantity เป็นทางเลือก และจะใช้ quantity ปัจจุบันของ order ใน cache แทนเมื่อไม่ได้ระบุ
 
-### Position management
+### การจัดการ position {#position-management}
 
-| Feature          | Supported | Notes                                                              |
-| ---------------- | --------- | ------------------------------------------------------------------ |
-| Query positions  | ✓         | Fetched from `private/get_positions` for reconciliation.           |
-| Position mode    | -         | *Not supported by Deribit*: net position mode only.                |
-| Leverage control | -         | *Not supported by Deribit*: no direct leverage setting.            |
-| Margin mode      | -         | *Not currently implemented*: Deribit exposes account margin modes. |
+| ความสามารถ        | รองรับ | หมายเหตุ                                                              |
+| ---------------- | ------ | ------------------------------------------------------------------ |
+| Query positions  | ✓      | ดึงจาก `private/get_positions` สำหรับ reconciliation                 |
+| Position mode    | -      | *Deribit ไม่รองรับ*: มีเฉพาะโหมด net position                         |
+| Leverage control | -      | *Deribit ไม่รองรับ*: ไม่มีการตั้ง leverage โดยตรง                        |
+| Margin mode      | -      | *ยังไม่ได้ implement*: Deribit มีโหมด margin ระดับ account              |
 
-The execution client subscribes to `user.orders`, `user.trades`, and `user.portfolio` (balance and
-margin), not to Deribit's combined `user.changes` channel, so no position push reaches the adapter.
-Live position state is maintained by Nautilus from the fills on `user.trades`, and
-`private/get_positions` supplies the venue snapshot that reconciliation compares against.
+execution client subscribe `user.orders`, `user.trades` และ `user.portfolio` (ยอดคงเหลือและ margin)
+ไม่ได้ subscribe channel `user.changes` แบบรวมของ Deribit จึงไม่มี position ถูก push มาที่ adapter Nautilus
+ดูแลสถานะ position แบบ live จาก fill บน `user.trades` และ `private/get_positions` ให้ snapshot ฝั่ง venue
+ที่ reconciliation ใช้เปรียบเทียบ
 
-### Order querying
+### การ query order {#order-querying}
 
-| Feature              | Supported | Notes                          |
-| -------------------- | --------- | ------------------------------ |
-| Query open orders    | ✓         | List all active orders.        |
-| Query order history  | ✓         | Historical order data.         |
-| Order status updates | ✓         | Real-time order state changes. |
-| Trade history        | ✓         | Execution and fill reports.    |
+| ความสามารถ            | รองรับ | หมายเหตุ                          |
+| -------------------- | ------ | ------------------------------ |
+| Query open orders    | ✓      | แสดง order ที่ active ทั้งหมด       |
+| Query order history  | ✓      | ข้อมูล order ย้อนหลัง              |
+| Order status updates | ✓      | การเปลี่ยนสถานะ order แบบ real-time |
+| Trade history        | ✓      | execution report และ fill report |
 
-### Contingent orders
+### Contingent order {#contingent-orders}
 
-| Feature                        | Supported | Notes                                                                          |
-| ------------------------------ | --------- | ------------------------------------------------------------------------------ |
-| Order lists                    | ✓         | Submitted sequentially as independent orders; there is no atomic venue list.   |
-| Native linked orders           | -         | *Not currently implemented*: Deribit exposes `linked_order_type`.              |
-| OCO orders                     | -         | *Not currently implemented*: Deribit exposes `one_cancels_other`.              |
-| Bracket orders                 | -         | *Not currently implemented*: Deribit exposes `one_triggers_one_cancels_other`. |
-| Conditional stop orders        | ✓         | Stop market and stop limit orders.                                             |
-| Conditional take-profit orders | ✓         | Market-if-touched and limit-if-touched orders.                                 |
+| ความสามารถ                      | รองรับ | หมายเหตุ                                                                          |
+| ------------------------------ | ------ | ------------------------------------------------------------------------------ |
+| Order lists                    | ✓      | ส่งตามลำดับเป็น order อิสระ ไม่มี list แบบ atomic ที่ venue                          |
+| Native linked orders           | -      | *ยังไม่ได้ implement*: Deribit มี `linked_order_type`                            |
+| OCO orders                     | -      | *ยังไม่ได้ implement*: Deribit มี `one_cancels_other`                            |
+| Bracket orders                 | -      | *ยังไม่ได้ implement*: Deribit มี `one_triggers_one_cancels_other`               |
+| Conditional stop orders        | ✓      | order แบบ stop market และ stop limit                                           |
+| Conditional take-profit orders | ✓      | order แบบ market-if-touched และ limit-if-touched                               |
 
-### Liquidation handling
+### การจัดการ liquidation {#liquidation-handling}
 
-Deribit tags any trade that was triggered by a liquidation. On the
-`user.trades` stream and `private/get_user_trades_*` endpoints, the optional
-`liquidation` field indicates which side was being liquidated:
+Deribit ติด tag ทุก trade ที่เกิดจาก liquidation บน stream `user.trades` และ endpoint
+`private/get_user_trades_*` ฟิลด์ `liquidation` ที่เป็นทางเลือกระบุว่าฝั่งใดถูก liquidate:
 
-| Value  | Meaning                       |
+| ค่า     | ความหมาย                       |
 | ------ | ----------------------------- |
-| `"M"`  | Maker side was liquidated.    |
-| `"T"`  | Taker side was liquidated.    |
-| `"MT"` | Both sides were liquidated.   |
-| absent | Normal non-liquidation trade. |
+| `"M"`  | ฝั่ง maker ถูก liquidate         |
+| `"T"`  | ฝั่ง taker ถูก liquidate         |
+| `"MT"` | ทั้งสองฝั่งถูก liquidate          |
+| absent | trade ปกติที่ไม่ใช่ liquidation    |
 
-For each liquidation-tagged fill, the adapter logs a warning with the instrument, trade ID, order ID, and
-liquidation side. Then it emits the `FillReport` through the normal pipeline. Deribit does not operate an ADL
-mechanism distinct from the liquidation + insurance-fund / portfolio margin process, so there is no separate
-ADL signal to surface.
+สำหรับ fill แต่ละตัวที่ติด tag liquidation adapter จะ log warning พร้อม instrument, trade ID, order ID และฝั่งที่ถูก
+liquidate จากนั้นปล่อย `FillReport` ผ่าน pipeline ปกติ Deribit ไม่มีกลไก ADL ที่แยกจากกระบวนการ liquidation +
+insurance fund / portfolio margin จึงไม่มีสัญญาณ ADL แยกให้แสดง
 
-Upstream references:
+แหล่งอ้างอิงต้นทาง:
 
-- [`user.trades.{instrument_name}.{interval}` channel](https://docs.deribit.com/subscriptions/user/usertradesinstrument_nameinterval)
-- [Liquidation documentation](https://support.deribit.com/hc/en-us/articles/25944769313309-Liquidations)
+- [channel `user.trades.{instrument_name}.{interval}`](https://docs.deribit.com/subscriptions/user/usertradesinstrument_nameinterval)
+- [เอกสารเรื่อง liquidation](https://support.deribit.com/hc/en-us/articles/25944769313309-Liquidations)
 
-## Rate limiting
+## Rate limiting {#rate-limiting}
 
-Deribit uses credit-based and endpoint-specific rate limits. The official Deribit limits are
-authoritative, and they can vary by endpoint, account tier, and current venue policy. The adapter
-adds local token buckets to reduce avoidable throttling, but it does not replace Deribit's own
-server-side checks.
+Deribit ใช้ rate limit แบบ credit และแบบเฉพาะ endpoint ขีดจำกัดทางการของ Deribit เป็นแหล่งข้อมูลที่ถูกต้อง
+และอาจต่างกันตาม endpoint, ระดับ account และนโยบายปัจจุบันของ venue adapter เพิ่ม token bucket ฝั่ง local
+เพื่อลดการถูก throttle ที่หลีกเลี่ยงได้ แต่ไม่ได้แทนที่การตรวจฝั่ง server ของ Deribit
 
-### HTTP limits
+### ขีดจำกัดของ HTTP {#http-limits}
 
-Every HTTP request consumes the global bucket and a per-method bucket keyed `deribit:{method}` that uses the
-global quota. If the JSON-RPC method belongs to the order or account category, it also consumes that bucket.
+ทุก HTTP request ใช้ทั้ง bucket ระดับ global และ bucket ราย method ที่ใช้ key `deribit:{method}` ซึ่งใช้ quota
+ระดับ global ถ้า JSON-RPC method อยู่ในหมวด order หรือ account ก็จะใช้ bucket นั้นด้วย
 
-| Bucket / key       | Adapter bucket        | Notes                                                          |
+| Bucket / key       | Bucket ของ adapter      | หมายเหตุ                                                          |
 | ------------------ | --------------------- | -------------------------------------------------------------- |
-| `deribit:global`   | 20 req/sec, 100 burst | Applied to every HTTP request.                                 |
-| `deribit:orders`   | 5 req/sec, 20 burst   | Matching-engine methods when driving the HTTP client directly. |
-| `deribit:account`  | 5 req/sec, 5 burst    | Account, position, order state, and user trade endpoints.      |
-| `deribit:{method}` | 20 req/sec, 100 burst | Per-method bucket; falls back to the global quota.             |
+| `deribit:global`   | 20 req/sec, 100 burst | ใช้กับทุก HTTP request                                           |
+| `deribit:orders`   | 5 req/sec, 20 burst   | method ของ matching engine เมื่อใช้ HTTP client โดยตรง              |
+| `deribit:account`  | 5 req/sec, 5 burst    | endpoint ด้าน account, position, สถานะ order และ user trade       |
+| `deribit:{method}` | 20 req/sec, 100 burst | bucket ราย method; ใช้ quota ระดับ global แทน                      |
 
-### WebSocket limits
+### ขีดจำกัดของ WebSocket {#websocket-limits}
 
-The adapter combines adjacent queued subscribe requests that use the same public or private method without adding a delay.
-It splits large subscribe and unsubscribe sets so each serialized JSON-RPC request stays within 32,000 bytes, including
-the envelope. Restored subscriptions use the same size bound after reconnect.
+adapter รวม subscribe request ที่อยู่ติดกันในคิวและใช้ method สาธารณะหรือส่วนตัวเดียวกันเข้าด้วยกันโดยไม่เพิ่ม delay
+และแบ่งชุด subscribe และ unsubscribe ขนาดใหญ่ เพื่อให้ JSON-RPC request ที่ serialize แล้วแต่ละตัวไม่เกิน 32,000 byte
+รวม envelope subscription ที่กู้คืนหลัง reconnect ก็ใช้ขีดจำกัดขนาดเดียวกัน
 
-| Operation             | Adapter bucket      | Notes                                                          |
+| การทำงาน               | Bucket ของ adapter    | หมายเหตุ                                                          |
 | --------------------- | ------------------- | -------------------------------------------------------------- |
-| Subscribe/unsubscribe | 3 req/sec, 10 burst | Also the default bucket for every non-order WebSocket request. |
-| Order operations      | 5 req/sec, 20 burst | Buy, sell, edit, and cancel via WebSocket.                     |
+| Subscribe/unsubscribe | 3 req/sec, 10 burst | เป็น bucket ค่าเริ่มต้นสำหรับ WebSocket request ทุกตัวที่ไม่ใช่ order     |
+| Order operations      | 5 req/sec, 20 burst | buy, sell, edit และ cancel ผ่าน WebSocket                        |
 
 :::note
-The Nautilus adapter uses WebSocket for order submission (not HTTP) for lower latency.
-Order operations are rate-limited by `DERIBIT_WS_ORDER_QUOTA` (5 req/sec, 20 burst).
+adapter ของ Nautilus ใช้ WebSocket ในการส่ง order (ไม่ใช่ HTTP) เพื่อ latency ที่ต่ำกว่า
+การทำงานกับ order ถูกจำกัดอัตราด้วย `DERIBIT_WS_ORDER_QUOTA` (5 req/sec, 20 burst)
 :::
 
-### Credit-based system details
+### รายละเอียดของระบบ credit {#credit-based-system-details}
 
-Deribit replenishes non-matching-engine credits continuously. Current public documentation lists
-the default non-matching-engine pool as follows:
+Deribit เติม credit ที่ไม่ใช่ของ matching engine อย่างต่อเนื่อง เอกสารสาธารณะปัจจุบันระบุ pool ค่าเริ่มต้นของ
+request ที่ไม่ใช่ matching engine ดังนี้:
 
-**Non-matching engine requests**:
+**Request ที่ไม่ใช่ matching engine**:
 
-| Parameter        | Value              | Notes                           |
+| Parameter        | ค่า                 | หมายเหตุ                           |
 | ---------------- | ------------------ | ------------------------------- |
-| Cost per request | 500 credits        | Each API call consumes credits. |
-| Maximum pool     | 50,000 credits     | Allows 100 request burst.       |
-| Refill rate      | 10,000 credits/sec | ~20 sustained requests/second.  |
+| Cost per request | 500 credits        | การเรียก API แต่ละครั้งใช้ credit     |
+| Maximum pool     | 50,000 credits     | burst ได้ 100 request            |
+| Refill rate      | 10,000 credits/sec | ราว 20 request/วินาทีต่อเนื่อง       |
 
-**Matching engine requests (default tier)**:
+**Request ของ matching engine (ระดับค่าเริ่มต้น)**:
 
-| Parameter      | Value          | Notes                            |
+| Parameter      | ค่า             | หมายเหตุ                            |
 | -------------- | -------------- | -------------------------------- |
-| Sustained rate | 5 requests/sec | Continuous rate limit.           |
-| Burst capacity | 20 requests    | Maximum burst before throttling. |
+| Sustained rate | 5 requests/sec | rate limit ต่อเนื่อง                |
+| Burst capacity | 20 requests    | burst สูงสุดก่อนถูก throttle          |
 
-Higher matching-engine limits are available for market makers and high-volume traders based on
-7-day trading volume tiers.
+ขีดจำกัดของ matching engine ที่สูงกว่ามีให้สำหรับ market maker และเทรดเดอร์ที่มี volume สูง ตามระดับ volume การเทรด
+7 วัน
 
-Some Deribit endpoints have stricter method-specific limits. For example, current venue docs list
-`public/get_instruments` at 1 request per second with a 50 request burst, and subscription methods
-at about 3.3 requests per second with a 10 request burst. Keep `product_types` scoped to the
-families you need and avoid repeated full instrument reloads in live systems.
+endpoint บางตัวของ Deribit มีขีดจำกัดเฉพาะ method ที่เข้มงวดกว่า เช่น เอกสาร venue ปัจจุบันระบุ
+`public/get_instruments` ไว้ที่ 1 request ต่อวินาทีพร้อม burst 50 request และ method ของ subscription ราว 3.3 request
+ต่อวินาทีพร้อม burst 10 request ให้จำกัด `product_types` เฉพาะกลุ่มที่ต้องใช้ และหลีกเลี่ยงการโหลด instrument ใหม่
+ทั้งหมดซ้ำๆ ในระบบ live
 
-The Nautilus adapter implements broad token bucket rate limiters configured as:
+adapter ของ Nautilus implement token bucket rate limiter แบบกว้างที่ตั้งค่าไว้ดังนี้:
 
-- `DERIBIT_HTTP_REST_QUOTA`: 20 req/sec with 100 burst (global and per-method HTTP)
-- `DERIBIT_HTTP_ORDER_QUOTA`: 5 req/sec with 20 burst (matching-engine HTTP)
-- `DERIBIT_HTTP_ACCOUNT_QUOTA`: 5 req/sec with 5 burst (account HTTP)
-- `DERIBIT_WS_ORDER_QUOTA`: 5 req/sec with 20 burst (matching-engine WebSocket)
-- `DERIBIT_WS_SUBSCRIPTION_QUOTA`: 3 req/sec with 10 burst (subscribe, unsubscribe, and other non-order requests)
+- `DERIBIT_HTTP_REST_QUOTA`: 20 req/sec พร้อม 100 burst (HTTP ระดับ global และราย method)
+- `DERIBIT_HTTP_ORDER_QUOTA`: 5 req/sec พร้อม 20 burst (HTTP ของ matching engine)
+- `DERIBIT_HTTP_ACCOUNT_QUOTA`: 5 req/sec พร้อม 5 burst (HTTP ด้าน account)
+- `DERIBIT_WS_ORDER_QUOTA`: 5 req/sec พร้อม 20 burst (WebSocket ของ matching engine)
+- `DERIBIT_WS_SUBSCRIPTION_QUOTA`: 3 req/sec พร้อม 10 burst (subscribe, unsubscribe และ request อื่นที่ไม่ใช่ order)
 
-For more details, see the
-[Rate limits article](https://docs.deribit.com/articles/rate-limits).
+ดูรายละเอียดเพิ่มเติมได้ที่
+[บทความ Rate limits](https://docs.deribit.com/articles/rate-limits)
 
 :::warning
-Deribit returns error code `10028` (too_many_requests) when you exceed the allowed quota.
-Repeated violations may result in temporary throttling.
+Deribit คืน error code `10028` (too_many_requests) เมื่อคุณใช้เกิน quota ที่อนุญาต การละเมิดซ้ำๆ
+อาจทำให้ถูก throttle ชั่วคราว
 :::
 
-## Connection management
+## การจัดการ connection {#connection-management}
 
-### Platform limits
+### ขีดจำกัดของแพลตฟอร์ม {#platform-limits}
 
-| Limit                                            | Current Deribit guidance |
-| ------------------------------------------------ | ------------------------ |
-| Active sessions per API key or login             | 16                       |
-| Session and connection-scoped connections per IP | 32                       |
-| Web app connections per browser session          | 2                        |
+| ขีดจำกัด                                           | แนวทางปัจจุบันของ Deribit |
+| ------------------------------------------------ | ---------------------- |
+| Active sessions per API key or login             | 16                     |
+| Session and connection-scoped connections per IP | 32                     |
+| Web app connections per browser session          | 2                      |
 
-### Session-based authentication
+### การยืนยันตัวตนแบบ session {#session-based-authentication}
 
-The adapter uses **separate WebSocket sessions** for data and execution clients, each with its own
-authentication scope:
+adapter ใช้ **WebSocket session แยกกัน** สำหรับ data client และ execution client แต่ละตัวมีขอบเขตการยืนยัน
+ตัวตนของตัวเอง:
 
-| Client           | Session Name         | Purpose                                             |
+| Client           | ชื่อ session           | วัตถุประสงค์                                             |
 | ---------------- | -------------------- | --------------------------------------------------- |
-| Data client      | `nautilus-data`      | Market data subscriptions (raw feeds require auth). |
-| Execution client | `nautilus-execution` | Order operations (buy, sell, edit, cancel).         |
+| Data client      | `nautilus-data`      | market data subscription (raw feed ต้องยืนยันตัวตน)     |
+| Execution client | `nautilus-execution` | การทำงานกับ order (buy, sell, edit, cancel)            |
 
-**Authentication flow**:
+**Flow การยืนยันตัวตน**:
 
-1. WebSocket connects to Deribit.
-2. Client authenticates using `client_signature` grant type with session scope.
-3. Tokens are refreshed before expiry.
-4. On reconnection, re-authentication is retried with exponential backoff (up to 3 attempts).
-   If all attempts fail, only public channel subscriptions are restored.
+1. WebSocket เชื่อมต่อกับ Deribit
+2. client ยืนยันตัวตนด้วย grant type `client_signature` พร้อม session scope
+3. token ถูก refresh ก่อนหมดอายุ
+4. เมื่อ reconnect การยืนยันตัวตนใหม่จะ retry ด้วย exponential backoff (สูงสุด 3 ครั้ง)
+   ถ้าล้มเหลวทั้งหมด จะกู้คืนเฉพาะ subscription ของ channel สาธารณะ
 
-This session-based approach allows:
+แนวทางแบบ session นี้ทำให้:
 
-- Independent token management per client type.
-- Isolated failure domains (data auth failure does not affect execution).
-- Clear audit trail in Deribit's session logs.
+- จัดการ token แยกกันตามประเภท client
+- แยกขอบเขตความล้มเหลว (การยืนยันตัวตนฝั่ง data ล้มเหลวไม่กระทบ execution)
+- มี audit trail ชัดเจนใน session log ของ Deribit
 
-### Best practices
+### แนวปฏิบัติที่ดี {#best-practices}
 
-The adapter follows Deribit's
-[recommended connection practices](https://docs.deribit.com/articles/connection-management-best-practices):
+adapter ทำตาม[แนวปฏิบัติด้าน connection ที่ Deribit แนะนำ](https://docs.deribit.com/articles/connection-management-best-practices):
 
-1. **Uses WebSocket subscriptions** for real-time data instead of REST polling, resulting in fewer requests,
-   lower latency, and reduced rate limit consumption.
-2. **Authenticates all connections** when credentials are provided. Authenticated users benefit
-   from higher rate limits and are less likely to be IP rate-limited.
-3. **Implements heartbeats** (30 second interval by default) to maintain connection health and detect
-   disconnections early.
-4. **Handles reconnection** automatically with re-authentication and subscription recovery.
+1. **ใช้ WebSocket subscription** สำหรับข้อมูล real-time แทนการ poll ผ่าน REST ทำให้ request น้อยลง
+   latency ต่ำลง และใช้ rate limit น้อยลง
+2. **ยืนยันตัวตนทุก connection** เมื่อมี credential ผู้ใช้ที่ยืนยันตัวตนแล้วได้ rate limit สูงกว่าและมีโอกาสถูกจำกัด
+   อัตราตาม IP น้อยกว่า
+3. **ใช้ heartbeat** (interval 30 วินาทีโดยค่าเริ่มต้น) เพื่อรักษาสุขภาพของ connection และตรวจจับการหลุดได้เร็ว
+4. **จัดการการ reconnect** โดยอัตโนมัติพร้อมการยืนยันตัวตนใหม่และการกู้คืน subscription
 
 :::tip
-Always provide API credentials even for public data access. Authenticated connections have higher
-rate limits, and Deribit contacts authenticated clients before applying restrictions during
-high-load periods.
+ควรให้ API credential เสมอแม้จะเข้าถึงข้อมูลสาธารณะ connection ที่ยืนยันตัวตนแล้วมี rate limit สูงกว่า และ
+Deribit จะติดต่อ client ที่ยืนยันตัวตนแล้วก่อนใช้ข้อจำกัดในช่วงที่ภาระสูง
 :::
 
 :::note
-The adapter uses a 30 second heartbeat interval by default. Deribit requires WebSocket heartbeat
-intervals to be at least 10 seconds.
+adapter ใช้ heartbeat interval 30 วินาทีโดยค่าเริ่มต้น Deribit กำหนดให้ heartbeat interval ของ WebSocket
+ต้องไม่น้อยกว่า 10 วินาที
 :::
 
-## Authentication
+## การยืนยันตัวตน {#authentication}
 
-Deribit uses API key authentication with HMAC-SHA256 signatures for private endpoints.
+Deribit ใช้การยืนยันตัวตนด้วย API key พร้อมลายเซ็น HMAC-SHA256 สำหรับ endpoint ส่วนตัว
 
-To create API credentials:
+วิธีสร้าง API credential:
 
-1. Log into your Deribit account at [deribit.com](https://www.deribit.com)
-   (or [test.deribit.com](https://test.deribit.com) for testnet).
-2. Navigate to **Account** -> **API**.
-3. Click **Add new key** and configure permissions:
-   - Enable **read** for market data access
-   - Enable **trade** for order execution
-   - Enable **wallet** if you need account balance access
-4. Note down your **Client ID** (API key) and **Client Secret** (API secret).
+1. Log in เข้า account Deribit ที่ [deribit.com](https://www.deribit.com)
+   (หรือ [test.deribit.com](https://test.deribit.com) สำหรับ testnet)
+2. ไปที่ **Account** -> **API**
+3. คลิก **Add new key** แล้วตั้งค่าสิทธิ์:
+   - เปิด **read** สำหรับการเข้าถึง market data
+   - เปิด **trade** สำหรับการ execute order
+   - เปิด **wallet** ถ้าต้องการเข้าถึงยอดคงเหลือของ account
+4. จด **Client ID** (API key) และ **Client Secret** (API secret) ไว้
 
 :::warning
-Keep your API secret secure. Never share it or commit it to version control.
+เก็บ API secret ให้ปลอดภัย อย่าแชร์หรือ commit เข้า version control
 :::
 
-### API key scopes
+### Scope ของ API key {#api-key-scopes}
 
-Each API key on Deribit is assigned a default access scope, which defines the maximum permissions.
-Configure appropriate permissions when
-[creating your API key](https://docs.deribit.com/articles/creating-api-key):
+API key แต่ละตัวบน Deribit ได้รับ access scope ค่าเริ่มต้นซึ่งกำหนดสิทธิ์สูงสุด ตั้งค่าสิทธิ์ที่เหมาะสมเมื่อ
+[สร้าง API key](https://docs.deribit.com/articles/creating-api-key):
 
-| Scope              | Required For                           |
+| Scope              | จำเป็นสำหรับ                              |
 | ------------------ | -------------------------------------- |
-| `account:read`     | Account information, portfolio data.   |
-| `trade:read`       | View orders and positions.             |
-| `trade:read_write` | Place, modify, and cancel orders.      |
-| `wallet:read`      | View balances and transaction history. |
+| `account:read`     | ข้อมูล account และข้อมูล portfolio         |
+| `trade:read`       | ดู order และ position                    |
+| `trade:read_write` | วาง, แก้ไข และ cancel order              |
+| `wallet:read`      | ดูยอดคงเหลือและประวัติธุรกรรม                |
 
-**Recommended minimum for trading**: `account:read`, `trade:read_write`, `wallet:read`
+**ขั้นต่ำที่แนะนำสำหรับการเทรด**: `account:read`, `trade:read_write`, `wallet:read`
 
 :::tip
-Follow the principle of least privilege. For data-only access (market data, no trading),
-create a read-only key without `trade:read_write`.
+ยึดหลัก least privilege สำหรับการเข้าถึงเฉพาะข้อมูล (market data, ไม่เทรด) ให้สร้าง key แบบอ่านอย่างเดียว
+ที่ไม่มี `trade:read_write`
 :::
 
-## Testnet
+## Testnet {#testnet}
 
-Deribit provides a testnet environment for testing strategies without real funds.
-To use the testnet, set `environment=DeribitEnvironment.TESTNET` in your client configuration:
+Deribit มีสภาพแวดล้อม testnet สำหรับทดสอบ strategy โดยไม่ใช้เงินจริง หากต้องการใช้ testnet ให้ตั้ง
+`environment` เป็น `TESTNET` ใน configuration ของ client (ทั้ง data client และ execution client)
 
-```python
-from nautilus_trader.adapters.deribit import DeribitDataClientConfig
-from nautilus_trader.adapters.deribit import DeribitEnvironment
-from nautilus_trader.adapters.deribit import DeribitExecutionClientConfig
-from nautilus_trader.adapters.deribit import DeribitProductType
-from nautilus_trader.model import AccountId
+เมื่อเปิดโหมด testnet:
 
-product_types = [DeribitProductType.FUTURE]
-account_id = AccountId.from_str("DERIBIT-001")
-
-data_config = DeribitDataClientConfig(
-    product_types=product_types,
-    environment=DeribitEnvironment.TESTNET,
-)
-
-exec_config = DeribitExecutionClientConfig(
-    account_id=account_id,
-    product_types=product_types,
-    environment=DeribitEnvironment.TESTNET,
-)
-```
-
-When testnet mode is enabled:
-
-- HTTP requests use `https://test.deribit.com`.
-- WebSocket connections use `wss://test.deribit.com/ws/api/v2`.
-- Loads credentials from `DERIBIT_TESTNET_API_KEY` and `DERIBIT_TESTNET_API_SECRET` environment variables.
+- HTTP request ใช้ `https://test.deribit.com`
+- WebSocket connection ใช้ `wss://test.deribit.com/ws/api/v2`
+- โหลด credential จาก environment variable `DERIBIT_TESTNET_API_KEY` และ `DERIBIT_TESTNET_API_SECRET`
 
 :::note
-Testnet API keys are separate from production keys. Create API keys specifically
-for the testnet through the testnet interface at [test.deribit.com](https://test.deribit.com).
+API key ของ testnet แยกจาก key ของ production ให้สร้าง API key สำหรับ testnet โดยเฉพาะผ่านหน้า testnet
+ที่ [test.deribit.com](https://test.deribit.com)
 :::
 
-## Configuration
+## Configuration {#configuration}
 
-### Data client configuration options
+### Option ของ data client {#data-client-configuration-options}
 
-| Option                             | Default    | Description                                                        |
+| Option                             | ค่าเริ่มต้น   | คำอธิบาย                                                           |
 | ---------------------------------- | ---------- | ------------------------------------------------------------------ |
-| `api_key`                          | `None`     | Deribit API key. Loads from environment variables when omitted.    |
-| `api_secret`                       | `None`     | Deribit API secret. Loads from environment variables when omitted. |
-| `product_types`                    | `[FUTURE]` | Product types to load.                                             |
-| `environment`                      | `MAINNET`  | Environment enum (`MAINNET` or `TESTNET`).                         |
-| `base_url_http`                    | `None`     | Override for the HTTP JSON-RPC base URL.                           |
-| `base_url_ws`                      | `None`     | Override for the WebSocket base URL.                               |
-| `proxy_url`                        | `None`     | Optional proxy URL for HTTP and WebSocket transports.              |
-| `http_timeout_secs`                | `60`       | Request timeout in seconds for HTTP calls.                         |
-| `max_retries`                      | `3`        | Maximum retry attempts for recoverable errors.                     |
-| `retry_delay_initial_ms`           | `1,000`    | Initial delay in milliseconds before retrying.                     |
-| `retry_delay_max_ms`               | `10,000`   | Maximum delay in milliseconds between retries.                     |
-| `heartbeat_interval_secs`          | `30`       | WebSocket heartbeat interval.                                      |
-| `auth_timeout_secs`                | `None`     | Seconds to await the WebSocket auth result; unset means 30.        |
-| `update_instruments_interval_mins` | `60`       | Accepted but not yet acted on; instruments load once on connect.   |
-| `auto_load_missing_instruments`    | `False`    | Lazy-load uncached instruments on subscribe.                       |
-| `transport_backend`                | `Sockudo`  | WebSocket transport backend.                                       |
+| `api_key`                          | `None`     | API key ของ Deribit โหลดจาก environment variable เมื่อไม่ได้ระบุ       |
+| `api_secret`                       | `None`     | API secret ของ Deribit โหลดจาก environment variable เมื่อไม่ได้ระบุ    |
+| `product_types`                    | `[FUTURE]` | ประเภทผลิตภัณฑ์ที่จะโหลด                                               |
+| `environment`                      | `MAINNET`  | enum ของ environment (`MAINNET` หรือ `TESTNET`)                    |
+| `base_url_http`                    | `None`     | override base URL ของ HTTP JSON-RPC                               |
+| `base_url_ws`                      | `None`     | override base URL ของ WebSocket                                   |
+| `proxy_url`                        | `None`     | proxy URL สำหรับ transport แบบ HTTP และ WebSocket (ไม่บังคับ)         |
+| `http_timeout_secs`                | `60`       | timeout ของ request เป็นวินาทีสำหรับการเรียก HTTP                       |
+| `max_retries`                      | `3`        | จำนวนครั้งสูงสุดของการ retry สำหรับ error ที่กู้คืนได้                      |
+| `retry_delay_initial_ms`           | `1,000`    | delay เริ่มต้นเป็น millisecond ก่อน retry                             |
+| `retry_delay_max_ms`               | `10,000`   | delay สูงสุดเป็น millisecond ระหว่างการ retry                          |
+| `heartbeat_interval_secs`          | `30`       | heartbeat interval ของ WebSocket                                  |
+| `auth_timeout_secs`                | `None`     | จำนวนวินาทีที่รอผลการยืนยันตัวตนของ WebSocket; ไม่ตั้งหมายถึง 30          |
+| `update_instruments_interval_mins` | `60`       | รับค่าได้แต่ยังไม่มีผล; instrument โหลดครั้งเดียวตอน connect               |
+| `auto_load_missing_instruments`    | `False`    | lazy-load instrument ที่ไม่อยู่ใน cache ตอน subscribe                 |
+| `transport_backend`                | `Sockudo`  | backend ของ WebSocket transport                                   |
 
-#### Lazy-load on subscribe
+#### Lazy-load ตอน subscribe {#lazy-load-on-subscribe}
 
-`subscribe_*` commands look up the instrument in the local cache before sending the WebSocket subscribe so the
-handler can parse the inbound frames. With `auto_load_missing_instruments = False` (the default), a
-subscription returns an error if its instrument was not preloaded by the configured `product_types`. It does
-not silently succeed and then drop subsequent frames at the handler.
+คำสั่ง `subscribe_*` จะค้นหา instrument ใน cache ฝั่ง local ก่อนส่ง WebSocket subscribe เพื่อให้ handler
+parse frame ขาเข้าได้ เมื่อ `auto_load_missing_instruments = False` (ค่าเริ่มต้น) subscription จะคืน error
+ถ้า instrument ของมันไม่ได้ถูกโหลดไว้ล่วงหน้าตาม `product_types` ที่ตั้งค่าไว้ มันจะไม่สำเร็จแบบเงียบๆ แล้วไปทิ้ง
+frame ที่ตามมาที่ handler
 
-To load missing instruments on first subscribe, set `auto_load_missing_instruments = True`. The client fetches
-the instrument over HTTP, seeds the WebSocket handler cache, and then forwards the subscribe. HTTP failures
-are logged and the WebSocket subscribe is skipped.
+หากต้องการโหลด instrument ที่ขาดไปตอน subscribe ครั้งแรก ให้ตั้ง `auto_load_missing_instruments = True`
+client จะดึง instrument ผ่าน HTTP, ตั้งต้น cache ของ WebSocket handler แล้วส่งต่อ subscribe ความล้มเหลวของ
+HTTP จะถูก log และข้าม WebSocket subscribe ไป
 
-### Execution client configuration options
+### Option ของ execution client {#execution-client-configuration-options}
 
-| Option                   | Default    | Description                                                        |
+| Option                   | ค่าเริ่มต้น   | คำอธิบาย                                                           |
 | ------------------------ | ---------- | ------------------------------------------------------------------ |
-| `account_id`             | Required   | Nautilus account ID for generated reports and events.              |
-| `api_key`                | `None`     | Deribit API key. Loads from environment variables when omitted.    |
-| `api_secret`             | `None`     | Deribit API secret. Loads from environment variables when omitted. |
-| `product_types`          | `[FUTURE]` | Product types to load.                                             |
-| `environment`            | `MAINNET`  | Environment enum (`MAINNET` or `TESTNET`).                         |
-| `base_url_http`          | `None`     | Override for the HTTP JSON-RPC base URL.                           |
-| `base_url_ws`            | `None`     | Override for the WebSocket base URL.                               |
-| `proxy_url`              | `None`     | Optional proxy URL for HTTP and WebSocket transports.              |
-| `http_timeout_secs`      | `60`       | Request timeout in seconds for HTTP calls.                         |
-| `max_retries`            | `3`        | Maximum retry attempts for recoverable errors.                     |
-| `retry_delay_initial_ms` | `1,000`    | Initial delay in milliseconds before retrying.                     |
-| `retry_delay_max_ms`     | `10,000`   | Maximum delay in milliseconds between retries.                     |
-| `auth_timeout_secs`      | `None`     | Seconds to await the WebSocket auth result; unset means 30.        |
-| `transport_backend`      | `Sockudo`  | WebSocket transport backend.                                       |
+| `account_id`             | Required   | account ID ของ Nautilus สำหรับ report และ event ที่สร้างขึ้น            |
+| `api_key`                | `None`     | API key ของ Deribit โหลดจาก environment variable เมื่อไม่ได้ระบุ       |
+| `api_secret`             | `None`     | API secret ของ Deribit โหลดจาก environment variable เมื่อไม่ได้ระบุ    |
+| `product_types`          | `[FUTURE]` | ประเภทผลิตภัณฑ์ที่จะโหลด                                               |
+| `environment`            | `MAINNET`  | enum ของ environment (`MAINNET` หรือ `TESTNET`)                    |
+| `base_url_http`          | `None`     | override base URL ของ HTTP JSON-RPC                               |
+| `base_url_ws`            | `None`     | override base URL ของ WebSocket                                   |
+| `proxy_url`              | `None`     | proxy URL สำหรับ transport แบบ HTTP และ WebSocket (ไม่บังคับ)         |
+| `http_timeout_secs`      | `60`       | timeout ของ request เป็นวินาทีสำหรับการเรียก HTTP                       |
+| `max_retries`            | `3`        | จำนวนครั้งสูงสุดของการ retry สำหรับ error ที่กู้คืนได้                      |
+| `retry_delay_initial_ms` | `1,000`    | delay เริ่มต้นเป็น millisecond ก่อน retry                             |
+| `retry_delay_max_ms`     | `10,000`   | delay สูงสุดเป็น millisecond ระหว่างการ retry                          |
+| `auth_timeout_secs`      | `None`     | จำนวนวินาทีที่รอผลการยืนยันตัวตนของ WebSocket; ไม่ตั้งหมายถึง 30          |
+| `transport_backend`      | `Sockudo`  | backend ของ WebSocket transport                                   |
 
-`transport_backend` selects between the `Sockudo` and `Tungstenite` WebSocket transports. The default is
-`Sockudo` when the `transport-sockudo` Cargo feature is enabled, as in published Python wheels. A Rust build
-without that feature defaults to `Tungstenite`.
+`transport_backend` เลือกระหว่าง WebSocket transport แบบ `Sockudo` และ `Tungstenite` ค่าเริ่มต้นคือ
+`Sockudo` เมื่อเปิด Cargo feature `transport-sockudo` ส่วน build ของ Rust ที่ไม่มี feature นั้นจะใช้
+`Tungstenite` เป็นค่าเริ่มต้น
 
-### Production configuration
+### Configuration สำหรับ production {#production-configuration}
 
-Below is an example live node using Deribit data and execution clients:
+ดูตัวอย่าง live node ที่ใช้ data client และ execution client ของ Deribit ได้ใน
+[ตัวอย่าง Rust](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/deribit/examples/)
+และดูวิธีประกอบ live node จาก Rust ได้ที่ [รัน live trading (Rust)](../how_to/run_rust_live_trading.md)
 
-```python
-from nautilus_trader.adapters.deribit import DeribitDataClientConfig
-from nautilus_trader.adapters.deribit import DeribitDataClientFactory
-from nautilus_trader.adapters.deribit import DeribitEnvironment
-from nautilus_trader.adapters.deribit import DeribitExecutionClientConfig
-from nautilus_trader.adapters.deribit import DeribitExecutionClientFactory
-from nautilus_trader.adapters.deribit import DeribitProductType
-from nautilus_trader.common import Environment
-from nautilus_trader.live import LiveNode
-from nautilus_trader.model import AccountId
-from nautilus_trader.model import TraderId
+### API credential {#api-credentials}
 
-product_types = [DeribitProductType.FUTURE]
-trader_id = TraderId.from_str("TRADER-001")
-account_id = AccountId.from_str("DERIBIT-001")
+มีหลายวิธีในการส่ง credential ให้ client ของ Deribit ส่งค่าที่ตรงกันให้ object ของ configuration หรือ
+ตั้ง environment variable ต่อไปนี้:
 
-node = (
-    LiveNode.builder("DERIBIT-NODE-001", trader_id, Environment.LIVE)
-    .add_data_client(
-        None,
-        DeribitDataClientFactory(),
-        DeribitDataClientConfig(
-            product_types=product_types,
-            environment=DeribitEnvironment.MAINNET,
-            api_key=None,
-            api_secret=None,
-        ),
-    )
-    .add_exec_client(
-        None,
-        DeribitExecutionClientFactory(),
-        DeribitExecutionClientConfig(
-            account_id=account_id,
-            product_types=product_types,
-            environment=DeribitEnvironment.MAINNET,
-            api_key=None,
-            api_secret=None,
-        ),
-    )
-    .build()
-)
-```
-
-### API credentials
-
-There are multiple options for supplying your credentials to the Deribit clients.
-Either pass the corresponding values to the configuration objects, or
-set the following environment variables:
-
-For Deribit live (production) clients:
+สำหรับ client ของ Deribit แบบ live (production):
 
 - `DERIBIT_API_KEY`
 - `DERIBIT_API_SECRET`
 
-For Deribit testnet clients:
+สำหรับ client ของ Deribit testnet:
 
 - `DERIBIT_TESTNET_API_KEY`
 - `DERIBIT_TESTNET_API_SECRET`
 
 :::tip
-We recommend using environment variables to manage your credentials.
+แนะนำให้ใช้ environment variable ในการจัดการ credential
 :::
 
-### Product types
+### ประเภทผลิตภัณฑ์ {#product-types}
 
-The `product_types` configuration option controls which Deribit product families are loaded.
-Available options via the `DeribitProductType` enum:
+option `product_types` ของ configuration ควบคุมว่าจะโหลดกลุ่มผลิตภัณฑ์ใดของ Deribit ตัวเลือกที่มีผ่าน enum
+`DeribitProductType`:
 
-- `DeribitProductType.FUTURE` - Perpetual and dated futures.
-- `DeribitProductType.OPTION` - Call and put options.
-- `DeribitProductType.SPOT` - Spot trading pairs.
-- `DeribitProductType.FUTURE_COMBO` - Future spread instruments.
-- `DeribitProductType.OPTION_COMBO` - Option spread instruments.
+- `FUTURE` - perpetual และ dated futures
+- `OPTION` - call และ put option
+- `SPOT` - คู่เทรดแบบ spot
+- `FUTURE_COMBO` - instrument แบบ future spread
+- `OPTION_COMBO` - instrument แบบ option spread
 
-Example loading multiple product types:
+สามารถโหลดหลายประเภทพร้อมกันได้ เช่น `FUTURE` และ `OPTION`
 
-```python
-from nautilus_trader.adapters.deribit import DeribitDataClientConfig
-from nautilus_trader.adapters.deribit import DeribitProductType
+### Base URL {#base-urls}
 
-config = DeribitDataClientConfig(
-    product_types=[
-        DeribitProductType.FUTURE,
-        DeribitProductType.OPTION,
-    ],
-    # ... other config
-)
-```
-
-### Base URLs
-
-The `environment` option selects these defaults. Set `base_url_http` or `base_url_ws` to point
-either transport somewhere else, such as a local proxy or a capture harness.
+option `environment` เลือกค่าเริ่มต้นเหล่านี้ ตั้ง `base_url_http` หรือ `base_url_ws` เพื่อชี้ transport ใดตัวหนึ่ง
+ไปที่อื่น เช่น local proxy หรือ capture harness
 
 | Environment | HTTP URL                   | WebSocket URL                      |
 | ----------- | -------------------------- | ---------------------------------- |
 | Production  | `https://www.deribit.com`  | `wss://www.deribit.com/ws/api/v2`  |
 | Testnet     | `https://test.deribit.com` | `wss://test.deribit.com/ws/api/v2` |
 
-## Server infrastructure
+## โครงสร้างพื้นฐานของ server {#server-infrastructure}
 
-Deribit's matching engine is located in **Equinix LD4, Slough, UK**. For latency-sensitive strategies,
-consider hosting in or near London. Colocation and cross-connect options are available directly
-from Deribit for institutional clients.
+matching engine ของ Deribit ตั้งอยู่ที่ **Equinix LD4, Slough, UK** สำหรับ strategy ที่ไวต่อ latency ควรพิจารณา
+hosting ในหรือใกล้ลอนดอน Deribit มีตัวเลือก colocation และ cross-connect ให้ลูกค้าสถาบันโดยตรง
 
-For most users connecting via internet, the adapter's built-in retry logic, heartbeat monitoring,
-and automatic reconnection handling provide reliable connectivity.
+สำหรับผู้ใช้ส่วนใหญ่ที่เชื่อมต่อผ่านอินเทอร์เน็ต logic การ retry, การติดตาม heartbeat และการจัดการ reconnect
+อัตโนมัติที่มีในตัว adapter ให้การเชื่อมต่อที่เชื่อถือได้
 
-For more details, see the [Server Infrastructure article](https://support.deribit.com/hc/en-us/articles/25944617582877-Server-Infrastructure).
+ดูรายละเอียดเพิ่มเติมได้ที่[บทความ Server Infrastructure](https://support.deribit.com/hc/en-us/articles/25944617582877-Server-Infrastructure)
 
-## Contributing
+## การมีส่วนร่วม {#contributing}
 
 :::info
-For additional features or to contribute to the Deribit adapter, please see our
-[contributing guide](https://github.com/nautechsystems/nautilus_trader/blob/develop/CONTRIBUTING.md).
+หากต้องการ feature เพิ่มเติมหรือร่วมพัฒนา adapter ของ Deribit โปรดดู
+[contributing guide](https://github.com/nautechsystems/nautilus_trader/blob/develop/CONTRIBUTING.md)
 :::

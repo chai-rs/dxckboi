@@ -1,101 +1,63 @@
-# Configure a Live Trading Node
+# ตั้งค่า Live Trading Node
 
-Set up a `LiveNode` for live market connectivity. For the node lifecycle, see
-[Live trading](../concepts/live.md). For command outcomes, see
-[Execution policies](../concepts/execution/policies.md#command-outcomes). For state recovery, see
-[Execution reconciliation](../concepts/execution/reconciliation.md).
+ตั้งค่า `LiveNode` สำหรับเชื่อมต่อกับตลาดจริง สำหรับ lifecycle ของ node ดู
+[Live trading](../concepts/live.md) สำหรับผลลัพธ์ของ command ดู
+[Execution policies](../concepts/execution/policies.md#command-outcomes) สำหรับการกู้คืนสถานะ ดู
+[Execution reconciliation](../concepts/execution/reconciliation.md)
 
-:::danger[Jupyter notebooks not recommended for live trading]
-Do not run live trading nodes in Jupyter notebooks. The node owns a long-running loop on the
-calling thread, and notebook lifecycle controls make production operation unsafe:
+:::warning[หนึ่ง LiveNode ต่อหนึ่ง process]
+ไม่รองรับการรัน `LiveNode` หลาย instance พร้อมกันใน process เดียวกัน เพราะ
+สถานะของ runtime ไม่ได้แยกออกจากกัน ให้เพิ่มหลาย strategy ไว้ใน node เดียว หรือรัน node เพิ่มเติมใน process แยก
 
-- Cells can run out of order, kernels can crash, and state can disappear.
-- Notebooks lack the logging, monitoring, and graceful shutdown needed for production trading.
-
-Use Jupyter for backtesting, analysis, and experimentation. For live trading, run nodes
-as standalone Python scripts or services.
+ดูรายละเอียดที่ [Processes and threads](../concepts/architecture.md#processes-and-threads)
 :::
 
-:::warning[One LiveNode per process]
-Running multiple `LiveNode` instances concurrently in the same process is not supported because
-runtime state is not isolated. `run_async()` also rejects a second hosted node on the same event
-loop. Add multiple strategies to a single node, or run additional nodes in separate processes.
-
-See [Processes and threads](../concepts/architecture.md#processes-and-threads) for details.
+:::warning[อย่า block event loop]
+โค้ดของผู้ใช้บน thread ของ event loop (strategy callback, actor handler และ time event callback)
+ต้อง return อย่างรวดเร็ว operation ที่ block เช่น model
+inference, การคำนวณหนัก หรือ synchronous I/O จะทำให้พลาด fill ได้ข้อมูลที่ล้าสมัย และ
+การ submit order ล่าช้า ให้ย้ายงานที่ใช้เวลานานไปทำใน executor หรือ thread/process แยก
 :::
 
-:::warning[Do not block the event loop]
-User code on the event loop thread (strategy callbacks, actor handlers, and time event callbacks)
-must return quickly. This applies to both Python and Rust. Blocking operations like model
-inference, heavy calculations, or synchronous I/O cause missed fills, stale data, and
-delayed order submissions. Offload long-running work to an executor or a separate thread/process.
+:::info[ความแตกต่างของแพลตฟอร์ม]
+การจัดการ signal บน Windows แตกต่างจากระบบแบบ Unix หากรันบน Windows โปรดอ่าน
+หมายเหตุเรื่อง [การจัดการ signal บน Windows](#windows-signal-handling) เพื่อดูแนวทางเกี่ยวกับพฤติกรรม
+graceful shutdown และการรองรับ Ctrl+C (SIGINT)
 :::
 
-:::info[Platform differences]
-Windows signal handling differs from Unix-like systems. If you are running on Windows, please read
-the note on [Windows signal handling](#windows-signal-handling) for guidance on graceful shutdown
-behavior and Ctrl+C (SIGINT) support.
-:::
+## LiveNodeConfig {#livenodeconfig}
 
-## LiveNodeConfig
+`LiveNodeConfig` เป็นเจ้าของการตั้งค่า component หลักของ node ให้ลงทะเบียน data และ execution client ผ่าน
+builder ของ `LiveNode` ไม่ใช่ผ่าน dictionary ของ client บน config นี้ สำหรับพื้นฐานเรื่องค่า default ของ config
+และความหมายของ `Option<T>` ดู
+คู่มือแนวคิด [Configuration](../concepts/configuration.md)
 
-`LiveNodeConfig` owns the node's core component settings. Register data and execution clients with
-`LiveNode.builder(...)`, not through client dictionaries on this config. For background on config
-defaults and `Option<T>` semantics, see
-the [Configuration](../concepts/configuration.md) concept guide.
+### พารามิเตอร์หลักของการตั้งค่า {#core-configuration-parameters}
 
-```python
-from nautilus_trader.common import Environment
-from nautilus_trader.common import LogLevel
-from nautilus_trader.config import CacheConfig
-from nautilus_trader.config import LiveDataEngineConfig
-from nautilus_trader.config import LiveExecutionEngineConfig
-from nautilus_trader.config import LiveNodeConfig
-from nautilus_trader.config import LiveRiskEngineConfig
-from nautilus_trader.config import LoggerConfig
-from nautilus_trader.config import MessageBusConfig
-from nautilus_trader.config import PortfolioConfig
-from nautilus_trader.model import TraderId
-
-config = LiveNodeConfig(
-    environment=Environment.LIVE,
-    trader_id=TraderId.from_str("MY-TRADER-001"),
-    logging=LoggerConfig(stdout_level=LogLevel.INFO),
-    cache=CacheConfig(),
-    msgbus=MessageBusConfig(),
-    data_engine=LiveDataEngineConfig(),
-    risk_engine=LiveRiskEngineConfig(),
-    exec_engine=LiveExecutionEngineConfig(),
-    portfolio=PortfolioConfig(),
-)
-```
-
-### Core configuration parameters
-
-| Setting                       | Default      | Description                                                                      |
+| Setting                       | Default      | คำอธิบาย                                                                      |
 | ----------------------------- | ------------ | -------------------------------------------------------------------------------- |
-| `trader_id`                   | "TRADER-001" | Unique trader identifier (name-tag format); the tag must be unique across nodes. |
-| `instance_id`                 | `None`       | Optional unique instance identifier.                                             |
-| `timeout_connection_secs`     | 60.0         | Connection timeout in seconds.                                                   |
-| `timeout_reconciliation_secs` | 30.0         | Reconciliation timeout in seconds.                                               |
-| `timeout_portfolio_secs`      | 10.0         | Portfolio initialization timeout.                                                |
-| `timeout_disconnection_secs`  | 10.0         | Disconnection timeout.                                                           |
-| `delay_post_stop_secs`        | 10.0         | Delay for residual events after stopping.                                        |
-| `timeout_shutdown_secs`       | 5.0          | Pending-task shutdown timeout in seconds.                                        |
+| `trader_id`                   | "TRADER-001" | identifier ของ trader ที่ไม่ซ้ำ (รูปแบบ name-tag) โดย tag ต้องไม่ซ้ำกันข้าม node |
+| `instance_id`                 | `None`       | identifier ของ instance ที่ไม่ซ้ำ (optional)                                       |
+| `timeout_connection_secs`     | 60.0         | timeout ของการเชื่อมต่อ หน่วยวินาที                                                |
+| `timeout_reconciliation_secs` | 30.0         | timeout ของ reconciliation หน่วยวินาที                                            |
+| `timeout_portfolio_secs`      | 10.0         | timeout ของการ initialize portfolio                                              |
+| `timeout_disconnection_secs`  | 10.0         | timeout ของการตัดการเชื่อมต่อ                                                     |
+| `delay_post_stop_secs`        | 10.0         | ระยะเวลารอ event ที่ค้างอยู่หลังหยุด                                                |
+| `timeout_shutdown_secs`       | 5.0          | timeout ของการ shutdown task ที่ pending หน่วยวินาที                               |
 
-:::warning[Trader ID tag uniqueness]
-The tag after the final hyphen is what reaches generated client order IDs, order list IDs, and
-position IDs; the name before it does not. Two nodes trading the same venue account must therefore
-use different tags, because `MY-TRADER-001` and `OTHER-TRADER-001` share the tag `001` and can
-produce identical IDs. Setting `use_uuid_client_order_ids` on the strategy removes the
-exposure for client order IDs only: order list IDs and position IDs keep the tag either way, so
-unique tags remain required.
+:::warning[Tag ของ Trader ID ต้องไม่ซ้ำ]
+ส่วน tag หลังขีดกลางตัวสุดท้ายคือส่วนที่ไปปรากฏใน client order ID, order list ID และ
+position ID ที่ถูกสร้างขึ้น ส่วนชื่อด้านหน้าไม่ได้ไปปรากฏ ดังนั้น node สองตัวที่เทรดบัญชี venue เดียวกันจึง
+ต้องใช้ tag ต่างกัน เพราะ `MY-TRADER-001` และ `OTHER-TRADER-001` ใช้ tag `001` ร่วมกันและอาจ
+สร้าง ID ที่เหมือนกันได้ การตั้ง `use_uuid_client_order_ids` บน strategy จะลด
+ความเสี่ยงนี้ได้เฉพาะ client order ID เท่านั้น เพราะ order list ID และ position ID ยังคงใช้ tag อยู่ดี
+จึงยังต้องใช้ tag ที่ไม่ซ้ำกัน
 :::
 
-### Cache database configuration
+### การตั้งค่า cache database {#cache-database-configuration}
 
-Rust-native live systems keep cache behavior in `CacheConfig` and Redis connection settings in
-`RedisCacheConfig`.
+ระบบ live แบบ Rust-native เก็บพฤติกรรมของ cache ไว้ใน `CacheConfig` และการตั้งค่าการเชื่อมต่อ Redis ไว้ใน
+`RedisCacheConfig`
 
 ```rust
 use nautilus_common::{
@@ -127,8 +89,8 @@ let cache_database = database
     .await?;
 ```
 
-Attach the adapter after building the Rust-native node and before starting it. The node restores
-the database before reconciliation when `exec_engine.load_cache` is enabled, which is the default.
+ให้แนบ adapter หลังจาก build node แบบ Rust-native แล้วและก่อนเริ่ม node node จะกู้คืน
+database ก่อน reconciliation เมื่อเปิด `exec_engine.load_cache` ไว้ ซึ่งเป็นค่า default
 
 ```rust
 let node_config = LiveNodeConfig {
@@ -140,73 +102,38 @@ node.set_cache_database(cache_database)?;
 node.run().await?;
 ```
 
-Set `CacheConfig.flush_on_start = true` to clear the attached backing instead of restoring it. A
-Postgres backing clears only the node's trader rows.
+ตั้ง `CacheConfig.flush_on_start = true` เพื่อล้าง backing ที่แนบไว้แทนการกู้คืน
+backing แบบ Postgres จะล้างเฉพาะแถวของ trader ของ node นั้น
 
-Python injects the same database config through `LiveNodeBuilder`. The node constructs and owns the
-adapter when it starts:
+backing แบบ Postgres จะโหลด เขียน และ flush เฉพาะ trader ของ node ดังนั้น node ที่มี
+trader ID ต่างกันจึงใช้ database เดียวกันได้ ดู [Cache](../concepts/cache.md) ว่า flush แบบจำกัดขอบเขตเก็บอะไรไว้
+และวิธีกำหนด account event ที่ถูก persist ไว้ก่อนมีการแบ่งขอบเขตตาม trader
 
-```python
-from nautilus_trader.common import Environment
-from nautilus_trader.infrastructure import RedisCacheConfig
-from nautilus_trader.config import LiveExecutionEngineConfig
-from nautilus_trader.live import LiveNode
-from nautilus_trader.model import TraderId
+เมื่อตั้ง `snapshot_orders=True` execution engine จะ persist order snapshot ระหว่างการประมวลผล submission
+และหลังการเปลี่ยนสถานะทุกครั้ง order snapshot ต้องใช้ cache backing แบบ Redis หรือ Postgres
 
-node = (
-    LiveNode.builder("LiveNode", TraderId("TRADER-001"), Environment.LIVE)
-    .with_cache_database_factory(RedisCacheConfig(host="localhost", port=6379))
-    .with_exec_engine_config(
-        LiveExecutionEngineConfig(
-            snapshot_orders=True,
-            snapshot_positions=True,
-        ),
-    )
-    .with_load_state(True)
-    .with_save_state(True)
-    .build()
-)
+เมื่อตั้ง `snapshot_positions=True` execution engine จะ publish snapshot เมื่อ position เปิด
+เปลี่ยนแปลง หรือปิด ตั้ง `snapshot_positions_interval_secs` แยกต่างหากเพื่อเพิ่ม snapshot แบบเป็นระยะ
+ของทุก position ที่เปิดอยู่ cache backing แบบ Redis และ Postgres จะ persist ทั้งสองเส้นทาง หากไม่มี backing
+snapshot จะยังใช้ได้บน message bus ภายใน process แต่จะไม่ถูก persist
 
-try:
-    node.run()
-finally:
-    node.dispose()
-```
-
-Pass `PostgresCacheConfig` instead to back the cache with Postgres. Any other object raises
-`NotImplementedError` from `with_cache_database_factory`, and a failed database connection fails
-`run()`. Database-backed nodes must use `run()` because `run_async()` rejects cache database
-backings that would block the host event loop.
-
-A Postgres backing loads, writes, and flushes only the node's trader, so nodes with different
-trader IDs can share one database. See [Cache](../concepts/cache.md) for what a scoped flush keeps
-and how to assign account events persisted before trader scoping.
-
-With `snapshot_orders=True`, the execution engine persists an order snapshot during submission
-processing and after each state change. Order snapshots require a Redis or Postgres cache backing.
-
-With `snapshot_positions=True`, the execution engine publishes a snapshot when a position opens,
-changes, or closes. Set `snapshot_positions_interval_secs` independently to add periodic snapshots
-of every open position. Redis and Postgres cache backings persist both paths. Without backing, the
-snapshots remain available on the in-process message bus but are not persisted.
-
-`with_load_state` and `with_save_state` control actor and strategy state persistence, which requires
-a Redis backing. The Postgres adapter backs cache state only: with registered actors or strategies,
-`with_load_state(True)` fails when the trader starts, while `with_save_state(True)` fails when the
-node stops or is disposed. On startup the kernel passes non-empty persisted state to `on_load`; when
-stopping or disposing the node it persists whatever `on_save` returns.
+การ persist state ของ actor และ strategy (การโหลดและบันทึก state) ต้องใช้
+Redis backing ส่วน Postgres adapter รองรับเฉพาะ state ของ cache: เมื่อมี actor หรือ strategy ที่ลงทะเบียนไว้
+การเปิดโหลด state จะล้มเหลวตอน trader เริ่ม ส่วนการเปิดบันทึก state จะล้มเหลวตอน
+node หยุดหรือถูก dispose ตอน startup kernel จะส่ง state ที่ persist ไว้ซึ่งไม่ว่างไปยัง `on_load` และเมื่อ
+หยุดหรือ dispose node จะ persist สิ่งที่ `on_save` return
 
 :::warning
-State persistence is not continuous checkpointing. The kernel saves state at most once per run, so a
-`SIGKILL` or a crash loses every change since the last save. Dispose the node so `dispose()` closes
-the backing and flushes buffered writes; returning straight from `run()` can drop the final save.
+การ persist state ไม่ใช่ checkpoint แบบต่อเนื่อง kernel บันทึก state อย่างมากหนึ่งครั้งต่อ run ดังนั้น
+`SIGKILL` หรือ crash จะทำให้สูญเสียการเปลี่ยนแปลงทั้งหมดตั้งแต่การบันทึกครั้งล่าสุด ให้ dispose node เพื่อให้ `dispose()` ปิด
+backing และ flush การเขียนที่ buffer ไว้ การ return ออกจาก `run()` ทันทีอาจทำให้การบันทึกครั้งสุดท้ายหายไป
 :::
 
-### MessageBus configuration
+### การตั้งค่า MessageBus {#messagebus-configuration}
 
-Message bus behavior stays in `MessageBusConfig`. Redis connection settings live in
-`RedisMessageBusConfig`, which implements `MessageBusBackingFactory` and constructs the backing
-from those settings.
+พฤติกรรมของ message bus อยู่ใน `MessageBusConfig` ส่วนการตั้งค่าการเชื่อมต่อ Redis อยู่ใน
+`RedisMessageBusConfig` ซึ่ง implement `MessageBusBackingFactory` และสร้าง backing
+จากการตั้งค่าเหล่านั้น
 
 ```rust
 use nautilus_common::{
@@ -235,226 +162,157 @@ let redis_config = RedisMessageBusConfig {
 let backing = redis_config.create(trader_id, instance_id, config.clone())?;
 ```
 
-Python injects the Redis config through `LiveNodeBuilder`:
+`MessageBusConfig` เพียงอย่างเดียวไม่ได้ติดตั้ง backing ต้องจับคู่กับ factory ดังที่แสดงข้างต้น
+factory จะติดตั้ง external egress เสมอ และการเรียก `run()` จะ consume external
+stream ที่ตั้งค่าไว้ด้วย entry ที่อยู่ใน stream ก่อน node เริ่มจะไม่ถูก replay ดู [การตั้งค่า
+message bus backing](../concepts/message_bus.md#backing-config) สำหรับรายละเอียดของ lifecycle และ ingress
+producer ภายนอกที่เขียนลง Redis โดยตรงต้องใส่ฟิลด์ `type` ที่จำเป็น ดู
+[external egress และ ingress](../concepts/message_bus.md#external-egress-and-ingress) สำหรับฟิลด์
+ของ wire format
 
-```python
-from nautilus_trader.common import Environment
-from nautilus_trader.common import MessageBusConfig
-from nautilus_trader.infrastructure import RedisMessageBusConfig
-from nautilus_trader.live import LiveNode
-from nautilus_trader.model import TraderId
+## การตั้งค่าหลาย venue {#multi-venue-configuration}
 
-trader_id = TraderId("TRADER-001")
-message_bus = MessageBusConfig(
-    external_streams=["external-stream"],
-    stream_per_topic=False,
-)
-redis_config = RedisMessageBusConfig(
-    host="localhost",
-    port=6379,
-)
-node = (
-    LiveNode.builder("LiveNode", trader_id, Environment.LIVE)
-    .with_msgbus_config(message_bus)
-    .with_external_msgbus_factory(redis_config)
-    .build()
-)
-node.run()
-```
+node หนึ่งตัวเชื่อมต่อกับ client หลายตัวได้ เช่น ลงทะเบียน data client ของ Binance spot และ USD-M futures
+ก่อน build node
 
-Existing code can continue passing `RedisMessageBusFactory(redis_config)` to
-`with_external_msgbus_factory`.
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-`MessageBusConfig` alone does not install a backing. Pair it with a factory as shown above. The
-factory always installs external egress, and calling `run()` also consumes the configured external
-streams. Entries already in a stream before the node starts are not replayed. `run_async()` runs
-the same lifecycle as `run()`, so a node hosted on a caller's event loop services external
-message-bus ingress too. See [message bus backing
-configuration](../concepts/message_bus.md#backing-config) for lifecycle and ingress details.
-External producers that write directly to Redis must supply the required `type` field. See
-[external egress and ingress](../concepts/message_bus.md#external-egress-and-ingress) for the wire
-fields and Python custom-data registration.
+## การตั้งค่า ExecutionEngine {#executionengine-configuration}
 
-## Multi-venue configuration
+`LiveExecutionEngineConfig` ควบคุมการประมวลผล order, execution event และ
+venue reconciliation ดูรายละเอียดทั้งหมดได้ที่
+[Rust API docs](https://nautilustrader.io/docs/core-latest/)
 
-A node can connect to multiple clients. This example registers Binance spot and USD-M futures data
-clients before building the node:
+### Reconciliation {#reconciliation}
 
-```python
-from nautilus_trader.adapters.binance import BinanceDataClientConfig
-from nautilus_trader.adapters.binance import BinanceDataClientFactory
-from nautilus_trader.adapters.binance import BinanceEnvironment
-from nautilus_trader.adapters.binance import BinanceProductType
-from nautilus_trader.common import Environment
-from nautilus_trader.live import LiveNode
-from nautilus_trader.model import TraderId
+กู้คืน order และ position event ที่พลาดไป เพื่อให้สถานะของระบบสอดคล้องกับ venue
 
-node = (
-    LiveNode.builder(
-        "BINANCE-MULTI-CLIENT-001",
-        TraderId.from_str("MULTI-VENUE-001"),
-        Environment.LIVE,
-    )
-    .add_data_client(
-        "BINANCE_SPOT",
-        BinanceDataClientFactory(),
-        BinanceDataClientConfig(
-            product_type=BinanceProductType.SPOT,
-            environment=BinanceEnvironment.LIVE,
-        ),
-    )
-    .add_data_client(
-        "BINANCE_FUTURES",
-        BinanceDataClientFactory(),
-        BinanceDataClientConfig(
-            product_type=BinanceProductType.USD_M,
-            environment=BinanceEnvironment.LIVE,
-        ),
-    )
-    .build()
-)
-```
-
-## ExecutionEngine configuration
-
-`LiveExecutionEngineConfig` controls order processing, execution events, and
-venue reconciliation. For full details see the
-[API Reference](/docs/python-api-latest/live.html#nautilus_trader.live.LiveExecutionEngineConfig).
-
-### Reconciliation
-
-Recovers missed order and position events to keep system state consistent with the venue.
-
-| Setting                         | Default | Description                                                                   |
+| Setting                         | Default | คำอธิบาย                                                                   |
 | ------------------------------- | ------- | ----------------------------------------------------------------------------- |
-| `reconciliation`                | True    | Activate reconciliation at startup to align internal state with the venue.    |
-| `reconciliation_lookback_mins`  | None    | How far back (minutes) to request past events for reconciling uncached state. |
-| `reconciliation_instrument_ids` | None    | Include list of instrument IDs to reconcile.                                  |
-| `filtered_client_order_ids`     | None    | Client order IDs to skip during reconciliation (for venue-side duplicates).   |
+| `reconciliation`                | True    | เปิด reconciliation ตอน startup เพื่อให้สถานะภายในตรงกับ venue                  |
+| `reconciliation_lookback_mins`  | None    | ย้อนหลังกี่นาทีในการ request event ในอดีตเพื่อ reconcile สถานะที่ไม่ได้อยู่ใน cache  |
+| `reconciliation_instrument_ids` | None    | รายการ instrument ID ที่จะ reconcile                                           |
+| `filtered_client_order_ids`     | None    | client order ID ที่จะข้ามระหว่าง reconciliation (สำหรับรายการซ้ำฝั่ง venue)        |
 
-See [Execution reconciliation](../concepts/execution/reconciliation.md) for details.
+ดูรายละเอียดที่ [Execution reconciliation](../concepts/execution/reconciliation.md)
 
-### Order filtering
+### การกรอง order {#order-filtering}
 
-Controls which order events and reports the system processes, preventing conflicts
-across trading nodes.
+ควบคุมว่าระบบจะประมวลผล order event และ report ใดบ้าง เพื่อป้องกันความขัดแย้ง
+ระหว่าง trading node
 
-| Setting                            | Default | Description                                                                 |
+| Setting                            | Default | คำอธิบาย                                                                 |
 | ---------------------------------- | ------- | --------------------------------------------------------------------------- |
-| `filter_unclaimed_external_orders` | False   | Drop unclaimed external orders so they do not affect the strategy.          |
-| `filter_position_reports`          | False   | Drop position status reports. Useful when multiple nodes trade one account. |
+| `filter_unclaimed_external_orders` | False   | ทิ้ง external order ที่ไม่มีผู้ claim เพื่อไม่ให้กระทบ strategy                 |
+| `filter_position_reports`          | False   | ทิ้ง position status report มีประโยชน์เมื่อหลาย node เทรดบัญชีเดียวกัน           |
 
-:::note[Order tagging behavior]
-Reconciliation tags orders by origin:
+:::note[พฤติกรรมการติด tag ให้ order]
+reconciliation ติด tag ให้ order ตามที่มา:
 
-- **`VENUE` tag**: external orders discovered at the venue (placed outside this system).
-- **`RECONCILIATION` tag**: synthetic orders generated to align position discrepancies.
+- **tag `VENUE`**: external order ที่พบที่ venue (ส่งจากนอกระบบนี้)
+- **tag `RECONCILIATION`**: order สังเคราะห์ที่สร้างขึ้นเพื่อปรับความคลาดเคลื่อนของ position
 
-When `filter_unclaimed_external_orders` is enabled, only `VENUE`-tagged orders are filtered.
-`RECONCILIATION`-tagged orders are never filtered, so position alignment always succeeds.
+เมื่อเปิด `filter_unclaimed_external_orders` จะกรองเฉพาะ order ที่มี tag `VENUE` เท่านั้น
+order ที่มี tag `RECONCILIATION` จะไม่ถูกกรองเลย การปรับ position จึงสำเร็จเสมอ
 :::
 
-### Continuous reconciliation
+### Continuous reconciliation {#continuous-reconciliation}
 
-Continuous reconciliation keeps runtime execution state aligned after startup by checking
-in-flight orders, polling open orders, checking position status, and auditing own order books.
-Configure the loop with these settings. For runtime state-transition rules, retry coordination,
-and caveats, see [Runtime checks](../concepts/execution/reconciliation.md#runtime-checks).
+continuous reconciliation ทำให้สถานะ execution ระหว่าง runtime สอดคล้องกันหลัง startup โดยตรวจสอบ
+order ที่อยู่ระหว่างทาง (in-flight), poll open order, ตรวจสถานะ position และ audit own order book
+ตั้งค่า loop ด้วย setting เหล่านี้ สำหรับกฎการเปลี่ยนสถานะระหว่าง runtime, การประสานการ retry
+และข้อควรระวัง ดู [Runtime checks](../concepts/execution/reconciliation.md#runtime-checks)
 
-| Setting                              | Default        | Description                                                                                                                                                                                    |
+| Setting                              | Default        | คำอธิบาย                                                                                                                                                                                    |
 | ------------------------------------ | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `inflight_check_interval_ms`         | 2,000&nbsp;ms  | How often to check in-flight order status. Set to 0 to disable.                                                                                                                                |
-| `inflight_check_threshold_ms`        | 5,000&nbsp;ms  | Time before an in-flight order triggers a venue status check. Lower if colocated.                                                                                                              |
-| `inflight_check_retries`             | 5&nbsp;retries | Retry attempts to verify an in-flight order with the venue.                                                                                                                                    |
-| `open_check_interval_secs`           | None           | How often (seconds) to check open orders at the venue. None or 0.0 disables. Recommended: 5-10s.                                                                                               |
-| `open_check_open_only`               | True           | When true, query only open orders; when false, fetch full history (resource-intensive).                                                                                                        |
-| `open_check_lookback_mins`           | 60&nbsp;min    | Lookback window (minutes) for order status polling. Only orders modified within this window.                                                                                                   |
-| `open_check_threshold_ms`            | 5,000&nbsp;ms  | Minimum time since last cached event before acting on venue discrepancies.                                                                                                                     |
-| `open_check_missing_retries`         | 5&nbsp;retries | Max retries before targeted not-found resolution for eligible orders.                                                                                                                          |
-| `max_single_order_queries_per_cycle` | 10             | Cap on single-order queries per cycle. Prevents rate-limit exhaustion.                                                                                                                         |
-| `single_order_query_delay_ms`        | 100&nbsp;ms    | Delay (ms) between single-order queries to avoid rate limits.                                                                                                                                  |
-| `reconciliation_startup_delay_secs`  | 10.0&nbsp;s    | Delay (seconds) *after* startup reconciliation before continuous checks begin.                                                                                                                 |
-| `own_books_audit_interval_secs`      | None           | Interval (seconds) between audits that remove own-book orders the cache no longer holds as active. None disables.                                                                              |
-| `position_check_interval_secs`       | None           | Interval (seconds) between position consistency checks. On discrepancy, queries for missing fills. None disables. Recommended: 30-60s.                                                         |
-| `position_check_lookback_mins`       | 60&nbsp;min    | Lookback window (minutes) for querying fill reports on position discrepancy.                                                                                                                   |
-| `position_check_threshold_ms`        | 5,000&nbsp;ms  | Minimum time since last local activity before acting on position discrepancies, and how long a fill that fails to apply defers synthetic reconciliation.                                       |
-| `position_check_retries`             | 3&nbsp;retries | Max attempts per instrument/account before the engine stops retrying that discrepancy. Once exceeded, an error is logged and the discrepancy is no longer actively reconciled until it clears. |
+| `inflight_check_interval_ms`         | 2,000&nbsp;ms  | ความถี่ในการตรวจสถานะของ in-flight order ตั้งเป็น 0 เพื่อปิด                                                                                                                                |
+| `inflight_check_threshold_ms`        | 5,000&nbsp;ms  | เวลาก่อนที่ in-flight order จะกระตุ้นการตรวจสถานะที่ venue ลดลงได้หากเป็น colocated                                                                                                              |
+| `inflight_check_retries`             | 5&nbsp;retries | จำนวนครั้งที่ retry เพื่อยืนยัน in-flight order กับ venue                                                                                                                                    |
+| `open_check_interval_secs`           | None           | ความถี่ (วินาที) ในการตรวจ open order ที่ venue None หรือ 0.0 คือปิด แนะนำ: 5-10s                                                                                               |
+| `open_check_open_only`               | True           | เมื่อเป็น true จะ query เฉพาะ open order เมื่อเป็น false จะดึงประวัติทั้งหมด (ใช้ทรัพยากรมาก)                                                                                                        |
+| `open_check_lookback_mins`           | 60&nbsp;min    | ช่วงย้อนหลัง (นาที) สำหรับการ poll สถานะ order เฉพาะ order ที่ถูกแก้ไขภายในช่วงนี้                                                                                                   |
+| `open_check_threshold_ms`            | 5,000&nbsp;ms  | เวลาขั้นต่ำนับจาก event ล่าสุดใน cache ก่อนจะดำเนินการกับความคลาดเคลื่อนที่ venue                                                                                                                     |
+| `open_check_missing_retries`         | 5&nbsp;retries | จำนวน retry สูงสุดก่อนทำ not-found resolution แบบเจาะจงสำหรับ order ที่เข้าเกณฑ์                                                                                                                          |
+| `max_single_order_queries_per_cycle` | 10             | เพดานจำนวน query แบบ order เดียวต่อรอบ ป้องกันการใช้ rate limit จนหมด                                                                                                                         |
+| `single_order_query_delay_ms`        | 100&nbsp;ms    | ระยะหน่วง (ms) ระหว่าง query แบบ order เดียว เพื่อหลีกเลี่ยง rate limit                                                                                                                                  |
+| `reconciliation_startup_delay_secs`  | 10.0&nbsp;s    | ระยะหน่วง (วินาที) *หลัง* startup reconciliation ก่อนที่การตรวจแบบต่อเนื่องจะเริ่ม                                                                                                                 |
+| `own_books_audit_interval_secs`      | None           | ระยะห่าง (วินาที) ระหว่างการ audit ที่ลบ order ใน own book ซึ่ง cache ไม่ได้ถือว่า active แล้ว None คือปิด                                                                              |
+| `position_check_interval_secs`       | None           | ระยะห่าง (วินาที) ระหว่างการตรวจความสอดคล้องของ position เมื่อพบความคลาดเคลื่อนจะ query หา fill ที่ขาดหาย None คือปิด แนะนำ: 30-60s                                                         |
+| `position_check_lookback_mins`       | 60&nbsp;min    | ช่วงย้อนหลัง (นาที) สำหรับ query fill report เมื่อ position คลาดเคลื่อน                                                                                                                   |
+| `position_check_threshold_ms`        | 5,000&nbsp;ms  | เวลาขั้นต่ำนับจากกิจกรรมภายในล่าสุดก่อนจะดำเนินการกับความคลาดเคลื่อนของ position และระยะเวลาที่ fill ซึ่งนำไปใช้ไม่สำเร็จจะเลื่อน synthetic reconciliation ออกไป                                       |
+| `position_check_retries`             | 3&nbsp;retries | จำนวนครั้งสูงสุดต่อ instrument/account ก่อนที่ engine จะหยุด retry ความคลาดเคลื่อนนั้น เมื่อเกินแล้วจะ log error และจะไม่ reconcile ความคลาดเคลื่อนนั้นอย่างแข็งขันอีกจนกว่ามันจะหายไป |
 
 :::warning
 
-- **`open_check_lookback_mins`**: do not reduce below 60 minutes. A short window
-  triggers false "missing order" resolutions because orders fall outside the query range.
-- **`open_check_threshold_ms`**: increase if venue timestamps lag the local clock, so
-  recently updated orders are not marked missing prematurely.
-- **`reconciliation_startup_delay_secs`**: do not reduce below 10 seconds in production.
-  The delay lets the system stabilize after startup reconciliation before continuous
-  checks begin.
+- **`open_check_lookback_mins`**: อย่าลดต่ำกว่า 60 นาที ช่วงเวลาที่สั้น
+  จะกระตุ้นการ resolve ว่า "order หายไป" แบบผิด ๆ เพราะ order อยู่นอกช่วงของ query
+- **`open_check_threshold_ms`**: เพิ่มค่านี้หาก timestamp ของ venue ช้ากว่า clock ภายในเครื่อง เพื่อไม่ให้
+  order ที่เพิ่งอัปเดตถูก mark ว่าหายไปก่อนเวลาอันควร
+- **`reconciliation_startup_delay_secs`**: อย่าลดต่ำกว่า 10 วินาทีใน production
+  ระยะหน่วงนี้ให้ระบบเสถียรหลัง startup reconciliation ก่อนที่การตรวจแบบต่อเนื่อง
+  จะเริ่ม
 
 :::
 
-### Additional options
+### ตัวเลือกเพิ่มเติม {#additional-options}
 
-| Setting                            | Default | Description                                                                                                        |
+| Setting                            | Default | คำอธิบาย                                                                                                        |
 | ---------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
-| `allow_overfills`                  | False   | Allow fills exceeding order quantity (logs warning). Useful when reconciliation races fills.                       |
-| `generate_missing_orders`          | True    | Generate reconciliation orders from unmatched fill and position reports.                                           |
-| `snapshot_orders`                  | False   | Persist order snapshots during submission processing and after each state change when cache backing is configured. |
-| `snapshot_positions`               | False   | Publish position snapshots on open, change, and close, and persist them when cache backing is configured.          |
-| `snapshot_positions_interval_secs` | None    | Interval (seconds) between position snapshots.                                                                     |
-| `debug`                            | False   | Enable debug logging for execution.                                                                                |
+| `allow_overfills`                  | False   | อนุญาต fill ที่เกินจำนวนของ order (log warning) มีประโยชน์เมื่อ reconciliation แข่งกับ fill                       |
+| `generate_missing_orders`          | True    | สร้าง reconciliation order จาก fill และ position report ที่ไม่ match                                           |
+| `snapshot_orders`                  | False   | persist order snapshot ระหว่างการประมวลผล submission และหลังการเปลี่ยนสถานะทุกครั้ง เมื่อตั้งค่า cache backing ไว้ |
+| `snapshot_positions`               | False   | publish position snapshot เมื่อเปิด เปลี่ยนแปลง และปิด และ persist เมื่อตั้งค่า cache backing ไว้          |
+| `snapshot_positions_interval_secs` | None    | ระยะห่าง (วินาที) ระหว่าง position snapshot                                                                     |
+| `debug`                            | False   | เปิด debug logging สำหรับ execution                                                                                |
 
-### Memory management
+### การจัดการหน่วยความจำ {#memory-management}
 
-Periodically purges closed orders, closed positions, and account events from the
-in-memory cache, keeping memory bounded during long-running or HFT sessions.
+purge order ที่ปิดแล้ว, position ที่ปิดแล้ว และ account event ออกจาก
+cache ในหน่วยความจำเป็นระยะ เพื่อให้หน่วยความจำมีขอบเขตระหว่าง session ที่รันนานหรือ HFT
 
-| Setting                                | Default | Description                                                                        |
+| Setting                                | Default | คำอธิบาย                                                                        |
 | -------------------------------------- | ------- | ---------------------------------------------------------------------------------- |
-| `purge_closed_orders_interval_mins`    | None    | How often (minutes) to purge closed orders from memory. Recommended: 10-15 min.    |
-| `purge_closed_orders_buffer_mins`      | None    | How long (minutes) an order must be closed before purging. Recommended: 60 min.    |
-| `purge_closed_positions_interval_mins` | None    | How often (minutes) to purge closed positions from memory. Recommended: 10-15 min. |
-| `purge_closed_positions_buffer_mins`   | None    | How long (minutes) a position must be closed before purging. Recommended: 60 min.  |
-| `purge_account_events_interval_mins`   | None    | How often (minutes) to purge account events from memory. Recommended: 10-15 min.   |
-| `purge_account_events_lookback_mins`   | None    | How old (minutes) an account event must be before purging. Recommended: 60 min.    |
+| `purge_closed_orders_interval_mins`    | None    | ความถี่ (นาที) ในการ purge order ที่ปิดแล้วออกจากหน่วยความจำ แนะนำ: 10-15 min    |
+| `purge_closed_orders_buffer_mins`      | None    | order ต้องปิดไปนานเท่าใด (นาที) ก่อนจะ purge แนะนำ: 60 min    |
+| `purge_closed_positions_interval_mins` | None    | ความถี่ (นาที) ในการ purge position ที่ปิดแล้วออกจากหน่วยความจำ แนะนำ: 10-15 min |
+| `purge_closed_positions_buffer_mins`   | None    | position ต้องปิดไปนานเท่าใด (นาที) ก่อนจะ purge แนะนำ: 60 min  |
+| `purge_account_events_interval_mins`   | None    | ความถี่ (นาที) ในการ purge account event ออกจากหน่วยความจำ แนะนำ: 10-15 min   |
+| `purge_account_events_lookback_mins`   | None    | account event ต้องมีอายุเท่าใด (นาที) ก่อนจะ purge แนะนำ: 60 min    |
 
-Setting an interval enables the purge loop; leaving it unset disables scheduling and deletion.
-Each loop delegates to the cache APIs described in
-[Cache](../concepts/cache.md).
+การตั้ง interval จะเปิด purge loop หากไม่ตั้งจะปิดทั้งการ schedule และการลบ
+แต่ละ loop จะเรียกใช้ cache API ที่อธิบายไว้ใน
+[Cache](../concepts/cache.md)
 
-## Strategy configuration
+## การตั้งค่า strategy {#strategy-configuration}
 
-For a complete parameter list see the `StrategyConfig`
-[API Reference](/docs/python-api-latest/trading.html#nautilus_trader.trading.StrategyConfig).
+สำหรับรายการพารามิเตอร์ทั้งหมดของ `StrategyConfig` ดู
+[Rust API docs](https://nautilustrader.io/docs/core-latest/)
 
-### Identification
+### การระบุตัวตน {#identification}
 
-| Setting        | Default | Description                                                                |
+| Setting        | Default | คำอธิบาย                                                                |
 | -------------- | ------- | -------------------------------------------------------------------------- |
-| `strategy_id`  | None    | Unique strategy identifier.                                                |
-| `order_id_tag` | None    | Unique tag appended to this strategy's order IDs; cannot contain a hyphen. |
+| `strategy_id`  | None    | identifier ของ strategy ที่ไม่ซ้ำ                                                |
+| `order_id_tag` | None    | tag ที่ไม่ซ้ำซึ่งต่อท้าย order ID ของ strategy นี้ ห้ามมีขีดกลาง |
 
-### Order management
+### การจัดการ order {#order-management}
 
-| Setting                         | Default | Description                                                                                        |
+| Setting                         | Default | คำอธิบาย                                                                                        |
 | ------------------------------- | ------- | -------------------------------------------------------------------------------------------------- |
-| `oms_type`                      | None    | [OMS type](../concepts/execution/index.md#oms-configuration) for position ID and order processing. |
-| `use_uuid_client_order_ids`     | False   | Use UUID4 values for client order IDs.                                                             |
-| `external_order_instrument_ids` | None    | Serializable intent to claim external orders and reconciliation activity by instrument.            |
-| `manage_contingent_orders`      | False   | Manage open, non-active-local OTO, OCO, and OUO relationships.                                     |
-| `manage_gtd_expiry`             | False   | Manage GTD expirations for orders.                                                                 |
+| `oms_type`                      | None    | [OMS type](../concepts/execution/index.md#oms-configuration) สำหรับ position ID และการประมวลผล order |
+| `use_uuid_client_order_ids`     | False   | ใช้ค่า UUID4 สำหรับ client order ID                                                             |
+| `external_order_instrument_ids` | None    | intent ที่ serialize ได้สำหรับ claim external order และกิจกรรม reconciliation ตาม instrument            |
+| `manage_contingent_orders`      | False   | จัดการความสัมพันธ์ OTO, OCO และ OUO ที่เปิดอยู่และไม่ใช่ active-local                                     |
+| `manage_gtd_expiry`             | False   | จัดการการหมดอายุแบบ GTD ของ order                                                                 |
 
-See [Claiming external orders](../concepts/strategies.md#claiming-external-orders) for active claim
-lifecycle and runtime updates.
+ดู [การ claim external order](../concepts/strategies.md#claiming-external-orders) สำหรับ lifecycle ของ
+การ claim ที่ active และการอัปเดตระหว่าง runtime
 
-The `OrderEmulator` retains active-local contingent orders. See
-[Advanced orders](../concepts/orders/advanced.md#strategy-managed-contingencies) for ownership and
-venue-support boundaries.
+`OrderEmulator` จะเก็บ contingent order แบบ active-local ไว้ ดู
+[Advanced orders](../concepts/orders/advanced.md#strategy-managed-contingencies) สำหรับขอบเขตด้านความเป็นเจ้าของและ
+การรองรับของ venue
 
-Read these runtime settings through `strategy.config`; the strategy itself does not duplicate
-them as direct properties.
+## การจัดการ signal บน Windows {#windows-signal-handling}
 
-## Windows signal handling
-
-`LiveNode` handles Ctrl+C (SIGINT) and, on Unix, SIGTERM in its Rust run loop.
-The Python bridge also routes SIGINT into the same shutdown path, so runner and tasks shut down
-cleanly.
+`LiveNode` จัดการ Ctrl+C (SIGINT) และบน Unix จะจัดการ SIGTERM ด้วยใน run loop ของ Rust
+เพื่อให้ runner และ task ต่าง ๆ shutdown ได้อย่างเรียบร้อย

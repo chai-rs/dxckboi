@@ -1,412 +1,342 @@
 # Portfolio
 
-The Portfolio maintains account and position-derived state for a trading node or backtest. Strategies
-use it to query accounts, PnL, exposure, margin, equity, and performance statistics.
+Portfolio เก็บ state ที่ได้จาก account และ position ของ trading node หรือ backtest strategy ใช้ Portfolio
+เพื่อ query ข้อมูล account, PnL, exposure, margin, equity และสถิติผลการดำเนินงาน
 
-## Currency conversion
+## การแปลงสกุลเงิน {#currency-conversion}
 
-The Python `Portfolio` can convert PnL and exposure from native cost currencies to an account base
-currency or an explicit target currency. This supports instruments with different cost currencies
-and accounts with different base currencies.
+Portfolio สามารถแปลง PnL และ exposure จากสกุลเงินต้นทุน (cost currency) ดั้งเดิมไปเป็นสกุลเงินหลัก
+(base currency) ของ account หรือสกุลเงินเป้าหมายที่ระบุไว้อย่างชัดเจน ทำให้รองรับ instrument ที่มี
+cost currency ต่างกัน และ account ที่มี base currency ต่างกันได้
 
-### Supported conversions
+### การแปลงที่รองรับ {#supported-conversions}
 
-Currency conversion is available for the following portfolio queries:
+การแปลงสกุลเงินใช้ได้กับ query ของ portfolio ต่อไปนี้:
 
-- `realized_pnl()` and `realized_pnls()` convert realized PnL.
-- `unrealized_pnl()` and `unrealized_pnls()` convert unrealized PnL.
-- `total_pnl()` and `total_pnls()` convert total PnL.
-- `net_exposure()` and `net_exposures()` convert net exposure.
+- `realized_pnl()` และ `realized_pnls()` แปลง realized PnL
+- `unrealized_pnl()` และ `unrealized_pnls()` แปลง unrealized PnL
+- `total_pnl()` และ `total_pnls()` แปลง total PnL
+- `net_exposure()` และ `net_exposures()` แปลง net exposure
 
-All eight methods accept an optional `target_currency`. A successful targeted query contains only
-that currency. The Portfolio converts each native value directly to the target, even when an
-account has a different base currency.
+ทั้งแปดเมธอดรับ `target_currency` (ไม่บังคับ) query ที่ระบุเป้าหมายและสำเร็จจะมีเฉพาะสกุลเงินนั้น
+Portfolio แปลงค่าดั้งเดิมแต่ละค่าไปเป็นสกุลเงินเป้าหมายโดยตรง แม้ account จะมี base currency ต่างออกไปก็ตาม
 
-### Single account behavior
+### พฤติกรรมกรณี account เดียว {#single-account-behavior}
 
-With `PortfolioConfig.convert_to_account_base_currency=true` (the default), a query for one account without
-`target_currency` converts values to the account's base currency when it has one. Otherwise, the result stays
-in its native cost currency.
+เมื่อ `PortfolioConfig.convert_to_account_base_currency=true` (ค่าเริ่มต้น) query สำหรับ account เดียวที่ไม่ระบุ
+`target_currency` จะแปลงค่าเป็น base currency ของ account หาก account มี base currency มิฉะนั้นผลลัพธ์จะคงอยู่ใน
+cost currency ดั้งเดิม
 
-```python
-# Returns exposure in the account's base currency (e.g., USD)
-exposure = portfolio.net_exposures(venue=BINANCE, account_id=account_id)
-```
+### พฤติกรรมกรณีหลาย account {#multi-account-behavior}
 
-### Multi-account behavior
+เมื่อ query หลาย account โดยไม่ระบุ `target_currency` ผลลัพธ์จะขึ้นกับว่าเมธอดคืนค่าเป็น map ของสกุลเงิน
+หรือเป็นค่า `Money` ค่าเดียว:
 
-When querying multiple accounts without `target_currency`, the output depends on whether the method
-returns a currency map or one `Money` value:
+- เมธอดแบบ collection อาจคืน dictionary ที่มีหนึ่ง entry ต่อสกุลเงินของผลลัพธ์ โดยใช้ base currency ของ account
+  ในกรณีที่ตั้งค่าไว้ และใช้ cost currency ดั้งเดิมในกรณีอื่น ระบุ `target_currency` เพื่อรวมผลลัพธ์ทั้งหมด
+  เป็นสกุลเงินเดียว
+- เมธอดแบบค่าเดียวจะคืน `None` หากค่าจาก account ต่าง ๆ ไม่สามารถสรุปเป็นสกุลเงินของผลลัพธ์เดียวได้
 
-- Collection methods can return a dictionary with one entry per output currency, using account base
-  currencies where configured and native cost currencies otherwise. Provide `target_currency` to
-  aggregate the complete result into one currency.
-- Single-value methods return `None` if values from different accounts cannot resolve to one output
-  currency.
+`net_exposures()` จะคืน `None` เช่นกัน หาก instrument เดียวกระจายอยู่ในหลาย account ที่มี base currency ต่างกัน
+เพราะ exposure ราย instrument ไม่สามารถสรุปเป็นสกุลเงินของผลลัพธ์เดียวได้
 
-`net_exposures()` also returns `None` if one instrument spans accounts with different base
-currencies because its per-instrument exposure cannot resolve to one output currency.
+ตัวอย่างเช่น หลาย account ที่มี base currency เดียวกันจะได้ผลเป็น `{USD: Money(...)}`, account ที่มี base currency
+ต่างกันและ instrument แยกกันชัดเจนจะได้ `{USD: Money(...), EUR: Money(...)}` และเมื่อระบุ
+`target_currency=USD` จะได้ `{USD: Money(...)}`
 
-```python
-# Multiple accounts with the same base currency
-exposures = portfolio.net_exposures(venue=BINANCE)
-# Returns {USD: Money(...)}
+### กรณีการคำนวณล้มเหลว {#calculation-failures}
 
-# Accounts with different base currencies and separately resolvable instruments
-exposures = portfolio.net_exposures(venue=BINANCE)
-# Returns {USD: Money(...), EUR: Money(...)}
+query ของ PnL และ exposure จะ fail closed เมื่อขาดราคา, xrate หรือการคำนวณแบบ exact ที่จำเป็นใด ๆ
 
-# Force single currency across accounts
-exposures = portfolio.net_exposures(venue=BINANCE, target_currency=USD)
-# Returns {USD: Money(...)}
-```
-
-### Calculation failures
-
-PnL and exposure queries fail closed when any required price, xrate, or exact arithmetic operation
-is unavailable. Their Python behavior depends on the method type:
-
-- Single-value methods (`realized_pnl`, `unrealized_pnl`, `total_pnl`, and `net_exposure`)
-  return `None`.
-- `realized_pnls`, `unrealized_pnls`, and `total_pnls` raise `RuntimeError`.
-- `net_exposures` returns `None`.
-
-Collection queries **fail as one unit**. They never return a partial result or combine target and
-source currencies. For example, one unpriced instrument invalidates the whole `unrealized_pnls`
-or `total_pnls` result. A valid all-scope `net_exposures()` query returns `{}` when the portfolio
-is flat.
+query แบบ collection **ล้มเหลวทั้งชุด** จะไม่คืนผลลัพธ์บางส่วน หรือปนสกุลเงินเป้าหมายกับสกุลเงินต้นทาง
+เช่น instrument เดียวที่ไม่มีราคาจะทำให้ผลลัพธ์ทั้งหมดของ `unrealized_pnls` หรือ `total_pnls` ใช้ไม่ได้
+query `net_exposures()` แบบทุก scope ที่ถูกต้องจะคืน `{}` เมื่อ portfolio ไม่มี position
 
 :::warning
-Exchange rate data must be available when using `target_currency` for cross-currency
-aggregation.
+ต้องมีข้อมูลอัตราแลกเปลี่ยนเมื่อใช้ `target_currency` เพื่อรวมค่าข้ามสกุลเงิน
 :::
 
-### Conversion price types
+### ประเภทราคาที่ใช้ในการแปลง {#conversion-price-types}
 
-- **Position valuation**: prefers a current `MARK` price when `use_mark_prices` is enabled. Otherwise, it uses
-  `BID` for a long position and `ASK` for a short position before trying the remaining price fallbacks.
-- **Currency conversion**: uses a current `MID` xrate from the cache. If `use_mark_xrates` is enabled, a
-  current `MARK` xrate takes precedence and `MID` stays the fallback. Explicit target-currency queries do not
-  reuse a carried stale xrate.
+- **การประเมินมูลค่า position**: ใช้ราคา `MARK` ปัจจุบันก่อนเมื่อเปิด `use_mark_prices` มิฉะนั้นจะใช้
+  `BID` สำหรับ position ฝั่ง long และ `ASK` สำหรับ position ฝั่ง short ก่อนลองแหล่งราคาสำรองที่เหลือ
+- **การแปลงสกุลเงิน**: ใช้ xrate แบบ `MID` ปัจจุบันจาก cache หากเปิด `use_mark_xrates` จะใช้ xrate แบบ
+  `MARK` ปัจจุบันก่อน และใช้ `MID` เป็นตัวสำรอง query ที่ระบุสกุลเงินเป้าหมายอย่างชัดเจนจะไม่นำ xrate เก่า
+  ที่ค้างไว้มาใช้ซ้ำ
 
-### Exposure aggregation
+### การรวม exposure {#exposure-aggregation}
 
-`net_exposure()` values each open position for one instrument before adding long notional and subtracting
-short notional. It returns the magnitude of that net valued notional, so the result does not keep direction. A
-caller-supplied `price` values each selected position at the same price. Without an override or common mark
-price, side-specific bid and ask prices can leave a valuation residual for equal opposing quantities.
+`net_exposure()` ประเมินมูลค่าแต่ละ position ที่เปิดอยู่ของ instrument หนึ่ง แล้วบวก notional ฝั่ง long และลบ
+notional ฝั่ง short ผลที่คืนคือขนาดของ notional สุทธิที่ประเมินแล้ว จึงไม่บอกทิศทาง `price` ที่ผู้เรียกส่งมาจะใช้
+ประเมินมูลค่าทุก position ที่เลือกด้วยราคาเดียวกัน หากไม่มีการ override หรือราคา mark ร่วม ราคา bid และ ask
+ที่ต่างกันตามฝั่งอาจทำให้เกิดมูลค่าคงค้างแม้ปริมาณสองฝั่งจะเท่ากัน
 
-`net_exposures()` groups and sums nonzero per-instrument magnitudes by output currency. It does not
-net directional exposure between different instruments.
+`net_exposures()` จัดกลุ่มและรวมขนาด exposure ราย instrument ที่ไม่เป็นศูนย์ตามสกุลเงินของผลลัพธ์ โดยไม่หักกลบ
+exposure ตามทิศทางระหว่าง instrument ต่างตัวกัน
 
-### Price overrides
+### การ override ราคา {#price-overrides}
 
-The Python methods `unrealized_pnl`, `total_pnl`, and `net_exposure` accept an optional `price`.
-When supplied, the Portfolio values the selected instrument at that price instead of reading a
-cached market price. The calculation is fresh: it does not replace the cached PnL, exposure, or
-market price used by later queries.
+เมธอด `unrealized_pnl`, `total_pnl` และ `net_exposure` รับ `price` (ไม่บังคับ) เมื่อระบุ Portfolio จะประเมินมูลค่า
+instrument ที่เลือกด้วยราคานั้นแทนการอ่านราคาตลาดจาก cache การคำนวณนี้ทำใหม่ทุกครั้ง และไม่แทนที่ PnL,
+exposure หรือราคาตลาดใน cache ที่ query ถัดไปจะใช้
 
-## Equity and mark-to-market
+## Equity และ mark-to-market {#equity-and-mark-to-market}
 
-The Portfolio exposes pull-style queries for continuous portfolio valuation and
-recorded snapshots. Per-currency results use the relevant account base currency
-or native cost currency.
+Portfolio มี query แบบ pull สำหรับการประเมินมูลค่า portfolio อย่างต่อเนื่องและ snapshot ที่บันทึกไว้
+ผลลัพธ์รายสกุลเงินใช้ base currency ของ account ที่เกี่ยวข้อง หรือ cost currency ดั้งเดิม
 
-| Method                                         | Returns                                                |
+| Method                                         | สิ่งที่คืน                                                |
 | ---------------------------------------------- | ------------------------------------------------------ |
-| `mark_values(venue, account_id)`               | Signed MTM totals for open positions.                  |
-| `equity(venue, account_id)`                    | Total equity combining balance and position valuation. |
-| `build_snapshot(account_id)`                   | Account-wide MTM totals and valuation metadata.        |
-| `snapshots(account_id)`                        | Recorded account snapshots in emission order.          |
-| `missing_price_instruments(venue, account_id)` | Instruments flagged as unpriceable.                    |
+| `mark_values(venue, account_id)`               | ยอดรวม MTM แบบมีเครื่องหมายของ position ที่เปิดอยู่          |
+| `equity(venue, account_id)`                    | equity รวมจาก balance และมูลค่าของ position               |
+| `build_snapshot(account_id)`                   | ยอดรวม MTM ทั้ง account และ metadata ของการประเมินมูลค่า     |
+| `snapshots(account_id)`                        | snapshot ของ account ที่บันทึกไว้ เรียงตามลำดับการ emit       |
+| `missing_price_instruments(venue, account_id)` | instrument ที่ถูก flag ว่าประเมินราคาไม่ได้                   |
 
-Longs contribute their notional and shorts its negation. Flat positions are skipped.
+position ฝั่ง long นับ notional เป็นบวก ฝั่ง short นับเป็นลบ position ที่ flat จะถูกข้าม
 
-An account-scoped `equity()` query returns `{}` for an unknown account. For a known account, it
-raises `RuntimeError` if exact snapshot valuation fails instead of presenting the failure as empty
-equity.
+query `equity()` แบบระบุ account จะคืน `{}` สำหรับ account ที่ไม่รู้จัก สำหรับ account ที่รู้จัก หากการประเมิน
+มูลค่า snapshot แบบ exact ล้มเหลว จะคืน error แทนการแสดงผลเป็น equity ว่าง
 
-### Equity formula
+### สูตรของ equity {#equity-formula}
 
-Equity starts with `balances_total` and adds open-position values per currency:
+equity เริ่มจาก `balances_total` แล้วบวกมูลค่าของ position ที่เปิดอยู่รายสกุลเงิน:
 
-| Account type                            | Values added to the balance                              |
+| ประเภท account                           | ค่าที่บวกเข้ากับ balance                                    |
 | --------------------------------------- | -------------------------------------------------------- |
-| Cash without a base currency, or Wallet | Position marks, with balance exceptions below            |
-| Cash with a base currency, or betting   | All open-position marks                                  |
-| Calculated margin                       | Signed premium marks + unrealized PnL of other positions |
-| Reported margin                         | Unrealized PnL of all open positions                     |
+| Cash ที่ไม่มี base currency หรือ Wallet    | mark ของ position โดยมีข้อยกเว้นเรื่อง balance ด้านล่าง       |
+| Cash ที่มี base currency หรือ betting     | mark ของทุก position ที่เปิดอยู่                             |
+| Calculated margin                       | mark ของ premium แบบมีเครื่องหมาย + unrealized PnL ของ position อื่น |
+| Reported margin                         | unrealized PnL ของทุก position ที่เปิดอยู่                    |
 
-#### Cash and Wallet valuation
+#### การประเมินมูลค่าแบบ Cash และ Wallet {#cash-and-wallet-valuation}
 
-For positions owned by Cash accounts without a base currency or Wallet accounts, exclude a non-inverse base
-asset's mark under two conditions. The balance must already hold that asset, and the instrument's cost
-currency must differ from its base currency. Inverse instruments and uncredited assets keep their marks.
+สำหรับ position ที่เป็นของ Cash account ที่ไม่มี base currency หรือของ Wallet account จะไม่นับ mark ของ base asset
+แบบ non-inverse เมื่อเข้าเงื่อนไขสองข้อ คือ balance ต้องถือ asset นั้นอยู่แล้ว และ cost currency ของ instrument
+ต้องต่างจาก base currency ของมัน instrument แบบ inverse และ asset ที่ยังไม่ถูก credit จะยังคงนับ mark
 
-`mark_values()` always returns gross open-position values, including credited assets. `equity()` and
-snapshots count each non-inverse base asset once, through its balance or its mark.
+`mark_values()` คืนมูลค่ารวม (gross) ของ position ที่เปิดอยู่เสมอ รวมถึง asset ที่ถูก credit แล้ว ส่วน `equity()` และ
+snapshot จะนับ base asset แบบ non-inverse แต่ละตัวเพียงครั้งเดียว ผ่าน balance หรือผ่าน mark
 
-#### Margin valuation
+#### การประเมินมูลค่าแบบ margin {#margin-valuation}
 
-Calculated margin accounts (`calculate_account_state=true`) update cash from fills. Reported accounts use
-venue balances. Venue-scoped margin queries apply each position owner's rule. See [accounting](accounting.md)
-for balance updates.
+margin account แบบ calculated (`calculate_account_state=true`) อัปเดตเงินสดจาก fill ส่วน account แบบ reported ใช้
+balance จาก venue query ของ margin ที่ระบุ venue จะใช้กฎของเจ้าของ position แต่ละราย ดู
+[accounting](accounting.md) สำหรับการอัปเดต balance
 
-Premium-based instruments, including options and binary options, exchange notional cash on fill.
-Their signed marks represent assets or liabilities. Futures and perpetuals exchange no notional cash
-and use the unrealized PnL pipeline.
+instrument ที่อิง premium รวมถึง option และ binary option จะแลกเปลี่ยนเงินสดตาม notional เมื่อเกิด fill
+mark แบบมีเครื่องหมายของ instrument เหล่านี้แทนสินทรัพย์หรือหนี้สิน ส่วน future และ perpetual ไม่มีการแลกเปลี่ยน
+เงินสดตาม notional และใช้ pipeline ของ unrealized PnL
 
 :::note
-Venue totals may represent cash or include position value. Portfolio uses them without normalization,
-so reported-account equity may differ from venue equity.
+ยอดรวมจาก venue อาจแทนเงินสด หรือรวมมูลค่า position ไว้ด้วย Portfolio ใช้ค่าเหล่านี้โดยไม่ normalize
+ดังนั้น equity ของ reported account อาจต่างจาก equity ที่ venue แสดง
 :::
 
-- Snapshots report unrealized PnL separately for all positions, including options.
-- Spread combos create no portfolio positions and do not update calculated balances. Legs carry their value.
+- snapshot รายงาน unrealized PnL แยกต่างหากสำหรับทุก position รวมถึง option
+- spread combo ไม่สร้าง position ใน portfolio และไม่อัปเดต balance แบบ calculated มูลค่าอยู่ที่ leg แต่ละตัว
 
-### Price fallback
+### ราคาสำรอง {#price-fallback}
 
-Valuation asks `Cache` for a price in this order, stopping at the first match:
+การประเมินมูลค่าจะขอราคาจาก `Cache` ตามลำดับนี้ และหยุดที่รายการแรกที่พบ:
 
-1. Mark price, if `use_mark_prices=true` (the default) in `PortfolioConfig` and a mark price is cached.
-2. Side-appropriate quote: `BID` for longs, `ASK` for shorts.
-3. Last trade price.
-4. Most recent cached bar close (populated when `bar_updates=true`).
+1. ราคา mark หาก `use_mark_prices=true` (ค่าเริ่มต้น) ใน `PortfolioConfig` และมีราคา mark อยู่ใน cache
+2. quote ตามฝั่ง: `BID` สำหรับ long, `ASK` สำหรับ short
+3. ราคา trade ล่าสุด
+4. ราคาปิดของ bar ล่าสุดใน cache (มีค่าเมื่อ `bar_updates=true`)
 
-Set `use_mark_prices=false` to skip the mark tier and begin with the side-appropriate quote.
+ตั้ง `use_mark_prices=false` เพื่อข้ามขั้น mark และเริ่มจาก quote ตามฝั่ง
 
-A price at or below zero counts as a current price only for instruments that allow negative prices (futures,
-option, futures spread and option spread instruments, and spot commodities). This excludes non-premium inverse
-instruments because their notional divides by price. A quote side at or below zero also needs a non-zero size,
-since an empty side can arrive as a zero price with zero size. Otherwise the Portfolio skips the price and
-moves to the next source.
+ราคาที่น้อยกว่าหรือเท่ากับศูนย์จะนับเป็นราคาปัจจุบันเฉพาะ instrument ที่อนุญาตราคาติดลบ (future, option,
+futures spread, option spread และ spot commodity) ซึ่งไม่รวม instrument แบบ inverse ที่ไม่ใช่ premium เพราะ notional
+ของมันหารด้วยราคา quote ฝั่งที่มีราคาน้อยกว่าหรือเท่ากับศูนย์ต้องมีขนาดไม่เป็นศูนย์ด้วย เพราะฝั่งที่ว่างอาจมาในรูป
+ราคาศูนย์และขนาดศูนย์ มิฉะนั้น Portfolio จะข้ามราคานั้นและไปยังแหล่งถัดไป
 
-If none of the four yield a current price, the Portfolio carries the last valid price
-for that instrument and position side. The next snapshot lists the instrument in
-`stale_instruments`. If the position has never had a valid price, it goes into the
-missing-price tracker, is listed in `unpriced_instruments`, and is excluded from the sum.
+หากทั้งสี่แหล่งไม่ให้ราคาปัจจุบัน Portfolio จะใช้ราคาที่ถูกต้องล่าสุดของ instrument และฝั่ง position นั้นต่อไป
+และ snapshot ถัดไปจะระบุ instrument ไว้ใน `stale_instruments` หาก position ไม่เคยมีราคาที่ถูกต้องเลย จะถูกใส่ใน
+missing-price tracker, ระบุไว้ใน `unpriced_instruments` และไม่นำมารวมในผลรวม
 
-### Base currency conversion
+### การแปลงเป็น base currency {#base-currency-conversion}
 
-When `convert_to_account_base_currency=true` (the default) and the account has a
-`base_currency` set, cost-currency values are converted to the base currency
-using `MID` xrates from `Cache.get_xrate()`. With `use_mark_xrates=true`, the cached
-mark xrate from `Cache.get_mark_xrate()` is used first and falls back to `MID` if
-unavailable. The output dictionary then has a single key matching the base currency.
+เมื่อ `convert_to_account_base_currency=true` (ค่าเริ่มต้น) และ account มีการตั้ง `base_currency` ค่าใน cost currency
+จะถูกแปลงเป็น base currency โดยใช้ xrate แบบ `MID` จาก `Cache.get_xrate()` เมื่อ `use_mark_xrates=true` จะใช้ mark
+xrate ใน cache จาก `Cache.get_mark_xrate()` ก่อน และ fallback ไปใช้ `MID` หากไม่มี dictionary ผลลัพธ์จะมี key เดียว
+ตรงกับ base currency
 
-When `convert_to_account_base_currency=false`, or the account has no `base_currency`,
-results are keyed by each position's native cost currency and no xrate
-conversion is applied.
+เมื่อ `convert_to_account_base_currency=false` หรือ account ไม่มี `base_currency` ผลลัพธ์จะใช้ cost currency ดั้งเดิม
+ของแต่ละ position เป็น key และไม่มีการแปลง xrate
 
-If no current xrate is available for a required conversion, the Portfolio carries the last valid rate and
-lists its source currency in `stale_currencies`. If no valid rate has ever been available, the position is
-unpriceable and flagged through the missing-price tracker. It is not silently valued at a 1.0 rate.
+หากไม่มี xrate ปัจจุบันสำหรับการแปลงที่จำเป็น Portfolio จะใช้อัตราที่ถูกต้องล่าสุดต่อไป และระบุสกุลเงินต้นทางไว้ใน
+`stale_currencies` หากไม่เคยมีอัตราที่ถูกต้องเลย position จะถือว่าประเมินราคาไม่ได้และถูก flag ผ่าน
+missing-price tracker โดยจะไม่ถูกประเมินมูลค่าด้วยอัตรา 1.0 อย่างเงียบ ๆ
 
-### Snapshot valuation metadata
+### Metadata การประเมินมูลค่าของ snapshot {#snapshot-valuation-metadata}
 
-`PortfolioSnapshot.total_equity` always provides the per-currency MTM breakdown.
-When base-currency conversion is enabled and the account has a base currency,
-`base_currency_equity` provides the headline scalar in that currency. It is `None`
-when conversion is disabled or the account has no base currency.
+`PortfolioSnapshot.total_equity` ให้รายละเอียด MTM รายสกุลเงินเสมอ เมื่อเปิดการแปลงเป็น base currency และ
+account มี base currency `base_currency_equity` จะให้ค่าสเกลาร์หลักในสกุลเงินนั้น และเป็น `None` เมื่อปิดการแปลง
+หรือ account ไม่มี base currency
 
-`is_stale` is true when the snapshot uses a carried price or xrate, or excludes a
-position that has never had all required valuation inputs. The related fields identify
-the cause:
+`is_stale` เป็น true เมื่อ snapshot ใช้ราคาหรือ xrate ที่ค้างไว้ หรือไม่รวม position ที่ไม่เคยมีข้อมูลสำหรับประเมินมูลค่า
+ครบถ้วน ฟิลด์ที่เกี่ยวข้องจะระบุสาเหตุ:
 
-- `stale_instruments`: Instruments valued with carried prices.
-- `stale_currencies`: Source currencies converted with carried xrates.
-- `unpriced_instruments`: Instruments excluded because no complete valid valuation has
-  ever been available.
+- `stale_instruments`: instrument ที่ประเมินมูลค่าด้วยราคาที่ค้างไว้
+- `stale_currencies`: สกุลเงินต้นทางที่แปลงด้วย xrate ที่ค้างไว้
+- `unpriced_instruments`: instrument ที่ไม่ถูกนับรวม เพราะไม่เคยมีการประเมินมูลค่าที่ถูกต้องครบถ้วนเลย
 
-Call `build_snapshot(account_id)` for an on-demand sample. Call `snapshots(account_id)` to read the bounded
-recorded sequence. The methods are available from the Rust Portfolio and Strategy API and from the Python
-Portfolio binding. Building a snapshot does not add it to the recorded sequence. Only the configured lifecycle
-emission records snapshots.
+เรียก `build_snapshot(account_id)` เพื่อเก็บตัวอย่างตามต้องการ และเรียก `snapshots(account_id)` เพื่ออ่านลำดับ snapshot
+ที่บันทึกไว้ (มีขอบเขตจำกัด) เมธอดเหล่านี้ใช้ได้จาก Portfolio และ Strategy API ของ Rust การ build snapshot ไม่ได้เพิ่ม
+snapshot นั้นลงในลำดับที่บันทึกไว้ มีเพียงการ emit ตาม lifecycle ที่ตั้งค่าไว้เท่านั้นที่บันทึก snapshot
 
-### Automatic equity curve
+### Equity curve อัตโนมัติ {#automatic-equity-curve}
 
-`PortfolioConfig.equity_curve=true` (the default) records and publishes a mark-to-market snapshot:
+`PortfolioConfig.equity_curve=true` (ค่าเริ่มต้น) จะบันทึกและ publish snapshot แบบ mark-to-market:
 
-- When each account registers.
-- At each UTC midnight, even while the account is flat.
-- When the backtest or live node shuts down.
+- เมื่อแต่ละ account ลงทะเบียน
+- ทุกเที่ยงคืนตามเวลา UTC แม้ account จะไม่มี position
+- เมื่อ backtest หรือ live node shut down
 
-Set `equity_curve=false` for workloads such as optimizer runs that do not consume an equity curve. On-demand
-`equity()` and `build_snapshot()` calculations stay available.
+ตั้ง `equity_curve=false` สำหรับ workload ที่ไม่ใช้ equity curve เช่นการรัน optimizer การคำนวณ `equity()` และ
+`build_snapshot()` ตามต้องการยังคงใช้ได้
 
-The separate `snapshot_interval_ms` setting stays opt-in. When set, it adds fine-grained snapshots only while
-the account has an open position.
+ค่า `snapshot_interval_ms` ที่แยกต่างหากยังเป็นแบบ opt-in เมื่อตั้งค่าไว้ จะเพิ่ม snapshot แบบละเอียดเฉพาะช่วงที่
+account มี position เปิดอยู่
 
-### Missing-price tracking
+### การติดตามราคาที่ขาดหาย {#missing-price-tracking}
 
-The tracker keeps the latest missing set for each account-filtered query scope and the unfiltered venue scope.
-`missing_price_instruments(venue)` returns their venue-wide union. Pass `account_id` to return only that
-account's current set.
+tracker เก็บชุด instrument ที่ขาดราคาล่าสุดของแต่ละ scope ของ query ที่กรองตาม account และ scope ของ venue
+ที่ไม่ได้กรอง `missing_price_instruments(venue)` คืน union ของทั้งหมดในระดับ venue ส่ง `account_id` เพื่อคืนเฉพาะ
+ชุดปัจจุบันของ account นั้น
 
-Each observation stays authoritative until the same scope runs again. A filtered result does not declare an
-earlier unfiltered result resolved. The tracker has two observable behaviors:
+ผลการสังเกตแต่ละครั้งถือเป็นข้อมูลที่เชื่อถือได้จนกว่า scope เดียวกันจะรันอีกครั้ง ผลที่กรองแล้วไม่ได้ประกาศว่า
+ผลแบบไม่กรองก่อนหน้าได้รับการแก้ไขแล้ว tracker มีพฤติกรรมที่สังเกตได้สองแบบ:
 
-- A warning log fires once per instrument when at least one scope first reports it after no scope reported it.
-  The warning does not repeat on each subsequent call. Once each reporting scope observes recovery, a future
-  drop re-warns.
-- When a venue goes flat (no open positions), its tracker entry is cleared so stale instruments do not stay
-  flagged.
+- log แบบ warning จะออกหนึ่งครั้งต่อ instrument เมื่อมีอย่างน้อยหนึ่ง scope รายงาน instrument นั้นเป็นครั้งแรก
+  หลังจากที่ไม่มี scope ใดรายงาน warning จะไม่ซ้ำในการเรียกครั้งถัด ๆ ไป เมื่อทุก scope ที่รายงานสังเกตเห็นการ
+  กลับมาเป็นปกติแล้ว หากราคาหายไปอีกในอนาคตจะ warning ใหม่
+- เมื่อ venue ไม่มี position (flat) entry ของ venue ใน tracker จะถูกล้าง เพื่อไม่ให้ instrument เก่ายังคงถูก flag อยู่
 
-`build_snapshot(account_id)` updates that account's scope. Snapshots recorded by the equity curve or
-`snapshot_interval_ms` do not update the tracker. They report unpriced positions in `unpriced_instruments`.
+`build_snapshot(account_id)` อัปเดต scope ของ account นั้น ส่วน snapshot ที่บันทึกโดย equity curve หรือ
+`snapshot_interval_ms` จะไม่อัปเดต tracker แต่จะรายงาน position ที่ไม่มีราคาไว้ใน `unpriced_instruments`
 
-Call `missing_price_instruments(venue)` to inspect the current set.
+เรียก `missing_price_instruments(venue)` เพื่อตรวจสอบชุดปัจจุบัน
 
 :::tip
-If `equity()` understates what you expect, check `missing_price_instruments(venue)`
-before investigating the math. An instrument without a usable mark, quote, trade, or bar
-price is excluded from the total and appears in the missing-price tracker.
+หาก `equity()` ต่ำกว่าที่คาดไว้ ให้ตรวจสอบ `missing_price_instruments(venue)` ก่อนไปตรวจสอบสูตรคำนวณ
+instrument ที่ไม่มีราคา mark, quote, trade หรือ bar ที่ใช้ได้จะไม่ถูกนับรวมในยอดรวม และจะปรากฏใน
+missing-price tracker
 :::
 
-### Venue and account scope
+### Scope ของ venue และ account {#venue-and-account-scope}
 
-Python collection queries accept optional `venue` and `account_id` scopes. If both are provided, the account
-must be issued under the venue or hold a position there, or the query raises `ValueError`. With
-`account_id=None`, a venue query aggregates across each account on that venue.
+query แบบ collection รับ scope `venue` และ `account_id` (ไม่บังคับ) หากระบุทั้งสองค่า account ต้องออกภายใต้ venue
+นั้นหรือถือ position อยู่ที่ venue นั้น มิฉะนั้น query จะเกิด error เมื่อไม่ระบุ `account_id` query ระดับ venue จะรวม
+ค่าจากทุก account บน venue นั้น
 
-`balances_locked`, `instrument_initial_margins`, and `instrument_maintenance_margins` read a single
-account instead. Without `account_id`, they resolve only when exactly one account is issued under
-the venue and return `None` otherwise.
+`balances_locked`, `instrument_initial_margins` และ `instrument_maintenance_margins` อ่านจาก account เดียวแทน
+หากไม่ระบุ `account_id` จะหาค่าได้เฉพาะเมื่อมี account ที่ออกภายใต้ venue นั้นเพียงหนึ่งเดียว และคืน `None` ในกรณีอื่น
 
-An account-filtered valuation reconciles only that account's observation, so
-flags raised by other accounts on the same venue survive.
+การประเมินมูลค่าที่กรองตาม account จะ reconcile เฉพาะผลการสังเกตของ account นั้น flag ที่ account อื่นบน venue
+เดียวกันตั้งไว้จึงยังคงอยู่
 
-### Python query boundary
+## สถิติของ portfolio {#portfolio-statistics}
 
-The Python Portfolio is a read-only query facade for portfolio state. It does not expose initialization,
-reset, or update commands. The Rust engine stays responsible for authoritative mutation. Statistic
-registration is the exception, because it configures analysis rather than portfolio state. The facade also
-does not expose the internal recorded realized-PnL cache.
+`Portfolio.statistics()` คำนวณค่า `PortfolioStatistics` ใหม่จากทุก account, position ใน cache, position snapshot,
+PnL ณ เวลาปิดที่บันทึกไว้ และ portfolio snapshot โดยคำนวณใหม่ทุกครั้งที่เรียก จึงควรเรียกให้น้อยที่สุดใน hot path
 
-`account()` returns a detached, point-in-time copy. The copy **does not reflect later account updates**, and
-changing it does not affect the Portfolio. Call `account()` again to get the latest account state.
+ผลลัพธ์ประกอบด้วย:
 
-## Portfolio statistics
+- สถิติ PnL ของแต่ละสกุลเงิน
+- สถิติผลตอบแทนจาก return series ที่เลือกใช้ตามที่อธิบายด้านล่าง
+- สถิติทั่วไปที่ได้จาก position
 
-`Portfolio.statistics()` computes a new `PortfolioStatistics` value from all accounts, cached positions,
-position snapshots, recorded close-time PnLs, and portfolio snapshots. It recomputes the statistics on each
-call, so invoke it sparingly on hot paths.
+ชุดเริ่มต้นประกอบด้วย `WinRate`, `ProfitFactor`, `SharpeRatio` และ `LongRatio` ดูประเภทสถิติในตัวทั้งหมดได้ที่
+[Rust API docs](https://nautilustrader.io/docs/core-latest/)
 
-The result contains:
+ส่งประเภทในตัวอื่น ๆ เช่น `MaxDrawdown` ให้ `Portfolio.register_statistic()` เพื่อเพิ่มลงใน `Portfolio.statistics()`,
+ผลลัพธ์ของ backtest และ log หลังการรัน `PortfolioAnalyzer` ที่สร้างแยกต่างหากจะเก็บการลงทะเบียนของตัวเอง
+ซึ่งไม่ส่งผลไปถึง Portfolio
 
-- PnL statistics for each currency.
-- Return statistics from the preferred return series described below.
-- General statistics derived from positions.
+หลัง backtest `engine.get_result()` จะเปิดเผยหมวดเหล่านี้ผ่าน `stats_pnls`, `stats_returns` และ `stats_general`
+พร้อม `returns_series` ที่เลือกใช้ เมื่อ `run_analysis=true` engine จะ log สถิติทั้งสามหมวดภายใต้
+`PORTFOLIO PERFORMANCE` หลังการรันด้วย
 
-The default set includes `WinRate`, `ProfitFactor`, `SharpeRatio`, and `LongRatio`. See the [Analysis API
-Reference](/docs/python-api-latest/analysis.html) for all built-in statistic types.
+### สถิติแบบกำหนดเอง {#custom-statistics}
 
-Pass another built-in type, such as `MaxDrawdown`, to `Portfolio.register_statistic()` to add it to
-`Portfolio.statistics()`, backtest results, and post-run logs. A standalone `PortfolioAnalyzer` keeps its own
-registrations, which do not reach the Portfolio.
+สร้างสถิติของตัวเองบนพื้นฐาน `PortfolioStatistic` และ override เมธอดคำนวณสำหรับหมวด input ที่สถิตินั้นรองรับ
+แต่ละหมวดได้รับข้อมูลชุดเดียวกับที่สถิติในตัวใช้ และสถิติจะให้ค่าเฉพาะในหมวดที่ override เมธอดที่ตรงกัน
+`Portfolio.statistics()` ป้อนข้อมูลให้สามหมวดแรก ผลลัพธ์ที่เทียบกับ benchmark มาจาก
+`PortfolioAnalyzer.get_performance_stats_returns_vs_benchmark()` ซึ่งรับ benchmark series จากผู้เรียก
 
-After a backtest, `engine.get_result()` exposes these categories through `stats_pnls`,
-`stats_returns`, and `stats_general`, plus the selected `returns_series`. When `run_analysis=true`,
-the engine also logs the three statistic categories under `PORTFOLIO PERFORMANCE` after the run.
-
-### Custom statistics
-
-Subclass `PortfolioStatistic` and override the calculation methods for the input categories the statistic
-supports. Each category receives the same data the built-in statistics use, and a statistic contributes a
-value only where it overrides the matching method. `Portfolio.statistics()` feeds the first three categories.
-Benchmark-relative results come from `PortfolioAnalyzer.get_performance_stats_returns_vs_benchmark()`, which
-takes the benchmark series from the caller.
-
-| Method                                  | Input                                        | Result category          |
+| Method                                  | Input                                        | หมวดของผลลัพธ์             |
 | --------------------------------------- | -------------------------------------------- | ------------------------ |
-| `calculate_from_returns`                | Returns keyed by UNIX nanoseconds            | `returns`                |
-| `calculate_from_realized_pnls`          | Realized PnLs for one currency, oldest first | `pnls`                   |
-| `calculate_from_positions`              | Positions and position snapshots             | `general`                |
-| `calculate_from_returns_with_benchmark` | Strategy returns and benchmark returns       | `PortfolioAnalyzer` only |
+| `calculate_from_returns`                | ผลตอบแทนที่ใช้ UNIX nanoseconds เป็น key       | `returns`                |
+| `calculate_from_realized_pnls`          | realized PnL ของสกุลเงินเดียว เรียงจากเก่าไปใหม่  | `pnls`                   |
+| `calculate_from_positions`              | position และ position snapshot               | `general`                |
+| `calculate_from_returns_with_benchmark` | ผลตอบแทนของ strategy และผลตอบแทนของ benchmark | `PortfolioAnalyzer` เท่านั้น |
 
-```python
-from nautilus_trader.analysis import PortfolioStatistic
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
+ชื่อเริ่มต้นคือชื่อ class ที่แยกตามขอบเขตคำ เช่น `TradeCount` จะลงทะเบียนเป็น "Trade Count" override property
+`name` เพื่อกำหนดชื่อเอง การลงทะเบียนสถิติที่มีชื่อซ้ำกับตัวที่มีอยู่จะแทนที่ตัวเดิม และ
+`Portfolio.deregister_statistic()` ใช้ลบสถิติตามชื่อ
 
-class TradeCount(PortfolioStatistic):
-    def calculate_from_realized_pnls(self, realized_pnls: list[float]) -> float | None:
-        return float(len(realized_pnls))
+การลงทะเบียนจะคงอยู่ข้ามการเรียก `Portfolio.statistics()` และการ reset state ของ analyzer จึงส่งผลถึงผลลัพธ์ของ
+backtest และ log หลังการรันตลอดทั้งการรัน ให้ลงทะเบียนก่อนการรันเพื่อให้ครอบคลุมทุก query
 
+คืนค่าเป็นตัวเลขทศนิยม หรือ `None` เมื่อ metric ไม่มีนิยามสำหรับข้อมูลที่ได้รับ กำหนดผลลัพธ์สำหรับข้อมูลว่างหรือ
+ไม่เพียงพอให้ชัดเจน: คืน `None` เมื่อไม่ทราบค่า metric หรือใช้ค่าเริ่มต้นที่เหมาะกับโดเมน เช่น `0.0`
+สถิติที่เกิด error หรือคืนค่าที่ไม่ใช่ตัวเลขจะ log error และไม่ให้ค่าสำหรับหมวดนั้น สถิติที่เหลือยังคงคำนวณต่อไป
 
-engine.portfolio.register_statistic(TradeCount())
-```
-
-The name defaults to the class name split on word boundaries, so `TradeCount` registers as
-"Trade Count". Override the `name` property to choose the name directly. Registering a statistic
-whose name matches an existing one replaces it, and `Portfolio.deregister_statistic()` removes one
-by name.
-
-A registration persists across `Portfolio.statistics()` calls and analyzer state resets, so it reaches
-backtest results and post-run logs for the whole run. Register before the run to cover each query.
-
-Return a `float`, or `None` when the metric is undefined for the given data. Define the result for empty or
-insufficient data: return `None` when the metric is unknown, or use a domain-appropriate default such as
-`0.0`. A statistic that raises, or that returns a non-numeric value, logs an error and contributes no value
-for that category. The remaining statistics still calculate.
-
-Each category is called for a registered statistic, including on a run that closed no trades, where the PnL
-category receives an empty list.
+ทุกหมวดจะถูกเรียกสำหรับสถิติที่ลงทะเบียนไว้ รวมถึงการรันที่ไม่มีการปิด trade เลย ซึ่งหมวด PnL จะได้รับ list ว่าง
 
 :::warning
-A calculation method runs while the Portfolio holds its internal state borrowed, so calling a
-Portfolio method that mutates state from inside one panics. Keep a statistic a pure function of
-the data it is given.
+เมธอดคำนวณทำงานในขณะที่ Portfolio กำลัง borrow state ภายในอยู่ ดังนั้นการเรียกเมธอดของ Portfolio ที่แก้ไข state
+จากภายในเมธอดคำนวณจะทำให้เกิด panic ให้สถิติเป็น pure function ของข้อมูลที่ได้รับเท่านั้น
 :::
 
-## Returns: position vs portfolio
+## ผลตอบแทน: position เทียบกับ portfolio {#returns-position-vs-portfolio}
 
-The analyzer tracks two distinct return series:
+analyzer ติดตาม return series สองชุดที่แตกต่างกัน:
 
-- **Position returns** (`analyzer.position_returns()`) measure realized return per position
-  as a side-aware price return relative to the average open price. This reflects the
-  instrument's price movement between entry and exit, independent of account size or
-  leverage.
-- **Portfolio returns** (`analyzer.portfolio_returns()`) measure daily percentage change in
-  mark-to-market account equity. A $900 gain on a $100,000 account reports roughly 0.9%
-  for that day.
+- **Position returns** (`analyzer.position_returns()`) วัด realized return ต่อ position เป็นผลตอบแทนจากราคา
+  ที่คำนึงถึงฝั่ง เทียบกับราคาเปิดเฉลี่ย สะท้อนการเคลื่อนไหวของราคา instrument ระหว่างเข้าและออก โดยไม่ขึ้นกับ
+  ขนาด account หรือ leverage
+- **Portfolio returns** (`analyzer.portfolio_returns()`) วัดการเปลี่ยนแปลงรายวันเป็นเปอร์เซ็นต์ของ equity ของ
+  account แบบ mark-to-market กำไร $900 บน account ขนาด $100,000 จะรายงานประมาณ 0.9% สำหรับวันนั้น
 
-When complete portfolio snapshots span **at least two distinct UTC dates**, the analyzer uses the final
-snapshot from each date and computes portfolio returns automatically. It uses them as the primary series for
-statistics, tearsheets, and the monthly returns heatmap.
+เมื่อ portfolio snapshot ที่สมบูรณ์ครอบคลุม **อย่างน้อยสองวันที่ตาม UTC ที่ต่างกัน** analyzer จะใช้ snapshot สุดท้าย
+ของแต่ละวันและคำนวณ portfolio returns โดยอัตโนมัติ และใช้เป็น series หลักสำหรับสถิติ, tearsheet และ heatmap
+ผลตอบแทนรายเดือน
 
-Daily sampling follows these rules:
+การสุ่มตัวอย่างรายวันเป็นไปตามกฎเหล่านี้:
 
-- A snapshot emitted exactly at UTC midnight closes the preceding date, keeping the daily tier consistent with
-  fine-grained samples.
-- The first valid registration sample anchors the opening value for a partial first date.
-- Missing or unpriced account dates are forward-filled after each account has an initial valid sample.
-- Multiple snapshots on the same date count as one date, so intra-day trading alone does not produce portfolio
-  returns.
+- snapshot ที่ emit ตรงเที่ยงคืน UTC จะปิดวันก่อนหน้า ทำให้ระดับรายวันสอดคล้องกับ sample แบบละเอียด
+- sample ที่ถูกต้องตัวแรกตอนลงทะเบียนจะเป็นจุดยึดค่าเปิดสำหรับวันแรกที่ไม่ครบวัน
+- วันที่ account ขาดหายหรือไม่มีราคาจะถูก forward-fill หลังจากแต่ละ account มี sample ที่ถูกต้องตัวแรกแล้ว
+- snapshot หลายตัวในวันเดียวกันนับเป็นหนึ่งวัน ดังนั้นการเทรดภายในวันอย่างเดียวจะไม่ทำให้เกิด portfolio returns
 
-When portfolio returns are unavailable, the analyzer falls back to position returns. Python tearsheets can
-also fall back to account reports.
+เมื่อไม่มี portfolio returns analyzer จะ fallback ไปใช้ position returns
 
-The convenience accessor `analyzer.returns()` resolves this preference: portfolio returns
-when present, position returns otherwise.
+accessor `analyzer.returns()` ช่วยเลือกตามลำดับความสำคัญนี้ให้: ใช้ portfolio returns เมื่อมี มิฉะนั้นใช้
+position returns
 
-### Multi-currency accounts
+### Account หลายสกุลเงิน {#multi-currency-accounts}
 
-Portfolio returns require each account's snapshot equity to resolve to one common currency. Base-currency
-conversion normally provides that scalar. When snapshots expose multiple currencies or accounts resolve to
-different currencies, the analyzer falls back to position returns. An explicit tearsheet currency can select
-matching per-currency equity where available.
+portfolio returns ต้องการให้ equity ใน snapshot ของแต่ละ account สรุปเป็นสกุลเงินร่วมสกุลเดียวได้ โดยปกติการแปลงเป็น
+base currency จะให้ค่าสเกลาร์นั้น เมื่อ snapshot มีหลายสกุลเงิน หรือ account สรุปเป็นสกุลเงินต่างกัน analyzer จะ
+fallback ไปใช้ position returns การระบุสกุลเงินของ tearsheet อย่างชัดเจนสามารถเลือก equity รายสกุลเงินที่ตรงกันได้
+เมื่อมีข้อมูล
 
-For multi-currency portfolio returns, convert balances to a common currency first. Then calculate percentage
-changes externally.
+สำหรับ portfolio returns แบบหลายสกุลเงิน ให้แปลง balance เป็นสกุลเงินร่วมก่อน แล้วคำนวณการเปลี่ยนแปลงเป็น
+เปอร์เซ็นต์ภายนอก
 
-### Multi-account calculation
+### การคำนวณแบบหลาย account {#multi-account-calculation}
 
-Backtest analysis aggregates all cached accounts after resolving them to a common
-currency. The tearsheet follows the same account-wide aggregation rule for multi-venue
-backtests.
+การวิเคราะห์ backtest จะรวมทุก account ใน cache หลังจากแปลงเป็นสกุลเงินร่วมแล้ว tearsheet ใช้กฎการรวมทั้ง account
+แบบเดียวกันสำหรับ backtest หลาย venue
 
-## Related guides
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-- [Positions](positions.md): Position tracking within portfolios.
-- [Reports](reports.md): Generate portfolio analysis reports.
-- [Visualization](visualization.md): Visualize portfolio performance.
+- [Positions](positions.md): การติดตาม position ภายใน portfolio
+- [Reports](reports.md): การสร้างรายงานวิเคราะห์ portfolio
+- [Visualization](visualization.md): การแสดงผลประสิทธิภาพของ portfolio

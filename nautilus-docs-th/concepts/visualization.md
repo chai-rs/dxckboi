@@ -1,633 +1,286 @@
 # Visualization
 
-NautilusTrader provides interactive HTML tearsheets for analyzing backtest results through
-an extensible visualization system built on Plotly. You can generate reports with minimal
-code and add custom charts and themes.
-
-## Overview
-
-The visualization system has three parts:
-
-- **Chart registry**: decoupled chart definitions that can be extended with custom visualizations.
-- **Theme system**: consistent styling with built-in and custom themes.
-- **Configuration**: declarative specification of what to render and how to display it.
-
-Tearsheets are written as **self-contained HTML files** that can be viewed in any modern browser, shared with
-stakeholders, or archived for future reference. An output path with a static image extension (such as `.png`
-or `.pdf`) exports a static image through Kaleido.
+NautilusTrader มี tearsheet แบบ HTML ที่โต้ตอบได้สำหรับวิเคราะห์ผล backtest ผ่านระบบ visualization
+ที่ต่อขยายได้ซึ่งสร้างบน Plotly สามารถสร้างรายงานได้ด้วยโค้ดเพียงเล็กน้อย และเพิ่ม chart กับ theme ของตัวเองได้
 
 :::note
-The visualization system requires the `visualization` extra. It installs Pandas for
-DataFrame handling, Plotly for interactive figures, and Kaleido for static image export:
-
-```bash
-uv pip install --pre "nautilus_trader[visualization]"
-```
-
+ต้นฉบับอธิบายระบบ visualization นี้ผ่าน API ฝั่ง Python เท่านั้น (ติดตั้งผ่าน extra `visualization`
+ซึ่งพ่วง Pandas, Plotly และ Kaleido มาด้วย) ตัวอย่างโค้ด Python ทั้งหมดในหน้านี้จึงถูกตัดออก
+คงไว้เฉพาะแนวคิด รายการ chart, theme และตัวเลือก config
 :::
 
-## Tearsheets
+## ภาพรวม {#overview}
 
-A tearsheet is a performance report that combines multiple charts and
-statistics into a single interactive visualization. Tearsheets are generated after
-completing a backtest run and provide immediate visual feedback on strategy performance.
+ระบบ visualization ประกอบด้วยสามส่วน:
 
-### Quick start
+- **Chart registry**: นิยาม chart ที่แยกเป็นอิสระจากกัน และต่อขยายด้วย visualization ของตัวเองได้
+- **ระบบ theme**: การจัดรูปแบบที่สม่ำเสมอ ทั้ง theme ในตัวและ theme ที่กำหนดเอง
+- **Configuration**: การระบุแบบ declarative ว่าจะ render อะไรและแสดงผลอย่างไร
 
-Generate a tearsheet with default settings:
+tearsheet ถูกเขียนออกมาเป็น **ไฟล์ HTML ที่สมบูรณ์ในตัวเอง** เปิดดูได้ในเบราว์เซอร์สมัยใหม่ทุกตัว
+แชร์ให้ผู้เกี่ยวข้อง หรือเก็บไว้อ้างอิงภายหลังได้ หาก output path มีนามสกุลของไฟล์ภาพนิ่ง (เช่น `.png`
+หรือ `.pdf`) ระบบจะ export เป็นภาพนิ่งผ่าน Kaleido
 
-```python
-from nautilus_trader.analysis import create_tearsheet
-from nautilus_trader.backtest import BacktestEngine
+## Tearsheet {#tearsheets}
 
-# After running your backtest
-engine.run()
+tearsheet คือรายงาน performance ที่รวม chart และสถิติหลายอย่างไว้ใน visualization แบบโต้ตอบได้ชิ้นเดียว
+tearsheet จะถูกสร้างหลังจาก backtest รันเสร็จ และให้ผลตอบรับเชิงภาพเกี่ยวกับ performance ของ strategy ได้ทันที
 
-# Generate tearsheet
-create_tearsheet(
-    engine=engine,
-    output_path="backtest_results.html",
-)
-```
+### เริ่มต้นอย่างรวดเร็ว {#quick-start}
 
-This produces an HTML file with all default charts, using the light theme and automatic
-layout. Open `backtest_results.html` in your browser to view the interactive tearsheet.
+การสร้าง tearsheet ด้วยค่าเริ่มต้นจะได้ไฟล์ HTML ที่มี chart ค่าเริ่มต้นครบทุกตัว ใช้ light theme และจัด
+layout อัตโนมัติ เปิดไฟล์ผลลัพธ์ (เช่น `backtest_results.html`) ในเบราว์เซอร์เพื่อดู tearsheet แบบโต้ตอบได้
 
-### Backtest result input
+### Input จากผล backtest {#backtest-result-input}
 
-Let `result` be a `BacktestResult` returned by a completed backtest. Pass it without its node for a
-result-only tearsheet:
+สามารถส่ง `BacktestResult` ที่ได้จาก backtest ที่รันเสร็จแล้วเข้าไปโดยไม่ต้องมี node เพื่อสร้าง tearsheet
+จากผลลัพธ์อย่างเดียวได้
 
-```python
-create_tearsheet(
-    engine=result,
-    output_path="backtest_results.html",
-)
-```
+หากต้องการแสดงยอดคงเหลือเริ่มต้นของ account จากรายงานของ node ต้องเก็บ state ของ node ไว้ด้วย
+และ node ยังจำเป็นเมื่อ tearsheet ที่ตั้งค่าไว้มี chart ที่อาศัยข้อมูลจาก cache เช่น `bars_with_fills`
 
-To include starting account balances from node reports, keep the node state. The node is also required when
-the configured tearsheet includes a cache-backed chart such as `bars_with_fills`.
-
-Follow the complete [`BacktestNode` setup](backtesting/apis-and-runs.md#high-level-api),
-setting `dispose_on_completion=False` on its `BacktestRunConfig`. Then pass the completed result and
-retained node:
-
-```python
-create_tearsheet(
-    engine=result,
-    node=node,
-    output_path="backtest_results.html",
-)
-```
+ให้ทำตาม[การตั้งค่า `BacktestNode`](backtesting/apis-and-runs.md#high-level-api) ให้ครบ
+โดยตั้ง `dispose_on_completion=False` ใน `BacktestRunConfig` จากนั้นส่งผลลัพธ์ที่รันเสร็จแล้วพร้อม node
+ที่เก็บไว้เข้าไป
 
 :::warning
-Passing a node whose matching run configuration enables disposal raises `ValueError` because its
-cache and reports are no longer available.
+การส่ง node ที่ run configuration ที่ตรงกันเปิดการ dispose ไว้จะทำให้เกิด error เพราะ cache และรายงาน
+ของ node นั้นไม่มีอยู่แล้ว
 :::
 
-### Customization
+### การปรับแต่ง {#customization}
 
-Control which charts appear and how they're styled:
+กำหนดได้ว่าจะให้ chart ใดปรากฏและจัดรูปแบบอย่างไร ผ่าน `TearsheetConfig` (รายการ chart, theme,
+ความสูง เป็นต้น)
 
-```python
-from nautilus_trader.config import TearsheetConfig
-from nautilus_trader.analysis import TearsheetDrawdownChart
-from nautilus_trader.analysis import TearsheetEquityChart
-from nautilus_trader.analysis import TearsheetRunInfoChart
-from nautilus_trader.analysis import TearsheetStatsTableChart
+### การกรองตามสกุลเงิน {#currency-filtering}
 
-config = TearsheetConfig(
-    charts=[
-        TearsheetRunInfoChart(),
-        TearsheetStatsTableChart(),
-        TearsheetEquityChart(),
-        TearsheetDrawdownChart(),
-    ],
-    theme="nautilus_dark",
-    height=2000,
-)
+สำหรับ backtest ที่มีหลายสกุลเงิน สามารถกรองสถิติให้เหลือเฉพาะสกุลเงินที่ต้องการได้ด้วยพารามิเตอร์ `currency`
 
-create_tearsheet(
-    engine=engine,
-    output_path="custom_tearsheet.html",
-    config=config,
-)
-```
+เมื่อ `currency` เป็น `None` (ค่าเริ่มต้น) สถิติของทุกสกุลเงินจะแสดงแยกกันใน tearsheet
 
-### Currency filtering
+สำหรับ input แบบ `BacktestEngine` chart ที่อิงผลตอบแทน (return) ต้องมีสกุลเงินเดียว chart เหล่านี้คำนวณจาก
+snapshot ของ equity ใน portfolio โดย fallback ไปใช้รายงานของ account และสร้างไม่ได้สำหรับ account ที่มีหลาย
+สกุลเงินปนกันหากไม่กรอง ดังนั้นสำหรับ backtest หลายสกุลเงินให้ส่ง `currency` เพื่อให้ chart ผลตอบแทนใช้
+สกุลเงินที่เลือก
 
-For multi-currency backtests, filter statistics to a specific currency:
+สำหรับ input แบบ `BacktestResult` พารามิเตอร์ `currency` จะกรองสถิติ PnL และยอดคงเหลือของ account
+ส่วน **ชุดข้อมูลผลตอบแทนที่เก็บไว้ในผลลัพธ์จะไม่เปลี่ยนแปลง**
 
-```python
-from nautilus_trader.model import Currency
+## Chart ที่มีให้ใช้ {#available-charts}
 
-create_tearsheet(
-    engine=engine,
-    output_path="usd_only.html",
-    currency=Currency.from_str("USD"),  # Shows only USD statistics
-)
-```
+tearsheet สามารถรวม chart ในตัวต่อไปนี้ได้ในทุกรูปแบบการผสม:
 
-When `currency` is `None` (default), statistics for all currencies are displayed separately in the tearsheet.
-
-For `BacktestEngine` input, return-based charts require a single currency. They are derived from portfolio
-equity snapshots, falling back to account reports, and cannot be built for mixed-currency accounts without a
-filter. Pass `currency` for multi-currency backtests so return charts use the selected currency.
-
-For `BacktestResult` input, `currency` filters PnL statistics and account balances. The result's **stored
-return series stays unchanged**.
-
-## Available charts
-
-The tearsheet can include any combination of the following built-in charts:
-
-| Chart Name        | Type        | Description                                             |
+| ชื่อ Chart          | ประเภท       | คำอธิบาย                                                 |
 | ----------------- | ----------- | ------------------------------------------------------- |
-| `run_info`        | Table       | Run metadata and account balances.                      |
-| `stats_table`     | Table       | Performance statistics (PnL, returns, general metrics). |
-| `equity`          | Line        | Cumulative returns over time with optional benchmark.   |
-| `drawdown`        | Area        | Drawdown percentage from peak equity.                   |
-| `monthly_returns` | Heatmap     | Monthly portfolio return percentages organized by year. |
-| `distribution`    | Histogram   | Distribution of individual return values.               |
-| `rolling_sharpe`  | Line        | 60-day rolling Sharpe ratio.                            |
-| `yearly_returns`  | Bar         | Annual return percentages.                              |
-| `bars_with_fills` | Candlestick | Price bars (OHLC) with order fills overlaid as markers. |
+| `run_info`        | Table       | metadata ของการรันและยอดคงเหลือของ account                  |
+| `stats_table`     | Table       | สถิติ performance (PnL, ผลตอบแทน, ตัวชี้วัดทั่วไป)              |
+| `equity`          | Line        | ผลตอบแทนสะสมตามเวลา พร้อม benchmark (ถ้ามี)                 |
+| `drawdown`        | Area        | เปอร์เซ็นต์ drawdown จากจุดสูงสุดของ equity                   |
+| `monthly_returns` | Heatmap     | เปอร์เซ็นต์ผลตอบแทนรายเดือนของ portfolio จัดเรียงตามปี          |
+| `distribution`    | Histogram   | การกระจายของค่าผลตอบแทนแต่ละค่า                              |
+| `rolling_sharpe`  | Line        | Sharpe ratio แบบ rolling 60 วัน                            |
+| `yearly_returns`  | Bar         | เปอร์เซ็นต์ผลตอบแทนรายปี                                     |
+| `bars_with_fills` | Candlestick | price bar (OHLC) โดยมี fill ของ order ซ้อนเป็น marker        |
 
-The chart registry contains all charts. Chart objects in `TearsheetConfig.charts` configure them (each chart
-object maps to a built-in chart name).
+chart registry เก็บ chart ทั้งหมดไว้ ส่วน chart object ใน `TearsheetConfig.charts` ใช้กำหนดค่า chart
+เหล่านั้น (chart object แต่ละตัวจับคู่กับชื่อ chart ในตัวหนึ่งชื่อ)
 
-### Run information table
+### ตารางข้อมูลการรัน {#run-information-table}
 
-The `run_info` chart displays key metadata about the backtest run:
+chart `run_info` แสดง metadata สำคัญของการรัน backtest:
 
-- Run ID, start time, finish time
-- Backtest period (start/end dates)
-- Total iterations processed
-- Event, order, and position counts
-- Account starting and ending balances (per currency)
+- Run ID, เวลาเริ่ม, เวลาสิ้นสุด
+- ช่วงเวลาของ backtest (วันเริ่ม/วันสิ้นสุด)
+- จำนวน iteration ทั้งหมดที่ประมวลผล
+- จำนวน event, order และ position
+- ยอดคงเหลือเริ่มต้นและสิ้นสุดของ account (แยกตามสกุลเงิน)
 
-This table appears in the top-left position by default.
+ตารางนี้จะอยู่ตำแหน่งบนซ้ายโดยค่าเริ่มต้น
 
-### Performance statistics table
+### ตารางสถิติ performance {#performance-statistics-table}
 
-The `stats_table` chart displays performance metrics organized into sections:
+chart `stats_table` แสดงตัวชี้วัด performance แบ่งเป็นหมวด:
 
-- **PnL Statistics** (per currency): Total PnL, win rate, profit factor, etc.
-- **Returns Statistics**: Sharpe ratio, Sortino ratio, max drawdown, etc.
-- **General Statistics**: Total trades, average trade duration, etc.
+- **PnL Statistics** (แยกตามสกุลเงิน): Total PnL, win rate, profit factor ฯลฯ
+- **Returns Statistics**: Sharpe ratio, Sortino ratio, max drawdown ฯลฯ
+- **General Statistics**: จำนวน trade ทั้งหมด, ระยะเวลาถือ trade เฉลี่ย ฯลฯ
 
-This table appears in the top-right position by default.
+ตารางนี้จะอยู่ตำแหน่งบนขวาโดยค่าเริ่มต้น
 
-### Equity curve
+### Equity curve {#equity-curve}
 
-The `equity` chart plots cumulative returns over the backtest period. When `benchmark_returns`
-is provided to `create_tearsheet()`, the benchmark is overlaid for comparison.
+chart `equity` พล็อตผลตอบแทนสะสมตลอดช่วง backtest เมื่อส่ง `benchmark_returns` เข้าไปใน
+`create_tearsheet()` ระบบจะซ้อน benchmark ไว้เพื่อเปรียบเทียบ (เช่น ผลตอบแทนของดัชนี S&P 500 โดย index
+ต้องเป็น datetime และสอดคล้องกับ timeframe ของผลตอบแทนของ strategy)
 
-```python
-import pandas as pd
+ชุดข้อมูล benchmark จะถูกพล็อตตามที่ให้มาโดยไม่ปรับแต่ง ควรตรวจสอบให้ index ตรงกับวันที่ของผลตอบแทน
+ของ strategy เพื่อให้การเปรียบเทียบแม่นยำ
 
-# Load benchmark returns (e.g., from a market index)
-# Index should be datetime, aligned with strategy returns timeframe
-benchmark_returns = pd.read_csv("sp500_returns.csv", index_col=0, parse_dates=True)["return"]
+### ผลตอบแทนรายเดือนและรายปี {#monthly-and-yearly-returns}
 
-create_tearsheet(
-    engine=engine,
-    output_path="with_benchmark.html",
-    benchmark_returns=benchmark_returns,
-    benchmark_name="S&P 500",
-)
-```
+chart `monthly_returns` และ `yearly_returns` ใช้ผลตอบแทนแบบทบต้น (time-weighted) เป็นค่าเริ่มต้น แต่ละช่อง
+วัดกำไรของช่วงนั้นเทียบกับยอดคงเหลือ ณ ต้นช่วง และผลตอบแทนของแต่ละช่วงทบต้นรวมกันได้เป็นผลตอบแทนรวม
 
-The benchmark series is plotted as-is. Ensure the index aligns with your strategy's return dates for accurate
-comparison.
+ตั้ง `compounding=False` เพื่อรายงานผลตอบแทนแบบธรรมดา (ไม่ทบต้น) ที่วัดเทียบกับเงินทุนเริ่มต้นคงที่
+แต่ละช่องจะวัดกำไรของช่วงนั้นเป็นเปอร์เซ็นต์ของเงินทุนเริ่มต้น ดังนั้นผลตอบแทนของแต่ละช่วงจะ *บวก* รวมกันได้
+เป็นผลตอบแทนรวมแทนที่จะทบต้น นี่คืออัตราผลตอบแทนแบบ nominal ซึ่งเป็นแนวปฏิบัติสำหรับ strategy ที่ใช้
+เงินทุนคงที่ เทรดด้วยขนาดคงที่ และถอนกำไรออก
 
-### Monthly and yearly returns
+ฟังก์ชันแบบ standalone `create_monthly_returns_heatmap()` และ `create_yearly_returns()` รับอาร์กิวเมนต์
+`compounding` แบบเดียวกัน เพื่อให้ตัวเลขแบบไม่ทบต้นสะท้อนเงินทุนคงที่ได้อย่างถูกต้อง ควรกำหนดขนาด position
+เป็นจำนวนคงที่ แทนที่จะเป็นสัดส่วนของ equity ปัจจุบัน มิฉะนั้นช่วงหลัง ๆ จะดูสูงเกินจริงเมื่อยอดคงเหลือเติบโตขึ้น
 
-The `monthly_returns` and `yearly_returns` charts default to compounded (time-weighted) returns. Each cell
-measures the period's gain against the running start-of-period balance. The periods compound to the total
-return.
+## Theme {#themes}
 
-Set `compounding=False` to report simple, non-compounding returns measured against fixed initial capital. Each
-cell then measures the period's gain as a percentage of the starting capital. Thus, the periods sum to the
-total return instead of compounding to it. This is the nominal rate of return, the convention used for
-constant-capital strategies that trade fixed size and withdraw profits.
+theme ควบคุมการจัดรูปแบบของ chart ทั้งสี ฟอนต์ และพื้นหลัง NautilusTrader มี theme ในตัวสี่แบบ:
 
-```python
-config = TearsheetConfig(
-    charts=[
-        TearsheetMonthlyReturnsChart(compounding=False),
-        TearsheetYearlyReturnsChart(compounding=False),
-    ],
-)
-create_tearsheet(engine=engine, config=config)
-```
-
-The standalone `create_monthly_returns_heatmap()` and `create_yearly_returns()` functions accept the same
-`compounding` argument. For the non-compounding figures to faithfully represent constant capital, size
-positions at a fixed quantity rather than as a fraction of current equity. Otherwise later periods inflate as
-the running balance grows.
-
-## Themes
-
-Themes control the visual styling of charts including colors, fonts, and backgrounds.
-NautilusTrader provides four built-in themes:
-
-| Theme Name      | Description                                   | Use Case                       |
+| ชื่อ Theme        | คำอธิบาย                                        | กรณีใช้งาน                       |
 | --------------- | --------------------------------------------- | ------------------------------ |
-| `plotly_white`  | Clean light theme with dark gray headers.     | Default, professional reports. |
-| `plotly_dark`   | Dark background with standard Plotly colors.  | Low-light environments.        |
-| `nautilus`      | Light theme with NautilusTrader brand colors. | Official light mode.           |
-| `nautilus_dark` | Dark theme with teal/cyan signature colors.   | Official dark mode.            |
+| `plotly_white`  | light theme เรียบสะอาด หัวตารางสีเทาเข้ม            | ค่าเริ่มต้น, รายงานแบบมืออาชีพ        |
+| `plotly_dark`   | พื้นหลังสีเข้มกับสีมาตรฐานของ Plotly                  | สภาพแวดล้อมแสงน้อย                 |
+| `nautilus`      | light theme ใช้สีแบรนด์ของ NautilusTrader           | light mode อย่างเป็นทางการ         |
+| `nautilus_dark` | dark theme ใช้สีเอกลักษณ์ teal/cyan                | dark mode อย่างเป็นทางการ          |
 
-### Selecting a theme
+### การเลือก theme {#selecting-a-theme}
 
-Specify the theme in `TearsheetConfig`:
+ระบุ theme ใน `TearsheetConfig` ผ่านฟิลด์ `theme` (เช่น `"nautilus_dark"`)
 
-```python
-config = TearsheetConfig(theme="nautilus_dark")
-create_tearsheet(engine=engine, config=config)
-```
+### Theme แบบกำหนดเอง {#custom-themes}
 
-### Custom themes
+สามารถลงทะเบียน theme ของตัวเองเพื่อให้แบรนด์สม่ำเสมอในทุก visualization โดยระบุชื่อ, Plotly template ฐาน
+และชุดสี (`primary`, `positive`, `negative`, `neutral`, `background`, `grid` และสีของตารางแบบไม่บังคับ
+`table_section`, `table_row_odd`, `table_row_even`, `table_text`)
 
-Register a custom theme for consistent branding across all visualizations:
+ระบบ theme จะคำนวณสี `table_*` ค่าเริ่มต้นจากสี `background` และ `grid` ค่าเริ่มต้นเหล่านี้ช่วยให้ยังเข้ากันได้
+กับ theme ที่ลงทะเบียนไว้ก่อนที่จะมีสีเฉพาะสำหรับตาราง
 
-```python
-from nautilus_trader.analysis import register_theme
+## Configuration {#configuration}
 
-register_theme(
-    name="corporate",
-    template="plotly_white",  # Base Plotly template
-    colors={
-        "primary": "#003366",  # Navy blue
-        "positive": "#2e8b57",  # Sea green
-        "negative": "#c41e3a",  # Cardinal red
-        "neutral": "#808080",  # Gray
-        "background": "#ffffff",  # White
-        "grid": "#e5e5e5",  # Light gray
-        # Optional table colors (defaults will be provided if omitted)
-        "table_section": "#e5e5e5",
-        "table_row_odd": "#f8f8f8",
-        "table_row_even": "#ffffff",
-        "table_text": "#000000",
-    },
-)
+`TearsheetConfig` ให้การควบคุมแบบ declarative ในการสร้าง tearsheet: chart ที่จะรวม, theme, ชื่อเรื่อง,
+ความสูง, benchmark และ layout ของ grid (`GridLayout` ที่ระบุจำนวนแถว/คอลัมน์ ความสูงของแต่ละแถว และระยะห่าง)
 
-# Use the custom theme
-config = TearsheetConfig(theme="corporate")
-```
+### พารามิเตอร์ของ configuration {#configuration-parameters}
 
-The theme system derives default `table_*` colors from the `background` and `grid` colors. These defaults
-preserve compatibility with themes registered before table-specific colors existed.
-
-## Configuration
-
-The `TearsheetConfig` class provides declarative control over tearsheet generation:
-
-```python
-from nautilus_trader.analysis import GridLayout
-from nautilus_trader.config import TearsheetConfig
-from nautilus_trader.analysis import TearsheetDrawdownChart
-from nautilus_trader.analysis import TearsheetEquityChart
-from nautilus_trader.analysis import TearsheetStatsTableChart
-
-config = TearsheetConfig(
-    charts=[
-        TearsheetEquityChart(),
-        TearsheetDrawdownChart(),
-        TearsheetStatsTableChart(),
-    ],
-    theme="nautilus_dark",
-    title="Q4 2024 Strategy Performance",
-    height=1800,
-    include_benchmark=True,
-    benchmark_name="SPY",
-    layout=GridLayout(
-        rows=2,
-        cols=2,
-        heights=[0.60, 0.40],
-        vertical_spacing=0.08,
-        horizontal_spacing=0.12,
-    ),
-)
-```
-
-### Configuration parameters
-
-| Parameter           | Type                   | Default          | Description                         |
+| Parameter           | Type                   | Default          | คำอธิบาย                              |
 | ------------------- | ---------------------- | ---------------- | ----------------------------------- |
-| `charts`            | `list[TearsheetChart]` | Built-ins        | Charts to include, in order.        |
-| `theme`             | `str`                  | `"plotly_white"` | Theme name for styling.             |
-| `layout`            | `GridLayout`           | `None`           | Custom subplot grid layout.         |
-| `title`             | `str`                  | Auto-generated   | Tearsheet title.                    |
-| `include_benchmark` | `bool`                 | `True`           | Show benchmark when provided.       |
-| `benchmark_name`    | `str`                  | `"Benchmark"`    | Display name for benchmark.         |
-| `height`            | `int`                  | `1500`           | Total height in pixels.             |
-| `show_logo`         | `bool`                 | `True`           | Reserved for future logo rendering. |
-
-When `layout` is `None`, the chart count determines the grid dimensions and row heights. The default 8 charts
-use a 4x2 grid with heights `[0.50, 0.22, 0.16, 0.12]`. These heights give more space to the top row tables.
-
-## Custom charts
-
-The registry pattern lets you add custom charts. Charts are functions that
-render traces onto a Plotly figure object.
-
-### Registering a custom chart
-
-```python
-from nautilus_trader.analysis import register_chart
-import plotly.graph_objects as go
-
-
-def my_custom_chart(returns, output_path=None, title="Custom Chart", theme="plotly_white"):
-    """
-    Create a custom visualization.
-
-    This function signature matches the built-in chart functions for consistency.
-    """
-    from nautilus_trader.analysis import get_theme
-
-    theme_config = get_theme(theme)
-
-    # Create your visualization
-    fig = go.Figure()
-    fig.add_trace(
-        go.Scatter(
-            x=returns.index,
-            y=returns.cumsum(),
-            mode="lines",
-            name="Custom Metric",
-            line={"color": theme_config["colors"]["primary"]},
-        )
-    )
-
-    fig.update_layout(
-        title=title,
-        template=theme_config["template"],
-        xaxis_title="Date",
-        yaxis_title="Value",
-    )
-
-    if output_path:
-        fig.write_html(output_path)
-
-    return fig
-
-
-# Register the chart for standalone use (via `get_chart()` / `list_charts()`)
-register_chart("my_custom", my_custom_chart)
-```
-
-### Tearsheet integration
-
-For tearsheet integration with proper grid placement, use `register_tearsheet_chart`. Unlike `register_chart`
-(which registers a standalone function that returns its own figure), a tearsheet renderer draws traces
-directly onto a shared subplot grid cell. Thus, its signature takes the target `fig` plus the `row` and `col`
-to render into.
-
-```python
-from nautilus_trader.config import TearsheetConfig
-from nautilus_trader.analysis import TearsheetCustomChart
-from nautilus_trader.analysis import TearsheetEquityChart
-from nautilus_trader.analysis import TearsheetStatsTableChart
-from nautilus_trader.analysis import register_tearsheet_chart
-
-
-def _render_my_metric(fig, row, col, returns, theme_config, **kwargs):
-    """
-    Render custom metric directly onto a subplot.
-
-    Parameters
-    ----------
-    fig : go.Figure
-        The figure to add traces to.
-    row : int
-        Subplot row position.
-    col : int
-        Subplot column position.
-    returns : pd.Series
-        Strategy returns series supplied to the renderer.
-    theme_config : dict
-        Theme configuration dictionary.
-    **kwargs : dict
-        Additional parameters (stats_pnls, stats_returns, benchmark_returns, etc.).
-    """
-    metric_values = returns.rolling(30).std() * 100  # Example metric
-
-    fig.add_trace(
-        go.Scatter(
-            x=returns.index,
-            y=metric_values,
-            mode="lines",
-            name="30-Day Volatility",
-            line={"color": theme_config["colors"]["neutral"]},
-        ),
-        row=row,
-        col=col,
-    )
+| `charts`            | `list[TearsheetChart]` | Built-ins        | chart ที่จะรวม เรียงตามลำดับ             |
+| `theme`             | `str`                  | `"plotly_white"` | ชื่อ theme สำหรับการจัดรูปแบบ             |
+| `layout`            | `GridLayout`           | `None`           | layout ของ subplot grid แบบกำหนดเอง   |
+| `title`             | `str`                  | Auto-generated   | ชื่อเรื่องของ tearsheet                  |
+| `include_benchmark` | `bool`                 | `True`           | แสดง benchmark เมื่อมีการส่งเข้ามา        |
+| `benchmark_name`    | `str`                  | `"Benchmark"`    | ชื่อที่แสดงของ benchmark                |
+| `height`            | `int`                  | `1500`           | ความสูงรวมหน่วยพิกเซล                   |
+| `show_logo`         | `bool`                 | `True`           | สงวนไว้สำหรับการแสดงโลโก้ในอนาคต           |
 
-    fig.update_xaxes(title_text="Date", row=row, col=col)
-    fig.update_yaxes(title_text="Volatility (%)", row=row, col=col)
+เมื่อ `layout` เป็น `None` จำนวน chart จะเป็นตัวกำหนดขนาด grid และความสูงของแถว chart ค่าเริ่มต้น 8 ตัว
+ใช้ grid 4x2 โดยมีความสูง `[0.50, 0.22, 0.16, 0.12]` ซึ่งให้พื้นที่กับตารางแถวบนสุดมากกว่า
 
+## Chart แบบกำหนดเอง {#custom-charts}
 
-# Register for tearsheet use
-register_tearsheet_chart(
-    name="volatility",
-    subplot_type="scatter",
-    title="Rolling Volatility (30-day)",
-    renderer=_render_my_metric,
-)
+รูปแบบ registry ช่วยให้เพิ่ม chart ของตัวเองได้ chart คือฟังก์ชันที่ render trace ลงบน figure object ของ Plotly
 
-# Now "volatility" can be used in TearsheetConfig.charts:
-config = TearsheetConfig(
-    charts=[
-        TearsheetStatsTableChart(),
-        TearsheetEquityChart(),
-        TearsheetCustomChart(chart="volatility"),
-    ],
-)
-```
+### การลงทะเบียน chart แบบกำหนดเอง {#registering-a-custom-chart}
 
-The renderer function receives all necessary data (returns, statistics, theme configuration)
-and renders directly onto the specified subplot position.
+ฟังก์ชัน chart แบบกำหนดเองลงทะเบียนด้วย `register_chart` เพื่อใช้แบบ standalone (ผ่าน `get_chart()` /
+`list_charts()`) โดย signature ของฟังก์ชันควรสอดคล้องกับฟังก์ชัน chart ในตัวเพื่อความสม่ำเสมอ
 
-## Offline analysis
+### การผนวกเข้ากับ tearsheet {#tearsheet-integration}
 
-For situations where you have precomputed statistics but not a `BacktestEngine` instance,
-use the lower-level API:
+หากต้องการผนวกเข้ากับ tearsheet ให้วางตำแหน่งใน grid ได้ถูกต้อง ให้ใช้ `register_tearsheet_chart` ต่างจาก
+`register_chart` (ซึ่งลงทะเบียนฟังก์ชัน standalone ที่คืน figure ของตัวเอง) renderer ของ tearsheet จะวาด trace
+ลงบนช่องของ subplot grid ที่ใช้ร่วมกันโดยตรง signature ของมันจึงรับ `fig` เป้าหมาย พร้อม `row` และ `col`
+ที่จะ render ลงไป จากนั้นชื่อที่ลงทะเบียนไว้จะใช้ใน `TearsheetConfig.charts` ได้
 
-```python
-import pandas as pd
+ฟังก์ชัน renderer จะได้รับข้อมูลที่จำเป็นทั้งหมด (ผลตอบแทน, สถิติ, theme configuration) และ render ลงบนตำแหน่ง
+subplot ที่กำหนดโดยตรง
 
-from nautilus_trader.analysis import create_tearsheet_from_stats
+## การวิเคราะห์แบบ offline {#offline-analysis}
 
-# Load precomputed data. The structure matches BacktestResult stats fields.
-stats_pnls = {"USD": {"PnL (total)": 1500.0, "Win Rate": 0.55, ...}}  # Per-currency
-stats_returns = {"Sharpe Ratio (252 days)": 1.2, "Max Drawdown": -0.15, ...}
-stats_general = {"Avg Winner": 100.0, "Avg Loser": -50.0, ...}
-returns = pd.Series(...)  # Daily returns with datetime index
+ในกรณีที่มีสถิติที่คำนวณไว้ล่วงหน้าแต่ไม่มี instance ของ `BacktestEngine` ให้ใช้ API ระดับล่าง
+`create_tearsheet_from_stats()` ซึ่งรับ `stats_pnls` (แยกตามสกุลเงิน), `stats_returns`, `stats_general` และชุด
+ผลตอบแทนรายวัน
 
-create_tearsheet_from_stats(
-    stats_pnls=stats_pnls,
-    stats_returns=stats_returns,
-    stats_general=stats_general,
-    returns=returns,
-    output_path="offline_analysis.html",
-)
-```
+key ของ dictionary ควรตรงกับค่าที่ได้จาก `engine.get_result().stats_pnls`,
+`engine.get_result().stats_returns` และ `engine.get_result().stats_general`
 
-The dictionary keys should match those returned by `engine.get_result().stats_pnls`,
-`engine.get_result().stats_returns`, and `engine.get_result().stats_general`.
+แนวทางนี้มีประโยชน์สำหรับ:
 
-This approach is useful for:
+- วิเคราะห์ผลจากการรัน backtest หลายครั้งที่เก็บแยกกันไว้
+- เปรียบเทียบ strategy โดยใช้ตัวชี้วัดที่คำนวณไว้ล่วงหน้า
+- ผนวกเข้ากับ pipeline วิเคราะห์ภายนอก
 
-- Analyzing results from multiple backtest runs stored separately.
-- Comparing strategies using precomputed metrics.
-- Integrating with external analysis pipelines.
-
-## Best practices
+## แนวปฏิบัติที่ดี {#best-practices}
 
-### Chart selection
-
-- Use default charts for exploratory analysis to see all available metrics.
-- Customize charts when you know which metrics matter for your strategy.
-- Remove irrelevant charts to reduce visual clutter and file size.
-
-### Theme usage
-
-- Use `plotly_white` for professional reports and presentations.
-- Use `nautilus_dark` for official materials or low-light viewing.
-- Create custom themes to match internal guidelines or personal preferences.
-
-### Performance considerations
-
-- Tearsheet HTML files contain all data inline and can be several megabytes for long backtests.
-- Consider generating separate tearsheets for different analysis timeframes.
-- For very large datasets, use the individual chart functions instead of full tearsheets.
-
-### Custom statistics integration
-
-Pair custom charts with statistics supplied through the same `stats_pnls`, `stats_returns`, and
-`stats_general` dictionaries used by the built-in tearsheet charts.
-
-For `BacktestEngine` input, these values come from `engine.get_result()`, so a statistic registered with
-`Portfolio.register_statistic()` reaches the tearsheet without any extra wiring. See
-[Custom statistics](portfolio.md#custom-statistics).
-
-For offline analysis, pass compatible dictionaries directly to `create_tearsheet_from_stats()`:
-
-```python
-stats_returns = {
-    "Sharpe Ratio (252 days)": 1.2,
-    "Custom Volatility Score": 0.42,
-}
-```
-
-## API levels
-
-The visualization system provides two API levels, plus standalone chart functions:
-
-### High-level API
-
-Recommended for most use cases:
-
-```python
-create_tearsheet(engine=engine, config=config)
-```
-
-Automatically extracts data from a `BacktestEngine` or `BacktestResult`, generates all configured
-charts, and produces a complete HTML tearsheet.
-
-### Low-level API
-
-For advanced customization or offline analysis:
-
-```python
-create_tearsheet_from_stats(
-    stats_pnls=stats_pnls,
-    stats_returns=stats_returns,
-    stats_general=stats_general,
-    returns=returns,
-    run_info=run_info,
-    account_info=account_info,
-    config=config,
-)
-```
-
-Provides fine-grained control over data inputs and allows analysis of precomputed statistics.
-
-### Standalone chart functions
-
-Individual chart functions can be used independently to generate single-purpose HTML visualizations
-or Plotly figures for custom analysis workflows.
-
-#### Price bars with fills
-
-The `create_bars_with_fills` function generates a candlestick chart with order fills overlaid,
-useful for visually analyzing strategy execution within price action. It can be used standalone
-or included in tearsheets:
-
-```python
-from nautilus_trader.analysis import create_bars_with_fills
-from nautilus_trader.analysis import create_tearsheet
-from nautilus_trader.analysis import TearsheetBarsWithFillsChart
-from nautilus_trader.config import TearsheetConfig
-from nautilus_trader.analysis import TearsheetEquityChart
-from nautilus_trader.analysis import TearsheetStatsTableChart
-from nautilus_trader.model import BarType
-
-# Standalone usage
-bar_type = BarType.from_str("ESM4.XCME-1-MINUTE-LAST-EXTERNAL")
-fig = create_bars_with_fills(
-    engine=engine,
-    bar_type=bar_type,
-    title="ES Futures - Entry/Exit Analysis",
-)
-fig.show()  # Display in Jupyter
-fig.write_html("bars_with_fills.html")  # Or save to file
-
-# Include in tearsheet
-config = TearsheetConfig(
-    charts=[
-        TearsheetStatsTableChart(),
-        TearsheetEquityChart(),
-        TearsheetBarsWithFillsChart(
-            bar_type="ESM4.XCME-1-MINUTE-LAST-EXTERNAL",
-            title="Bars with Fills",
-        ),
-    ],
-)
-create_tearsheet(engine=engine, config=config)
-
-# Multiple bars-with-fills charts in one tearsheet
-config = TearsheetConfig(
-    charts=[
-        TearsheetStatsTableChart(),
-        TearsheetEquityChart(),
-        TearsheetBarsWithFillsChart(
-            bar_type=f"{instrument.id}-5-MINUTE-MID-INTERNAL",
-            title=f"Bars with Order Fills - {instrument.id}",
-        ),
-        TearsheetBarsWithFillsChart(
-            bar_type=f"{other_instrument.id}-5-MINUTE-MID-INTERNAL",
-            title=f"Bars with Order Fills - {other_instrument.id}",
-        ),
-    ],
-)
-create_tearsheet(engine=engine, config=config)
-```
-
-The visualization shows candlesticks for OHLC price action with triangle markers representing order fills
-(up-triangles for buys and down-triangles for sells, colored with the theme's positive and negative colors).
-Charts that need extra configuration (like `bar_type`) take those parameters directly on the chart object (for
-example, `TearsheetBarsWithFillsChart(bar_type=...)`).
-
-Other individual chart functions include `create_equity_curve`, `create_drawdown_chart`,
-`create_monthly_returns_heatmap`, and more. See the API reference for the complete list.
-
-## Related guides
-
-- [Backtesting](backtesting/) - Learn how to run backtests that generate tearsheets.
-- [Reports](reports.md) - Understand the underlying statistics displayed in tearsheets.
-- [Portfolio](portfolio.md) - Explore portfolio tracking and performance metrics.
+### การเลือก chart {#chart-selection}
+
+- ใช้ chart ค่าเริ่มต้นสำหรับการวิเคราะห์เชิงสำรวจเพื่อดูตัวชี้วัดทั้งหมดที่มี
+- ปรับแต่ง chart เมื่อรู้แล้วว่าตัวชี้วัดใดสำคัญกับ strategy ของตน
+- ตัด chart ที่ไม่เกี่ยวข้องออกเพื่อลดความรกทางสายตาและขนาดไฟล์
+
+### การใช้ theme {#theme-usage}
+
+- ใช้ `plotly_white` สำหรับรายงานและการนำเสนอแบบมืออาชีพ
+- ใช้ `nautilus_dark` สำหรับเอกสารทางการหรือการดูในที่แสงน้อย
+- สร้าง theme ของตัวเองให้ตรงกับแนวทางภายในองค์กรหรือความชอบส่วนตัว
+
+### ข้อควรพิจารณาด้าน performance {#performance-considerations}
+
+- ไฟล์ HTML ของ tearsheet ฝังข้อมูลทั้งหมดไว้ในตัว และอาจมีขนาดหลายเมกะไบต์สำหรับ backtest ที่ยาว
+- พิจารณาสร้าง tearsheet แยกสำหรับช่วงเวลาวิเคราะห์ที่ต่างกัน
+- สำหรับชุดข้อมูลขนาดใหญ่มาก ให้ใช้ฟังก์ชัน chart แยกตัวแทน tearsheet เต็มรูปแบบ
+
+### การผนวกสถิติแบบกำหนดเอง {#custom-statistics-integration}
+
+ใช้ chart แบบกำหนดเองคู่กับสถิติที่ส่งผ่าน dictionary `stats_pnls`, `stats_returns` และ `stats_general`
+ชุดเดียวกับที่ chart ในตัวของ tearsheet ใช้
+
+สำหรับ input แบบ `BacktestEngine` ค่าเหล่านี้มาจาก `engine.get_result()` ดังนั้นสถิติที่ลงทะเบียนด้วย
+`Portfolio.register_statistic()` จะไปถึง tearsheet ได้โดยไม่ต้องเชื่อมต่ออะไรเพิ่ม ดู
+[สถิติแบบกำหนดเอง](portfolio.md#custom-statistics)
+
+สำหรับการวิเคราะห์แบบ offline ให้ส่ง dictionary ที่เข้ากันได้ (เช่น `"Sharpe Ratio (252 days)"` หรือ
+`"Custom Volatility Score"` ใน `stats_returns`) เข้าไปใน `create_tearsheet_from_stats()` โดยตรง
+
+## ระดับของ API {#api-levels}
+
+ระบบ visualization มี API สองระดับ รวมถึงฟังก์ชัน chart แบบ standalone:
+
+### API ระดับสูง {#high-level-api}
+
+แนะนำสำหรับกรณีใช้งานส่วนใหญ่: `create_tearsheet(engine=..., config=...)`
+
+ดึงข้อมูลจาก `BacktestEngine` หรือ `BacktestResult` โดยอัตโนมัติ สร้าง chart ทั้งหมดที่ตั้งค่าไว้ และได้ tearsheet
+HTML ที่สมบูรณ์
+
+### API ระดับล่าง {#low-level-api}
+
+สำหรับการปรับแต่งขั้นสูงหรือการวิเคราะห์แบบ offline: `create_tearsheet_from_stats()` ซึ่งรับ `stats_pnls`,
+`stats_returns`, `stats_general`, `returns`, `run_info`, `account_info` และ `config`
+
+ให้การควบคุม input ข้อมูลอย่างละเอียด และรองรับการวิเคราะห์สถิติที่คำนวณไว้ล่วงหน้า
+
+### ฟังก์ชัน chart แบบ standalone {#standalone-chart-functions}
+
+ฟังก์ชัน chart แต่ละตัวใช้งานแยกกันได้อย่างอิสระ เพื่อสร้าง visualization HTML สำหรับจุดประสงค์เดียว
+หรือ figure ของ Plotly สำหรับ workflow การวิเคราะห์แบบกำหนดเอง
+
+#### Price bar พร้อม fill {#price-bars-with-fills}
+
+ฟังก์ชัน `create_bars_with_fills` สร้าง candlestick chart ที่มี fill ของ order ซ้อนอยู่ ซึ่งมีประโยชน์ในการวิเคราะห์
+การ execution ของ strategy เทียบกับ price action ด้วยสายตา ใช้แบบ standalone หรือรวมไว้ใน tearsheet ได้
+(ผ่าน chart object `TearsheetBarsWithFillsChart` และใส่ได้หลายตัวใน tearsheet เดียวสำหรับหลาย instrument)
+
+visualization จะแสดง candlestick ของ price action แบบ OHLC พร้อม marker รูปสามเหลี่ยมแทน fill ของ order
+(สามเหลี่ยมชี้ขึ้นสำหรับฝั่งซื้อ และชี้ลงสำหรับฝั่งขาย ใช้สี positive และ negative ของ theme) chart ที่ต้องการ
+configuration เพิ่มเติม (เช่น `bar_type`) จะรับพารามิเตอร์เหล่านั้นโดยตรงบน chart object (ตัวอย่างเช่น
+`TearsheetBarsWithFillsChart(bar_type=...)`)
+
+ฟังก์ชัน chart แยกตัวอื่น ๆ ได้แก่ `create_equity_curve`, `create_drawdown_chart`,
+`create_monthly_returns_heatmap` และอื่น ๆ
+
+## คู่มือที่เกี่ยวข้อง {#related-guides}
+
+- [Backtesting](backtesting/) - เรียนรู้วิธีรัน backtest ที่ให้ผลลัพธ์สำหรับ tearsheet
+- [Reports](reports.md) - ทำความเข้าใจสถิติเบื้องหลังที่แสดงใน tearsheet
+- [Portfolio](portfolio.md) - สำรวจการติดตาม portfolio และตัวชี้วัด performance

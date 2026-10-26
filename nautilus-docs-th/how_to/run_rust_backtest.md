@@ -1,19 +1,16 @@
-# Run a Backtest (Rust)
+# รัน backtest (Rust)
 
-Nautilus provides two Rust APIs for backtesting: `BacktestEngine`
-(low-level) and `BacktestNode` (high-level with catalog streaming). This
-guide covers both.
+Nautilus มี Rust API สำหรับ backtest สองแบบ คือ `BacktestEngine` (low-level) และ `BacktestNode`
+(high-level พร้อม streaming ข้อมูลจาก catalog) คู่มือนี้ครอบคลุมทั้งสองแบบ
 
-For background on backtesting concepts, fill models, and matching engine
-behavior, see the [Backtesting](../concepts/backtesting/) concept guide.
-For project setup and feature flags, see the
-[Rust](../concepts/rust.md#project-setup) concept guide.
+พื้นฐานเรื่องแนวคิดของ backtest, fill model และพฤติกรรมของ matching engine ดูได้ที่คู่มือแนวคิด
+[Backtesting](../concepts/backtesting/) ส่วนการตั้งค่าโปรเจกต์และ feature flag ดูได้ที่คู่มือแนวคิด
+[Rust](../concepts/rust.md#project-setup)
 
-## Dependencies
+## Dependency {#dependencies}
 
-Add the following to your `Cargo.toml`. The `streaming` and
-`nautilus-persistence` entries are only needed for the high-level
-`BacktestNode` API.
+เพิ่มรายการต่อไปนี้ลงใน `Cargo.toml` โดย `streaming` และ `nautilus-persistence` จำเป็นเฉพาะเมื่อใช้
+`BacktestNode` API แบบ high-level
 
 ```toml
 [dependencies]
@@ -29,15 +26,15 @@ tempfile = "3"
 ustr = "1"
 ```
 
-If you only need the low-level `BacktestEngine`, drop `streaming`,
-`nautilus-persistence`, `tempfile`, and `ustr`.
+ถ้าต้องการใช้แค่ `BacktestEngine` แบบ low-level ให้ตัด `streaming`, `nautilus-persistence`,
+`tempfile` และ `ustr` ออก
 
-## BacktestEngine (low-level API)
+## BacktestEngine (low-level API) {#backtestengine-low-level-api}
 
-The low-level API gives direct control: you build the engine, add venues and
-instruments, load data in memory, register strategies, and run.
+API แบบ low-level ให้ควบคุมได้โดยตรง: สร้าง engine เอง เพิ่ม venue และ instrument โหลดข้อมูลไว้ใน
+memory ลงทะเบียน strategy แล้วสั่งรัน
 
-### 1. Create the engine
+### 1. สร้าง engine {#1-create-the-engine}
 
 ```rust
 use nautilus_backtest::{config::BacktestEngineConfig, engine::BacktestEngine};
@@ -45,11 +42,11 @@ use nautilus_backtest::{config::BacktestEngineConfig, engine::BacktestEngine};
 let mut engine = BacktestEngine::new(BacktestEngineConfig::default())?;
 ```
 
-### 2. Add a venue
+### 2. เพิ่ม venue {#2-add-a-venue}
 
-`SimulatedVenueConfig` uses a `bon::Builder`: only required fields must be set,
-every other setting falls back to a documented default. `build()` validates the
-configuration and returns a `ConfigResult`, so propagate or unwrap it.
+`SimulatedVenueConfig` ใช้ `bon::Builder`: ต้องตั้งค่าเฉพาะฟิลด์ที่จำเป็น ส่วนค่าอื่นจะใช้ค่า default
+ที่ระบุไว้ในเอกสาร `build()` จะตรวจสอบความถูกต้องของ config และคืนค่าเป็น `ConfigResult` จึงต้อง
+propagate หรือ unwrap ผลลัพธ์
 
 ```rust
 use nautilus_backtest::config::SimulatedVenueConfig;
@@ -72,10 +69,10 @@ engine.add_venue(
 )?;
 ```
 
-Override any default by chaining setters, e.g. `.reject_stop_orders(false)` or
-`.allow_cash_borrowing(true)`.
+เปลี่ยนค่า default ใดก็ได้ด้วยการต่อ setter เช่น `.reject_stop_orders(false)` หรือ
+`.allow_cash_borrowing(true)`
 
-### 3. Add instruments and data
+### 3. เพิ่ม instrument และข้อมูล {#3-add-instruments-and-data}
 
 ```rust
 use nautilus_model::instruments::{
@@ -90,7 +87,7 @@ let quotes = generate_quotes(instrument_id); // Your data loading function
 engine.add_data(quotes, None, true, true)?;
 ```
 
-### 4. Register a strategy and run
+### 4. ลงทะเบียน strategy แล้วรัน {#4-register-a-strategy-and-run}
 
 ```rust
 use nautilus_model::types::Quantity;
@@ -107,22 +104,21 @@ engine.add_strategy(strategy)?;
 engine.run(None, None, None, false)?;
 ```
 
-### Run the full example
+### รันตัวอย่างฉบับเต็ม {#run-the-full-example}
 
 ```bash
 cargo run -p nautilus-backtest --features examples --example engine-ema-cross
 ```
 
-Source:
+ซอร์สโค้ด:
 [`crates/backtest/examples/engine_ema_cross.rs`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/backtest/examples/engine_ema_cross.rs)
 
-## BacktestNode (high-level API)
+## BacktestNode (high-level API) {#backtestnode-high-level-api}
 
-The high-level API loads data from a `ParquetDataCatalog` and streams in
-configurable chunk sizes. Requires the `streaming` feature on
-`nautilus-backtest`.
+API แบบ high-level โหลดข้อมูลจาก `ParquetDataCatalog` และ stream เข้ามาเป็น chunk ตามขนาดที่กำหนดได้
+ต้องเปิด feature `streaming` ของ `nautilus-backtest`
 
-### 1. Write data to a catalog
+### 1. เขียนข้อมูลลง catalog {#1-write-data-to-a-catalog}
 
 ```rust
 use nautilus_model::instruments::{
@@ -147,7 +143,7 @@ catalog.write_instruments(vec![instrument])?;
 catalog.write_to_parquet(&quotes, None, None, None)?;
 ```
 
-### 2. Configure the run
+### 2. ตั้งค่าการรัน {#2-configure-the-run}
 
 ```rust
 use nautilus_backtest::config::{
@@ -177,7 +173,7 @@ let run_config = BacktestRunConfig::builder()
     .build()?;
 ```
 
-### 3. Build, add strategies, and run
+### 3. build เพิ่ม strategy แล้วรัน {#3-build-add-strategies-and-run}
 
 ```rust
 use nautilus_backtest::node::BacktestNode;
@@ -200,11 +196,11 @@ engine.add_strategy(strategy)?;
 node.run()?;
 ```
 
-### Run the full example
+### รันตัวอย่างฉบับเต็ม {#run-the-full-example-1}
 
 ```bash
 cargo run -p nautilus-backtest --features examples,streaming --example node-ema-cross
 ```
 
-Source:
+ซอร์สโค้ด:
 [`crates/backtest/examples/node_ema_cross.rs`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/backtest/examples/node_ema_cross.rs)

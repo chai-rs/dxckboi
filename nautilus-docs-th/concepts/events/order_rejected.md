@@ -1,38 +1,29 @@
 # OrderRejected
 
-`OrderRejected` records an order reaching the terminal `REJECTED` state. The `ExecutionEngine`
-applies it to the order, updates the `Cache`, and publishes it on the `MessageBus`. It normally
-comes from an explicit venue rejection. Reconciliation can also create it from a venue report or
-after a local timeout or missing-order policy expires.
+`OrderRejected` บันทึกว่า order เข้าสู่สถานะสุดท้าย (terminal) `REJECTED` โดย `ExecutionEngine`
+จะ apply event นี้กับ order, อัปเดต `Cache` และ publish ลงบน `MessageBus` โดยปกติ event นี้
+มาจากการที่ venue ปฏิเสธ order อย่างชัดเจน แต่ reconciliation ก็สามารถสร้าง event นี้จาก report ของ venue หรือ
+หลังจาก timeout ฝั่ง local หรือ policy สำหรับ order ที่หายไปหมดอายุได้เช่นกัน
 
-Typical transition: `SUBMITTED` -> `REJECTED`. External and reconciliation paths also allow
-`INITIALIZED`, `ACCEPTED`, `PENDING_UPDATE`, `PENDING_CANCEL`, or `TRIGGERED` -> `REJECTED`.
-Handler: `on_order_rejected`.
+transition ทั่วไป: `SUBMITTED` -> `REJECTED` ส่วนเส้นทางจากภายนอกและจาก reconciliation ยังอนุญาต
+`INITIALIZED`, `ACCEPTED`, `PENDING_UPDATE`, `PENDING_CANCEL` หรือ `TRIGGERED` -> `REJECTED` ได้ด้วย
+Handler: `on_order_rejected`
 
-## Fields
+## ฟิลด์ {#fields}
 
-Beyond the [common Python order event fields](index.md#common-python-order-event-fields),
-`OrderRejected` carries:
+นอกเหนือจาก[ฟิลด์ทั่วไปของ order event](index.md#common-python-order-event-fields)
+`OrderRejected` ยังมีฟิลด์ต่อไปนี้:
 
-| Field            | Python type | Required/default | Description                                                                    |
-| ---------------- | ----------- | ---------------- | ------------------------------------------------------------------------------ |
-| `account_id`     | `AccountId` | Required         | The account associated with the order.                                         |
-| `reason`         | `str`       | Required         | The venue reason or local reconciliation policy reason.                        |
-| `due_post_only`  | `bool`      | `False`          | If rejected because it was post-only and would execute immediately as a taker. |
-| `reconciliation` | `bool`      | Required         | If reconciliation generated the event. This does not imply venue confirmation. |
+| Field            | Required/default | Description                                                                          |
+| ---------------- | ---------------- | ------------------------------------------------------------------------------------ |
+| `account_id`     | Required         | account ที่เกี่ยวข้องกับ order                                                        |
+| `reason`         | Required         | เหตุผลจาก venue หรือเหตุผลจาก reconciliation policy ฝั่ง local                         |
+| `due_post_only`  | `False`          | ถูกปฏิเสธเพราะเป็น post-only แต่จะถูก execute ทันทีในฐานะ taker หรือไม่                 |
+| `reconciliation` | Required         | reconciliation เป็นผู้สร้าง event นี้หรือไม่ ทั้งนี้ไม่ได้หมายความว่า venue ยืนยันแล้ว   |
 
-## Example
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-Reading the event in a strategy handler:
-
-```python
-def on_order_rejected(self, event: OrderRejected) -> None:
-    self.log.warning(f"Order {event.client_order_id} rejected: {event.reason}")
-```
-
-## Related guides
-
-- [Events](index.md) - Event categories, dispatch, and the common order event fields.
-- [Orders](../orders/) - Order types and the state machine.
-- [Execution policies](../execution/policies.md#terminal-reconciliation-provenance) - Venue
-  evidence and synthetic terminal policies.
+- [Events](index.md) - หมวดหมู่ของ event, การ dispatch และฟิลด์ทั่วไปของ order event
+- [Orders](../orders/) - ประเภท order และ state machine
+- [Execution policies](../execution/policies.md#terminal-reconciliation-provenance) - หลักฐานจาก venue
+  และ policy สำหรับสถานะสุดท้ายแบบสังเคราะห์

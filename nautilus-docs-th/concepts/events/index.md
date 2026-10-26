@@ -1,63 +1,59 @@
 # Events
 
-NautilusTrader models execution, position, account, and time changes as events. The `MessageBus`
-routes these events to interested components and, where supported, to strategy handlers. This guide
-covers the event types, their dispatch, and how order fills and corrections produce position events.
+NautilusTrader จำลองการเปลี่ยนแปลงของ execution, position, account และเวลาในรูปของ event
+โดย `MessageBus` จะส่ง event เหล่านี้ไปยัง component ที่สนใจ และส่งต่อไปยัง handler ของ strategy
+ในกรณีที่รองรับ คู่มือนี้อธิบายชนิดของ event, การ dispatch และวิธีที่ order fill และการแก้ไข fill
+ก่อให้เกิด position event
 
-## Event categories
+## หมวดหมู่ของ event {#event-categories}
 
-| Category | Examples                                        | Origin                          |
+| หมวด     | ตัวอย่าง                                         | ที่มา                             |
 | -------- | ----------------------------------------------- | ------------------------------- |
 | Order    | `OrderAccepted`, `OrderFilled`, `OrderCanceled` | Execution pipeline              |
-| Position | `PositionOpened`, `PositionAdjusted`            | Fills and accounting changes    |
+| Position | `PositionOpened`, `PositionAdjusted`            | fill และการเปลี่ยนแปลงทางบัญชี      |
 | Account  | `AccountState`                                  | `ExecutionClient` / `Portfolio` |
-| Time     | `TimeEvent`                                     | `Clock` (timers and alerts)     |
+| Time     | `TimeEvent`                                     | `Clock` (timer และ alert)        |
 
-## Handler dispatch
+## การ dispatch ไปยัง handler {#handler-dispatch}
 
-When an event reaches a strategy, the system calls handlers in a fixed order. The **specific
-handler** runs before the **aggregate handler**, so you can handle events at either granularity or
-use both.
+เมื่อ event มาถึง strategy ระบบจะเรียก handler ตามลำดับที่ตายตัว โดย **handler เฉพาะ** จะทำงานก่อน
+**handler รวม** ดังนั้นจะจัดการ event ที่ระดับความละเอียดใดก็ได้ หรือใช้ทั้งสองแบบร่วมกัน
 
-A strategy passes events to its handlers **only while it is running**. Events that arrive before
-start or after stop are not dispatched.
+strategy จะส่ง event ไปยัง handler ของตน **เฉพาะตอนที่กำลังทำงานอยู่เท่านั้น** event ที่มาถึงก่อน
+start หรือหลัง stop จะไม่ถูก dispatch
 
-Python data actors do not expose order event callbacks or the raw message bus. Use signals to send
-derived values from a strategy to a data actor. See
-[Actors: order event handling](../actors.md#order-event-handling).
+### Order event {#order-events}
 
-### Order events
+1. handler เฉพาะ (เช่น `on_order_filled`)
+1. `on_order_event` (รับ order event ทุกชนิด)
 
-1. Specific handler (for example, `on_order_filled`).
-1. `on_order_event` (receives all order events).
+### Position event {#position-events}
 
-### Position events
+สำหรับ position lifecycle event ที่ dispatch ไปยัง strategy:
 
-For the position lifecycle events dispatched to strategies:
+1. handler เฉพาะ (เช่น `on_position_opened`)
+1. `on_position_event` (รับ position lifecycle event ทุกตัวที่ถูก dispatch)
 
-1. Specific handler (for example, `on_position_opened`).
-1. `on_position_event` (receives all dispatched position lifecycle events).
+### Time event {#time-events}
 
-### Time events
+timer และ alert จะสร้าง object `TimeEvent` ส่ง `callback` ตอนเรียก `set_timer` หรือ
+`set_time_alert` เพื่อส่ง event ไปยัง method ของคุณเอง
 
-Timers and alerts produce `TimeEvent` objects. Pass a `callback` when calling `set_timer` or
-`set_time_alert` to direct events to your own method.
+หากไม่ได้ระบุ callback:
 
-If you omit the callback:
+- จะใช้ callback ที่เคยลงทะเบียนไว้ภายใต้ชื่อเดียวกัน หากมี
+- หากไม่มี event จะถูกส่งไปที่ `on_time_event`
 
-- A callback previously registered under the same name is used when present.
-- Otherwise, the event is delivered to `on_time_event`.
+## Order event {#order-events-1}
 
-## Order events
+order event ใช้สร้าง order, เปลี่ยนสถานะ หรือแก้ไขประวัติ fill ของ order โดย execution pipeline
+จะนำ event ไปใช้กับ order และ cache แล้ว publish บน `MessageBus` ตารางด้านล่างแสดง transition หลัก
+order ที่ partially filled, order จากภายนอก และ order ที่ถูก trigger ยังรองรับ transition เพิ่มเติม
+ซึ่งอธิบายไว้ใน[ลำดับสถานะของ order](../orders/index.md#order-state-flow) ฉบับเต็ม
 
-Order events initialize an order, change its state, or correct its fill history. The execution pipeline
-applies them to the order and cache, then publishes them on the `MessageBus`. The table below shows the
-primary transitions. Partially filled, external, and triggered orders support additional transitions
-documented in the full [order state flow](../orders/index.md#order-state-flow).
-
-| Event                                             | Primary transition                                     | Handler                    |
+| Event                                             | Transition หลัก                                         | Handler                    |
 | ------------------------------------------------- | ------------------------------------------------------ | -------------------------- |
-| [`OrderInitialized`](order_initialized.md)        | Create or materialize order                            | `on_order_initialized`     |
+| [`OrderInitialized`](order_initialized.md)        | สร้างหรือ materialize order                              | `on_order_initialized`     |
 | [`OrderDenied`](order_denied.md)                  | Initialized -> Denied                                  | `on_order_denied`          |
 | [`OrderEmulated`](order_emulated.md)              | Initialized -> Emulated                                | `on_order_emulated`        |
 | [`OrderReleased`](order_released.md)              | Emulated -> Released                                   | `on_order_released`        |
@@ -67,63 +63,62 @@ documented in the full [order state flow](../orders/index.md#order-state-flow).
 | [`OrderTriggered`](order_triggered.md)            | Accepted -> Triggered                                  | `on_order_triggered`       |
 | [`OrderPendingUpdate`](order_pending_update.md)   | Accepted -> PendingUpdate                              | `on_order_pending_update`  |
 | [`OrderPendingCancel`](order_pending_cancel.md)   | Accepted -> PendingCancel                              | `on_order_pending_cancel`  |
-| [`OrderUpdated`](order_updated.md)                | PendingUpdate -> previous status                       | `on_order_updated`         |
-| [`OrderModifyRejected`](order_modify_rejected.md) | PendingUpdate -> previous status                       | `on_order_modify_rejected` |
-| [`OrderCancelRejected`](order_cancel_rejected.md) | PendingCancel -> previous status                       | `on_order_cancel_rejected` |
+| [`OrderUpdated`](order_updated.md)                | PendingUpdate -> สถานะก่อนหน้า                            | `on_order_updated`         |
+| [`OrderModifyRejected`](order_modify_rejected.md) | PendingUpdate -> สถานะก่อนหน้า                            | `on_order_modify_rejected` |
+| [`OrderCancelRejected`](order_cancel_rejected.md) | PendingCancel -> สถานะก่อนหน้า                            | `on_order_cancel_rejected` |
 | [`OrderCanceled`](order_canceled.md)              | PendingCancel/Accepted -> Canceled                     | `on_order_canceled`        |
 | [`OrderExpired`](order_expired.md)                | Accepted -> Expired                                    | `on_order_expired`         |
 | [`OrderFilled`](order_filled.md)                  | Accepted -> Filled/PartiallyFilled                     | `on_order_filled`          |
-| [`OrderFillVoided`](order_fill_voided.md)         | Correct known fill or assert terminal for unknown fill | `on_order_fill_voided`     |
+| [`OrderFillVoided`](order_fill_voided.md)         | แก้ไข fill ที่รู้จัก หรือยืนยันสถานะ terminal สำหรับ fill ที่ไม่รู้จัก | `on_order_fill_voided`     |
 
-### Common Python order event fields
+### ฟิลด์ร่วมของ order event {#common-python-order-event-fields}
 
-Each concrete Python order event exposes these fields:
+order event แต่ละชนิดมีฟิลด์เหล่านี้:
 
-| Field             | Description                                                  |
+| ฟิลด์              | คำอธิบาย                                                       |
 | ----------------- | ------------------------------------------------------------ |
-| `trader_id`       | Trader instance identifier.                                  |
-| `strategy_id`     | Strategy associated with the order.                          |
-| `instrument_id`   | Instrument for the order.                                    |
-| `client_order_id` | Client-assigned order identifier.                            |
-| `event_id`        | Unique event identifier.                                     |
-| `ts_event`        | UNIX timestamp (nanoseconds) when the event occurred.        |
-| `ts_init`         | UNIX timestamp (nanoseconds) when the event was initialized. |
-| `causation_id`    | Source event or report which caused this event, if known.    |
+| `trader_id`       | ตัวระบุของ trader instance                                     |
+| `strategy_id`     | strategy ที่เกี่ยวข้องกับ order                                  |
+| `instrument_id`   | instrument ของ order                                         |
+| `client_order_id` | ตัวระบุ order ที่ฝั่ง client กำหนด                                 |
+| `event_id`        | ตัวระบุ event ที่ไม่ซ้ำกัน                                          |
+| `ts_event`        | UNIX timestamp (นาโนวินาที) ที่ event เกิดขึ้น                       |
+| `ts_init`         | UNIX timestamp (นาโนวินาที) ที่ event ถูกสร้าง                      |
+| `causation_id`    | event หรือ report ต้นทางที่ทำให้เกิด event นี้ หากทราบ               |
 
-Each order event page lists its type-specific fields. These include `venue_order_id`, `account_id`,
-and `reconciliation` only on the Python event classes that expose them. For example,
-[`OrderFilled`](order_filled.md) adds `last_qty`, `last_px`, `trade_id`, and `commission`.
-[`OrderFillVoided`](order_fill_voided.md) identifies the corrected trade and carries its cumulative
-voided quantity.
+หน้าของ order event แต่ละตัวจะระบุฟิลด์เฉพาะของชนิดนั้น ซึ่งรวมถึง `venue_order_id`, `account_id`
+และ `reconciliation` เฉพาะใน event ที่มีฟิลด์เหล่านี้ ตัวอย่างเช่น [`OrderFilled`](order_filled.md)
+เพิ่ม `last_qty`, `last_px`, `trade_id` และ `commission` ส่วน [`OrderFillVoided`](order_fill_voided.md)
+ระบุ trade ที่ถูกแก้ไขและเก็บปริมาณที่ถูก void สะสมไว้
 
-## Position events
+## Position event {#position-events-1}
 
-Position lifecycle events describe cached position changes caused by fills and fill corrections.
-The `ExecutionEngine` processes each `OrderFilled`, updates or creates a position, and emits the
-corresponding lifecycle event.
+position lifecycle event อธิบายการเปลี่ยนแปลงของ position ใน cache ที่เกิดจาก fill และการแก้ไข fill
+`ExecutionEngine` จะประมวลผล `OrderFilled` แต่ละตัว อัปเดตหรือสร้าง position แล้ว emit lifecycle event
+ที่สอดคล้องกัน
 
-When an `OrderFillVoided` corrects a locally applied fill, it rebuilds each affected cached position from its
-effective fill history. It does not emit an opposite fill. After publishing the correction, the engine emits
-`PositionChanged` for a corrected position that stays open or `PositionClosed` for one that is closed. An
-order-only correction does not produce a position event.
+เมื่อ `OrderFillVoided` แก้ไข fill ที่ถูกนำไปใช้ในเครื่องแล้ว จะสร้าง position ใน cache ที่ได้รับผลกระทบ
+ขึ้นใหม่จากประวัติ fill ที่มีผลจริง โดยไม่ emit fill ฝั่งตรงข้าม หลัง publish การแก้ไขแล้ว engine จะ
+emit `PositionChanged` สำหรับ position ที่ถูกแก้ไขและยังเปิดอยู่ หรือ `PositionClosed` สำหรับ position
+ที่ปิดแล้ว การแก้ไขที่กระทบเฉพาะ order จะไม่ทำให้เกิด position event
 
-| Event                                    | When it fires                                  | Handler               |
+| Event                                    | เกิดขึ้นเมื่อ                                      | Handler               |
 | ---------------------------------------- | ---------------------------------------------- | --------------------- |
-| [`PositionOpened`](position_opened.md)   | A fill creates a new position.                 | `on_position_opened`  |
-| [`PositionChanged`](position_changed.md) | A fill or correction changes an open position. | `on_position_changed` |
-| [`PositionClosed`](position_closed.md)   | A fill or correction leaves quantity at zero.  | `on_position_closed`  |
+| [`PositionOpened`](position_opened.md)   | fill สร้าง position ใหม่                         | `on_position_opened`  |
+| [`PositionChanged`](position_changed.md) | fill หรือการแก้ไขเปลี่ยน position ที่เปิดอยู่           | `on_position_changed` |
+| [`PositionClosed`](position_closed.md)   | fill หรือการแก้ไขทำให้ปริมาณเหลือศูนย์                | `on_position_closed`  |
 
-:::warning[PositionAdjusted never reaches a position handler]
-[`PositionAdjusted`](../positions.md#position-adjustments) records quantity or realized PnL changes
-outside normal fills, such as base-currency commissions and funding. The `ExecutionEngine` publishes
-it, but neither `on_position_event` nor any specific handler receives it. Inspect
-`position.adjustments()` for the recorded history.
+:::warning[PositionAdjusted ไม่เคยไปถึง position handler]
+[`PositionAdjusted`](../positions.md#position-adjustments) บันทึกการเปลี่ยนแปลงปริมาณหรือ realized PnL
+ที่เกิดนอก fill ปกติ เช่น commission ที่เป็น base currency และ funding โดย `ExecutionEngine` จะ
+publish event นี้ แต่ทั้ง `on_position_event` และ handler เฉพาะใดๆ จะไม่ได้รับ ให้ตรวจดูประวัติที่บันทึกไว้
+จาก `position.adjustments()`
 :::
 
-### From fill to position: the causal chain
+### จาก fill สู่ position: ห่วงโซ่เหตุและผล {#from-fill-to-position-the-causal-chain}
 
-The following diagram shows how a single `OrderFilled` event produces a position event, the link
-between order management and position tracking.
+แผนภาพต่อไปนี้แสดงว่า `OrderFilled` เพียงตัวเดียวก่อให้เกิด position event อย่างไร ซึ่งเป็นจุดเชื่อม
+ระหว่างการจัดการ order กับการติดตาม position
 
 ```mermaid
 sequenceDiagram
@@ -149,92 +144,82 @@ sequenceDiagram
     end
 ```
 
-Step by step:
+ทีละขั้นตอน:
 
-1. **Fill arrival**: the `ExecutionEngine` receives an `OrderFilled` event through the execution
-   pipeline.
-1. **Order state**: the engine applies the fill to the order object and writes the updated
-   order to the `Cache`.
-1. **Position ID**: the engine determines which position this fill belongs to, based on OMS
-   type and strategy configuration.
-1. **Position lifecycle**: the engine creates or updates the position in one of three ways:
-   - **No position exists** for this ID: the engine creates a `Position` from the fill, adds it to
-     the `Cache`, and emits `PositionOpened`.
-   - **Position exists and stays open** after the fill: the engine applies the fill to the position, updates
-     the `Cache`, and emits `PositionChanged`.
-   - **Position exists and closes** (quantity reaches zero): the engine applies the fill, updates
-     the `Cache`, and emits `PositionClosed`.
-1. **Position flip**: when a fill reverses the position (for example, a sell of 15 against a long 10), the
-   engine splits the fill into two parts. One closes the original position (`PositionClosed`). The other opens
-   the new position (`PositionOpened`).
+1. **fill มาถึง**: `ExecutionEngine` ได้รับ event `OrderFilled` ผ่าน execution pipeline
+1. **สถานะ order**: engine นำ fill ไปใช้กับ object ของ order และเขียน order ที่อัปเดตแล้วลง `Cache`
+1. **Position ID**: engine ระบุว่า fill นี้เป็นของ position ใด โดยอิงจาก OMS type และการตั้งค่าของ
+   strategy
+1. **วงจรชีวิตของ position**: engine สร้างหรืออัปเดต position ด้วยวิธีใดวิธีหนึ่งในสามแบบ:
+   - **ยังไม่มี position** สำหรับ ID นี้: engine สร้าง `Position` จาก fill เพิ่มลงใน `Cache` และ emit
+     `PositionOpened`
+   - **มี position อยู่และยังเปิดอยู่** หลัง fill: engine นำ fill ไปใช้กับ position อัปเดต `Cache` และ
+     emit `PositionChanged`
+   - **มี position อยู่และถูกปิด** (ปริมาณเหลือศูนย์): engine นำ fill ไปใช้ อัปเดต `Cache` และ emit
+     `PositionClosed`
+1. **การกลับทิศ position**: เมื่อ fill ทำให้ position กลับทิศ (เช่น ขาย 15 ขณะถือ long 10) engine จะแบ่ง
+   fill ออกเป็นสองส่วน ส่วนหนึ่งปิด position เดิม (`PositionClosed`) อีกส่วนเปิด position ใหม่
+   (`PositionOpened`)
 
-### Position event fields
+### ฟิลด์ของ position event {#position-event-fields}
 
-The three position lifecycle event classes share a core field set and expose additional fields as the position
-develops. A check mark means the Python class exposes the field. A dash means the field is absent from that
-class.
+position lifecycle event ทั้งสามชนิดมีชุดฟิลด์หลักร่วมกัน และมีฟิลด์เพิ่มเติมเมื่อ position พัฒนาไป
+เครื่องหมายถูกหมายถึง event ชนิดนั้นมีฟิลด์นี้ ขีดหมายถึงไม่มีฟิลด์นี้
 
-| Field              | Opened | Changed | Closed | Description                                  |
+| ฟิลด์               | Opened | Changed | Closed | คำอธิบาย                                       |
 | ------------------ | ------ | ------- | ------ | -------------------------------------------- |
-| `trader_id`        | ✓      | ✓       | ✓      | Trader instance identifier.                  |
-| `strategy_id`      | ✓      | ✓       | ✓      | Strategy that owns the position.             |
-| `instrument_id`    | ✓      | ✓       | ✓      | Instrument for the position.                 |
-| `position_id`      | ✓      | ✓       | ✓      | Unique position identifier.                  |
-| `account_id`       | ✓      | ✓       | ✓      | Account the position belongs to.             |
-| `opening_order_id` | ✓      | ✓       | ✓      | Order that opened the position.              |
-| `closing_order_id` | -      | -       | ✓      | Order that closed the position.              |
-| `entry`            | ✓      | ✓       | ✓      | Side of the opening fill.                    |
-| `side`             | ✓      | ✓       | ✓      | Current position side.                       |
-| `signed_qty`       | ✓      | ✓       | ✓      | Signed quantity (negative=short).            |
-| `quantity`         | ✓      | ✓       | ✓      | Unsigned position quantity.                  |
-| `peak_quantity`    | -      | ✓       | ✓      | Largest quantity held.                       |
-| `peak_qty`         | -      | ✓       | ✓      | Compatibility alias for `peak_quantity`.     |
-| `last_qty`         | ✓      | ✓       | ✓      | Quantity of the fill or correction.          |
-| `last_px`          | ✓      | ✓       | ✓      | Price of the fill or correction.             |
-| `currency`         | ✓      | ✓       | ✓      | Position quote currency.                     |
-| `avg_px_open`      | ✓      | ✓       | ✓      | Average entry price.                         |
-| `avg_px_close`     | -      | ✓       | ✓      | Average exit price, if available.            |
-| `realized_return`  | -      | ✓       | ✓      | Realized return as a ratio.                  |
-| `realized_pnl`     | ✓      | ✓       | ✓      | Current-cycle realized PnL in cost currency. |
-| `unrealized_pnl`   | -      | ✓       | ✓      | Set to zero by the engine.                   |
-| `duration`         | -      | -       | ✓      | Time held in nanoseconds.                    |
-| `ts_opened`        | -      | ✓       | ✓      | Timestamp when position opened.              |
-| `ts_closed`        | -      | -       | ✓      | Timestamp when position closed.              |
-| `event_id`         | ✓      | ✓       | ✓      | Unique event identifier.                     |
-| `ts_event`         | ✓      | ✓       | ✓      | Timestamp of the triggering event.           |
-| `ts_init`          | ✓      | ✓       | ✓      | Timestamp when event was created.            |
+| `trader_id`        | ✓      | ✓       | ✓      | ตัวระบุของ trader instance                     |
+| `strategy_id`      | ✓      | ✓       | ✓      | strategy ที่เป็นเจ้าของ position                 |
+| `instrument_id`    | ✓      | ✓       | ✓      | instrument ของ position                      |
+| `position_id`      | ✓      | ✓       | ✓      | ตัวระบุ position ที่ไม่ซ้ำกัน                       |
+| `account_id`       | ✓      | ✓       | ✓      | account ที่ position สังกัด                      |
+| `opening_order_id` | ✓      | ✓       | ✓      | order ที่เปิด position                          |
+| `closing_order_id` | -      | -       | ✓      | order ที่ปิด position                           |
+| `entry`            | ✓      | ✓       | ✓      | ฝั่งของ fill ที่เปิด position                      |
+| `side`             | ✓      | ✓       | ✓      | ฝั่งปัจจุบันของ position                          |
+| `signed_qty`       | ✓      | ✓       | ✓      | ปริมาณแบบมีเครื่องหมาย (ค่าลบ=short)              |
+| `quantity`         | ✓      | ✓       | ✓      | ปริมาณของ position แบบไม่มีเครื่องหมาย              |
+| `peak_quantity`    | -      | ✓       | ✓      | ปริมาณสูงสุดที่เคยถือ                              |
+| `peak_qty`         | -      | ✓       | ✓      | alias เพื่อความเข้ากันได้ของ `peak_quantity`        |
+| `last_qty`         | ✓      | ✓       | ✓      | ปริมาณของ fill หรือการแก้ไข                       |
+| `last_px`          | ✓      | ✓       | ✓      | ราคาของ fill หรือการแก้ไข                         |
+| `currency`         | ✓      | ✓       | ✓      | quote currency ของ position                   |
+| `avg_px_open`      | ✓      | ✓       | ✓      | ราคาเข้าเฉลี่ย                                   |
+| `avg_px_close`     | -      | ✓       | ✓      | ราคาออกเฉลี่ย หากมี                              |
+| `realized_return`  | -      | ✓       | ✓      | ผลตอบแทนที่รับรู้แล้วในรูปอัตราส่วน                     |
+| `realized_pnl`     | ✓      | ✓       | ✓      | realized PnL ของรอบปัจจุบันในสกุลเงินต้นทุน          |
+| `unrealized_pnl`   | -      | ✓       | ✓      | engine ตั้งค่าเป็นศูนย์                            |
+| `duration`         | -      | -       | ✓      | ระยะเวลาที่ถือ หน่วยนาโนวินาที                       |
+| `ts_opened`        | -      | ✓       | ✓      | timestamp ที่ position เปิด                     |
+| `ts_closed`        | -      | -       | ✓      | timestamp ที่ position ปิด                      |
+| `event_id`         | ✓      | ✓       | ✓      | ตัวระบุ event ที่ไม่ซ้ำกัน                          |
+| `ts_event`         | ✓      | ✓       | ✓      | timestamp ของ event ที่เป็นตัวกระตุ้น               |
+| `ts_init`          | ✓      | ✓       | ✓      | timestamp ที่ event ถูกสร้าง                     |
 
-### Tracing orders to positions
+### การไล่ตามจาก order ไปยัง position {#tracing-orders-to-positions}
 
-The `Cache` provides methods to navigate between orders and positions:
+`Cache` มี method สำหรับไล่ไปมาระหว่าง order และ position ได้ทั้งจาก position ไปหา order ทุกตัวที่มี
+fill ร่วม และจาก order ไปหา position ที่ order นั้นสังกัด ส่วน order ที่เปิด position จะถูกเก็บไว้บน
+position โดยตรง
 
-```python
-# From a position, find all orders that contributed fills
-orders = self.cache.orders_for_position(position.id)
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-# From an order, find the position it belongs to
-position = self.cache.position_for_order(order.client_order_id)
+## Account event {#account-events}
 
-# The opening order is stored directly on the position
-opening_order_id = position.opening_order_id
-```
+event `AccountState` แทน snapshot ของ balance และ margin โดยจะเกิดขึ้นเมื่อ:
 
-## Account events
+- venue รายงานการอัปเดต account (ผ่าน execution client)
+- `Portfolio` คำนวณสถานะ account ใหม่หลังการอัปเดต position (สำหรับ margin account ที่เปิด
+  `calculate_account_state`)
 
-`AccountState` events represent balance and margin snapshots. They fire when:
+account state ประกอบด้วย balance, margin, account type และ base currency โดย `Portfolio` จะ subscribe
+event เหล่านี้ภายในเพื่อติดตาม exposure และ balance ดูรายการฟิลด์ทั้งหมดได้ที่
+[`AccountState`](account_state.md)
 
-- The venue reports an account update (through the execution client).
-- The `Portfolio` recalculates account state after a position update (for margin accounts with
-  `calculate_account_state` enabled).
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-Account state contains balances, margins, account type, and base currency. The `Portfolio`
-subscribes to these events internally to maintain exposure and balance tracking. See
-[`AccountState`](account_state.md) for the full field list.
-
-## Related guides
-
-- [Orders](../orders/) - Order types and state machine.
-- [Positions](../positions.md) - Position lifecycle and PnL.
-- [Execution](../execution/) - Execution flow and risk checks.
-- [Strategies](../strategies.md) - Handler implementations in strategies.
-- [Architecture](../architecture.md) - Data and execution flow patterns.
+- [Orders](../orders/) - ชนิดของ order และ state machine
+- [Positions](../positions.md) - วงจรชีวิตของ position และ PnL
+- [Execution](../execution/) - ลำดับการ execute และการตรวจสอบความเสี่ยง
+- [Strategies](../strategies.md) - การ implement handler ใน strategy
+- [Architecture](../architecture.md) - รูปแบบการไหลของข้อมูลและ execution

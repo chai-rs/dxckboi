@@ -1,38 +1,34 @@
-# Get Started with Lighter
+# เริ่มต้นใช้งาน Lighter
 
-Lighter is available through the Rust engine. You can use it from a pure Rust project, or from
-Python through PyO3 bindings that expose the same Rust data and execution clients to a Python
-`LiveNode`.
+Lighter ใช้งานได้ผ่าน engine ของ Rust และสามารถใช้จากโปรเจกต์ Rust ล้วนได้
 
-The shortest path is to start with public data. Once data subscriptions work, add execution
-credentials and then add a strategy that can submit orders.
+เส้นทางที่สั้นที่สุดคือเริ่มจาก public data เมื่อการ subscribe ข้อมูลทำงานได้แล้ว จึงเพิ่ม credential สำหรับการ
+execution แล้วเพิ่ม strategy ที่ส่ง order ได้
 
-## Choose a setup path
+## เลือกเส้นทางการตั้งค่า {#choose-a-setup-path}
 
-| Path        | Use when                                            | First step                                 |
+| เส้นทาง        | ใช้เมื่อ                                                  | ขั้นแรก                                      |
 | :---------- | :-------------------------------------------------- | :----------------------------------------- |
-| Pure Rust   | You want a compiled app with no Python runtime.     | Copy the Rust quickstart.                  |
-| Python      | You want Python scripts on the Rust engine.         | Run the Python data tester.                |
-| RWA example | You want Databento signal data and Lighter trading. | Read the composite market making tutorial. |
+| Pure Rust   | ต้องการแอปที่ compile แล้วและไม่ต้องมี Python runtime        | คัดลอก Rust quickstart                      |
+| ตัวอย่าง RWA | ต้องการใช้ข้อมูล signal จาก Databento ร่วมกับการเทรดบน Lighter | อ่าน tutorial composite market making       |
 
-Start from these files:
+เริ่มจากไฟล์เหล่านี้:
 
-- Rust quickstart: `examples/quickstarts/lighter-rust-data-client/`.
-- Python data tester: `examples/live/lighter/data_tester.py`.
-- RWA tutorial: [Composite market making tutorial][lighter-rwa-composite-mm].
+- Rust quickstart: `examples/quickstarts/lighter-rust-data-client/`
+- tutorial RWA: [tutorial composite market making][lighter-rwa-composite-mm]
 
-The Rust and Python paths both use these pieces:
+เส้นทาง Rust ใช้ชิ้นส่วนเหล่านี้:
 
-- `LighterDataClientConfig` selects the Lighter or Robinhood deployment, mainnet or testnet, an
-  optional custom venue, and optional transport settings.
-- `LighterExecutionClientConfig` adds the account ID and resolves credentials. Its account issuer
-  must match the resolved venue.
-- `LighterDataClientFactory` and `LighterExecutionClientFactory` register clients with `LiveNode`.
-- `DataTester` and `ExecTester` provide smoke-test actors before you write a custom strategy.
+- `LighterDataClientConfig` เลือก deployment ของ Lighter หรือ Robinhood, mainnet หรือ testnet, custom venue
+  (ไม่บังคับ) และการตั้งค่า transport (ไม่บังคับ)
+- `LighterExecutionClientConfig` เพิ่ม account ID และ resolve credential โดย issuer ของ account ต้องตรงกับ venue
+  ที่ resolve ได้
+- `LighterDataClientFactory` และ `LighterExecutionClientFactory` ลงทะเบียน client กับ `LiveNode`
+- `DataTester` และ `ExecTester` เป็น actor สำหรับ smoke test ก่อนที่จะเขียน strategy ของตัวเอง
 
-## Pure Rust starter
+## เริ่มต้นด้วย Pure Rust {#pure-rust-starter}
 
-Copy the quickstart into your own workspace:
+คัดลอก quickstart ไปยัง workspace ของคุณ:
 
 ```bash
 cp -R examples/quickstarts/lighter-rust-data-client ~/lighter-rust-data-client
@@ -40,10 +36,10 @@ cd ~/lighter-rust-data-client
 cargo run
 ```
 
-This builds a `LiveNode`, registers the Lighter data client, adds a `DataTester`, and connects to
-testnet public streams. Stop it with Ctrl+C.
+คำสั่งนี้สร้าง `LiveNode`, ลงทะเบียน data client ของ Lighter, เพิ่ม `DataTester` และเชื่อมต่อกับ public stream
+ของ testnet หยุดได้ด้วย Ctrl+C
 
-The core setup uses builders, which fill in optional defaults for you:
+การตั้งค่าหลักใช้ builder ซึ่งเติมค่าเริ่มต้นของตัวเลือกที่ไม่บังคับให้:
 
 ```rust
 let data_config = LighterDataClientConfig::builder()
@@ -60,7 +56,7 @@ let mut node = LiveNode::builder(trader_id, Environment::Live)?
     .build()?;
 ```
 
-After the data path works, add an execution client to the builder before calling `.build()`:
+เมื่อเส้นทางข้อมูลทำงานได้แล้ว ให้เพิ่ม execution client ใน builder ก่อนเรียก `.build()`:
 
 ```rust
 let exec_config = LighterExecutionClientConfig::builder()
@@ -83,9 +79,8 @@ let mut node = LiveNode::builder(trader_id, Environment::Live)?
     .build()?;
 ```
 
-For execution, follow the
-[account and API key setup](../integrations/lighter.md#account-and-api-key-setup), then set the
-matching environment variables before connecting:
+สำหรับการ execution ให้ทำตาม[การตั้งค่า account และ API key](../integrations/lighter.md#account-and-api-key-setup)
+แล้วตั้ง environment variable ที่ตรงกันก่อนเชื่อมต่อ:
 
 ```bash
 export LIGHTER_TESTNET_ACCOUNT_INDEX="123456"
@@ -93,83 +88,35 @@ export LIGHTER_TESTNET_API_KEY_INDEX="4"
 export LIGHTER_TESTNET_API_SECRET="your-lighter-api-secret"
 ```
 
-The deployment and environment select the credential namespace:
+deployment และ environment เป็นตัวเลือก namespace ของ credential:
 
-| Deployment | Environment | Credential prefix             |
+| Deployment | Environment | Prefix ของ credential           |
 | ---------- | ----------- | ----------------------------- |
 | Lighter    | Mainnet     | `LIGHTER_*`                   |
 | Lighter    | Testnet     | `LIGHTER_TESTNET_*`           |
 | Robinhood  | Mainnet     | `LIGHTER_ROBINHOOD_*`         |
 | Robinhood  | Testnet     | `LIGHTER_ROBINHOOD_TESTNET_*` |
 
-Each namespace supplies `ACCOUNT_INDEX`, `API_KEY_INDEX`, and `API_SECRET`.
+แต่ละ namespace ประกอบด้วย `ACCOUNT_INDEX`, `API_KEY_INDEX` และ `API_SECRET`
 
-## Python starter
+## ก้าวต่อไปสู่ strategy {#move-to-a-strategy}
 
-Python uses the Rust engine through PyO3. Install a Python development wheel outside a source
-checkout, or build the package from source before running these examples. See
-[Python installation][python-install].
+เส้นทางเริ่มต้นเหล่านี้พิสูจน์การเชื่อมต่อ client, การ subscribe และการค้นหา credential ขั้นถัดไปคือการแทนที่ tester
+ด้วย strategy:
 
-From the repository root with Python installed:
-
-```bash
-uv run --project python --no-sync python examples/live/lighter/data_tester.py
-```
-
-The script connects to Lighter Testnet immediately and starts streaming. The deployment,
-environment, and instrument are module-level constants at the top of the file.
-
-The Python script mirrors the Rust setup:
-
-```python
-builder = LiveNode.builder(
-    "LIGHTER-DATA-TESTER-001",
-    TraderId.from_str("TESTER-001"),
-    Environment.LIVE,
-).add_data_client(
-    VENUE,
-    LighterDataClientFactory(),
-    LighterDataClientConfig(
-        environment=LighterEnvironment.TESTNET,
-        deployment=LighterDeployment.LIGHTER,
-    ),
-)
-```
-
-Use the execution tester only after the data tester works:
-
-```bash
-uv run --project python --no-sync python examples/live/lighter/exec_tester.py
-```
-
-The execution tester also connects immediately, and it places real orders by default
-(`dry_run=False`, with a warning at the top of the module). The default environment is testnet;
-set `LIGHTER_DEPLOYMENT` and `LIGHTER_ENVIRONMENT` to select the target deployment and environment.
-
-## Move to a strategy
-
-The starter paths prove client wiring, subscriptions, and credential lookup. The next step is to
-replace the tester with a strategy:
-
-- Use [Write a Strategy (Rust)](write_rust_strategy.md) for a pure Rust strategy.
-- Use `examples/live/lighter/nvda_composite_mm.py` for Python node wiring with the built-in
-  Rust `CompositeMarketMaker` strategy.
-- Use [Composite market making on Lighter RWA][lighter-rwa-composite-mm] when you need the full
-  Databento signal setup.
+- ใช้ [Write a Strategy (Rust)](write_rust_strategy.md) สำหรับ strategy แบบ Rust ล้วน
+- ใช้ [Composite market making บน Lighter RWA][lighter-rwa-composite-mm] เมื่อต้องการตั้งค่า signal จาก Databento
+  แบบเต็มรูปแบบ
 
 :::warning
-The Rust execution example ships with `DRY_RUN = false` and can submit live orders as soon as you
-run it. Set `DRY_RUN` to `true` to connect without order submission. Python execution examples also
-submit live orders as soon as you run them. Start on testnet or use the smallest accepted size, and
-confirm the instrument, deployment, environment, account index, API key index, and private key
-before you run.
+ตัวอย่าง execution ฝั่ง Rust มาพร้อม `DRY_RUN = false` และอาจส่ง order จริงได้ทันทีที่รัน ตั้ง `DRY_RUN` เป็น `true`
+เพื่อเชื่อมต่อโดยไม่ส่ง order เริ่มบน testnet หรือใช้ขนาดที่เล็กที่สุดที่ยอมรับ และตรวจสอบ instrument, deployment,
+environment, account index, API key index และ private key ให้แน่ใจก่อนรัน
 :::
 
-For emergency cleanup, `cargo run --bin lighter-flatten -p nautilus-lighter` cancels open orders
-and closes positions for the selected deployment account. Stop other account writers and review
-[Emergency account cleanup](../integrations/lighter.md#emergency-account-cleanup) before use. The
-tool submits one account-wide cancellation and one position-close pass. It does not reconcile until
-the account is flat.
+สำหรับการเก็บกวาดฉุกเฉิน `cargo run --bin lighter-flatten -p nautilus-lighter` จะยกเลิก open order และปิด position
+ของ account ใน deployment ที่เลือก ให้หยุดตัวเขียนอื่น ๆ ของ account และทบทวน
+[Emergency account cleanup](../integrations/lighter.md#emergency-account-cleanup) ก่อนใช้งาน เครื่องมือนี้ส่ง
+การยกเลิกแบบทั้ง account หนึ่งครั้ง และรอบการปิด position หนึ่งรอบ โดยไม่ reconcile ต่อจนกว่า account จะ flat
 
 [lighter-rwa-composite-mm]: ../tutorials/lighter_rwa_composite_mm.md
-[python-install]: ../getting_started/installation.md#development-wheels

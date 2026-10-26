@@ -1,177 +1,167 @@
 # Lighter
 
-[Lighter](https://lighter.xyz) is a decentralized central-limit-order-book exchange for spot and
-perpetual futures, with Ethereum zero-knowledge rollup settlement and off-chain matching and
-sequencing. The adapter supports both Lighter and its Robinhood Chain deployment.
+[Lighter](https://lighter.xyz) เป็น exchange แบบ central-limit-order-book ที่กระจายศูนย์ สำหรับ spot และ
+perpetual futures โดย settle ผ่าน zero-knowledge rollup บน Ethereum และทำ matching และ sequencing
+แบบ off-chain adapter รองรับทั้ง Lighter และ deployment บน Robinhood Chain
 
-The `nautilus-lighter` crate provides Rust data and execution clients, typed REST and WebSocket
-models, and an in-tree L2 signer using Schnorr signatures over ECgFp5.
+crate `nautilus-lighter` มี data client และ execution client ฝั่ง Rust, model ของ REST และ WebSocket
+แบบมี type และ L2 signer ในตัวที่ใช้ Schnorr signature บน ECgFp5
 
-For L2 signing benchmarks and the official Go SDK comparison, see
-[`crates/adapters/lighter/benches/BENCHMARKS.md`](../../crates/adapters/lighter/benches/BENCHMARKS.md).
-Compare benchmark deltas only on the same machine; absolute timings vary.
+สำหรับ benchmark ของ L2 signing และการเปรียบเทียบกับ Go SDK อย่างเป็นทางการ ดู
+[`crates/adapters/lighter/benches/BENCHMARKS.md`](../../crates/adapters/lighter/benches/BENCHMARKS.md)
+ให้เปรียบเทียบส่วนต่างของ benchmark บนเครื่องเดียวกันเท่านั้น เพราะเวลาสัมบูรณ์จะแตกต่างกันไป
 
-## Overview
+## ภาพรวม {#overview}
 
-- `LighterRawHttpClient`: low-level REST client for public and account endpoints.
-- `LighterHttpClient`: domain REST client that parses instruments, trades, bars, funding, and books
-  into Nautilus model types and returns typed venue order and account payloads.
-- `LighterWebSocketClient`: reconnecting public market and private account streams.
-- `LighterDataClient`: instruments, trades, quotes, and L2 market-by-price (MBP) books.
-- `LighterExecutionClient`: Nautilus execution client for account streams, order submission,
-  modification, cancellation, and reconciliation reports.
-- `LighterDataClientFactory` and `LighterExecutionClientFactory`: live-node factory wiring.
+- `LighterRawHttpClient`: REST client ระดับล่างสำหรับ endpoint สาธารณะและ endpoint ของ account
+- `LighterHttpClient`: REST client ระดับ domain ที่ parse instrument, trade, bar, funding และ book
+  เป็น model type ของ Nautilus และคืน payload ของ venue order และ account แบบมี type
+- `LighterWebSocketClient`: stream สาธารณะของตลาดและ stream ส่วนตัวของ account ที่ reconnect ได้เอง
+- `LighterDataClient`: instrument, trade, quote และ book แบบ L2 market-by-price (MBP)
+- `LighterExecutionClient`: execution client ของ Nautilus สำหรับ account stream, การ submit order,
+  การแก้ไข, การ cancel และ reconciliation report
+- `LighterDataClientFactory` และ `LighterExecutionClientFactory`: การเชื่อม factory เข้ากับ live node
 
-The Python extension exposes configuration, deployment and environment selection, factories, and
-integrator revocation. Live nodes consume the data and execution clients through Rust traits.
+live node ใช้งาน data client และ execution client ผ่าน Rust trait
 
-## Examples
+## ตัวอย่าง {#examples}
 
-Set each tester's module-level `LIGHTER_DEPLOYMENT`, `LIGHTER_ENVIRONMENT`, and other constants before
-running it. Rust and Python testers connect immediately; these selectors do not read environment variables.
+ตั้งค่าคงที่ระดับ module ของ tester แต่ละตัว ได้แก่ `LIGHTER_DEPLOYMENT`, `LIGHTER_ENVIRONMENT` และค่าคงที่อื่น
+ก่อนรัน tester ของ Rust จะเชื่อมต่อทันที และตัวเลือกเหล่านี้ไม่ได้อ่านจาก environment variable
 
 :::warning
-Both execution testers submit orders by default: Rust uses `DRY_RUN = false` on Lighter Mainnet;
-Python uses `DRY_RUN = False` on Lighter Testnet. Funded accounts can place real orders on either mainnet
-deployment. Review the instrument, quantity, deployment, and environment, or enable `DRY_RUN` to connect
-without submitting orders.
+execution tester จะ submit order โดยค่าเริ่มต้น: Rust ใช้ `DRY_RUN = false` บน Lighter Mainnet
+account ที่มีเงินสามารถวาง order จริงได้บน mainnet deployment ทั้งสองแบบ ให้ตรวจ instrument, quantity,
+deployment และ environment หรือเปิด `DRY_RUN` เพื่อเชื่อมต่อโดยไม่ submit order
 :::
 
-Run the [Python examples](https://github.com/nautechsystems/nautilus_trader/tree/develop/examples/live/lighter/)
-from the repository root:
-
-```bash
-uv run --project python --no-sync python examples/live/lighter/data_tester.py
-uv run --project python --no-sync python examples/live/lighter/exec_tester.py
-```
-
-Rust examples are in `crates/adapters/lighter/examples/`:
+ตัวอย่าง Rust อยู่ใน `crates/adapters/lighter/examples/`:
 
 ```bash
 cargo run --example lighter-data-tester --package nautilus-lighter --features examples
 cargo run --example lighter-exec-tester --package nautilus-lighter --features examples
 ```
 
-### Emergency account cleanup
+### การล้าง account ฉุกเฉิน {#emergency-account-cleanup}
 
-`cargo run --bin lighter-flatten -p nautilus-lighter` submits immediate account-wide cancellation,
-then reads one position snapshot and submits reduce-only immediate-or-cancel (IOC) closes for its positions.
+`cargo run --bin lighter-flatten -p nautilus-lighter` จะส่งการ cancel ทั้ง account ทันที จากนั้นอ่าน
+snapshot ของ position หนึ่งครั้งและส่งคำสั่งปิดแบบ reduce-only immediate-or-cancel (IOC) สำหรับ position เหล่านั้น
 
 :::warning
-Stop other writers for the account before running this command. Cleanup is account-wide, not
-strategy-scoped, so review the active account and positions first.
+หยุด writer อื่นของ account ก่อนรันคำสั่งนี้ การล้างเป็นแบบทั้ง account ไม่ได้จำกัดเฉพาะ strategy
+ดังนั้นให้ตรวจ account และ position ที่ active อยู่ก่อน
 :::
 
-The command does not confirm or retry requests. Success means submission without a known error,
-not a flat account. Check account state afterward and rerun if anything remains.
+คำสั่งนี้ไม่ได้ยืนยันหรือ retry request ความสำเร็จหมายถึงการ submit โดยไม่มี error ที่ทราบ ไม่ได้หมายถึง
+account ที่ flat แล้ว ให้ตรวจ account state หลังจากนั้นและรันซ้ำหากยังมีอะไรเหลืออยู่
 
-Each run allows at most 15 closes; cancellation occupies one slot in the 16-transaction nonce window.
-Incomplete snapshots and request or submission failures return errors. The close pass times out after 15 minutes.
+การรันแต่ละครั้งอนุญาตให้ปิดได้สูงสุด 15 รายการ เพราะการ cancel ใช้หนึ่งช่องใน nonce window ขนาด 16 transaction
+snapshot ที่ไม่สมบูรณ์และความล้มเหลวของ request หรือการ submit จะคืน error รอบการปิดจะ timeout หลัง 15 นาที
 
-Set `LIGHTER_DEPLOYMENT` to `lighter` or `robinhood` and `LIGHTER_ENVIRONMENT` to `mainnet` or `testnet`.
-Omitted selectors default to Lighter Mainnet and select the matching credential namespace.
+ตั้ง `LIGHTER_DEPLOYMENT` เป็น `lighter` หรือ `robinhood` และ `LIGHTER_ENVIRONMENT` เป็น `mainnet` หรือ `testnet`
+หากไม่ระบุ ค่าเริ่มต้นจะเป็น Lighter Mainnet และเลือก namespace ของ credential ที่ตรงกัน
 
-## Product support
+## ผลิตภัณฑ์ที่รองรับ {#product-support}
 
-Capability matrices describe adapter support. *Not supported by Lighter* identifies a venue API limitation.
-*Not currently implemented* identifies an adapter gap.
+ตาราง capability อธิบายสิ่งที่ adapter รองรับ *Lighter ไม่รองรับ* หมายถึงข้อจำกัดของ API ของ venue
+ส่วน *ยังไม่ได้ implement* หมายถึงช่องว่างของ adapter
 
-| Product type      | Data feed | Trading | Notes                                                     |
-| ----------------- | --------- | ------- | --------------------------------------------------------- |
-| Spot              | ✓         | ✓       | Spot markets; new listings use 64-bit ids from 4095.      |
-| Perpetual futures | ✓         | ✓       | Linear perpetuals; new listings use 64-bit ids from 4095. |
-| Dated futures     | -         | -       | *Not supported by Lighter*.                               |
-| Options           | -         | -       | *Not supported by Lighter*.                               |
+| ประเภทผลิตภัณฑ์     | Data feed | Trading | หมายเหตุ                                                          |
+| ----------------- | --------- | ------- | ----------------------------------------------------------------- |
+| Spot              | ✓         | ✓       | ตลาด spot ตลาดใหม่ใช้ id แบบ 64-bit เริ่มจาก 4095                 |
+| Perpetual futures | ✓         | ✓       | linear perpetual ตลาดใหม่ใช้ id แบบ 64-bit เริ่มจาก 4095          |
+| Dated futures     | -         | -       | *Lighter ไม่รองรับ*                                               |
+| Options           | -         | -       | *Lighter ไม่รองรับ*                                               |
 
-## Limitations
+## ข้อจำกัด {#limitations}
 
-- Native OTO, OCO, and OTOCO groups require the [supported shapes](#contingent-orders). Native groups do not
-  support Nautilus OUO relationships.
-- Non-contingent lists, batch modifications, and explicit batch cancellations split into WebSocket batches
-  of up to 15 transactions. Native contingent lists use one grouped transaction.
-- `CancelAllOrders` cancels cached open orders across strategies on the client's account, preserving each
-  order's strategy and filtering by instrument and optional `order_side`. It uses per-order cancellations in
-  batches of up to 15. The adapter's native cancel-all schema is account-wide. Lighter's
-  [newer signer](https://apidocs.lighter.xyz/docs/wasm-signer#signcancelallorders) adds a market filter but no
-  side filter.
-- `query_account` and position reports replay the latest cached private WebSocket state.
-- Unscoped order reconciliation covers only configured or observed active markets to avoid venue-wide
-  fan-out under the Standard REST quota.
+- กลุ่ม OTO, OCO และ OTOCO แบบ native ต้องเป็นไปตาม[รูปแบบที่รองรับ](#contingent-orders) กลุ่มแบบ native
+  ไม่รองรับความสัมพันธ์แบบ OUO ของ Nautilus
+- list ที่ไม่ใช่ contingent, การแก้ไขแบบ batch และการ cancel แบบ batch ที่ระบุชัดเจน จะถูกแบ่งเป็น
+  WebSocket batch ละไม่เกิน 15 transaction ส่วน contingent list แบบ native ใช้ grouped transaction เดียว
+- `CancelAllOrders` จะ cancel open order ใน cache ข้ามทุก strategy บน account ของ client โดยคง strategy
+  ของแต่ละ order ไว้ และกรองตาม instrument และ `order_side` (ถ้าระบุ) มันใช้การ cancel ทีละ order เป็น batch
+  ละไม่เกิน 15 schema ของ cancel-all แบบ native ที่ adapter ใช้เป็นแบบทั้ง account
+  [signer รุ่นใหม่](https://apidocs.lighter.xyz/docs/wasm-signer#signcancelallorders) ของ Lighter เพิ่ม filter
+  ของตลาดแต่ไม่มี filter ของ side
+- `query_account` และ position report จะ replay state ล่าสุดของ private WebSocket ที่อยู่ใน cache
+- order reconciliation ที่ไม่ได้ระบุขอบเขตจะครอบคลุมเฉพาะตลาดที่ active ซึ่งตั้งค่าไว้หรือสังเกตพบ
+  เพื่อหลีกเลี่ยงการกระจาย request ไปทั้ง venue ภายใต้โควตา REST ระดับ Standard
 
-## Symbology
+## Symbology {#symbology}
 
-Lighter uses 64-bit `market_index` values. Existing markets keep their range-partitioned IDs. Following
-[Lighter Mainnet's September 2026 upgrade](https://t.me/lighter_api_updates/174) and
-[Robinhood's later upgrade](https://t.me/lighter_api_updates/184), new spot and perpetual markets take the
-next free index at or above `4095`.
+Lighter ใช้ค่า `market_index` แบบ 64-bit ตลาดเดิมจะคง ID ที่แบ่งตามช่วงไว้ หลังจาก
+[การอัปเกรดของ Lighter Mainnet ในเดือนกันยายน 2026](https://t.me/lighter_api_updates/174) และ
+[การอัปเกรดของ Robinhood ที่ตามมา](https://t.me/lighter_api_updates/184) ตลาด spot และ perpetual ใหม่
+จะได้ index ว่างถัดไปที่มีค่าตั้งแต่ `4095` ขึ้นไป
 
-Product type comes only from `market_type`. The adapter loads `GET /api/v1/orderBookDetails` and maps
-venue symbols to Nautilus `InstrumentId` values.
+ประเภทผลิตภัณฑ์มาจาก `market_type` เท่านั้น adapter โหลด `GET /api/v1/orderBookDetails` และ map
+symbol ของ venue ไปเป็นค่า `InstrumentId` ของ Nautilus
 
-| Deployment product  | Nautilus symbol format                  | Example                            | Notes                    |
-| ------------------- | --------------------------------------- | ---------------------------------- | ------------------------ |
-| Lighter perpetual   | `{BASE}-PERP.LIGHTER`                   | `BTC-PERP.LIGHTER`                 | Raw venue symbol `BTC`.  |
-| Lighter spot        | `{BASE}/{QUOTE}-SPOT.LIGHTER`           | `ETH/USDC-SPOT.LIGHTER`            | Raw symbol `ETH/USDC`.   |
-| Robinhood perpetual | `{BASE}-PERP.LIGHTER_ROBINHOOD`         | `SNDK-PERP.LIGHTER_ROBINHOOD`      | Raw venue symbol `SNDK`. |
-| Robinhood spot      | `{BASE}/{QUOTE}-SPOT.LIGHTER_ROBINHOOD` | `SNDK/USDG-SPOT.LIGHTER_ROBINHOOD` | Raw symbol `SNDK/USDG`.  |
+| ผลิตภัณฑ์ของ deployment | รูปแบบ symbol ของ Nautilus                | ตัวอย่าง                             | หมายเหตุ                    |
+| ------------------- | --------------------------------------- | ---------------------------------- | --------------------------- |
+| Lighter perpetual   | `{BASE}-PERP.LIGHTER`                   | `BTC-PERP.LIGHTER`                 | symbol ดิบของ venue `BTC`   |
+| Lighter spot        | `{BASE}/{QUOTE}-SPOT.LIGHTER`           | `ETH/USDC-SPOT.LIGHTER`            | symbol ดิบ `ETH/USDC`       |
+| Robinhood perpetual | `{BASE}-PERP.LIGHTER_ROBINHOOD`         | `SNDK-PERP.LIGHTER_ROBINHOOD`      | symbol ดิบของ venue `SNDK`  |
+| Robinhood spot      | `{BASE}/{QUOTE}-SPOT.LIGHTER_ROBINHOOD` | `SNDK/USDG-SPOT.LIGHTER_ROBINHOOD` | symbol ดิบ `SNDK/USDG`      |
 
-The suffix separates spot and perpetual listings; outbound requests strip it and use the cached
-`market_index`. Spot symbols retain the venue pair.
+suffix ใช้แยก listing ของ spot และ perpetual ออกจากกัน request ขาออกจะตัด suffix ออกและใช้
+`market_index` ที่อยู่ใน cache symbol ของ spot จะคงคู่เงินของ venue ไว้
 
-## Deployments and environments
+## Deployment และ environment {#deployments-and-environments}
 
-| Deployment | Environment | REST URL                              | WebSocket URL                              | L2 signing chain ID | Settlement | Default venue       |
+| Deployment | Environment | REST URL                              | WebSocket URL                              | L2 signing chain ID | Settlement | Venue เริ่มต้น       |
 | ---------- | ----------- | ------------------------------------- | ------------------------------------------ | ------------------- | ---------- | ------------------- |
 | Lighter    | Mainnet     | `https://mainnet.zklighter.elliot.ai` | `wss://mainnet.zklighter.elliot.ai/stream` | 304                 | USDC       | `LIGHTER`           |
 | Lighter    | Testnet     | `https://testnet.zklighter.elliot.ai` | `wss://testnet.zklighter.elliot.ai/stream` | 300                 | USDC       | `LIGHTER`           |
 | Robinhood  | Mainnet     | `https://api.rh.lighter.xyz`          | `wss://api.rh.lighter.xyz/stream`          | 466324              | USDG       | `LIGHTER_ROBINHOOD` |
 | Robinhood  | Testnet     | `https://api.rh-testnet.lighter.xyz`  | `wss://api.rh-testnet.lighter.xyz/stream`  | 300                 | USDG       | `LIGHTER_ROBINHOOD` |
 
-These chain IDs are Lighter L2 signing-domain values, not EVM network chain IDs.
+chain ID เหล่านี้เป็นค่า signing domain ของ Lighter L2 ไม่ใช่ chain ID ของเครือข่าย EVM
 
-`LighterDeployment::Lighter` or `Robinhood` and `LighterEnvironment::Mainnet` or `Testnet` set the default
-URLs, chain ID, settlement currency, venue, and attribution policy. Both testnets use chain ID 300;
-the adapter never infers deployment behavior from that ID.
+`LighterDeployment::Lighter` หรือ `Robinhood` และ `LighterEnvironment::Mainnet` หรือ `Testnet` เป็นตัวกำหนด
+URL เริ่มต้น, chain ID, สกุลเงิน settlement, venue และ policy ของ attribution testnet ทั้งสองใช้ chain ID 300
+และ adapter จะไม่อนุมานพฤติกรรมของ deployment จาก ID นั้น
 
-URL overrides for private gateways or local test fixtures affect only transport, preserving deployment
-signing, settlement currency, and attribution.
+การ override URL สำหรับ private gateway หรือ test fixture ในเครื่องมีผลเฉพาะกับ transport โดยยังคงการ signing,
+สกุลเงิน settlement และ attribution ของ deployment ไว้
 
-The data client appends `readonly=true` to its WebSocket URL. The execution client leaves the URL unchanged.
+data client จะต่อท้าย `readonly=true` เข้ากับ WebSocket URL ส่วน execution client ไม่เปลี่ยน URL
 
-### Custom venue identity
+### Venue identity แบบกำหนดเอง {#custom-venue-identity}
 
-Set `venue` on both client configs for distinct Nautilus identities across Lighter-protocol endpoints.
-It scopes instruments, cache entries, message topics, socket state, and execution routing without changing
-deployment protocol behavior.
+ตั้งค่า `venue` ใน config ของ client ทั้งสองตัวเพื่อให้มี identity ของ Nautilus ที่แยกกันสำหรับ endpoint
+ที่ใช้ protocol ของ Lighter มันกำหนดขอบเขตของ instrument, entry ใน cache, message topic, state ของ socket
+และการ route execution โดยไม่เปลี่ยนพฤติกรรมของ protocol ของ deployment
 
-The factory name remains `LIGHTER` for compatibility. `ClientId` names the client registration and accepts
-custom names. For Robinhood routing by `ClientId`, register as `LIGHTER_ROBINHOOD`; both language examples
-derive this from `LIGHTER_DEPLOYMENT`.
+ชื่อ factory ยังคงเป็น `LIGHTER` เพื่อความเข้ากันได้ `ClientId` เป็นชื่อการลงทะเบียน client และรับชื่อที่
+กำหนดเองได้ สำหรับการ route ไปยัง Robinhood ด้วย `ClientId` ให้ลงทะเบียนเป็น `LIGHTER_ROBINHOOD`
+ตัวอย่างจะได้ค่านี้มาจาก `LIGHTER_DEPLOYMENT`
 
-Nautilus routes account commands by issuer, so the `account_id` issuer must match the resolved venue:
-`LIGHTER_RH_ALT` requires an ID such as `LIGHTER_RH_ALT-001`. Custom venues do not enable custom
-chain IDs or attribution.
+Nautilus route command ของ account ตาม issuer ดังนั้น issuer ของ `account_id` ต้องตรงกับ venue ที่ resolve ได้:
+`LIGHTER_RH_ALT` ต้องใช้ ID เช่น `LIGHTER_RH_ALT-001` venue แบบกำหนดเองไม่ได้เปิดให้ใช้ chain ID หรือ
+attribution แบบกำหนดเอง
 
-## Account and API key setup
+## การตั้งค่า account และ API key {#account-and-api-key-setup}
 
-Public data needs no account. Private streams and execution require an account index, API key index,
-and private key from the same deployment and environment:
+ข้อมูลสาธารณะไม่ต้องใช้ account ส่วน private stream และ execution ต้องใช้ account index, API key index
+และ private key จาก deployment และ environment เดียวกัน:
 
-| Deployment | Environment | Account and API key page                                        | Account issuer      | Credential prefix             |
+| Deployment | Environment | หน้า account และ API key                                         | Account issuer      | Credential prefix             |
 | ---------- | ----------- | --------------------------------------------------------------- | ------------------- | ----------------------------- |
 | Lighter    | Mainnet     | [Lighter Mainnet](https://app.lighter.xyz/apikeys)              | `LIGHTER`           | `LIGHTER_*`                   |
 | Lighter    | Testnet     | [Lighter Testnet](https://testnet.app.lighter.xyz/apikeys)      | `LIGHTER`           | `LIGHTER_TESTNET_*`           |
 | Robinhood  | Mainnet     | [Robinhood Mainnet](https://robinhoodchain.lighter.xyz/apikeys) | `LIGHTER_ROBINHOOD` | `LIGHTER_ROBINHOOD_*`         |
 | Robinhood  | Testnet     | [Robinhood Testnet](https://rhctestnet.lighter.xyz/apikeys)     | `LIGHTER_ROBINHOOD` | `LIGHTER_ROBINHOOD_TESTNET_*` |
 
-Do not mix accounts or keys across rows, even between testnets with signing chain ID 300.
+อย่าใช้ account หรือ key ปนกันข้ามแถว แม้แต่ระหว่าง testnet ที่ใช้ signing chain ID 300 เหมือนกัน
 
-1. Sign in to the target deployment. Select or create the trading account and intended sub-account
-   before generating its API key.
-1. Follow Lighter's
-   [account-index lookup](https://apidocs.lighter.xyz/docs/get-started#find-your-account-index)
-   against the deployment's REST URL. Replace the Robinhood Mainnet URL below for
-   [other deployments](#deployments-and-environments):
+1. sign in เข้า deployment เป้าหมาย เลือกหรือสร้าง trading account และ sub-account ที่ต้องการ
+   ก่อนสร้าง API key
+1. ทำตาม
+   [การค้นหา account index](https://apidocs.lighter.xyz/docs/get-started#find-your-account-index)
+   ของ Lighter กับ REST URL ของ deployment แทนที่ URL ของ Robinhood Mainnet ด้านล่างสำหรับ
+   [deployment อื่น](#deployments-and-environments):
 
    ```bash
    LIGHTER_SETUP_API_URL="https://api.rh.lighter.xyz"
@@ -182,17 +172,17 @@ Do not mix accounts or keys across rows, even between testnets with signing chai
      --data-urlencode "l1_address=${LIGHTER_SETUP_L1_ADDRESS}"
    ```
 
-   Read the selected `sub_accounts` entry's `index`. A wallet can own a main account and sub-accounts,
-   each with separate indexes and keys.
-1. On the selected account's API key page, choose **Generate API Key**. Use an unused index in `[4, 254]`.
-   Lighter's [API key documentation](https://apidocs.lighter.xyz/docs/api-keys) reserves `[0, 3]` for its
-   interfaces, and `255` is an API query sentinel. Robinhood also reserves `157`. See
-   [Robinhood API keys](https://apidocs.lighter.xyz/docs/lighter-rh#api-keys).
-1. Save the generated private key before closing the dialog. Lighter does not display it again.
-1. Set `account_index`, `api_key_index`, and `private_key` directly or through
-   [environment variables](#api-credentials). The Nautilus `account_id` is separate from the venue index:
-   use the table's issuer, such as `LIGHTER-001` or `LIGHTER_ROBINHOOD-001`.
-1. Confirm that the target deployment recognizes the selected account and key indexes:
+   อ่านค่า `index` ของ entry ใน `sub_accounts` ที่เลือก wallet หนึ่งอาจเป็นเจ้าของ main account และ
+   sub-account หลายตัว ซึ่งแต่ละตัวมี index และ key แยกกัน
+1. ในหน้า API key ของ account ที่เลือก ให้กด **Generate API Key** ใช้ index ที่ยังไม่ถูกใช้ในช่วง `[4, 254]`
+   [เอกสาร API key](https://apidocs.lighter.xyz/docs/api-keys) ของ Lighter สงวน `[0, 3]` ไว้สำหรับ
+   interface ของตัวเอง และ `255` เป็นค่า sentinel สำหรับ query API Robinhood ยังสงวน `157` ไว้ด้วย ดู
+   [Robinhood API keys](https://apidocs.lighter.xyz/docs/lighter-rh#api-keys)
+1. บันทึก private key ที่สร้างขึ้นก่อนปิดหน้าต่าง Lighter จะไม่แสดงมันอีก
+1. ตั้งค่า `account_index`, `api_key_index` และ `private_key` โดยตรง หรือผ่าน
+   [environment variable](#api-credentials) `account_id` ของ Nautilus แยกจาก index ของ venue:
+   ให้ใช้ issuer ตามตาราง เช่น `LIGHTER-001` หรือ `LIGHTER_ROBINHOOD-001`
+1. ยืนยันว่า deployment เป้าหมายรู้จัก account index และ key index ที่เลือก:
 
    ```bash
    LIGHTER_SETUP_ACCOUNT_INDEX="123456"
@@ -204,46 +194,47 @@ Do not mix accounts or keys across rows, even between testnets with signing chai
      --data-urlencode "api_key_index=${LIGHTER_SETUP_API_KEY_INDEX}"
    ```
 
-Success returns `"code": 200` and the selected key, confirming the indexes without exposing or validating
-the private key.
+หากสำเร็จจะคืน `"code": 200` และ key ที่เลือก ซึ่งยืนยัน index ได้โดยไม่เปิดเผยหรือตรวจสอบ private key
 
 :::warning
-Lighter API keys authorize trading, private account access, and some withdrawal operations. Store
-the private key in a secret manager or protected environment configuration. Do not commit it to a
-repository or share it in logs.
+API key ของ Lighter ให้สิทธิ์ในการเทรด, เข้าถึง account ส่วนตัว และการถอนเงินบางประเภท ให้เก็บ
+private key ไว้ใน secret manager หรือการตั้งค่า environment ที่มีการป้องกัน อย่า commit ลง repository
+หรือแสดงใน log
 :::
 
-## Integrator attribution
+## Integrator attribution {#integrator-attribution}
 
-The execution client attributes create and modify transactions through `L2TxAttributes` to NautilusTrader's
-[Lighter Mainnet integrator account](https://apidocs.lighter.xyz/docs/partner-integration) (`723813`) or
-[Robinhood Mainnet integrator account](https://apidocs.rh.lighter.xyz/docs/partner-attribution) (`17725`).
-This covers every tier, including Standard, and every order in a list. Maker and taker integrator fees are zero.
+execution client จะระบุ attribution ของ transaction ประเภท create และ modify ผ่าน `L2TxAttributes` ไปยัง
+[integrator account บน Lighter Mainnet](https://apidocs.lighter.xyz/docs/partner-integration) (`723813`) หรือ
+[integrator account บน Robinhood Mainnet](https://apidocs.rh.lighter.xyz/docs/partner-attribution) (`17725`)
+ของ NautilusTrader ซึ่งครอบคลุมทุก tier รวมถึง Standard และทุก order ใน list ค่าธรรมเนียม integrator
+ทั้งฝั่ง maker และ taker เป็นศูนย์
 
-On both mainnets, non-maker-only keys submit `ApproveIntegrator` at startup with an L2 signature and
-zero maximum fees. No L1 signature is required.
+บน mainnet ทั้งสอง key ที่ไม่ใช่แบบ maker-only จะ submit `ApproveIntegrator` ตอน startup ด้วย L2 signature
+และค่าธรรมเนียมสูงสุดเป็นศูนย์ ไม่ต้องใช้ L1 signature
 
-Both testnets send no integrator attributes and skip `ApproveIntegrator` at startup.
+testnet ทั้งสองไม่ส่ง integrator attribute และข้าม `ApproveIntegrator` ตอน startup
 
-During startup on either mainnet, when account details are available, the execution client
-attempts to apply the `NAUTILUS` referral code to the account's public L1 address using the
-configured L2 API key. The call is best effort with a 10-second timeout, and failures do not block trading.
-Selecting either mainnet opts the account into this attribution to support NautilusTrader development.
-Both testnets skip referral attribution.
+ระหว่าง startup บน mainnet ใดก็ตาม เมื่อมีรายละเอียดของ account execution client จะพยายามใช้ referral code
+`NAUTILUS` กับ L1 address สาธารณะของ account โดยใช้ L2 API key ที่ตั้งค่าไว้ การเรียกนี้เป็นแบบ best effort
+โดยมี timeout 10 วินาที และความล้มเหลวจะไม่ขัดขวางการเทรด การเลือก mainnet ใดก็ตามถือว่า account
+ยินยอมเข้าร่วม attribution นี้เพื่อสนับสนุนการพัฒนา NautilusTrader testnet ทั้งสองข้าม referral attribution
 
-Lighter Mainnet's [referral program](https://docs.lighter.xyz/programs/referral-program) offers eligible
-referred users a 10% trading fee discount, paid as rebates. The venue determines referral acceptance and eligibility.
+[referral program](https://docs.lighter.xyz/programs/referral-program) ของ Lighter Mainnet ให้ส่วนลด
+ค่าธรรมเนียมการเทรด 10% แก่ผู้ใช้ที่ถูกแนะนำและมีสิทธิ์ โดยจ่ายเป็น rebate venue เป็นผู้ตัดสินการยอมรับ
+referral และสิทธิ์
 
-Attribution follows the typed deployment and environment, regardless of custom venue names.
+attribution เป็นไปตาม deployment และ environment ที่มี type กำกับ ไม่ว่าจะตั้งชื่อ venue เองอย่างไร
 
-Maker-only keys on both mainnets cannot submit `ApproveIntegrator` and skip approval at startup.
-Before trading, approve the integrator with a non-maker-only key on the same account; approval is account-scoped.
+key แบบ maker-only บน mainnet ทั้งสองไม่สามารถ submit `ApproveIntegrator` ได้และจะข้ามการ approve ตอน startup
+ก่อนเทรด ให้ approve integrator ด้วย key ที่ไม่ใช่ maker-only บน account เดียวกัน เพราะการ approve มีขอบเขตระดับ account
 
-### Revoking the approval
+### การเพิกถอนการ approve {#revoking-the-approval}
 
-To revoke approval on either mainnet when leaving the adapter, send `ApproveIntegrator` with
-`approval_expiry = 0` and zero maximum fees. The next execution-client startup with a non-maker-only
-key renews zero-fee approval on every tier of either mainnet. The commands below support Lighter Mainnet only.
+หากต้องการเพิกถอนการ approve บน mainnet ใดก็ตามเมื่อเลิกใช้ adapter ให้ส่ง `ApproveIntegrator` ด้วย
+`approval_expiry = 0` และค่าธรรมเนียมสูงสุดเป็นศูนย์ การ startup ของ execution client ครั้งถัดไปด้วย key
+ที่ไม่ใช่ maker-only จะต่ออายุการ approve แบบไม่มีค่าธรรมเนียมในทุก tier ของ mainnet นั้น คำสั่งด้านล่าง
+รองรับเฉพาะ Lighter Mainnet
 
 ```bash
 export LIGHTER_API_KEY_INDEX=5
@@ -252,981 +243,972 @@ export LIGHTER_ACCOUNT_INDEX=123456
 cargo run -p nautilus-lighter --bin lighter-integrator-revoke           # Lighter Mainnet
 ```
 
-Script source:
-[`crates/adapters/lighter/bin/integrator_revoke.rs`](https://github.com/nautechsystems/nautilus_trader/blob/develop/crates/adapters/lighter/bin/integrator_revoke.rs).
+source ของ script:
+[`crates/adapters/lighter/bin/integrator_revoke.rs`](https://github.com/nautechsystems/nautilus_trader/blob/develop/crates/adapters/lighter/bin/integrator_revoke.rs)
 
-```python
-# Python (PyO3 binding) - reads the same env vars as the Rust bin
-from nautilus_trader.adapters.lighter import revoke_lighter_integrator
+คำสั่ง Rust จะแสดง action และรอให้กด Enter ก่อน sign หรือส่ง หากไม่ถูกต้องให้ยกเลิกด้วย `Ctrl+C`
 
-await revoke_lighter_integrator()  # Lighter Mainnet (default)
-```
+## Data subscription {#data-subscriptions}
 
-The Rust command displays the action and waits for Enter before signing or sending. Abort with `Ctrl+C`
-if it is wrong. The Python binding does not prompt; review the active environment variables before calling it.
+| ประเภทข้อมูล           | Sub.         | Snapshot | Hist. | Nautilus type       | หมายเหตุ                                                     |
+| -------------------- | ------------ | -------- | ----- | ------------------- | ------------------------------------------------------------ |
+| Instrument metadata  | Cache replay | ✓        | -     | `InstrumentAny`     | โหลดจาก `orderBookDetails`                                   |
+| Order book deltas    | ✓            | ✓        | -     | `OrderBookDeltas`   | `L2_MBP` ข้อมูลย้อนหลัง *Lighter ไม่รองรับ*                   |
+| Order book depth     | ✓            | -        | -     | `OrderBookDepth`    | top-10 แบบ live ส่วน REST *ยังไม่ได้ implement*              |
+| Order book snapshots | -            | ✓        | -     | `OrderBook`         | REST snapshot รวมได้สูงสุด 250 order ต่อฝั่ง                  |
+| Quote ticks          | ✓            | -        | -     | `QuoteTick`         | BBO แบบ live ข้อมูลย้อนหลัง *Lighter ไม่รองรับ*              |
+| Trade ticks          | ✓            | -        | ✓     | `TradeTick`         | trade จาก WebSocket และประวัติจาก REST `recentTrades` สาธารณะ |
+| Bars                 | ✓            | -        | ✓     | `Bar`               | candle stream จาก WebSocket และประวัติจาก REST สำหรับ backfill |
+| Mark prices          | ✓            | -        | -     | `MarkPriceUpdate`   | stream สถิติตลาดของ perp                                     |
+| Index prices         | ✓            | -        | -     | `IndexPriceUpdate`  | stream สถิติของตลาดและ spot                                  |
+| Funding rates        | ✓            | -        | ✓     | `FundingRateUpdate` | ค่าประมาณปัจจุบันและประวัติรายชั่วโมงจาก REST                 |
+| Instrument status    | REST         | ✓        | -     | `InstrumentStatus`  | snapshot `active` / `inactive`                               |
 
-## Data subscriptions
+### ข้อมูล order book {#order-book-data}
 
-| Data type            | Sub.         | Snapshot | Hist. | Nautilus type       | Notes                                                 |
-| -------------------- | ------------ | -------- | ----- | ------------------- | ----------------------------------------------------- |
-| Instrument metadata  | Cache replay | ✓        | -     | `InstrumentAny`     | Loaded from `orderBookDetails`.                       |
-| Order book deltas    | ✓            | ✓        | -     | `OrderBookDeltas`   | `L2_MBP`; history *Not supported by Lighter*.         |
-| Order book depth     | ✓            | -        | -     | `OrderBookDepth`    | Live top-10; REST *Not currently implemented*.        |
-| Order book snapshots | -            | ✓        | -     | `OrderBook`         | REST snapshot; aggregates up to 250 orders per side.  |
-| Quote ticks          | ✓            | -        | -     | `QuoteTick`         | Live BBO; history *Not supported by Lighter*.         |
-| Trade ticks          | ✓            | -        | ✓     | `TradeTick`         | WebSocket trades; public `recentTrades` REST history. |
-| Bars                 | ✓            | -        | ✓     | `Bar`               | WebSocket candle stream; REST history for backfill.   |
-| Mark prices          | ✓            | -        | -     | `MarkPriceUpdate`   | Perp market stats stream.                             |
-| Index prices         | ✓            | -        | -     | `IndexPriceUpdate`  | Market and spot stats streams.                        |
-| Funding rates        | ✓            | -        | ✓     | `FundingRateUpdate` | Current estimates and REST hourly history.            |
-| Instrument status    | REST         | ✓        | -     | `InstrumentStatus`  | `active` / `inactive` snapshots.                      |
+subscription ของ book delta และ depth จะปฏิเสธ type อื่นนอกจาก `BookType::L2_MBP` ก่อนการ subscribe
 
-### Order book data
+มีเพียง `subscribed/order_book` เท่านั้นที่ initialize book ของ WebSocket จนกว่าจะได้รับมัน adapter จะทิ้ง
+frame `update/order_book` และไม่ emit ข้อมูล book เพราะ incremental ไม่มีระดับราคาที่ไม่เปลี่ยนแปลง
 
-Book-delta and depth subscriptions reject types other than `BookType::L2_MBP` before subscribing.
+depth และ delta ใช้ stream `order_book` ของ WebSocket ร่วมกัน snapshot หรือ incremental update แต่ละตัว
+ที่ยอมรับจะสร้าง depth view แบบ top-10 ที่อัปเดตแล้ว
 
-Only `subscribed/order_book` initializes the WebSocket book. Until it arrives, the adapter drops
-`update/order_book` frames and emits no book data because incrementals omit unchanged levels.
+### Bar {#bars}
 
-Depth and deltas share the WebSocket `order_book` stream. Each accepted snapshot or incremental
-update produces a refreshed top-10 depth view.
+bar subscription ใช้ `candle/{market_id}/{resolution}` โดยมี update ของ candle ที่ยังเปิดอยู่ประมาณทุก 500 ms
+adapter จะ emit `Bar` ของช่วงเวลาที่ปิดแล้วหนึ่งตัวเฉพาะเมื่อ timestamp เริ่มต้นของ candle เลื่อนไปข้างหน้า
+การ reconnect และ unsubscribe จะล้าง cache ของ candle ที่กำลังดำเนินอยู่
 
-### Bars
+REST และ WebSocket รองรับ `1m`, `5m`, `15m`, `30m`, `1h`, `4h`, `12h` และ `1d` สำหรับ bar รายสัปดาห์
+ให้รวมจากช่วงที่สั้นกว่า: subscription จะปฏิเสธ `1w` ภายในเครื่อง request REST รับค่านี้ แต่ Lighter Mainnet
+คืน `20001 invalid param` และ [REST schema](https://apidocs.lighter.xyz/reference/candles) ไม่มีค่านี้
 
-Bar subscriptions use `candle/{market_id}/{resolution}`, with open-candle updates about every 500 ms.
-The adapter emits one closed-period `Bar` only when the candle start timestamp advances. Reconnect and
-unsubscribe clear the in-progress cache.
+ประวัติจาก REST จะข้ามแถวที่เป็นช่องว่างซึ่งมีค่า OHLC หายไป, เป็น null หรือไม่เป็นบวก เพราะไม่สามารถ
+สร้างเป็น bar ของ Nautilus ที่ถูกต้องได้ แถวที่ถูกต้องที่ตามมายังคงโหลดได้
 
-REST and WebSocket support `1m`, `5m`, `15m`, `30m`, `1h`, `4h`, `12h`, and `1d`. For weekly bars, aggregate
-shorter periods: subscriptions reject `1w` locally. REST requests accept it, but Lighter Mainnet returns
-`20001 invalid param`, and the [REST schema](https://apidocs.lighter.xyz/reference/candles) omits it.
+### Instrument status และ trade {#instrument-status-and-trades}
 
-REST history skips gap rows with missing, null, or nonpositive OHLC values: they cannot form valid
-Nautilus bars. Later valid rows still load.
+subscription ของ instrument status จะ replay สถานะจาก `orderBookDetails` ใน cache หรือดึง snapshot จาก REST
+Lighter ไม่มี WebSocket stream สำหรับการเปลี่ยนสถานะ
 
-### Instrument status and trades
+trade subscription ใช้ WebSocket stream สาธารณะ ประวัติใช้ `/api/v1/recentTrades` สาธารณะโดยไม่ต้องใช้
+credential adapter จะกรอง trade สูงสุด 100 รายการให้อยู่ในช่วงเวลาที่ร้องขอโดยไม่มี pagination
 
-Instrument status subscriptions replay cached `orderBookDetails` status or fetch a REST snapshot.
-Lighter exposes no WebSocket status-change stream.
+ดู [Funding rates](#funding-rates) สำหรับความหมายของ funding ทั้งแบบ live และย้อนหลัง
 
-Trade subscriptions use the public WebSocket stream. History uses public `/api/v1/recentTrades` without
-credentials. The adapter filters at most 100 trades to the requested time range without pagination.
+### Data request ที่ไม่รองรับ {#unsupported-data-requests}
 
-See [Funding rates](#funding-rates) for live and historical funding semantics.
+`request_quotes` ยังไม่ได้ implement: REST endpoint ที่ adapter ใช้ไม่มี snapshot หรือประวัติของ quote
+ที่มี timestamp ซึ่งเหมาะกับ `QuoteTick` ให้ subscribe `ticker` ของ WebSocket เพื่อรับข้อมูล best bid และ
+offer แบบ live
 
-### Unsupported data requests
+`request_book_depth` ยังไม่ได้ implement: book จาก REST ไม่มี timestamp ของ venue สำหรับ `OrderBookDepth.ts_event`
+ให้ใช้ `subscribe_book_depth` สำหรับ depth แบบ live หรือ `request_book_snapshot` สำหรับ snapshot `OrderBook` จาก REST
 
-`request_quotes` is not implemented: the adapter's REST endpoints provide no timestamped quote snapshot
-or history suitable for `QuoteTick`. Subscribe to WebSocket `ticker` for live best bid and offer data.
+## การกู้คืน order book {#order-book-recovery}
 
-`request_book_depth` is not implemented: REST books lack the venue timestamp for `OrderBookDepth.ts_event`.
-Use `subscribe_book_depth` for live depth or `request_book_snapshot` for a REST `OrderBook` snapshot.
+### การตรวจสอบลำดับ {#sequence-validation}
 
-## Order book recovery
+`begin_nonce` ของ incremental update แต่ละตัวต้องตรงกับ `nonce` ของ book ก่อนหน้า หากไม่ตรงจะระงับ
+output ของ book และเริ่มการแทนที่ด้วย unsubscribe/subscribe
 
-### Sequence validation
+`offset` ของ venue ไม่ใช่ตัวนับความต่อเนื่อง: มันอาจข้ามค่าและเปลี่ยนไปข้าม server เมื่อ reconnect
+ดู [Lighter order book contract](https://apidocs.lighter.xyz/docs/websocket-reference#order-book)
 
-Each incremental update's `begin_nonce` must match the previous book's `nonce`. A mismatch suppresses
-book output and starts an unsubscribe/subscribe replacement.
+### ข้อกำหนดของ snapshot {#snapshot-requirements}
 
-The venue's `offset` is not a continuity counter: it can skip values and change across servers on
-reconnect. See the [Lighter order book contract](https://apidocs.lighter.xyz/docs/websocket-reference#order-book).
+หลังจากการเขียน subscription ครั้งแรกหรือการแทนที่เสร็จสิ้น adapter จะรอนานสุด
+`book_snapshot_timeout_secs` (ค่าเริ่มต้น 10 วินาที) สำหรับ snapshot `subscribed/order_book` แบบมี type
+ตั้งเป็น `0` เพื่อปิด deadline
 
-### Snapshot requirements
+snapshot ที่หายไปจะเริ่มหรือ retry การกู้คืน แม้หลังจากได้ `Already Subscribed` หรือ control acknowledgement
+control acknowledgement จะคืนช่อง subscription แต่ไม่ได้ทำให้การกู้คืนเสร็จ
 
-After an initial or replacement subscription write completes, the adapter waits up to
-`book_snapshot_timeout_secs` (default 10 seconds) for a typed `subscribed/order_book` snapshot.
-Set `0` to disable the deadline.
+output จะกลับมาเฉพาะเมื่อ snapshot ที่ตรงกันมาแทนที่ระดับราคาที่อยู่ใน cache snapshot ที่ว่างจะล้าง book
 
-A missing snapshot starts or retries recovery, even after `Already Subscribed` or a control acknowledgement.
-Control acknowledgements release subscription slots but do not complete recovery.
+### ขีดจำกัดของการ retry และการ reconnect {#retry-limits-and-reconnects}
 
-Output resumes only when a matching snapshot replaces cached levels. An empty snapshot clears the book.
+แต่ละรอบของการกู้คืนจะพยายามแทนที่ได้สูงสุดแปดครั้งภายใน 180 วินาที ด้วย exponential backoff และ jitter
+จากนั้นจะ retry ด้วย exponential backoff ในช่วง [1 นาที, 15 นาที] จนกว่าจะยอมรับ snapshot ได้
+การเขียน unsubscribe และ subscribe สำหรับการแทนที่ใช้ connection เดียวกัน
 
-### Retry limits and reconnects
+การ reconnect จะปลด generation ของ subscription ที่ล้าสมัย แต่คงการกู้คืนและ budget ที่เหลือไว้
+หากการกู้คืนใช้ budget หมดแล้วและกำลังรออยู่ มันจะ retry ทันทีบน connection ใหม่
 
-Each recovery episode makes up to eight replacement attempts within 180 seconds, with exponential backoff and jitter.
-It then retries with exponential backoff in [1 minute, 15 minutes] until accepting a snapshot.
-Replacement unsubscribe and subscribe writes use the same connection.
+### Consumer และความล้มเหลวแบบต่อเนื่อง {#consumers-and-persistent-failures}
 
-Reconnect retires obsolete subscription generations but preserves recovery and its remaining budget.
-If recovery exhausted that budget and is waiting, it retries immediately on the new connection.
+delta และ depth ใช้รอบการกู้คืนร่วมกันสำหรับแต่ละตลาด:
 
-### Consumers and persistent failures
+- การนำ consumer ตัวหนึ่งออกจะคงอีกตัวไว้
+- การนำ consumer ตัวสุดท้ายออกจะยกเลิกการเขียนที่ค้างอยู่และการรอ snapshot
+- การ shutdown จะยกเลิกงานทั้งหมดที่เป็นเจ้าของ
 
-Deltas and depth share a recovery episode for each market:
+การกู้คืนไม่เคยจบลงในสถานะล้มเหลว การแทนที่ที่ถูกปฏิเสธและ subscription ที่ถูก replay หลัง reconnect
+จะ retry ต่อไปด้วยช่วงเวลาที่เพิ่มขึ้น snapshot ที่มาช้ายังคงคืน book ได้
 
-- Removing one consumer preserves the other.
-- Removing the final consumer cancels pending writes and snapshot waits.
-- Shutdown cancels all owned work.
+ความล้มเหลวของ venue subscription ที่ไม่ใช่ rate limiting จะทำให้การเรียก subscribe ครั้งแรกที่รออยู่ล้มเหลว
+แม้ในระหว่างการกู้คืน การกู้คืนจะดำเนินต่อเฉพาะเมื่อยังมี consumer อื่นเหลืออยู่ subscription ที่ตามมาจะเริ่มใหม่
+ส่วนตลาดอื่นจะกู้คืนแยกกันอย่างอิสระ
 
-Recovery never ends in a failed state. Rejected replacements and subscriptions replayed after reconnect keep
-retrying at the growing interval. A late snapshot still restores the book.
+ดู [Order book recovery ownership](../developer_guide/adapters.md#order-book-recovery-ownership)
+สำหรับกลไกกู้คืนที่ใช้ร่วมกันและหน้าที่ของ adapter
 
-A venue subscription failure other than rate limiting fails a waiting initial subscribe call, even during recovery.
-Recovery continues only if another consumer remains. Later subscriptions start afresh; other markets
-recover independently.
+### การตรวจสอบการกู้คืนแบบ live {#live-recovery-validation}
 
-See [Order book recovery ownership](../developer_guide/adapters.md#order-book-recovery-ownership)
-for the shared recovery machinery and adapter responsibilities.
+`lighter-book-stress` ตรวจการ synchronize และการกู้คืนบน book ของ perpetual บน Lighter mainnet หกตัว
+โดยไม่ submit order มันตรวจ contract ของ stream รวมถึงการเพิ่มขึ้นของ nonce ภายในแต่ละรอบของ snapshot
+และเปรียบเทียบ 20 ระดับที่ดีที่สุดกับการสร้าง feed ขึ้นใหม่แบบอิสระ
 
-### Live recovery validation
-
-`lighter-book-stress` checks synchronization and recovery on six Lighter mainnet perpetual books without
-submitting orders. It checks the stream contract, including nonce increases within each snapshot episode,
-and compares the best 20 levels against an independent feed reconstruction.
-
-From the repository root, run:
+จาก root ของ repository ให้รัน:
 
 ```bash
 CARGO_BUILD_JOBS=16 bash scripts/strip-adapter-env.bash \
   cargo test -p nautilus-lighter --features examples --test lighter-book-stress -- --timeout 10 --rounds 12
 ```
 
-`--scenario` selects the run:
+`--scenario` ใช้เลือกรูปแบบการรัน:
 
-- `churn` (default): checks recovery without reconnects, then rotates nonce gaps, dropped and
-  delayed snapshots, rejected replacements, reconnects, and a restart during recovery.
-- `initial`: drops each book's first snapshot, in a fresh session per round.
-- `boundaries`: rejects every attempt in the retry budget, then checks the retry ceiling, a
-  reconnect that ends the ceiling wait, unsubscribe during recovery, and shutdown during a reconnect.
+- `churn` (ค่าเริ่มต้น): ตรวจการกู้คืนโดยไม่มีการ reconnect จากนั้นหมุนเวียนไปตาม nonce gap, snapshot
+  ที่หายไปและล่าช้า, การแทนที่ที่ถูกปฏิเสธ, การ reconnect และการ restart ระหว่างการกู้คืน
+- `initial`: ทิ้ง snapshot แรกของแต่ละ book โดยใช้ session ใหม่ในแต่ละรอบ
+- `boundaries`: ปฏิเสธทุกความพยายามใน retry budget จากนั้นตรวจเพดานของการ retry, การ reconnect
+  ที่ยุติการรอเพดาน, การ unsubscribe ระหว่างการกู้คืน และการ shutdown ระหว่างการ reconnect
 
-`--timeout` sets the snapshot timeout in seconds (`0` disables deadlines), and
-`--rounds` sets the number of rounds (12 by default).
+`--timeout` กำหนด snapshot timeout เป็นวินาที (`0` คือปิด deadline) และ
+`--rounds` กำหนดจำนวนรอบ (ค่าเริ่มต้น 12)
 
-The harness requires the mainnet WebSocket stream and the public `orderBooks` and `orderBookDetails`
-APIs. See [Stress harnesses](../developer_guide/spec_data_testing.md#stress-harnesses) for the shared
-flags and output format.
+harness ต้องใช้ WebSocket stream ของ mainnet และ API สาธารณะ `orderBooks` และ `orderBookDetails`
+ดู [Stress harnesses](../developer_guide/spec_data_testing.md#stress-harnesses) สำหรับ flag ที่ใช้ร่วมกัน
+และรูปแบบ output
 
-## Order capabilities
+## ความสามารถด้าน order {#order-capabilities}
 
-### Order identification
+### การระบุตัวตนของ order {#order-identification}
 
-Lighter uses a numeric venue order index and caller-supplied `client_order_index`. The adapter derives a
-31-bit index from Nautilus `ClientOrderId`, probing forward on collision.
+Lighter ใช้ order index ของ venue แบบตัวเลขและ `client_order_index` ที่ผู้เรียกกำหนด adapter จะสร้าง
+index ขนาด 31-bit จาก `ClientOrderId` ของ Nautilus และเลื่อนหาค่าถัดไปเมื่อชนกัน
 
-Queries use the venue order ID for active and terminal history. Before that ID is known, the derived client
-index can query only active orders. Assigning the caller's client order ID requires a registered selected-index
-binding. Otherwise, query reports use the client order ID from an exact venue binding, or the unique venue
-order ID as an external client order ID. Duplicate active matches fail as ambiguous.
+การ query ใช้ venue order ID สำหรับประวัติของ order ที่ active และที่จบแล้ว ก่อนที่จะทราบ ID นั้น client index
+ที่สร้างขึ้นจะ query ได้เฉพาะ order ที่ active การกำหนด client order ID ของผู้เรียกต้องมี binding ของ index
+ที่เลือกซึ่งลงทะเบียนไว้ มิฉะนั้น query report จะใช้ client order ID จาก binding ของ venue ที่ตรงกันพอดี
+หรือใช้ venue order ID ที่ไม่ซ้ำเป็น external client order ID หากมี active match ซ้ำกันจะล้มเหลวเพราะกำกวม
 
-Probed indexes cannot be re-derived after restart. Before translating order and fill reports, reconciliation
-restores the actual client index through the core cache's venue-order-ID mapping. It must include the order,
-and the cache must retain that mapping. Open cached orders return to active tracking; terminal orders use
-bounded replay tracking.
+index ที่ได้จากการเลื่อนหาไม่สามารถสร้างซ้ำได้หลัง restart ก่อนแปล order report และ fill report
+reconciliation จะคืน client index จริงผ่าน mapping ของ venue order ID ใน core cache ซึ่งต้องมี order นั้นอยู่
+และ cache ต้องยังเก็บ mapping นั้นไว้ open order ใน cache จะกลับมาถูกติดตามแบบ active ส่วน order ที่จบแล้ว
+จะใช้การติดตามแบบ replay ที่มีขอบเขต
 
-Recovery never infers a client order ID from the integer alone. Without a recoverable binding, reports use
-the unique venue order ID as an external client order ID.
+การกู้คืนจะไม่อนุมาน client order ID จากตัวเลขจำนวนเต็มเพียงอย่างเดียว หากไม่มี binding ที่กู้คืนได้ report
+จะใช้ venue order ID ที่ไม่ซ้ำเป็น external client order ID
 
-### Order types
+### Order type {#order-types}
 
-| Order type             | Perpetuals | Spot | Notes                                                   |
-| ---------------------- | ---------- | ---- | ------------------------------------------------------- |
-| `MARKET`               | ✓          | ✓    | Cap derived from cached far-side quote + slippage.      |
-| `LIMIT`                | ✓          | ✓    | Requires a limit price.                                 |
-| `STOP_MARKET`          | ✓          | -    | Perp only; cap derived from `trigger_price` + slippage. |
-| `STOP_LIMIT`           | ✓          | -    | Perp only; maps to Lighter stop-loss limit orders.      |
-| `MARKET_IF_TOUCHED`    | ✓          | -    | Perp only; cap derived from `trigger_price` + slippage. |
-| `LIMIT_IF_TOUCHED`     | ✓          | -    | Perp only; maps to Lighter take-profit limit orders.    |
-| `MARKET_TO_LIMIT`      | -          | -    | *Not supported by Lighter*.                             |
-| `TRAILING_STOP_MARKET` | -          | -    | *Not supported by Lighter*.                             |
-| `TRAILING_STOP_LIMIT`  | -          | -    | *Not supported by Lighter*.                             |
-| `TWAP`                 | -          | -    | *Not currently implemented*; no Nautilus mapping.       |
+| Order type             | Perpetuals | Spot | หมายเหตุ                                                        |
+| ---------------------- | ---------- | ---- | -------------------------------------------------------------- |
+| `MARKET`               | ✓          | ✓    | ราคาเพดานคำนวณจาก quote ฝั่งตรงข้ามใน cache + slippage          |
+| `LIMIT`                | ✓          | ✓    | ต้องระบุราคา limit                                             |
+| `STOP_MARKET`          | ✓          | -    | เฉพาะ perp ราคาเพดานคำนวณจาก `trigger_price` + slippage        |
+| `STOP_LIMIT`           | ✓          | -    | เฉพาะ perp map ไปเป็น stop-loss limit order ของ Lighter        |
+| `MARKET_IF_TOUCHED`    | ✓          | -    | เฉพาะ perp ราคาเพดานคำนวณจาก `trigger_price` + slippage        |
+| `LIMIT_IF_TOUCHED`     | ✓          | -    | เฉพาะ perp map ไปเป็น take-profit limit order ของ Lighter      |
+| `MARKET_TO_LIMIT`      | -          | -    | *Lighter ไม่รองรับ*                                            |
+| `TRAILING_STOP_MARKET` | -          | -    | *Lighter ไม่รองรับ*                                            |
+| `TRAILING_STOP_LIMIT`  | -          | -    | *Lighter ไม่รองรับ*                                            |
+| `TWAP`                 | -          | -    | *ยังไม่ได้ implement* ไม่มี mapping ใน Nautilus                |
 
-Conditional orders require `trigger_price`. The adapter rejects missing triggers, triggers that
-truncate to `0` ticks at instrument price precision, and all spot conditional orders.
+conditional order ต้องมี `trigger_price` adapter จะปฏิเสธ order ที่ไม่มี trigger, trigger ที่ถูกตัดเหลือ
+`0` tick ตาม price precision ของ instrument และ conditional order ทุกตัวบน spot
 
-Lighter requires a worst-acceptable `price` for market-style orders. The cap starts from:
+Lighter ต้องการ `price` ที่แย่ที่สุดที่ยอมรับได้สำหรับ order แบบ market ราคาเพดานเริ่มต้นจาก:
 
-- `MARKET`: cached ask for buys, bid for sells. Without a cached `QuoteTick`, the order is denied.
-- `STOP_MARKET` and `MARKET_IF_TOUCHED`: `trigger_price`.
+- `MARKET`: ask ใน cache สำหรับฝั่งซื้อ และ bid สำหรับฝั่งขาย หากไม่มี `QuoteTick` ใน cache order จะถูก deny
+- `STOP_MARKET` และ `MARKET_IF_TOUCHED`: `trigger_price`
 
-`market_order_slippage_bps` (default 50 bps) adjusts the cap before rounding to instrument price precision:
-up for buys, down for sells. Override it with `SubmitOrder.params["market_order_slippage_bps"]`.
+`market_order_slippage_bps` (ค่าเริ่มต้น 50 bps) จะปรับราคาเพดานก่อนปัดให้ตรงกับ price precision ของ instrument:
+ปรับขึ้นสำหรับฝั่งซื้อ และปรับลงสำหรับฝั่งขาย override ได้ด้วย `SubmitOrder.params["market_order_slippage_bps"]`
 
-### Contingent orders
+### Contingent order {#contingent-orders}
 
-| Feature                  | Perpetuals | Spot | Notes                                                      |
-| ------------------------ | ---------- | ---- | ---------------------------------------------------------- |
-| Stop-loss market         | ✓          | -    | `STOP_MARKET` maps to Lighter `STOP_LOSS`.                 |
-| Stop-loss limit          | ✓          | -    | `STOP_LIMIT` maps to Lighter `STOP_LOSS_LIMIT`.            |
-| Take-profit market       | ✓          | -    | `MARKET_IF_TOUCHED` maps to Lighter `TAKE_PROFIT`.         |
-| Take-profit limit        | ✓          | -    | `LIMIT_IF_TOUCHED` maps to `TAKE_PROFIT_LIMIT`.            |
-| Trigger price            | ✓          | -    | Required for every supported conditional order.            |
-| Trigger source selection | -          | -    | *Not supported by Lighter*; mark-price triggers only.      |
-| Grouped order lists      | ✓          | -    | Native OTO, OCO, and OTOCO groups.                         |
-| OCO / OTO orders         | ✓          | -    | Same-market groups with SL/TP children.                    |
-| Bracket orders           | ✓          | -    | OTO parent with OCO-linked conditional exits.              |
-| `CreateGroupedOrders`    | ✓          | -    | One signed transaction and nonce for every leg in a group. |
+| ฟีเจอร์                    | Perpetuals | Spot | หมายเหตุ                                                           |
+| ------------------------ | ---------- | ---- | ----------------------------------------------------------------- |
+| Stop-loss market         | ✓          | -    | `STOP_MARKET` map ไปเป็น `STOP_LOSS` ของ Lighter                  |
+| Stop-loss limit          | ✓          | -    | `STOP_LIMIT` map ไปเป็น `STOP_LOSS_LIMIT` ของ Lighter             |
+| Take-profit market       | ✓          | -    | `MARKET_IF_TOUCHED` map ไปเป็น `TAKE_PROFIT` ของ Lighter          |
+| Take-profit limit        | ✓          | -    | `LIMIT_IF_TOUCHED` map ไปเป็น `TAKE_PROFIT_LIMIT`                 |
+| Trigger price            | ✓          | -    | จำเป็นสำหรับ conditional order ทุกตัวที่รองรับ                     |
+| Trigger source selection | -          | -    | *Lighter ไม่รองรับ* trigger ด้วย mark price เท่านั้น               |
+| Grouped order lists      | ✓          | -    | กลุ่ม OTO, OCO และ OTOCO แบบ native                               |
+| OCO / OTO orders         | ✓          | -    | กลุ่มในตลาดเดียวกันที่มี order ลูกแบบ SL/TP                        |
+| Bracket orders           | ✓          | -    | parent แบบ OTO พร้อม conditional exit ที่ผูกกันแบบ OCO             |
+| `CreateGroupedOrders`    | ✓          | -    | signed transaction และ nonce เดียวสำหรับทุก leg ในกลุ่ม            |
 
-Use `submit_order_list` for native groups. Lighter's
-[`CreateGroupedOrders`](https://apidocs.lighter.xyz/docs/trading#stop-loss-and-take-profit)
-relationships map to Nautilus as follows:
+ใช้ `submit_order_list` สำหรับกลุ่มแบบ native ความสัมพันธ์ของ
+[`CreateGroupedOrders`](https://apidocs.lighter.xyz/docs/trading#stop-loss-and-take-profit) ของ Lighter
+map ไปยัง Nautilus ดังนี้:
 
-| Lighter grouping | Venue code | Nautilus parent | Nautilus children or siblings                                      |
-| ---------------- | ---------- | --------------- | ------------------------------------------------------------------ |
-| OTO              | 1          | `OTO`           | One child referencing the parent, with no sibling contingency.     |
-| OCO              | 2          | None            | Two reciprocally linked `OCO` siblings.                            |
-| OTOCO            | 3          | `OTO`           | Two children referencing the parent, reciprocally linked as `OCO`. |
+| การจัดกลุ่มของ Lighter | Venue code | Parent ใน Nautilus | Order ลูกหรือ order พี่น้องใน Nautilus                              |
+| -------------------- | ---------- | ----------------- | ------------------------------------------------------------------ |
+| OTO                  | 1          | `OTO`             | order ลูกหนึ่งตัวที่อ้างอิง parent โดยไม่มี contingency กับพี่น้อง     |
+| OCO                  | 2          | ไม่มี              | order พี่น้องแบบ `OCO` สองตัวที่ผูกกันแบบสองทาง                      |
+| OTOCO                | 3          | `OTO`             | order ลูกสองตัวที่อ้างอิง parent และผูกกันแบบสองทางเป็น `OCO`         |
 
-Nautilus has no separate OTOCO type. OTO and OCO relationships require explicit mapping because the venue
-and Nautilus numeric codes differ.
+Nautilus ไม่มี type OTOCO แยกต่างหาก ความสัมพันธ์ OTO และ OCO ต้อง map อย่างชัดเจนเพราะรหัสตัวเลข
+ของ venue และของ Nautilus ต่างกัน
 
-#### Group requirements
+#### ข้อกำหนดของกลุ่ม {#group-requirements}
 
-- All legs use one perpetual instrument, strategy, and order-list ID, with unique client order IDs.
-- An OTO parent uses `MARKET` or `LIMIT`. Its children oppose the parent, use `reduce_only`, and
-  request the same quantity as the parent.
-- OCO siblings use `reduce_only` and share the same side and quantity. The pair contains one stop-loss
-  (`STOP_MARKET` or `STOP_LIMIT`) and one take-profit (`MARKET_IF_TOUCHED` or `LIMIT_IF_TOUCHED`).
+- ทุก leg ใช้ perpetual instrument, strategy และ order-list ID เดียวกัน โดยมี client order ID ไม่ซ้ำกัน
+- parent แบบ OTO ใช้ `MARKET` หรือ `LIMIT` order ลูกต้องอยู่ฝั่งตรงข้ามกับ parent, ใช้ `reduce_only` และ
+  ขอ quantity เท่ากับ parent
+- order พี่น้องแบบ OCO ใช้ `reduce_only` และมี side และ quantity เดียวกัน คู่นี้ประกอบด้วย stop-loss หนึ่งตัว
+  (`STOP_MARKET` หรือ `STOP_LIMIT`) และ take-profit หนึ่งตัว (`MARKET_IF_TOUCHED` หรือ `LIMIT_IF_TOUCHED`)
 
-Venue expiries depend on the leg:
+วันหมดอายุของ venue ขึ้นอยู่กับ leg:
 
-- Children share a nonzero expiry.
-- Market and IOC limit parents use zero expiry.
-- Other limit parents share the child expiry.
+- order ลูกใช้วันหมดอายุที่ไม่เป็นศูนย์ร่วมกัน
+- parent แบบ market และ IOC limit ใช้วันหมดอายุเป็นศูนย์
+- parent แบบ limit อื่นใช้วันหมดอายุเดียวกับ order ลูก
 
-Defaults use one timestamp. Explicit GTD expiries must match all other nonzero group expiries before dispatch.
+ค่าเริ่มต้นใช้ timestamp เดียว วันหมดอายุ GTD ที่ระบุชัดเจนต้องตรงกับวันหมดอายุที่ไม่เป็นศูนย์อื่นทั้งหมด
+ในกลุ่มก่อน dispatch
 
-The wire shapes follow the [Go SDK validation](https://github.com/elliottech/lighter-go/blob/9d38261d1a4cc5c7211b383ba07a4d6e41604708/types/txtypes/create_grouped_orders.go).
-The adapter also requires reduce-only OTO children and matching requested quantities to preserve Nautilus exit semantics.
+รูปแบบ wire เป็นไปตาม[การ validate ของ Go SDK](https://github.com/elliottech/lighter-go/blob/9d38261d1a4cc5c7211b383ba07a4d6e41604708/types/txtypes/create_grouped_orders.go)
+adapter ยังกำหนดให้ order ลูกของ OTO เป็น reduce-only และขอ quantity ที่ตรงกัน เพื่อคงความหมายของ exit ใน Nautilus
 
-For a native bracket, select `OCO` exits and a conditional take-profit. The default `OrderFactory.bracket`
-uses `OUO` exits and a plain `LIMIT` take-profit, so the adapter rejects it. It does not replace quantity
-updates with cancellation or convert resting limits to triggered take-profits.
+สำหรับ bracket แบบ native ให้เลือก exit แบบ `OCO` และ take-profit แบบ conditional ค่าเริ่มต้นของ
+`OrderFactory.bracket` ใช้ exit แบบ `OUO` และ take-profit แบบ `LIMIT` ธรรมดา ดังนั้น adapter จะปฏิเสธ
+adapter ไม่ได้แทนการอัปเดต quantity ด้วยการ cancel หรือแปลง resting limit เป็น take-profit แบบ trigger
 
-#### Child activation and sizing
+#### การเปิดใช้งานและการกำหนดขนาดของ order ลูก {#child-activation-and-sizing}
 
-Parent execution activates and sizes OTO/OTOCO children. Until then, their wire base amount is zero,
-but reports for Nautilus-submitted held children retain the requested quantity. Venue quantity changes
-emit `OrderUpdated`.
+การ execute ของ parent จะเปิดใช้งานและกำหนดขนาดให้ order ลูกของ OTO/OTOCO จนกว่าจะถึงตอนนั้น base amount
+บน wire ของ order ลูกจะเป็นศูนย์ แต่ report ของ order ลูกที่ถูกถือไว้ซึ่ง Nautilus submit จะคง quantity ที่ร้องขอไว้
+การเปลี่ยน quantity ที่ venue จะ emit `OrderUpdated`
 
-Held children cannot be modified at zero venue quantity. The adapter provides neither full-fill
-release control nor independent pro rata sizing.
+order ลูกที่ถูกถือไว้ไม่สามารถแก้ไขได้ขณะที่ quantity ที่ venue เป็นศูนย์ adapter ไม่มีทั้งการควบคุมการ
+release เมื่อ fill เต็ม และการกำหนดขนาดตามสัดส่วนแบบอิสระ
 
-#### Cancellation behavior
+#### พฤติกรรมการ cancel {#cancellation-behavior}
 
-Lighter OCO cancels the sibling when an SL/TP order **triggers**, even if unfilled. Nautilus OCO requests
-peer cancellation on fill or cancellation. The adapter preserves venue timing without recreating the sibling.
-Event ordering can delay cancellation delivery. See
-[Native child fills and position reconciliation](#native-child-fills-and-position-reconciliation).
+OCO ของ Lighter จะ cancel order พี่น้องเมื่อ order SL/TP **ถูก trigger** แม้จะยังไม่ fill ส่วน OCO ของ Nautilus
+จะขอ cancel order คู่เมื่อ fill หรือถูก cancel adapter คงจังหวะเวลาของ venue ไว้โดยไม่สร้าง order พี่น้องขึ้นใหม่
+ลำดับของ event อาจทำให้การส่ง cancel ล่าช้า ดู
+[Native child fills and position reconciliation](#native-child-fills-and-position-reconciliation)
 
-`cancel_order` on a live Nautilus OCO leg also requests cancellation of its live peer. These are two independent
-transactions that can succeed or fail separately: Lighter's single-order cancellation leaves the peer open.
+`cancel_order` บน leg OCO ของ Nautilus ที่ live อยู่จะขอ cancel order คู่ที่ live อยู่ด้วย ทั้งสองเป็น transaction
+อิสระที่อาจสำเร็จหรือล้มเหลวแยกกัน: การ cancel order เดียวของ Lighter จะปล่อยให้ order คู่ยังเปิดอยู่
 
-Await `OrderAccepted` for the target leg. Its peer needs a known venue binding or retained grouped submission
-index. `batch_cancel_orders` also includes live OCO peers, submitting each selected order once.
+ให้รอ `OrderAccepted` ของ leg เป้าหมาย order คู่ของมันต้องมี binding ของ venue ที่ทราบแล้ว หรือมี grouped
+submission index ที่เก็บไว้ `batch_cancel_orders` ก็รวม order คู่ของ OCO ที่ live อยู่ด้วย โดย submit
+order ที่เลือกแต่ละตัวเพียงครั้งเดียว
 
 :::warning
-Keep `StrategyConfig.manage_contingent_orders = false` (the default) for native groups. Enabling
-local contingency management can resize children independently of the venue or cancel a triggered,
-unfilled exit when the venue cancels its OCO peer.
+ให้คง `StrategyConfig.manage_contingent_orders = false` (ค่าเริ่มต้น) สำหรับกลุ่มแบบ native การเปิด
+การจัดการ contingency ภายในเครื่องอาจปรับขนาด order ลูกโดยไม่ขึ้นกับ venue หรือ cancel exit ที่ถูก trigger
+แต่ยังไม่ fill เมื่อ venue cancel order คู่ใน OCO ของมัน
 :::
 
-#### Trigger events and relationship recovery
+#### Trigger event และการกู้คืนความสัมพันธ์ {#trigger-events-and-relationship-recovery}
 
-Conditional orders use
-[mark-price triggers](https://docs.lighter.xyz/trading/order-types-and-matching#trigger-conditions).
-Conditional limits emit `OrderTriggered`. Market-style conditionals fill without an intermediate `TRIGGERED`
-state, following Nautilus semantics.
+conditional order ใช้
+[trigger ด้วย mark price](https://docs.lighter.xyz/trading/order-types-and-matching#trigger-conditions)
+conditional limit จะ emit `OrderTriggered` ส่วน conditional แบบ market จะ fill โดยไม่ผ่านสถานะ `TRIGGERED`
+ระหว่างทาง ตามความหมายของ Nautilus
 
-Local order context or cached venue bindings preserve Nautilus client, parent, and linked IDs after Lighter
-clears parent links on activation. A fresh client restores cached ownership before its first private-stream
-order or fill.
+context ของ order ภายในเครื่องหรือ binding ของ venue ใน cache จะคง client ID, parent ID และ linked ID ของ
+Nautilus ไว้หลังจากที่ Lighter ล้าง parent link ตอนเปิดใช้งาน client ที่เริ่มใหม่จะคืนความเป็นเจ้าของจาก cache
+ก่อน order หรือ fill แรกจาก private stream
 
-Triggered conditional limits retain their Nautilus type and last known trigger price. External
-ones without a recoverable trigger price report as working `LIMIT` orders.
+conditional limit ที่ถูก trigger แล้วจะคง type ของ Nautilus และราคา trigger ล่าสุดที่ทราบไว้ ส่วนที่มาจาก
+ภายนอกและไม่มีราคา trigger ที่กู้คืนได้จะรายงานเป็น order `LIMIT` ที่กำลังทำงาน
 
-After triggering, price and quantity modifications send zero trigger price. Changing it again is unsupported.
-Independent transaction batches do not acquire contingency relationships.
+หลังถูก trigger การแก้ไขราคาและ quantity จะส่งราคา trigger เป็นศูนย์ ไม่รองรับการเปลี่ยนค่านี้อีก
+transaction batch ที่เป็นอิสระจะไม่ได้รับความสัมพันธ์แบบ contingency
 
-### Order options
+### Order option {#order-options}
 
-| Option           | Perpetuals | Spot | Notes                                                                     |
+| Option           | Perpetuals | Spot | หมายเหตุ                                                                  |
 | ---------------- | ---------- | ---- | ------------------------------------------------------------------------- |
-| `post_only`      | ✓          | ✓    | Maps to Lighter's post-only time-in-force.                                |
-| `reduce_only`    | ✓          | -    | Passed through to `CreateOrder`; use only to reduce an existing position. |
-| `quote_quantity` | -          | -    | *Not supported by Lighter*; submit base quantity instead.                 |
-| `display_qty`    | -          | -    | *Not supported by Lighter*; no iceberg display quantity field.            |
+| `post_only`      | ✓          | ✓    | map ไปเป็น time-in-force แบบ post-only ของ Lighter                        |
+| `reduce_only`    | ✓          | -    | ส่งผ่านไปยัง `CreateOrder` ใช้เฉพาะเพื่อลด position ที่มีอยู่               |
+| `quote_quantity` | -          | -    | *Lighter ไม่รองรับ* ให้ submit เป็น base quantity แทน                      |
+| `display_qty`    | -          | -    | *Lighter ไม่รองรับ* ไม่มี field สำหรับ display quantity แบบ iceberg       |
 
-### Adapter order params
+### Order param ของ adapter {#adapter-order-params}
 
-| Param                                      | Perpetuals | Spot | Notes                                                |
-| ------------------------------------------ | ---------- | ---- | ---------------------------------------------------- |
-| `market_order_slippage_bps`                | ✓          | ✓    | Overrides the config default for market-style caps.  |
-| `self_trade_behavior_mode`                 | ✓          | ✓    | Selects the action on self-trade.                    |
-| `self_trade_equality_mode`                 | ✓          | ✓    | Selects the account scope for self-trade prevention. |
-| `post_only` through `SubmitOrder.params`   | -          | -    | *Not currently implemented*; use the order flag.     |
-| `reduce_only` through `SubmitOrder.params` | -          | -    | *Not currently implemented*; use the order flag.     |
+| Param                                      | Perpetuals | Spot | หมายเหตุ                                                  |
+| ------------------------------------------ | ---------- | ---- | -------------------------------------------------------- |
+| `market_order_slippage_bps`                | ✓          | ✓    | override ค่าเริ่มต้นใน config สำหรับราคาเพดานของ order แบบ market |
+| `self_trade_behavior_mode`                 | ✓          | ✓    | เลือก action เมื่อเกิด self-trade                         |
+| `self_trade_equality_mode`                 | ✓          | ✓    | เลือกขอบเขต account สำหรับการป้องกัน self-trade          |
+| `post_only` ผ่าน `SubmitOrder.params`       | -          | -    | *ยังไม่ได้ implement* ให้ใช้ flag ของ order               |
+| `reduce_only` ผ่าน `SubmitOrder.params`     | -          | -    | *ยังไม่ได้ implement* ให้ใช้ flag ของ order               |
 
-Self-trade params accept case-insensitive strings on `SubmitOrder` and `SubmitOrderList`:
+param ของ self-trade รับ string แบบไม่สนตัวพิมพ์เล็ก/ใหญ่บน `SubmitOrder` และ `SubmitOrderList`:
 
-- `self_trade_behavior_mode`: `expire_maker` (default), `expire_taker`, `cancel_both`, or `reduce`.
-- `self_trade_equality_mode`: `account_index` (default) or `master_account_index`. Master-account equality
-  also prevents matches between subaccounts of the same master account.
+- `self_trade_behavior_mode`: `expire_maker` (ค่าเริ่มต้น), `expire_taker`, `cancel_both` หรือ `reduce`
+- `self_trade_equality_mode`: `account_index` (ค่าเริ่มต้น) หรือ `master_account_index` การเทียบระดับ
+  master account จะป้องกันการ match ระหว่าง subaccount ของ master account เดียวกันด้วย
 
-The adapter sends both defaults explicitly. Each native group uses one pair for all legs. Unknown names,
-non-string values, and `reduce` with `master_account_index` deny the order before submission.
-Non-default modes require zero integrator fees, which the adapter uses.
+adapter ส่งค่าเริ่มต้นทั้งสองอย่างชัดเจน กลุ่มแบบ native แต่ละกลุ่มใช้คู่ค่าเดียวสำหรับทุก leg ชื่อที่ไม่รู้จัก,
+ค่าที่ไม่ใช่ string และ `reduce` คู่กับ `master_account_index` จะทำให้ order ถูก deny ก่อน submit
+mode ที่ไม่ใช่ค่าเริ่มต้นต้องใช้ค่าธรรมเนียม integrator เป็นศูนย์ ซึ่ง adapter ใช้อยู่แล้ว
 
-`reduce` nets overlapping quantities without a fill. Working-order quantities and reports show the remainder
-plus actual fills; price-only amendments preserve this quantity.
+`reduce` จะหักลบ quantity ที่ทับซ้อนกันโดยไม่มี fill quantity ของ working order และ report จะแสดงส่วนที่เหลือ
+บวกกับ fill จริง การแก้ไขเฉพาะราคาจะคง quantity นี้ไว้
 
-Modify requests omit the self-trade modes. For perpetual limit orders amended to take a resting order from the
-same account, price-only and combined price/quantity changes use `expire_maker`, regardless of the submitted
-behavior. Quantity-only changes, amended maker behavior, equality-scope persistence, and spot or conditional
-amendments remain unverified.
+request แก้ไขจะไม่ส่ง mode ของ self-trade สำหรับ perpetual limit order ที่ถูกแก้ไขจนไป take resting order ของ
+account เดียวกัน การเปลี่ยนเฉพาะราคา และการเปลี่ยนทั้งราคาและ quantity จะใช้ `expire_maker` ไม่ว่าจะ submit
+ด้วยพฤติกรรมใด การเปลี่ยนเฉพาะ quantity, พฤติกรรมของ maker หลังแก้ไข, การคงขอบเขตของการเทียบ และการแก้ไข
+order บน spot หรือ conditional order ยังไม่ได้ตรวจสอบ
 
-### Time in force
+### Time in force {#time-in-force}
 
-| Time in force  | Perpetuals | Spot | Notes                                                                         |
-| -------------- | ---------- | ---- | ----------------------------------------------------------------------------- |
-| `GTC`          | ✓          | ✓    | Limit-style uses `GoodTillTime`; market-style uses `IOC`.                     |
-| `DAY`          | ✓          | ✓    | Limit-style and conditional orders use a positive order expiry.               |
-| `GTD`          | ✓          | ✓    | Native expiry is 5 minutes to 30 days; see the managed-GTD policy below.      |
-| `IOC`          | ✓          | ✓    | Plain `MARKET`/`LIMIT` use expiry `0`; conditional limit uses trigger expiry. |
-| `FOK`          | -          | -    | *Not supported by Lighter*.                                                   |
-| `AT_THE_OPEN`  | -          | -    | *Not supported by Lighter*.                                                   |
-| `AT_THE_CLOSE` | -          | -    | *Not supported by Lighter*.                                                   |
+| Time in force  | Perpetuals | Spot | หมายเหตุ                                                                            |
+| -------------- | ---------- | ---- | ---------------------------------------------------------------------------------- |
+| `GTC`          | ✓          | ✓    | แบบ limit ใช้ `GoodTillTime` แบบ market ใช้ `IOC`                                  |
+| `DAY`          | ✓          | ✓    | order แบบ limit และ conditional ใช้วันหมดอายุของ order ที่เป็นบวก                  |
+| `GTD`          | ✓          | ✓    | วันหมดอายุแบบ native อยู่ในช่วง 5 นาทีถึง 30 วัน ดู policy managed-GTD ด้านล่าง     |
+| `IOC`          | ✓          | ✓    | `MARKET`/`LIMIT` ธรรมดาใช้วันหมดอายุ `0` ส่วน conditional limit ใช้วันหมดอายุของ trigger |
+| `FOK`          | -          | -    | *Lighter ไม่รองรับ*                                                                |
+| `AT_THE_OPEN`  | -          | -    | *Lighter ไม่รองรับ*                                                                |
+| `AT_THE_CLOSE` | -          | -    | *Lighter ไม่รองรับ*                                                                |
 
-`MARKET`, `STOP_MARKET`, and `MARKET_IF_TOUCHED` use `ImmediateOrCancel` because Lighter rejects market-style
-`GoodTillTime`. Expiry and Nautilus `IOC` support depend on order type:
+`MARKET`, `STOP_MARKET` และ `MARKET_IF_TOUCHED` ใช้ `ImmediateOrCancel` เพราะ Lighter ปฏิเสธ
+`GoodTillTime` สำหรับ order แบบ market วันหมดอายุและการรองรับ `IOC` ของ Nautilus ขึ้นอยู่กับ order type:
 
-- Plain `MARKET` uses `OrderExpiry = 0`.
-- Conditional market orders retain positive expiry until triggering. The adapter rejects Nautilus
-  `IOC` for them because Lighter reserves IOC for post-trigger execution.
-- Conditional limit orders accept Nautilus `IOC`: the trigger rests with positive expiry, then
-  the child executes as `ImmediateOrCancel`.
+- `MARKET` ธรรมดาใช้ `OrderExpiry = 0`
+- conditional market order จะคงวันหมดอายุที่เป็นบวกไว้จนกว่าจะถูก trigger adapter จะปฏิเสธ `IOC` ของ
+  Nautilus สำหรับ order เหล่านี้ เพราะ Lighter สงวน IOC ไว้สำหรับการ execute หลัง trigger
+- conditional limit order รับ `IOC` ของ Nautilus ได้: trigger จะรออยู่ด้วยวันหมดอายุที่เป็นบวก จากนั้น
+  order ลูกจะ execute เป็น `ImmediateOrCancel`
 
-Without explicit GTD expiry, limit-style `GTC`, `DAY`, and `GTD`, and conditional `GTC`, `DAY`, and
-limit-style `IOC` use now plus 28 days. Lighter rejected `-1` in these paths with `21711 invalid expiry`.
+หากไม่ได้ระบุวันหมดอายุ GTD อย่างชัดเจน `GTC`, `DAY` และ `GTD` แบบ limit รวมถึง `GTC`, `DAY` และ
+`IOC` แบบ limit ของ conditional จะใช้เวลาปัจจุบันบวก 28 วัน Lighter ปฏิเสธค่า `-1` ในเส้นทางเหล่านี้ด้วย
+`21711 invalid expiry`
 
-#### GTD policy
+#### Policy ของ GTD {#gtd-policy}
 
-With `use_gtd = true` (default), the strategy's `expire_time` sets venue `GoodTillTime` expiry.
-Accepted lifetimes are `[5 minutes + 1 second, 30 days]`, allowing one second for signing and transport.
+เมื่อ `use_gtd = true` (ค่าเริ่มต้น) `expire_time` ของ strategy จะกำหนดวันหมดอายุ `GoodTillTime` ของ venue
+อายุที่ยอมรับได้คือ `[5 นาที + 1 วินาที, 30 วัน]` โดยเผื่อหนึ่งวินาทีสำหรับการ sign และ transport
 
-For shorter lifetimes, set `use_gtd = false` only with `manage_gtd_expiry = true` on the submitting strategy.
-The local GTD manager requests cancellation at strategy expiry; without it, orders can rest until the
-28-day venue fallback.
+สำหรับอายุที่สั้นกว่านั้น ให้ตั้ง `use_gtd = false` คู่กับ `manage_gtd_expiry = true` บน strategy ที่ submit เท่านั้น
+ตัวจัดการ GTD ภายในเครื่องจะขอ cancel เมื่อถึงเวลาหมดอายุของ strategy หากไม่มีตัวจัดการนี้ order อาจค้างอยู่
+จนถึงค่าสำรอง 28 วันของ venue
 
-The wire time-in-force stays `GoodTillTime`: Lighter has no `GoodTillCancel`, so `use_gtd = false`
-cannot switch it as on Binance.
+time-in-force บน wire ยังคงเป็น `GoodTillTime`: Lighter ไม่มี `GoodTillCancel` ดังนั้น `use_gtd = false`
+จึงไม่สามารถสลับมันได้แบบที่ทำบน Binance
 
-Local management skips the native 5-minute minimum but rejects expiries beyond 28 days, when the venue
-would expire first. Use native GTD for longer lifetimes. Venue cancellation latency still delays removal.
+การจัดการภายในเครื่องจะข้ามขั้นต่ำ 5 นาทีของ native แต่จะปฏิเสธวันหมดอายุที่เกิน 28 วัน ซึ่ง venue
+จะทำให้หมดอายุก่อน ให้ใช้ GTD แบบ native สำหรับอายุที่ยาวกว่า latency ของการ cancel ที่ venue ยังคงทำให้
+การนำ order ออกล่าช้า
 
-### Execution instructions
+### Execution instruction {#execution-instructions}
 
-| Instruction           | Perpetuals | Spot | Notes                                                     |
-| --------------------- | ---------- | ---- | --------------------------------------------------------- |
-| `post_only`           | ✓          | ✓    | Overrides the TIF and sends Lighter `PostOnly`.           |
-| `reduce_only`         | ✓          | -    | Position-reducing flag for existing derivative positions. |
-| Self-trade prevention | ✓          | ✓    | Behavior and account scope set through order params.      |
+| Instruction           | Perpetuals | Spot | หมายเหตุ                                                       |
+| --------------------- | ---------- | ---- | ------------------------------------------------------------- |
+| `post_only`           | ✓          | ✓    | override TIF และส่ง `PostOnly` ของ Lighter                     |
+| `reduce_only`         | ✓          | -    | flag สำหรับลด position derivative ที่มีอยู่                    |
+| Self-trade prevention | ✓          | ✓    | ตั้งพฤติกรรมและขอบเขต account ผ่าน order param                |
 
-Use `post_only` on limit-style orders. The adapter does not synthesize maker-only market orders.
+ใช้ `post_only` กับ order แบบ limit adapter ไม่ได้สังเคราะห์ market order แบบ maker-only
 
-Lighter Mainnet testing confirms `reduce_only=true` closes perpetual positions. Invalid reduce-only
-opens can be dropped without a venue order report and reconcile as `INFLIGHT_TIMEOUT`, without
-a venue rejection reason.
+การทดสอบบน Lighter Mainnet ยืนยันว่า `reduce_only=true` ปิด perpetual position ได้ การเปิดแบบ reduce-only
+ที่ไม่ถูกต้องอาจถูกทิ้งโดยไม่มี venue order report และ reconcile เป็น `INFLIGHT_TIMEOUT` โดยไม่มีเหตุผล
+การ reject จาก venue
 
-### Advanced order features
+### ฟีเจอร์ order ขั้นสูง {#advanced-order-features}
 
-| Feature            | Perpetuals | Spot | Notes                                                       |
-| ------------------ | ---------- | ---- | ----------------------------------------------------------- |
-| Order modification | ✓          | ✓    | Modify quantity, price, and trigger price on a live order.  |
-| Bracket orders     | ✓          | -    | Native OTO parent with OCO-linked SL/TP exits.              |
-| Iceberg orders     | -          | -    | *Not supported by Lighter*.                                 |
-| Trailing stops     | -          | -    | *Not supported by Lighter*.                                 |
-| Pegged orders      | -          | -    | *Not supported by Lighter*; no native pegged API type.      |
-| TWAP orders        | -          | -    | *Not currently implemented*; no Nautilus mapping.           |
-| Chase limit orders | -          | -    | *Not currently implemented*.                                |
-| Atomic baskets     | -          | -    | *Not currently implemented*.                                |
-| Leverage update    | ✓          | -    | Perp only; submits a signed `UpdateLeverage` tx.            |
-| Native cancel-all  | ✓          | ✓    | Explicit account-wide cancellation through the Rust client. |
-| Dead man's switch  | ✓          | ✓    | Automatic renewal or manual scheduling; see caveats below.  |
+| ฟีเจอร์              | Perpetuals | Spot | หมายเหตุ                                                          |
+| ------------------ | ---------- | ---- | ---------------------------------------------------------------- |
+| Order modification | ✓          | ✓    | แก้ไข quantity, ราคา และราคา trigger บน order ที่ live อยู่       |
+| Bracket orders     | ✓          | -    | parent แบบ OTO native พร้อม exit SL/TP ที่ผูกกันแบบ OCO           |
+| Iceberg orders     | -          | -    | *Lighter ไม่รองรับ*                                              |
+| Trailing stops     | -          | -    | *Lighter ไม่รองรับ*                                              |
+| Pegged orders      | -          | -    | *Lighter ไม่รองรับ* ไม่มี type ของ pegged API แบบ native         |
+| TWAP orders        | -          | -    | *ยังไม่ได้ implement* ไม่มี mapping ใน Nautilus                  |
+| Chase limit orders | -          | -    | *ยังไม่ได้ implement*                                            |
+| Atomic baskets     | -          | -    | *ยังไม่ได้ implement*                                            |
+| Leverage update    | ✓          | -    | เฉพาะ perp submit tx `UpdateLeverage` ที่ sign แล้ว               |
+| Native cancel-all  | ✓          | ✓    | การ cancel ทั้ง account อย่างชัดเจนผ่าน Rust client              |
+| Dead man's switch  | ✓          | ✓    | ต่ออายุอัตโนมัติหรือตั้งเวลาเอง ดูข้อควรระวังด้านล่าง              |
 
-#### Account-wide cancellation
+#### การ cancel ทั้ง account {#account-wide-cancellation}
 
-Lighter's [`CancelAllOrders`](https://apidocs.lighter.xyz/docs/wasm-signer#signcancelallorders) transaction
-type 16 supports immediate and scheduled account-wide cancellation. The Rust execution client exposes
-`LighterExecutionClient::cancel_all_orders_account()` for immediate cancellation and
-`LighterExecutionClient::schedule_cancel(time)` to arm, replace, or revoke a schedule.
-These methods require access to the concrete Rust execution client; `ExecutionClient` commands and
-Python do not expose them.
-`lighter-flatten` also uses immediate native account-wide cancellation.
+[`CancelAllOrders`](https://apidocs.lighter.xyz/docs/wasm-signer#signcancelallorders) ของ Lighter ซึ่งเป็น
+transaction type 16 รองรับการ cancel ทั้ง account แบบทันทีและแบบตั้งเวลา Rust execution client มี
+`LighterExecutionClient::cancel_all_orders_account()` สำหรับการ cancel ทันที และ
+`LighterExecutionClient::schedule_cancel(time)` สำหรับตั้ง, แทนที่ หรือเพิกถอน schedule
+method เหล่านี้ต้องเข้าถึง Rust execution client ตัวจริงโดยตรง command ของ `ExecutionClient` ไม่ได้เปิดให้ใช้
+`lighter-flatten` ก็ใช้การ cancel ทั้ง account แบบ native ทันทีเช่นกัน
 
-Pass `Some(time)` to schedule cancellation or replace the existing deadline, and `None` to revoke it.
-The deadline is a Unix timestamp in milliseconds, between five minutes and fifteen days after the local
-clock. Allow headroom for rate limiting, latency, and clock skew; the venue can reject a delayed request.
-Manual calls do not start automatic renewal. Disconnect and process exit preserve the last deadline.
+ส่ง `Some(time)` เพื่อตั้งเวลา cancel หรือแทนที่ deadline ที่มีอยู่ และส่ง `None` เพื่อเพิกถอน
+deadline เป็น Unix timestamp หน่วยมิลลิวินาที อยู่ระหว่างห้านาทีถึงสิบห้าวันหลังเวลาของนาฬิกาในเครื่อง
+ให้เผื่อเวลาสำหรับ rate limiting, latency และ clock skew เพราะ venue อาจปฏิเสธ request ที่ล่าช้า
+การเรียกเองจะไม่เริ่มการต่ออายุอัตโนมัติ การหลุดการเชื่อมต่อและการจบ process จะคง deadline ล่าสุดไว้
 
-Set `scheduled_cancel_timeout_secs` to enable automatic arming and renewal on either deployment:
+ตั้งค่า `scheduled_cancel_timeout_secs` ใน config ของ execution client (เช่น `600`) เพื่อเปิดการตั้งและ
+ต่ออายุอัตโนมัติบน deployment ใดก็ได้
 
-```python
-from nautilus_trader.adapters.lighter import LighterExecutionClientConfig
-from nautilus_trader.model import AccountId
+ใช้ config นี้กับ `LighterExecutionClientFactory` และ [API credential](#api-credentials)
+ค่าเริ่มต้น `None` จะไม่แตะ schedule ของ venue รวมถึง deadline จาก session ก่อนหน้า การเพิกถอนด้วยมือ
+ทำได้ผ่าน Rust client เมื่อเปิดการต่ออายุ startup จะรอนานสุด 30 วินาทีให้ transaction การตั้งเวลาถูก execute
+หลังจากที่ execution WebSocket, nonce และ [account stream](#account-stream-readiness) พร้อมแล้ว
+หากการตั้งเวลาล้มเหลว `connect()` จะล้มเหลวและปิด connection ภายในเครื่อง แต่ request ที่อยู่ระหว่างทาง
+ยังอาจมีผล การตั้งเวลาและการต่ออายุอัตโนมัติยืนยันการ execute โดยไม่อ่าน schedule ของ account กลับมา
 
-exec_config = LighterExecutionClientConfig(
-    account_id=AccountId("LIGHTER-001"),
-    scheduled_cancel_timeout_secs=600,
-)
-```
-
-Use this config with `LighterExecutionClientFactory` and the [API credentials](#api-credentials).
-The default `None` leaves the venue schedule untouched, including a deadline from an earlier session.
-Manual revocation is available through the Rust client. When renewal is enabled, startup waits up to
-30 seconds for an executed arming transaction after the execution WebSocket, nonce, and
-[account streams](#account-stream-readiness) are ready. Arming failure fails `connect()` and tears down the local connection; an in-flight
-request can still take effect. Automatic arming and renewal confirm execution without reading back
-the account schedule.
-
-The timeout must be in `[420, 1_295_940]` seconds. These bounds reserve headroom for clock skew
-and request delays within Lighter's deadline window. Keep the host clock synchronized.
-Renewal runs every `min((timeout - 300) // 3, 60)` seconds while connected and the [nonce is ready](#nonce-recovery).
-Failures are logged and retried; an outage or sustained quota contention can let the last deadline expire.
-A timed-out renewal can still submit to preserve transaction ordering.
-Reconnect resumes renewal. Stop, reset, and disconnect stop renewal without
-revoking the deadline. Avoid manual schedule changes while automatic renewal is enabled: it replaces them.
+timeout ต้องอยู่ในช่วง `[420, 1_295_940]` วินาที ขอบเขตเหล่านี้เผื่อเวลาสำหรับ clock skew และความล่าช้า
+ของ request ภายในช่วง deadline ของ Lighter ให้นาฬิกาของ host sync อยู่เสมอ
+การต่ออายุจะทำงานทุก `min((timeout - 300) // 3, 60)` วินาทีขณะที่เชื่อมต่ออยู่และ [nonce พร้อม](#nonce-recovery)
+ความล้มเหลวจะถูก log และ retry การหยุดทำงานหรือการแย่งโควตาต่อเนื่องอาจทำให้ deadline ล่าสุดหมดอายุได้
+การต่ออายุที่ timeout ยังอาจถูก submit เพื่อรักษาลำดับของ transaction
+การ reconnect จะกลับมาต่ออายุ การ stop, reset และ disconnect จะหยุดการต่ออายุโดยไม่เพิกถอน deadline
+หลีกเลี่ยงการเปลี่ยน schedule ด้วยมือขณะเปิดการต่ออายุอัตโนมัติ เพราะมันจะแทนที่สิ่งที่เปลี่ยนไว้
 
 :::warning
-Native cancellation affects all open orders on the configured account, across markets and strategies,
-including orders absent from the local cache. It does not close positions. Use a dedicated account when
-other applications also trade on Lighter.
+การ cancel แบบ native มีผลกับ open order ทั้งหมดบน account ที่ตั้งค่าไว้ ข้ามทุกตลาดและทุก strategy
+รวมถึง order ที่ไม่มีใน cache ภายในเครื่อง มันไม่ได้ปิด position ให้ใช้ account เฉพาะเมื่อมีแอปพลิเคชันอื่น
+เทรดบน Lighter ด้วย
 :::
 
-Venue reads can still list resting orders after a scheduled deadline; treat them as closed only after
-a venue order update or later venue read reports cancellation.
-Autonomous sweeping of resting orders and matching safety after expiry are not proven.
+การอ่านจาก venue อาจยังแสดง resting order หลังถึง deadline ที่ตั้งไว้ ให้ถือว่าปิดแล้วก็ต่อเมื่อ venue order update
+หรือการอ่านจาก venue ครั้งถัดไปรายงานการ cancel แล้วเท่านั้น
+การกวาด resting order แบบอัตโนมัติและความปลอดภัยของการ matching หลังหมดอายุยังไม่ได้รับการพิสูจน์
 
-The manual methods use the ordered execution WebSocket and return a transaction hash after a transaction lookup
-confirms acceptance. Cancellation events come from venue order updates;
-acceptance alone does not prove cancellation, or that a schedule was armed, replaced, or revoked.
-Confirm transaction execution and the venue's account schedule before relying on a manual call.
-A transport error, transaction-lookup failure, or confirmation
-timeout can leave the outcome unknown, so check the transaction and venue order state before retrying.
-Dropping or timing out a manual call's future while waiting for its result does not stop submission, even while
-it waits for rate-limit quota. This also applies to revocation: a timed-out call can still revoke the
-schedule. Session shutdown can discard unsent requests; requests already in flight can have unknown outcomes.
-The generic `CancelAllOrders` command keeps its instrument and side filters and continues to use
-explicit per-order cancellations.
+method ที่เรียกเองใช้ execution WebSocket แบบมีลำดับ และคืน transaction hash หลังจากที่การค้นหา transaction
+ยืนยันการยอมรับ event การ cancel มาจาก venue order update การยอมรับเพียงอย่างเดียวไม่ได้พิสูจน์การ cancel
+หรือว่า schedule ถูกตั้ง, แทนที่ หรือเพิกถอนแล้ว ให้ยืนยันการ execute ของ transaction และ schedule ของ account
+ที่ venue ก่อนจะพึ่งพาการเรียกด้วยมือ
+transport error, การค้นหา transaction ล้มเหลว หรือ confirmation timeout อาจทำให้ไม่ทราบผลลัพธ์ ดังนั้น
+ให้ตรวจ transaction และ state ของ venue order ก่อน retry
+การทิ้งหรือ timeout ของ future จากการเรียกด้วยมือขณะรอผลจะไม่หยุดการ submit แม้ในขณะที่รอโควตา rate limit
+สิ่งนี้ใช้กับการเพิกถอนด้วย: การเรียกที่ timeout ยังอาจเพิกถอน schedule ได้ การ shutdown session อาจทิ้ง
+request ที่ยังไม่ได้ส่ง ส่วน request ที่อยู่ระหว่างทางแล้วอาจไม่ทราบผลลัพธ์
+command `CancelAllOrders` ทั่วไปยังคง filter ของ instrument และ side และใช้การ cancel ทีละ order อย่างชัดเจนต่อไป
 
-Venue
-[chase limit orders and atomic baskets](https://docs.lighter.xyz/trading/order-types-and-matching#advanced-orders)
-are not exposed. Ordinary transaction batches execute each child independently.
+[chase limit order และ atomic basket](https://docs.lighter.xyz/trading/order-types-and-matching#advanced-orders)
+ของ venue ไม่ได้เปิดให้ใช้ transaction batch ธรรมดาจะ execute order ลูกแต่ละตัวแยกกันอย่างอิสระ
 
-### Order operations
+### การทำงานกับ order {#order-operations}
 
-| Operation           | Perpetuals | Spot | Notes                                                        |
-| ------------------- | ---------- | ---- | ------------------------------------------------------------ |
-| Submit order        | ✓          | ✓    | Sends a signed `L2CreateOrder` transaction over WebSocket.   |
-| Submit order list   | ✓          | ✓    | Independent batches; native contingent groups on perps only. |
-| Modify order        | ✓          | ✓    | Sends a signed `ModifyOrder`; reports may restate accepts.   |
-| Batch modify orders | ✓          | ✓    | WebSocket batches of up to 15 signed modify transactions.    |
-| Cancel order        | ✓          | ✓    | Sends a signed `L2CancelOrder` transaction.                  |
-| Cancel all orders   | ✓          | ✓    | Cancels cached orders by instrument and optional side.       |
-| Set leverage        | ✓          | -    | Perp only; submits a signed `UpdateLeverage` tx.             |
-| Batch cancel orders | ✓          | ✓    | WebSocket batches of up to 15 signed cancel transactions.    |
-| Query order         | ✓          | ✓    | Requires credentials and REST lookup.                        |
-| Query account       | ✓          | ✓    | Replays the latest private WebSocket account state.          |
-| Mass status         | ✓          | ✓    | Bounded to account-active markets from WS and REST reports.  |
+| การทำงาน             | Perpetuals | Spot | หมายเหตุ                                                             |
+| ------------------- | ---------- | ---- | ------------------------------------------------------------------- |
+| Submit order        | ✓          | ✓    | ส่ง transaction `L2CreateOrder` ที่ sign แล้วผ่าน WebSocket           |
+| Submit order list   | ✓          | ✓    | batch อิสระ กลุ่ม contingent แบบ native เฉพาะ perp                   |
+| Modify order        | ✓          | ✓    | ส่ง `ModifyOrder` ที่ sign แล้ว report อาจแสดงการ accept ซ้ำ          |
+| Batch modify orders | ✓          | ✓    | WebSocket batch ละไม่เกิน 15 modify transaction ที่ sign แล้ว         |
+| Cancel order        | ✓          | ✓    | ส่ง transaction `L2CancelOrder` ที่ sign แล้ว                        |
+| Cancel all orders   | ✓          | ✓    | cancel order ใน cache ตาม instrument และ side (ถ้าระบุ)              |
+| Set leverage        | ✓          | -    | เฉพาะ perp submit tx `UpdateLeverage` ที่ sign แล้ว                   |
+| Batch cancel orders | ✓          | ✓    | WebSocket batch ละไม่เกิน 15 cancel transaction ที่ sign แล้ว         |
+| Query order         | ✓          | ✓    | ต้องมี credential และค้นหาผ่าน REST                                 |
+| Query account       | ✓          | ✓    | replay account state ล่าสุดจาก private WebSocket                    |
+| Mass status         | ✓          | ✓    | จำกัดเฉพาะตลาดที่ account active จาก report ของ WS และ REST          |
 
-#### Order lists and batch operations
+#### Order list และการทำงานแบบ batch {#order-lists-and-batch-operations}
 
-Non-contingent `SubmitOrderList`, `BatchModifyOrders`, and `BatchCancelOrders` use WebSocket
-`jsonapi/sendtxbatch`. Each child retains its signed transaction and order-event attribution, without
-atomic execution or contingency relationships.
+`SubmitOrderList`, `BatchModifyOrders` และ `BatchCancelOrders` ที่ไม่ใช่ contingent ใช้ WebSocket
+`jsonapi/sendtxbatch` order ลูกแต่ละตัวคง signed transaction และการระบุ order event ของตัวเองไว้ โดยไม่มี
+การ execute แบบ atomic หรือความสัมพันธ์แบบ contingency
 
-Local validation denies invalid submit children or rejects invalid modify children; supported siblings continue.
-Batches hold up to 15 transactions: 31 supported children normally produce 15, 15, and 1.
-Concurrent nonce allocation or recovery can shrink batches.
+การ validate ภายในเครื่องจะ deny order ลูกของ submit ที่ไม่ถูกต้อง หรือ reject order ลูกของ modify ที่ไม่ถูกต้อง
+ส่วนตัวอื่นที่รองรับจะดำเนินต่อ batch หนึ่งมีได้สูงสุด 15 transaction: order ลูกที่รองรับ 31 ตัวโดยปกติจะได้
+15, 15 และ 1 การจัดสรร nonce หรือการกู้คืนที่เกิดพร้อมกันอาจทำให้ batch เล็กลง
 
-Each batch uses a separate rate-limiter token and acknowledgement. Rejection affects only its children.
+แต่ละ batch ใช้ token ของ rate limiter และ acknowledgement แยกกัน การ reject มีผลเฉพาะกับ order ลูกของ batch นั้น
 
-The adapter waits up to 10 seconds for each chunk's acknowledgements before signing the next.
-On timeout, dispatch continues, retaining unacknowledged entries for reconciliation.
+adapter จะรอ acknowledgement ของแต่ละ chunk นานสุด 10 วินาทีก่อน sign chunk ถัดไป
+หาก timeout การ dispatch จะดำเนินต่อ โดยเก็บ entry ที่ยังไม่ได้ acknowledge ไว้สำหรับ reconciliation
 
-`CancelAllOrders` uses this path and preserves the side filter. Splitting commands does not raise
-venue [active-order limits](#active-and-pending-order-limits).
+`CancelAllOrders` ใช้เส้นทางนี้และคง side filter ไว้ การแบ่ง command ไม่ได้เพิ่ม
+[ขีดจำกัด active order](#active-and-pending-order-limits) ของ venue
 
-A contingent list requires exactly one supported group of two or three perpetual orders, sharing one
-`CreateGroupedOrders` transaction and nonce. Any invalid leg denies the entire group.
+contingent list ต้องมีกลุ่มที่รองรับเพียงกลุ่มเดียวซึ่งมี perpetual order สองหรือสามตัว โดยใช้ transaction
+`CreateGroupedOrders` และ nonce เดียวกัน leg ใดที่ไม่ถูกต้องจะทำให้ทั้งกลุ่มถูก deny
 
-Lighter's [trading guide](https://apidocs.lighter.xyz/docs/trading#batch) gives a maximum of 50, while its
-[WebSocket reference](https://apidocs.lighter.xyz/docs/websocket-reference#send-batch-tx) states 15.
-The adapter uses the lower documented limit.
+[trading guide](https://apidocs.lighter.xyz/docs/trading#batch) ของ Lighter ระบุค่าสูงสุดเป็น 50 ขณะที่
+[WebSocket reference](https://apidocs.lighter.xyz/docs/websocket-reference#send-batch-tx) ระบุ 15
+adapter ใช้ขีดจำกัดที่ต่ำกว่าตามเอกสาร
 
-#### Nonce allocation and transaction admission
+#### การจัดสรร nonce และการรับ transaction {#nonce-allocation-and-transaction-admission}
 
-Each batch uses one account, one API key, and consecutive nonces. Lighter's
-[nonce contract](https://apidocs.lighter.xyz/docs/core-concepts#nonce) requires nonce order with `skip_nonce=0`.
+แต่ละ batch ใช้ account เดียว, API key เดียว และ nonce ที่ต่อเนื่องกัน
+[nonce contract](https://apidocs.lighter.xyz/docs/core-concepts#nonce) ของ Lighter กำหนดให้ nonce เรียงลำดับ
+เมื่อ `skip_nonce=0`
 
-The local window permits 16 unconfirmed allocations per key, never out-of-order venue transactions.
-Unsigned children wait for capacity or nonce recovery without being discarded. Shutdown stops dispatch
-and drops queued work.
+window ภายในเครื่องอนุญาตการจัดสรรที่ยังไม่ยืนยันได้ 16 ตัวต่อ key และจะไม่ส่ง transaction ไปยัง venue
+แบบไม่เรียงลำดับ order ลูกที่ยังไม่ได้ sign จะรอ capacity หรือการกู้คืน nonce โดยไม่ถูกทิ้ง การ shutdown
+จะหยุดการ dispatch และทิ้งงานที่อยู่ในคิว
 
-Batch responses correlate by request ID and signed transaction hash.
+response ของ batch จะจับคู่ด้วย request ID และ signed transaction hash
 
-Acknowledgement confirms transaction admission, not order acceptance, modification, or cancellation:
+acknowledgement ยืนยันการรับ transaction (admission) ไม่ใช่การ accept, การแก้ไข หรือการ cancel ของ order:
 
-- Pre-admission rejection fails the batch without consuming nonces. Invalid-nonce responses also refresh
-  the nonce baseline.
-- After admission, transactions can succeed or fail independently. Application failures consume the nonce;
-  sequencer rejection before application can leave it unconsumed, invalidating later nonces on that key.
+- การ reject ก่อน admission ทำให้ batch ล้มเหลวโดยไม่ใช้ nonce response แบบ invalid-nonce จะ refresh
+  ค่าฐานของ nonce ด้วย
+- หลัง admission transaction อาจสำเร็จหรือล้มเหลวแยกกัน ความล้มเหลวระดับ application จะใช้ nonce ไป
+  ส่วนการ reject ของ sequencer ก่อน application อาจทำให้ nonce ไม่ถูกใช้ ซึ่งทำให้ nonce ที่ตามมาบน key นั้นใช้ไม่ได้
 
-See [nonce consumption](https://apidocs.lighter.xyz/docs/core-concepts#when-a-rejected-transaction-consumes-its-nonce).
+ดู [nonce consumption](https://apidocs.lighter.xyz/docs/core-concepts#when-a-rejected-transaction-consumes-its-nonce)
 
-On ambiguous delivery, the adapter retains pending state for reconciliation and does not resend the batch.
+เมื่อการส่งกำกวม adapter จะเก็บ state ที่ pending ไว้สำหรับ reconciliation และไม่ส่ง batch ซ้ำ
 
-#### Modification confirmation
+#### การยืนยันการแก้ไข {#modification-confirmation}
 
-Wait for `OrderUpdated` or `OrderModifyRejected` before modifying an order again. Only one modification
-per order can remain unresolved; a second receives `OrderModifyRejected` without resolving the first.
+ให้รอ `OrderUpdated` หรือ `OrderModifyRejected` ก่อนแก้ไข order อีกครั้ง แต่ละ order มีการแก้ไขที่ยังไม่ได้
+ข้อสรุปได้เพียงครั้งเดียว ครั้งที่สองจะได้ `OrderModifyRejected` โดยไม่ทำให้ครั้งแรกได้ข้อสรุป
 
-Pending cancellation rejects modification. During pending modification, cancellation remains available
-but its outcome waits for modification resolution.
+การ cancel ที่ pending อยู่จะปฏิเสธการแก้ไข ระหว่างที่การแก้ไข pending อยู่ การ cancel ยังทำได้ แต่ผลลัพธ์
+จะรอจนกว่าการแก้ไขจะได้ข้อสรุป
 
-Confirmation requires a transaction lookup and matching current venue order shape:
+การยืนยันต้องอาศัยการค้นหา transaction และรูปแบบ venue order ปัจจุบันที่ตรงกัน:
 
-- Affected WebSocket order frames and fills wait for publication of `OrderUpdated` or `OrderModifyRejected`.
-- HTTP reports that could apply the amendment or fill wait for the cache to apply that event.
+- frame ของ WebSocket order และ fill ที่ได้รับผลกระทบจะรอการ publish `OrderUpdated` หรือ `OrderModifyRejected`
+- HTTP report ที่อาจนำการแก้ไขหรือ fill ไปใช้จะรอให้ cache นำ event นั้นไปใช้ก่อน
 
-| Request                            | Behavior while modification is pending                     |
-| ---------------------------------- | ---------------------------------------------------------- |
-| Single-order status lookup         | Can return an unchanged working report as `PendingUpdate`. |
-| Bulk order reports and mass status | Withhold the order and mark the result incomplete.         |
-| `query_order`                      | Emits no report.                                           |
+| Request                              | พฤติกรรมขณะที่การแก้ไข pending อยู่                               |
+| ------------------------------------ | --------------------------------------------------------------- |
+| การค้นหาสถานะ order ตัวเดียว           | อาจคืน working report ที่ไม่เปลี่ยนแปลงเป็น `PendingUpdate`     |
+| order report แบบ bulk และ mass status | กัน order ไว้และทำเครื่องหมายว่าผลลัพธ์ไม่สมบูรณ์                  |
+| `query_order`                        | ไม่ emit report                                                 |
 
-Reports can lag by several seconds. Position reconciliation withholds affected instruments until their
-execution events reach the cache.
+report อาจล่าช้าได้หลายวินาที position reconciliation จะกัน instrument ที่ได้รับผลกระทบไว้จนกว่า
+execution event ของมันจะไปถึง cache
 
-#### Native child fills and position reconciliation
+#### Fill ของ order ลูกแบบ native และ position reconciliation {#native-child-fills-and-position-reconciliation}
 
-Native OTO/OTOCO child fills wait until a terminal venue order and complete real trade coverage establish
-the effective quantity. The adapter then:
+fill ของ order ลูกแบบ native ใน OTO/OTOCO จะรอจนกว่า terminal venue order และการครอบคลุม trade จริงที่สมบูรณ์
+จะกำหนด quantity ที่มีผลได้ จากนั้น adapter จะ:
 
-1. Publishes the effective quantity.
-1. Releases real fills.
-1. Reconciles terminal status.
+1. publish quantity ที่มีผล
+1. release fill จริง
+1. reconcile สถานะ terminal
 
-Resting children publish trigger events once their modification resolves.
+order ลูกที่ยังรออยู่จะ publish trigger event เมื่อการแก้ไขของมันได้ข้อสรุป
 
-An unresolved child fill or modification holds later fills and terminal events for the same strategy and
-instrument. Fills release by venue event time, breaking ties by arrival order. HTTP reports that could apply
-these changes wait for the cache to catch up.
+fill หรือการแก้ไขของ order ลูกที่ยังไม่ได้ข้อสรุปจะกัน fill และ terminal event ที่ตามมาสำหรับ strategy และ
+instrument เดียวกันไว้ fill จะถูก release ตามเวลา event ของ venue และใช้ลำดับการมาถึงเมื่อเวลาเท่ากัน
+HTTP report ที่อาจนำการเปลี่ยนแปลงเหล่านี้ไปใช้จะรอให้ cache ตามทัน
 
-Cached fills and position accounting can lag until the child closes and trade coverage is complete.
-During this delay:
+fill ใน cache และการบัญชีของ position อาจล่าช้าจนกว่า order ลูกจะปิดและการครอบคลุม trade จะสมบูรณ์
+ระหว่างความล่าช้านี้:
 
-- Position queries fail for a scope containing an affected instrument.
-- Mass status omits affected position reports and synthetic flat reports and remains incomplete.
-- Venue position snapshots remain available on the private stream.
+- query position จะล้มเหลวสำหรับขอบเขตที่มี instrument ที่ได้รับผลกระทบ
+- mass status จะละ position report และ synthetic flat report ที่ได้รับผลกระทบ และคงสถานะไม่สมบูรณ์
+- snapshot ของ position จาก venue ยังคงมีให้บน private stream
 
-#### Outcome recovery
+#### การกู้คืนผลลัพธ์ {#outcome-recovery}
 
-Order updates and transaction lookups resolve create and cancel outcomes. Recovery performs up to three
-lookups at two-second intervals while the pending action remains current. It validates transaction hash,
-type, account, API key, and original submission nonce.
+order update และการค้นหา transaction ให้ข้อสรุปของผลลัพธ์การ create และ cancel การกู้คืนจะค้นหาสูงสุดสามครั้ง
+ห่างกันสองวินาทีขณะที่ action ที่ pending ยังเป็นปัจจุบัน และตรวจ transaction hash, type, account, API key
+และ nonce ของการ submit ครั้งแรก
 
-Resolved or superseded cancels stop their probes, including requests waiting for REST quota.
-When a cancel transaction executes, recovery retries missing or nonterminal order status within the same three lookups.
+cancel ที่ได้ข้อสรุปแล้วหรือถูกแทนที่จะหยุดการ probe ของมัน รวมถึง request ที่รอโควตา REST อยู่
+เมื่อ transaction ของ cancel ถูก execute การกู้คืนจะ retry สถานะของ order ที่หายไปหรือยังไม่ terminal
+ภายในการค้นหาสามครั้งเดียวกัน
 
-A definitively failed admitted modification, single or batched, emits one `OrderModifyRejected` and clears
-its matching pending action. The consumed nonce is not rolled back.
+การแก้ไขที่ถูกรับแล้วแต่ล้มเหลวอย่างชัดเจน ไม่ว่าจะเป็นแบบเดี่ยวหรือแบบ batch จะ emit `OrderModifyRejected`
+หนึ่งครั้งและล้าง action ที่ pending ที่ตรงกัน nonce ที่ถูกใช้ไปแล้วจะไม่ถูกย้อนคืน
 
-Delayed outcomes cannot clear a newer modification or reject one already confirmed by recovery.
+ผลลัพธ์ที่มาช้าไม่สามารถล้างการแก้ไขที่ใหม่กว่า หรือ reject การแก้ไขที่การกู้คืนยืนยันไปแล้วได้
 
 :::warning
-An unconfirmed modification can remain unresolved for the rest of the session after bounded lookups.
-It holds later order events and fills and rejects further modifications. The adapter neither assumes success
-nor resends it. Restart and reconcile venue state before managing that order again.
+การแก้ไขที่ยังไม่ได้ยืนยันอาจค้างโดยไม่ได้ข้อสรุปไปตลอด session หลังจากค้นหาครบตามขอบเขตแล้ว
+มันจะกัน order event และ fill ที่ตามมา และปฏิเสธการแก้ไขเพิ่มเติม adapter จะไม่สมมติว่าสำเร็จและไม่ส่งซ้ำ
+ให้ restart และ reconcile state ของ venue ก่อนจัดการ order นั้นอีกครั้ง
 :::
 
-Modification probes retain their original submission identity across reconnects. Cancellation probes stop when
-their connection changes; the pending cancel keeps its submission identity for reconciliation.
+probe ของการแก้ไขจะคง identity ของการ submit ครั้งแรกไว้ข้ามการ reconnect ส่วน probe ของการ cancel จะหยุด
+เมื่อ connection เปลี่ยน โดย cancel ที่ pending จะคง identity ของการ submit ไว้สำหรับ reconciliation
 
-Cancellation recovery includes orders outside `PendingCancel`, such as `CancelAllOrders` targets.
-Only cached orders in `PendingCancel` at dispatch receive `OrderCancelRejected`; other failures are logged.
+การกู้คืนการ cancel รวมถึง order ที่ไม่ได้อยู่ใน `PendingCancel` เช่น เป้าหมายของ `CancelAllOrders`
+มีเพียง order ใน cache ที่อยู่ใน `PendingCancel` ตอน dispatch เท่านั้นที่จะได้รับ `OrderCancelRejected`
+ความล้มเหลวอื่นจะถูก log ไว้
 
-#### Leverage updates and signing validation
+#### การอัปเดต leverage และการตรวจสอบการ sign {#leverage-updates-and-signing-validation}
 
-Call `LighterExecutionClient::update_leverage(instrument_id, initial_margin_fraction, margin_mode)`.
-The margin fraction uses venue ticks (1e-4 fraction): `500` is 5% initial margin (20x leverage),
-and `1000` is 10% (10x).
+เรียก `LighterExecutionClient::update_leverage(instrument_id, initial_margin_fraction, margin_mode)`
+สัดส่วน margin ใช้ tick ของ venue (สัดส่วน 1e-4): `500` คือ initial margin 5% (leverage 20x)
+และ `1000` คือ 10% (10x)
 
-`UpdateLeverage`, `CancelAllOrders`, modify orders with integrator attributes, conditional create
-orders, and `CreateGroupedOrders` are byte-pinned against the compiled `lighter-go` v1.0.12 signer.
-Create, cancel, modify, grouped orders, and leverage updates include market IDs above 16 and 32 bits.
+`UpdateLeverage`, `CancelAllOrders`, modify order ที่มี integrator attribute, conditional create order
+และ `CreateGroupedOrders` ถูกตรึงระดับ byte เทียบกับ signer `lighter-go` v1.0.12 ที่ compile แล้ว
+create, cancel, modify, grouped order และการอัปเดต leverage ครอบคลุม market ID ที่เกิน 16 และ 32 bit
 
-### Order querying and reconciliation
+### การ query order และ reconciliation {#order-querying-and-reconciliation}
 
-| Feature              | Perpetuals | Spot | Notes                                                        |
-| -------------------- | ---------- | ---- | ------------------------------------------------------------ |
-| Query open orders    | ✓          | ✓    | REST `accountActiveOrders` scoped by market.                 |
-| Query order history  | ✓          | ✓    | REST `accountInactiveOrders` with cursor pagination.         |
-| Order status updates | ✓          | ✓    | Private WebSocket order streams plus status reports.         |
-| Trade history        | ✓          | ✓    | REST `trades`; credentials are required for account history. |
-| Fill reports         | ✓          | ✓    | REST and private WebSocket trade payloads.                   |
-| Position reports     | ✓          | -    | Perp only; replays cached position stream.                   |
-| Account state        | ✓          | ✓    | Replays the cached merged account state snapshot.            |
-| Mass status          | ✓          | ✓    | Combines orders, fills, and cached positions.                |
+| ฟีเจอร์                | Perpetuals | Spot | หมายเหตุ                                                          |
+| -------------------- | ---------- | ---- | ---------------------------------------------------------------- |
+| Query open orders    | ✓          | ✓    | REST `accountActiveOrders` กำหนดขอบเขตตามตลาด                    |
+| Query order history  | ✓          | ✓    | REST `accountInactiveOrders` พร้อม pagination แบบ cursor          |
+| Order status updates | ✓          | ✓    | order stream จาก private WebSocket บวกกับ status report           |
+| Trade history        | ✓          | ✓    | REST `trades` ต้องมี credential สำหรับประวัติของ account          |
+| Fill reports         | ✓          | ✓    | payload ของ trade จาก REST และ private WebSocket                  |
+| Position reports     | ✓          | -    | เฉพาะ perp replay position stream ที่อยู่ใน cache                |
+| Account state        | ✓          | ✓    | replay snapshot ของ account state ที่รวมแล้วใน cache              |
+| Mass status          | ✓          | ✓    | รวม order, fill และ position ที่อยู่ใน cache                      |
 
-Authenticated inactive-order and fill pagination rejects repeated cursors and stops after 1,000 pages.
-Fill reconciliation is repeatable across calls and suppresses fills already emitted by WebSocket.
+pagination ของ inactive order และ fill ที่ยืนยันตัวตนแล้วจะปฏิเสธ cursor ที่ซ้ำ และหยุดหลังครบ 1,000 หน้า
+fill reconciliation ทำซ้ำได้ข้ามการเรียกแต่ละครั้ง และจะระงับ fill ที่ WebSocket emit ไปแล้ว
 
-Historical reports bind mapped client indexes only to matching venue order IDs, preventing reused
-indexes from merging unrelated lifecycles.
+report ย้อนหลังจะผูก client index ที่ map แล้วเฉพาะกับ venue order ID ที่ตรงกัน เพื่อป้องกันไม่ให้ index
+ที่ถูกนำกลับมาใช้รวม lifecycle ที่ไม่เกี่ยวข้องกันเข้าด้วยกัน
 
-#### Report completeness
+#### ความสมบูรณ์ของ report {#report-completeness}
 
-Bounded mass status uses one cutoff for inactive orders and fills. A complete result requires:
+mass status แบบมีขอบเขตใช้จุดตัดเดียวกันสำหรับ inactive order และ fill ผลลัพธ์ที่สมบูรณ์ต้องมี:
 
-- All required order, fill, and position sources to succeed.
-- Every historical fill to map to its order.
+- แหล่งข้อมูล order, fill และ position ที่จำเป็นทั้งหมดสำเร็จ
+- fill ย้อนหลังทุกตัว map ไปยัง order ของมันได้
 
-Held events, unresolved modifications, or updates awaiting cache application make withheld order, fill,
-and position sources incomplete.
+event ที่ถูกกักไว้, การแก้ไขที่ยังไม่ได้ข้อสรุป หรือ update ที่รอให้ cache นำไปใช้ จะทำให้แหล่งข้อมูล order, fill
+และ position ที่ถูกกักไว้ไม่สมบูรณ์
 
-History failure alone does not veto available active orders or explicit position reports.
-Bounded historical fills without an in-scope position report follow the engine's
-[order-only projection](../concepts/execution/reconciliation.md#order-only-fill-projection) rules.
+ความล้มเหลวของประวัติเพียงอย่างเดียวไม่ได้ยกเลิก active order หรือ position report ที่ระบุชัดเจนที่มีอยู่
+fill ย้อนหลังแบบมีขอบเขตที่ไม่มี position report ในขอบเขต จะเป็นไปตามกฎ
+[order-only projection](../concepts/execution/reconciliation.md#order-only-fill-projection) ของ engine
 
-The [`trades` reference](https://apidocs.lighter.xyz/reference/trades) does not guarantee history depth.
-Pagination walks back from the newest trade; only a trade older than the lookback start proves coverage:
+[`trades` reference](https://apidocs.lighter.xyz/reference/trades) ไม่ได้รับประกันความลึกของประวัติ
+pagination จะไล่ย้อนจาก trade ล่าสุด มีเพียง trade ที่เก่ากว่าจุดเริ่มต้นของ lookback เท่านั้นที่พิสูจน์การครอบคลุม:
 
-- Trade older than the lookback start: the report set stays complete.
-- Cursor exhausted first: the adapter logs the uncovered span and marks the report set incomplete.
-- No retained trades: nothing can have been truncated, so the report set stays complete.
+- มี trade ที่เก่ากว่าจุดเริ่มต้นของ lookback: ชุด report ยังคงสมบูรณ์
+- cursor หมดก่อน: adapter จะ log ช่วงที่ไม่ได้ครอบคลุมและทำเครื่องหมายว่าชุด report ไม่สมบูรณ์
+- ไม่มี trade เก็บไว้เลย: ไม่มีอะไรถูกตัดได้ ชุด report จึงยังคงสมบูรณ์
 
-Cursor exhaustion cannot distinguish truncation from no older trades. Young accounts can report incomplete
-with nothing missing. Choose a lookback the venue can serve.
+การที่ cursor หมดไม่สามารถแยกแยะระหว่างการถูกตัดกับการไม่มี trade ที่เก่ากว่าได้ account ที่เพิ่งสร้าง
+อาจรายงานว่าไม่สมบูรณ์ทั้งที่ไม่มีอะไรหายไป ให้เลือก lookback ที่ venue ให้บริการได้
 
-For older fills, the venue's [historical data exports](https://apidocs.lighter.xyz/docs/historical-data)
-provide up to 12 months of account trades. The adapter does not read the `export` endpoint.
+สำหรับ fill ที่เก่ากว่านั้น [historical data export](https://apidocs.lighter.xyz/docs/historical-data) ของ venue
+ให้ข้อมูล trade ของ account ได้ถึง 12 เดือน adapter ไม่ได้อ่าน endpoint `export`
 
-#### Startup position checks
+#### การตรวจ position ตอน startup {#startup-position-checks}
 
-Opening a position at strategy startup can briefly warn `cached=0, venue=N` if `account_all_positions`
-arrives milliseconds before its fill is processed. Applying the fill resolves the mismatch without
-generating reconciliation orders.
+การเปิด position ตอน strategy เริ่มต้นอาจทำให้เกิด warning `cached=0, venue=N` ชั่วครู่ หาก
+`account_all_positions` มาถึงก่อนที่ fill ของมันจะถูกประมวลผลไม่กี่มิลลิวินาที การนำ fill ไปใช้จะแก้ความ
+ไม่ตรงกันนี้โดยไม่สร้าง reconciliation order
 
-## Account and position management
+## การจัดการ account และ position {#account-and-position-management}
 
-Execution clients authenticate and subscribe to five private streams:
+execution client จะยืนยันตัวตนและ subscribe private stream ห้าตัว:
 
-- `account_all_orders`: order status reports.
-- `account_all_trades`: fill reports.
-- `account_all_positions`: initial position snapshot and live updates.
-- `account_all_assets`: per-asset balance snapshots (spot balance plus perp collateral).
-- `user_stats`: perp-account margin rollup (collateral and available balance).
+- `account_all_orders`: order status report
+- `account_all_trades`: fill report
+- `account_all_positions`: snapshot ของ position เริ่มต้นและ update แบบ live
+- `account_all_assets`: snapshot ของ balance ราย asset (spot balance บวก collateral ของ perp)
+- `user_stats`: สรุป margin ของ account perp (collateral และ balance ที่ใช้ได้)
 
-The adapter emits merged `account_all_assets` and `user_stats` state only after both first frames arrive.
+adapter จะ emit state ที่รวม `account_all_assets` และ `user_stats` แล้ว หลังจากได้รับ frame แรกของทั้งสองแล้วเท่านั้น
 
-Construction allows missing credentials, but `connect()` requires `private_key`, `account_index`, and
-`api_key_index`. Private streams and nonce refresh are mandatory.
+การสร้าง client อนุญาตให้ไม่มี credential ได้ แต่ `connect()` ต้องมี `private_key`, `account_index` และ
+`api_key_index` private stream และการ refresh nonce เป็นสิ่งที่บังคับ
 
-### Position snapshots and updates
+### Snapshot และ update ของ position {#position-snapshots-and-updates}
 
-Perpetuals use one net position per market. Spot balances use account asset state. The authoritative
-`subscribed/account_all_positions` snapshot:
+perpetual ใช้ net position เดียวต่อตลาด spot balance ใช้ asset state ของ account snapshot
+`subscribed/account_all_positions` ที่เชื่อถือได้จะ:
 
-- Flattens omitted markets and zero-`position` rows. An empty `positions` map flattens the entire cache.
-- Retains cached positions for unmapped or unparsable rows to prevent false flat reports.
+- ทำให้ตลาดที่ไม่มีอยู่ใน snapshot และแถวที่ `position` เป็นศูนย์กลายเป็น flat map `positions` ที่ว่าง
+  จะทำให้ทั้ง cache เป็น flat
+- คง position ใน cache ไว้สำหรับแถวที่ map ไม่ได้หรือ parse ไม่ได้ เพื่อป้องกัน flat report ที่ผิด
 
-Reconnect invalidates snapshot market coverage. Bounded reconciliation reports an absent touched market
-as flat only with current coverage. Unmapped or malformed rows leave mass status incomplete instead of proving flat.
+การ reconnect จะทำให้การครอบคลุมตลาดของ snapshot ใช้ไม่ได้ reconciliation แบบมีขอบเขตจะรายงานตลาดที่เคย
+แตะต้องแต่ไม่มีใน snapshot ว่า flat ก็ต่อเมื่อมีการครอบคลุมปัจจุบันเท่านั้น แถวที่ map ไม่ได้หรือมีรูปแบบผิด
+จะทำให้ mass status ไม่สมบูรณ์แทนที่จะพิสูจน์ว่า flat
 
-Incremental `update/account_all_positions` frames replace nonzero positions, flatten explicit zeros,
-and retain omitted markets. Empty updates retain all positions.
+frame `update/account_all_positions` แบบ incremental จะแทนที่ position ที่ไม่เป็นศูนย์, ทำให้ค่าศูนย์ที่ระบุชัดเจน
+เป็น flat และคงตลาดที่ไม่ได้ระบุไว้ update ที่ว่างจะคง position ทั้งหมดไว้
 
-| Feature                 | Perpetuals | Spot | Notes                                                       |
-| ----------------------- | ---------- | ---- | ----------------------------------------------------------- |
-| Account balances        | ✓          | ✓    | Merged assets + `user_stats`, replayed from cache on query. |
-| Position state          | ✓          | -    | Perp only; initial snapshot plus live updates.              |
-| Netting positions       | ✓          | -    | One Nautilus position per perpetual market.                 |
-| Cross margin            | ✓          | -    | Passed through `LighterPositionMarginMode::Cross`.          |
-| Isolated margin         | ✓          | -    | Passed through `LighterPositionMarginMode::Isolated`.       |
-| Leverage updates        | ✓          | -    | Signed `UpdateLeverage` transaction.                        |
-| Spot margin / borrowing | -          | -    | *Not currently implemented*; no borrowing workflow.         |
-| Collateral-mode changes | -          | -    | *Not currently implemented*; configure with venue tools.    |
-| Deposits / withdrawals  | -          | -    | *Not currently implemented*; use venue tools or APIs.       |
+| ฟีเจอร์                   | Perpetuals | Spot | หมายเหตุ                                                           |
+| ----------------------- | ---------- | ---- | ----------------------------------------------------------------- |
+| Account balances        | ✓          | ✓    | asset ที่รวมแล้ว + `user_stats` replay จาก cache เมื่อ query       |
+| Position state          | ✓          | -    | เฉพาะ perp snapshot เริ่มต้นบวก update แบบ live                   |
+| Netting positions       | ✓          | -    | position ของ Nautilus หนึ่งตัวต่อตลาด perpetual                   |
+| Cross margin            | ✓          | -    | ส่งผ่าน `LighterPositionMarginMode::Cross`                         |
+| Isolated margin         | ✓          | -    | ส่งผ่าน `LighterPositionMarginMode::Isolated`                      |
+| Leverage updates        | ✓          | -    | transaction `UpdateLeverage` ที่ sign แล้ว                         |
+| Spot margin / borrowing | -          | -    | *ยังไม่ได้ implement* ไม่มี workflow การกู้ยืม                      |
+| Collateral-mode changes | -          | -    | *ยังไม่ได้ implement* ให้ตั้งค่าด้วย tool ของ venue                 |
+| Deposits / withdrawals  | -          | -    | *ยังไม่ได้ implement* ให้ใช้ tool หรือ API ของ venue                |
 
-Lighter's [multi-asset margin](https://docs.lighter.xyz/trading/multi-asset-margin) supports non-USDC perpetual
-collateral. Its documentation describes spot use cases but excludes spot at launch. The adapter exposes
-neither spot borrowing nor collateral-mode changes; the spot-margin row describes an adapter gap, not a venue limit.
+[multi-asset margin](https://docs.lighter.xyz/trading/multi-asset-margin) ของ Lighter รองรับ collateral ของ
+perpetual ที่ไม่ใช่ USDC เอกสารของมันอธิบาย use case ของ spot แต่ไม่รวม spot ตอนเปิดตัว adapter ไม่ได้เปิดให้ใช้
+ทั้งการกู้ยืมบน spot และการเปลี่ยน collateral mode แถว spot-margin จึงอธิบายช่องว่างของ adapter ไม่ใช่ข้อจำกัดของ venue
 
-## Liquidation and ADL handling
+## การจัดการ liquidation และ ADL {#liquidation-and-adl-handling}
 
-| Event or field              | Support | Notes                                                         |
-| --------------------------- | ------- | ------------------------------------------------------------- |
-| Liquidation trades          | ✓       | Account trade rows can parse as fills, with no special event. |
-| Deleverage trades           | ✓       | Account trade rows can parse as fills, with no special event. |
-| Liquidation price reporting | ✓       | Position reports include the venue-reported value.            |
-| ADL event stream            | -       | *Not currently implemented*; no notification subscription.    |
+| Event หรือ field              | รองรับ | หมายเหตุ                                                            |
+| --------------------------- | ------ | ------------------------------------------------------------------ |
+| Liquidation trades          | ✓      | แถว trade ของ account parse เป็น fill ได้ โดยไม่มี event พิเศษ      |
+| Deleverage trades           | ✓      | แถว trade ของ account parse เป็น fill ได้ โดยไม่มี event พิเศษ      |
+| Liquidation price reporting | ✓      | position report มีค่าที่ venue รายงาน                              |
+| ADL event stream            | -      | *ยังไม่ได้ implement* ไม่มี subscription การแจ้งเตือน              |
 
-`PositionStatusReport.liquidation_price` preserves the venue's decimal value, including zero.
-Synthetic flat reports leave it unset.
+`PositionStatusReport.liquidation_price` คงค่าทศนิยมของ venue ไว้ รวมถึงศูนย์ synthetic flat report
+จะไม่ตั้งค่านี้
 
-The adapter does not subscribe to the authenticated
-[`notification` stream](https://apidocs.lighter.xyz/docs/websocket-reference#notification) for liquidation
-and deleverage alerts. These trades use the normal fill-report path.
+adapter ไม่ได้ subscribe
+[`notification` stream](https://apidocs.lighter.xyz/docs/websocket-reference#notification) ที่ต้องยืนยันตัวตน
+สำหรับการแจ้งเตือน liquidation และ deleverage trade เหล่านี้ใช้เส้นทาง fill report ตามปกติ
 
-## Funding rates
+## Funding rate {#funding-rates}
 
-Perpetual `market_stats` emits `MarkPriceUpdate`, `IndexPriceUpdate`, and `FundingRateUpdate`.
-Funding fields differ:
+`market_stats` ของ perpetual จะ emit `MarkPriceUpdate`, `IndexPriceUpdate` และ `FundingRateUpdate`
+field ของ funding แตกต่างกัน:
 
-- `current_funding_rate`: upcoming estimate used in live updates.
-- `funding_rate` and `funding_timestamp`: last completed payment.
+- `current_funding_rate`: ค่าประมาณที่กำลังจะมาถึงซึ่งใช้ใน update แบบ live
+- `funding_rate` และ `funding_timestamp`: การจ่ายครั้งล่าสุดที่เสร็จสิ้นแล้ว
 
-Live funding updates use `interval=60` because Lighter funds hourly. Market stats provide no future settlement
-time, leaving `next_funding_ns` unset. Spot `spot_market_stats` emits `IndexPriceUpdate`.
+funding update แบบ live ใช้ `interval=60` เพราะ Lighter คิด funding รายชั่วโมง market stats ไม่มีเวลา
+settlement ในอนาคต จึงไม่ได้ตั้ง `next_funding_ns` ส่วน `spot_market_stats` ของ spot จะ emit `IndexPriceUpdate`
 
-The adapter converts live and historical funding rates from Lighter percentages to Nautilus fractions.
+adapter แปลง funding rate ทั้งแบบ live และย้อนหลังจากเปอร์เซ็นต์ของ Lighter เป็นสัดส่วนของ Nautilus
 
-Historical funding requests use public `/api/v1/fundings`, not account-specific `positionFunding`:
+request ขอ funding ย้อนหลังใช้ `/api/v1/fundings` สาธารณะ ไม่ใช่ `positionFunding` ที่เฉพาะ account:
 
-- `1h` resolution sets `interval=60`.
-- `direction=long` stays positive. `short` becomes negative.
-- Pagination covers the requested range up to the adapter's [page cap](#historical-request-limits),
-  subject to an explicit `limit`.
+- resolution `1h` จะตั้ง `interval=60`
+- `direction=long` คงเป็นค่าบวก ส่วน `short` จะเป็นค่าลบ
+- pagination ครอบคลุมช่วงที่ร้องขอจนถึง[เพดานจำนวนหน้า](#historical-request-limits)ของ adapter
+  โดยขึ้นกับ `limit` ที่ระบุชัดเจน
 
-## Account tiers
+## Account tier {#account-tiers}
 
-Account tiers set latency, rate limits, and fees. The client logs `GET /api/v1/account`'s tier, including
-unknown `account_type` values.
+account tier เป็นตัวกำหนด latency, rate limit และค่าธรรมเนียม client จะ log tier จาก `GET /api/v1/account`
+รวมถึงค่า `account_type` ที่ไม่รู้จัก
 
-All tiers on both mainnets use [zero-fee integrator attribution](#integrator-attribution).
-Quotas never rise automatically, and local overrides do not grant higher venue limits.
+ทุก tier บน mainnet ทั้งสองใช้ [integrator attribution แบบไม่มีค่าธรรมเนียม](#integrator-attribution)
+โควตาจะไม่เพิ่มขึ้นเองโดยอัตโนมัติ และการ override ภายในเครื่องไม่ได้ให้ขีดจำกัดของ venue ที่สูงขึ้น
 
-For [Lighter Mainnet](https://apidocs.lighter.xyz/docs/account-types):
+สำหรับ [Lighter Mainnet](https://apidocs.lighter.xyz/docs/account-types):
 
-| Tier     | Latency (maker / taker) | REST weighted limit | `sendTx` limit          | Fees (maker / taker)            | Notes                                   |
-| -------- | ----------------------- | ------------------- | ----------------------- | ------------------------------- | --------------------------------------- |
-| Standard | 0 ms / 300 ms           | 60 req/min          | 60 req/min              | 0 / 0                           | Zero-fee default tier.                  |
-| Premium  | 0 ms / 140 ms           | 24,000 req/min      | [4,000, 57,600] req/min | [0.28, 0.40] / [1.96, 2.80] bps | Lowest latency; scales with staked LIT. |
-| Plus     | 0 ms / 300 ms           | 24,000 req/min      | 4,000 req/min           | 0.5 / 0.5 bps                   | Raised limits, standard latency.        |
-| Builder  | -                       | 240,000 req/min     | -                       | -                               | Highest REST throughput.                |
+| Tier     | Latency (maker / taker) | REST weighted limit | `sendTx` limit          | ค่าธรรมเนียม (maker / taker)       | หมายเหตุ                                    |
+| -------- | ----------------------- | ------------------- | ----------------------- | ------------------------------- | ----------------------------------------- |
+| Standard | 0 ms / 300 ms           | 60 req/min          | 60 req/min              | 0 / 0                           | tier เริ่มต้นแบบไม่มีค่าธรรมเนียม             |
+| Premium  | 0 ms / 140 ms           | 24,000 req/min      | [4,000, 57,600] req/min | [0.28, 0.40] / [1.96, 2.80] bps | latency ต่ำสุด ปรับตามจำนวน LIT ที่ stake    |
+| Plus     | 0 ms / 300 ms           | 24,000 req/min      | 4,000 req/min           | 0.5 / 0.5 bps                   | ขีดจำกัดสูงขึ้น latency มาตรฐาน              |
+| Builder  | -                       | 240,000 req/min     | -                       | -                               | throughput ของ REST สูงสุด                 |
 
-Premium limits and fees scale with staked LIT. Robinhood has different fees and limits, with
-[Premium tiers](https://apidocs.lighter.xyz/docs/lighter-rh#account-tiers)
-based on 14-day trading volume. Confirm deployment limits before raising local quotas; see
-[Rate limiting](#rate-limiting).
+ขีดจำกัดและค่าธรรมเนียมของ Premium ปรับตามจำนวน LIT ที่ stake Robinhood มีค่าธรรมเนียมและขีดจำกัดต่างออกไป
+โดยมี [Premium tier](https://apidocs.lighter.xyz/docs/lighter-rh#account-tiers) ที่อิงจากปริมาณการเทรด 14 วัน
+ให้ยืนยันขีดจำกัดของ deployment ก่อนเพิ่มโควตาภายในเครื่อง ดู [Rate limiting](#rate-limiting)
 
-## Rate limiting
+## Rate limiting {#rate-limiting}
 
-Lighter limits IP and L1 addresses. Data and execution clients have separate REST limiters with Standard
-defaults; budget combined traffic within venue limits.
+Lighter จำกัดตาม IP และ L1 address data client และ execution client มี REST limiter แยกกันโดยมีค่าเริ่มต้น
+ระดับ Standard ให้วางงบ traffic รวมให้อยู่ภายในขีดจำกัดของ venue
 
-Higher [tiers](#account-tiers) require explicit local quotas:
+[tier](#account-tiers) ที่สูงกว่าต้องตั้งโควตาภายในเครื่องอย่างชัดเจน:
 
-- `rest_quota_per_min`: reads per minute on both clients; default 60.
-- `sendtx_quota_per_min`: transaction requests per minute on execution clients; default 60 in a separate
-  bucket, independent of `rest_quota_per_min`.
+- `rest_quota_per_min`: จำนวนการอ่านต่อนาทีบน client ทั้งสอง ค่าเริ่มต้น 60
+- `sendtx_quota_per_min`: จำนวน transaction request ต่อนาทีบน execution client ค่าเริ่มต้น 60 ใน bucket แยก
+  ไม่ขึ้นกับ `rest_quota_per_min`
 
-Overrides change only local pacing. Public data remains unauthenticated and does not gain account-level
-venue limits through higher local quotas.
+การ override เปลี่ยนเฉพาะจังหวะภายในเครื่อง ข้อมูลสาธารณะยังไม่ต้องยืนยันตัวตนและไม่ได้รับขีดจำกัดระดับ account
+ของ venue จากการเพิ่มโควตาภายในเครื่อง
 
-### Request buckets and endpoint weights
+### Request bucket และน้ำหนักของ endpoint {#request-buckets-and-endpoint-weights}
 
-HTTP and WebSocket share one venue transaction bucket per L1 address. WebSocket `sendTxBatch` counts once
-for up to 15 adapter transactions.
+HTTP และ WebSocket ใช้ transaction bucket ของ venue ร่วมกันหนึ่งตัวต่อ L1 address WebSocket `sendTxBatch`
+นับเป็นหนึ่งครั้งสำหรับ transaction ของ adapter สูงสุด 15 ตัว
 
-Standard accounts share 60 requests/minute across reads and transactions; Plus and Premium use separate
-venue buckets. Local buckets are separate on every tier, so Standard users must budget combined traffic,
-including nonce and reconciliation reads.
+account ระดับ Standard ใช้ 60 request/นาทีร่วมกันระหว่างการอ่านและ transaction ส่วน Plus และ Premium
+ใช้ bucket ของ venue แยกกัน bucket ภายในเครื่องแยกกันในทุก tier ดังนั้นผู้ใช้ Standard ต้องวางงบ traffic รวม
+รวมถึงการอ่าน nonce และ reconciliation
 
-The REST limiter spends one token per call, ignoring venue weights. Set `rest_quota_per_min` for the
-endpoint mix. Before other requests, Lighter Mainnet's 24,000 weighted req/min Premium limit permits either:
+REST limiter ใช้หนึ่ง token ต่อการเรียกหนึ่งครั้ง โดยไม่สนใจน้ำหนักของ venue ให้ตั้ง `rest_quota_per_min`
+ตามสัดส่วนของ endpoint ที่ใช้ ก่อน request อื่น ขีดจำกัด Premium 24,000 weighted req/min ของ Lighter Mainnet
+อนุญาตอย่างใดอย่างหนึ่ง:
 
-- 40 `/api/v1/recentTrades` calls/minute (weight 600).
-- 120 `/api/v1/trades` calls/minute (weight 200).
+- เรียก `/api/v1/recentTrades` 40 ครั้ง/นาที (น้ำหนัก 600)
+- เรียก `/api/v1/trades` 120 ครั้ง/นาที (น้ำหนัก 200)
 
-Confirm weights for your deployment.
+ให้ยืนยันน้ำหนักสำหรับ deployment ที่ใช้
 
-### Transaction type limits
+### ขีดจำกัดตามประเภท transaction {#transaction-type-limits}
 
-The default transaction-type limit is 40 requests/minute, with type-specific exceptions, separate from
-tier `sendTx`/`sendTxBatch` limits.
+ขีดจำกัดตามประเภท transaction เริ่มต้นคือ 40 request/นาที โดยมีข้อยกเว้นตามประเภท และแยกจากขีดจำกัด
+`sendTx`/`sendTxBatch` ของ tier
 
-Amending on every quote drift hit Lighter Mainnet `code=23000` (`Too Many Requests`) after roughly
-40 modifications in a minute. Modifications also spend
-[volume quota](#volume-quota-and-no-fill-quoting).
+การแก้ไขทุกครั้งที่ quote ขยับทำให้ชน `code=23000` (`Too Many Requests`) ของ Lighter Mainnet หลังจาก
+แก้ไขไปประมาณ 40 ครั้งในหนึ่งนาที การแก้ไขยังใช้[volume quota](#volume-quota-and-no-fill-quoting)ด้วย
 
-For transaction-heavy quoting, set `sendtx_quota_per_min` to 40 or lower; this also paces creates and cancels.
-Batches spend one token for up to 15 transactions, so the setting does not cap child counts in order lists
-or batch modifications. Confirm deployment transaction-type limits for batched children.
+สำหรับการ quote ที่ใช้ transaction หนัก ให้ตั้ง `sendtx_quota_per_min` เป็น 40 หรือต่ำกว่า ซึ่งจะควบคุมจังหวะ
+ของการ create และ cancel ด้วย batch ใช้หนึ่ง token สำหรับ transaction สูงสุด 15 ตัว ดังนั้นค่านี้จึงไม่ได้จำกัด
+จำนวน order ลูกใน order list หรือการแก้ไขแบบ batch ให้ยืนยันขีดจำกัดตามประเภท transaction ของ deployment
+สำหรับ order ลูกใน batch
 
-Local quotas allow bursts, not strict rolling-minute ceilings. A quota of 30 permits an initial 30-request
-burst and replenishes at 30/minute, potentially exceeding a venue limit of 40 in 60 seconds. Leave headroom
-for bursts and other clients sharing the L1 address.
+โควตาภายในเครื่องอนุญาตให้มี burst ไม่ใช่เพดานแบบ rolling-minute ที่เข้มงวด โควตา 30 อนุญาตให้ burst
+30 request ในตอนแรกแล้วเติมกลับที่ 30/นาที ซึ่งอาจเกินขีดจำกัดของ venue ที่ 40 ใน 60 วินาทีได้ ให้เผื่อพื้นที่
+สำหรับ burst และ client อื่นที่ใช้ L1 address ร่วมกัน
 
-For bounded Standard testing, 15 transaction requests and 5 REST calls/minute leave room for
-independent account checks.
+สำหรับการทดสอบแบบมีขอบเขตบน Standard การใช้ transaction request 15 ครั้งและการเรียก REST 5 ครั้งต่อนาที
+จะเหลือพื้นที่สำหรับการตรวจ account แยกต่างหาก
 
-Uncorrelated WebSocket `23000` responses log without rejecting an order or batch because they can concern
-non-transaction traffic. Reconcile pending outcomes; do not resend blindly.
+response `23000` ของ WebSocket ที่จับคู่ไม่ได้จะถูก log โดยไม่ reject order หรือ batch เพราะอาจเกี่ยวกับ
+traffic ที่ไม่ใช่ transaction ให้ reconcile ผลลัพธ์ที่ pending อยู่ อย่าส่งซ้ำแบบไม่ตรวจสอบ
 
-### Shared adapter limiters
+### Limiter ของ adapter ที่ใช้ร่วมกัน {#shared-adapter-limiters}
 
-One execution limiter enforces `sendtx_quota_per_min` across WebSocket `sendTx`/`sendTxBatch` trading,
-including account-wide cancellation and schedule control, and startup HTTP `sendTx` integrator approval.
-Raw calls use it when configured, falling back to the raw client's REST limiter otherwise.
+execution limiter ตัวเดียวบังคับใช้ `sendtx_quota_per_min` ข้ามการเทรดผ่าน WebSocket `sendTx`/`sendTxBatch`
+รวมถึงการ cancel ทั้ง account และการควบคุม schedule และการ approve integrator ผ่าน HTTP `sendTx` ตอน startup
+การเรียกแบบ raw จะใช้ limiter นี้เมื่อตั้งค่าไว้ มิฉะนั้นจะถอยไปใช้ REST limiter ของ raw client
 
-Clients with identical WebSocket URL strings share a 200-message/minute non-transaction control limiter. The default
-data URL's `readonly=true` separates it from execution. Budget combined control traffic within the per-IP limit.
+client ที่มี string ของ WebSocket URL เหมือนกันจะใช้ control limiter สำหรับ message ที่ไม่ใช่ transaction
+ขนาด 200 message/นาทีร่วมกัน `readonly=true` ใน URL เริ่มต้นของ data ทำให้แยกออกจาก execution
+ให้วางงบ control traffic รวมให้อยู่ภายในขีดจำกัดต่อ IP
 
-Each connection's subscription gate permits 35 unacknowledged requests, governed by acknowledgement latency,
-not send rate. It does not enforce the venue's 50-message per-IP ceiling across connections.
-`sendTx` and `sendTxBatch` consume neither the client-message bucket nor the venue inflight cap.
+subscription gate ของแต่ละ connection อนุญาต request ที่ยังไม่ได้ acknowledge ได้ 35 ตัว ซึ่งขึ้นกับ latency
+ของ acknowledgement ไม่ใช่อัตราการส่ง มันไม่ได้บังคับใช้เพดาน 50 message ต่อ IP ของ venue ข้าม connection
+`sendTx` และ `sendTxBatch` ไม่ใช้ทั้ง bucket ของ client message และเพดาน inflight ของ venue
 
-The tier limits below apply to [Lighter Mainnet](https://apidocs.lighter.xyz/docs/rate-limits).
+ขีดจำกัดของ tier ด้านล่างใช้กับ [Lighter Mainnet](https://apidocs.lighter.xyz/docs/rate-limits)
 
-| Scope                                | Venue limit              | Adapter behavior                                     |
-| ------------------------------------ | ------------------------ | ---------------------------------------------------- |
-| REST, standard account               | 60 req/min               | Default; set `rest_quota_per_min` to override.       |
-| REST, premium account                | 24,000 weighted req/min  | Local override required; venue attribution applies.  |
-| REST, plus account                   | 24,000 weighted req/min  | Local override required; venue attribution applies.  |
-| REST, builder account                | 240,000 weighted req/min | Local override required; venue attribution applies.  |
-| `sendTx` / `sendTxBatch`, standard   | 60 req/min               | Shared with REST reads; includes HTTP and WebSocket. |
-| `sendTx` / `sendTxBatch`, premium    | [4,000, 57,600] req/min  | Set `sendtx_quota_per_min` (scales with staked LIT). |
-| `sendTx` / `sendTxBatch`, plus       | 4,000 req/min            | Set `sendtx_quota_per_min` to use it.                |
-| Default transaction type limit       | 40 req/min               | Applies to tx types not covered by volume quota.     |
-| `L2UpdateLeverage` transaction limit | 40 req/min               | Relevant to `update_leverage`.                       |
+| ขอบเขต                                | ขีดจำกัดของ venue          | พฤติกรรมของ adapter                                         |
+| ------------------------------------ | ------------------------ | ---------------------------------------------------------- |
+| REST, standard account               | 60 req/min               | ค่าเริ่มต้น ตั้ง `rest_quota_per_min` เพื่อ override          |
+| REST, premium account                | 24,000 weighted req/min  | ต้อง override ภายในเครื่อง โดยใช้ attribution ของ venue      |
+| REST, plus account                   | 24,000 weighted req/min  | ต้อง override ภายในเครื่อง โดยใช้ attribution ของ venue      |
+| REST, builder account                | 240,000 weighted req/min | ต้อง override ภายในเครื่อง โดยใช้ attribution ของ venue      |
+| `sendTx` / `sendTxBatch`, standard   | 60 req/min               | ใช้ร่วมกับการอ่าน REST รวมทั้ง HTTP และ WebSocket            |
+| `sendTx` / `sendTxBatch`, premium    | [4,000, 57,600] req/min  | ตั้ง `sendtx_quota_per_min` (ปรับตามจำนวน LIT ที่ stake)    |
+| `sendTx` / `sendTxBatch`, plus       | 4,000 req/min            | ตั้ง `sendtx_quota_per_min` เพื่อใช้ขีดจำกัดนี้              |
+| Default transaction type limit       | 40 req/min               | ใช้กับ tx type ที่ไม่อยู่ภายใต้ volume quota                 |
+| `L2UpdateLeverage` transaction limit | 40 req/min               | เกี่ยวข้องกับ `update_leverage`                             |
 
-### Active and pending order limits
+### ขีดจำกัด active order และ pending order {#active-and-pending-order-limits}
 
-Lighter's [tier limits](https://apidocs.lighter.xyz/docs/rate-limits) apply per account and per market
-within that account:
+[ขีดจำกัดตาม tier](https://apidocs.lighter.xyz/docs/rate-limits) ของ Lighter ใช้ต่อ account และต่อตลาด
+ภายใน account นั้น:
 
-| Account tier | Active per account | Active per market | Pending per account | Pending per market |
-| ------------ | ------------------ | ----------------- | ------------------- | ------------------ |
-| Standard     | 250                | 30                | 50                  | 10                 |
-| Plus         | 750                | 250               | 500                 | 100                |
-| Premium      | 1,500              | 1,000             | 1,000               | 100                |
+| Account tier | Active ต่อ account | Active ต่อตลาด | Pending ต่อ account | Pending ต่อตลาด |
+| ------------ | ----------------- | ------------- | ------------------ | -------------- |
+| Standard     | 250               | 30            | 50                 | 10             |
+| Plus         | 750               | 250           | 500                | 100            |
+| Premium      | 1,500             | 1,000         | 1,000              | 100            |
 
-Active orders rest on the book. Venue-pending orders include untriggered take-profit, stop-loss, and TWAP,
-not Nautilus `PendingCancel` or unacknowledged requests. The adapter does not pre-count these orders;
-leave room for existing orders. Local quotas do not raise venue caps.
+active order คือ order ที่วางอยู่ใน book order ที่ pending ที่ venue รวมถึง take-profit, stop-loss และ TWAP
+ที่ยังไม่ถูก trigger ไม่ใช่ `PendingCancel` ของ Nautilus หรือ request ที่ยังไม่ได้ acknowledge adapter ไม่ได้
+นับ order เหล่านี้ล่วงหน้า ให้เผื่อพื้นที่สำหรับ order ที่มีอยู่แล้ว โควตาภายในเครื่องไม่ได้เพิ่มเพดานของ venue
 
-### Endpoint weights and transport limits
+### น้ำหนักของ endpoint และขีดจำกัดของ transport {#endpoint-weights-and-transport-limits}
 
-Common REST weights from the [Lighter Mainnet rate limits](https://apidocs.lighter.xyz/docs/rate-limits)
-are below. The adapter charges one REST token per HTTP call; `sendTx` and `sendTxBatch` use the transaction
-limiter, while `nextNonce` uses REST.
+น้ำหนัก REST ที่พบบ่อยจาก [rate limit ของ Lighter Mainnet](https://apidocs.lighter.xyz/docs/rate-limits)
+แสดงด้านล่าง adapter คิดหนึ่ง REST token ต่อการเรียก HTTP หนึ่งครั้ง `sendTx` และ `sendTxBatch` ใช้
+transaction limiter ส่วน `nextNonce` ใช้ REST
 
-| Endpoint group                                                  | Weight |
+| กลุ่ม endpoint                                                   | น้ำหนัก |
 | --------------------------------------------------------------- | ------ |
 | `sendTx`, `sendTxBatch`, `nextNonce`                            | 6      |
 | `accountInactiveOrders`, `accountActiveOrders`, `accountOrders` | 100    |
 | `apikeys`                                                       | 150    |
 | `trades`                                                        | 200    |
 | `recentTrades`                                                  | 600    |
-| Endpoints without an explicit venue weight                      | 300    |
+| endpoint ที่ venue ไม่ได้ระบุน้ำหนักไว้                             | 300    |
 
-Check official weights for other named endpoints before budgeting calls.
-[Robinhood weights](https://apidocs.lighter.xyz/docs/lighter-rh#rate-limits) can differ.
+ตรวจน้ำหนักอย่างเป็นทางการของ endpoint อื่นที่ระบุชื่อก่อนวางงบการเรียก
+[น้ำหนักของ Robinhood](https://apidocs.lighter.xyz/docs/lighter-rh#rate-limits) อาจต่างออกไป
 
-| Endpoint or transport                  | Limit               | Notes                                                            |
-| -------------------------------------- | ------------------- | ---------------------------------------------------------------- |
-| `/api/v1/trades`                       | 100 rows            | Adapter paginates reconciliation at this cap.                    |
-| `/api/v1/accountInactiveOrders`        | 100 rows            | Adapter follows `next_cursor` at this cap.                       |
-| `/api/v1/orderBookOrders`              | 250 orders per side | Adapter aggregates these orders into L2 price levels.            |
-| `/api/v1/candles`                      | 500 rows            | Adapter caps REST bar pages at this venue maximum.               |
-| `/api/v1/fundings`                     | 750 rows            | Venue cap; adapter requests 100 rows per page.                   |
-| WebSocket connections                  | 255 / IP            | Venue limit.                                                     |
-| WebSocket subscriptions / connection   | 500                 | Venue limit.                                                     |
-| WebSocket subscriptions / IP           | 5,000               | Venue limit.                                                     |
-| WebSocket unique accounts / connection | 500                 | Venue limit.                                                     |
-| WebSocket unique accounts / IP         | 5,000               | Venue limit.                                                     |
-| WebSocket connections / minute         | 255                 | Venue limit.                                                     |
-| WebSocket client messages / minute     | 200                 | Paces non-tx frames; heartbeat pings bypass it.                  |
-| WebSocket inflight messages            | 50 / IP             | Subscription gate allows 35 outstanding requests per connection. |
-| WebSocket `sendTxBatch` batch size     | 15 txs              | Adapter cap per request; larger commands split into batches.     |
-| WebSocket keepalive                    | 2 minutes           | Adapter sends heartbeats every 30 seconds.                       |
-| WebSocket outbound command queue       | Not capped          | Paced before writes; no queue-depth cap.                         |
+| Endpoint หรือ transport                 | ขีดจำกัด              | หมายเหตุ                                                              |
+| -------------------------------------- | ------------------- | -------------------------------------------------------------------- |
+| `/api/v1/trades`                       | 100 แถว             | adapter แบ่งหน้า reconciliation ตามเพดานนี้                          |
+| `/api/v1/accountInactiveOrders`        | 100 แถว             | adapter ตาม `next_cursor` ตามเพดานนี้                                |
+| `/api/v1/orderBookOrders`              | 250 order ต่อฝั่ง    | adapter รวม order เหล่านี้เป็นระดับราคา L2                            |
+| `/api/v1/candles`                      | 500 แถว             | adapter จำกัดหน้า bar ของ REST ที่ค่าสูงสุดนี้ของ venue               |
+| `/api/v1/fundings`                     | 750 แถว             | เพดานของ venue โดย adapter ขอ 100 แถวต่อหน้า                         |
+| WebSocket connections                  | 255 / IP            | ขีดจำกัดของ venue                                                    |
+| WebSocket subscriptions / connection   | 500                 | ขีดจำกัดของ venue                                                    |
+| WebSocket subscriptions / IP           | 5,000               | ขีดจำกัดของ venue                                                    |
+| WebSocket unique accounts / connection | 500                 | ขีดจำกัดของ venue                                                    |
+| WebSocket unique accounts / IP         | 5,000               | ขีดจำกัดของ venue                                                    |
+| WebSocket connections / minute         | 255                 | ขีดจำกัดของ venue                                                    |
+| WebSocket client messages / minute     | 200                 | ควบคุมจังหวะ frame ที่ไม่ใช่ tx โดย heartbeat ping ไม่นับ             |
+| WebSocket inflight messages            | 50 / IP             | subscription gate อนุญาต request ค้างได้ 35 ตัวต่อ connection        |
+| WebSocket `sendTxBatch` batch size     | 15 txs              | เพดานของ adapter ต่อ request command ที่ใหญ่กว่าจะถูกแบ่งเป็น batch    |
+| WebSocket keepalive                    | 2 นาที              | adapter ส่ง heartbeat ทุก 30 วินาที                                  |
+| WebSocket outbound command queue       | ไม่จำกัด             | ควบคุมจังหวะก่อนเขียน ไม่มีเพดานความลึกของคิว                         |
 
-### Historical request limits
+### ขีดจำกัดของ request ข้อมูลย้อนหลัง {#historical-request-limits}
 
-Bar and funding history cap at 500 REST pages: up to 250,000 bars or 49,500 hourly funding intervals.
-Completion on the final page succeeds, as does an explicit-`start` request satisfying its explicit `limit`.
+ประวัติของ bar และ funding จำกัดที่ 500 หน้า REST: สูงสุด 250,000 bar หรือ 49,500 ช่วง funding รายชั่วโมง
+การเสร็จสิ้นในหน้าสุดท้ายถือว่าสำเร็จ เช่นเดียวกับ request ที่ระบุ `start` ชัดเจนและได้ครบตาม `limit` ที่ระบุ
 
-Uncovered ranges return `LighterHttpError::HistoryIncomplete` without partial history or retry.
-The data client logs the error and emits no response. Narrow the range to continue.
+ช่วงที่ไม่ได้ครอบคลุมจะคืน `LighterHttpError::HistoryIncomplete` โดยไม่มีประวัติบางส่วนหรือการ retry
+data client จะ log error และไม่ emit response ให้ลดช่วงลงเพื่อดำเนินการต่อ
 
-## Volume quota and no-fill quoting
+## Volume quota และการ quote ที่ไม่ได้ fill {#volume-quota-and-no-fill-quoting}
 
-Separate from transport limits, [volume quota](https://apidocs.lighter.xyz/docs/volume-quota-program)
-applies only to Plus and Premium accounts, shared across sub-accounts under one L1 address:
+[volume quota](https://apidocs.lighter.xyz/docs/volume-quota-program) แยกจากขีดจำกัดของ transport
+และใช้เฉพาะกับ account ระดับ Plus และ Premium โดยใช้ร่วมกันข้าม sub-account ภายใต้ L1 address เดียว:
 
-- `L2CreateOrder`, `L2CancelAllOrders`, `L2ModifyOrder`, and `L2CreateGroupedOrders` spend it. Each eligible
-  batched transaction spends separately. Single-order cancellation does not.
-- Completed trading volume and the free allowance replenish it.
+- `L2CreateOrder`, `L2CancelAllOrders`, `L2ModifyOrder` และ `L2CreateGroupedOrders` ใช้โควตานี้
+  transaction ใน batch ที่เข้าเกณฑ์แต่ละตัวใช้แยกกัน การ cancel order เดียวไม่ใช้
+- ปริมาณการเทรดที่เสร็จสิ้นและโควตาฟรีจะเติมโควตากลับ
 
-The adapter does not inspect remaining quota; consult venue documentation for current rules and figures.
+adapter ไม่ได้ตรวจโควตาที่เหลืออยู่ ให้ดูเอกสารของ venue สำหรับกฎและตัวเลขปัจจุบัน
 
-No-fill quote refreshes can exhaust quota despite WebSocket and `sendTx` pacing. For live tests, use slower
-one-sided quoting, wider refresh thresholds, testnet, or a bounded strategy with enough fills to replenish quota.
+การ refresh quote ที่ไม่ได้ fill อาจทำให้โควตาหมดได้แม้จะควบคุมจังหวะของ WebSocket และ `sendTx` แล้ว
+สำหรับการทดสอบแบบ live ให้ใช้การ quote ฝั่งเดียวที่ช้ากว่า, threshold การ refresh ที่กว้างขึ้น, testnet หรือ
+strategy แบบมีขอบเขตที่มี fill มากพอจะเติมโควตากลับ
 
-## Connection management
+## การจัดการ connection {#connection-management}
 
-### Heartbeats and reconnects
+### Heartbeat และการ reconnect {#heartbeats-and-reconnects}
 
-The WebSocket client sends heartbeats every 30 seconds and reconnects with exponential backoff in
-[250 milliseconds, 30 seconds]. It reconnects after 90 seconds without inbound frames, even if the socket
-stays open. Pongs refresh this window without market data.
+WebSocket client ส่ง heartbeat ทุก 30 วินาที และ reconnect ด้วย exponential backoff ในช่วง
+[250 มิลลิวินาที, 30 วินาที] มันจะ reconnect หลังจากไม่มี frame ขาเข้า 90 วินาที แม้ socket จะยังเปิดอยู่
+pong จะ refresh ช่วงเวลานี้แม้ไม่มี market data
 
-Venue `shutdown` notices request immediate reconnect through the shared WebSocket client; older-connection
-notices are ignored. Normal subscription replay, [nonce recovery](#nonce-recovery), and
-[account stream readiness](#account-stream-readiness) apply.
+ประกาศ `shutdown` ของ venue จะขอ reconnect ทันทีผ่าน WebSocket client ที่ใช้ร่วมกัน ส่วนประกาศของ connection
+เก่าจะถูกเพิกเฉย การ replay subscription ตามปกติ, [การกู้คืน nonce](#nonce-recovery) และ
+[ความพร้อมของ account stream](#account-stream-readiness) จะทำงานตามปกติ
 
-The old stream stops before its replacement is ready. Fresh snapshots and HTTP reconciliation recover the
-gap. Subsequent server closes, including `1012`, use the same reconnect path.
+stream เก่าจะหยุดก่อนที่ stream ทดแทนจะพร้อม snapshot ใหม่และ HTTP reconciliation จะกู้คืนช่วงที่ขาดไป
+การปิดจาก server ที่ตามมา รวมถึง `1012` ใช้เส้นทาง reconnect เดียวกัน
 
-### Private authentication
+### การยืนยันตัวตนแบบ private {#private-authentication}
 
-Private auth tokens last at most 8 hours. The adapter mints 7-hour tokens and rotates and resubscribes
-every 6 hours. Transparent reconnect mints a fresh token and resubscribes account streams after tracked
-subscriptions start replaying.
+auth token แบบ private มีอายุไม่เกิน 8 ชั่วโมง adapter สร้าง token อายุ 7 ชั่วโมง และหมุนเวียนพร้อม resubscribe
+ทุก 6 ชั่วโมง การ reconnect แบบโปร่งใสจะสร้าง token ใหม่และ resubscribe account stream หลังจากที่
+subscription ที่ติดตามอยู่เริ่ม replay แล้ว
 
-### Nonce recovery
+### การกู้คืน nonce {#nonce-recovery}
 
-Execution reconnect fetches a nonce baseline from `GET /api/v1/nextNonce`. Single submit, modify, and cancel
-commands cannot sign until refresh or its background retry installs the new connection's baseline.
-Batch commands wait for readiness, including those received during refresh.
+การ reconnect ของ execution จะดึงค่าฐานของ nonce จาก `GET /api/v1/nextNonce` command submit, modify และ cancel
+แบบเดี่ยวจะ sign ไม่ได้จนกว่าการ refresh หรือการ retry เบื้องหลังจะติดตั้งค่าฐานของ connection ใหม่
+command แบบ batch จะรอจนพร้อม รวมถึง command ที่ได้รับระหว่างการ refresh
 
-Within a session:
+ภายใน session หนึ่ง:
 
-- Venue confirmations advance the local nonce window.
-- Definitive rejections or pre-handoff failures may roll back its latest nonce.
-- Stale state triggers a `GET /api/v1/nextNonce` resync.
+- การยืนยันจาก venue จะเลื่อน nonce window ภายในเครื่องไปข้างหน้า
+- การ reject ที่ชัดเจนหรือความล้มเหลวก่อนส่งต่ออาจย้อน nonce ล่าสุดกลับ
+- state ที่เก่าจะ trigger การ resync ด้วย `GET /api/v1/nextNonce`
 
-Outcomes that may have reached the venue retain their pending nonce and order identity for WebSocket
-or reconciliation recovery.
+ผลลัพธ์ที่อาจไปถึง venue แล้วจะคง nonce ที่ pending และ identity ของ order ไว้สำหรับการกู้คืนผ่าน WebSocket
+หรือ reconciliation
 
-### Account stream readiness
+### ความพร้อมของ account stream {#account-stream-readiness}
 
-`LighterExecutionClient::connect()` clears position and account caches, then waits up to 30 seconds for all
-five [private streams](#account-and-position-management) to become ready.
+`LighterExecutionClient::connect()` จะล้าง cache ของ position และ account จากนั้นรอนานสุด 30 วินาทีให้
+[private stream](#account-and-position-management) ทั้งห้าพร้อม
 
-Only `subscribed/account_all_positions` satisfies position readiness; live updates do not.
-REST account payloads are never a fallback.
+มีเพียง `subscribed/account_all_positions` เท่านั้นที่ทำให้ position พร้อม update แบบ live ไม่นับ
+payload ของ account จาก REST ไม่เคยถูกใช้เป็นทางสำรอง
 
-Transparent reconnects and auth rotations do not re-enter `connect()`. Positions persist until the next
-`subscribed/account_all_positions` applies snapshot replacement rules. Live updates merge without evicting
-omitted markets.
+การ reconnect แบบโปร่งใสและการหมุนเวียน auth จะไม่เข้า `connect()` อีกครั้ง position จะคงอยู่จนกว่า
+`subscribed/account_all_positions` ครั้งถัดไปจะใช้กฎการแทนที่ snapshot update แบบ live จะ merge
+โดยไม่ลบตลาดที่ไม่ได้ระบุไว้
 
-## API credentials
+## API credential {#api-credentials}
 
-Signing requires three credentials:
+การ sign ต้องใช้ credential สามอย่าง:
 
-- Account index: numeric Lighter account identifier.
-- API key index: numeric API key slot. Use an unreserved index in `[4, 254]`. Robinhood also reserves `157`.
-  Do not use `[0, 3]` or `255`. `255` is an `apikeys` query sentinel, not a signing key.
-- API private key: 40-byte hex private key, with or without a `0x` prefix.
+- Account index: ตัวระบุ account ของ Lighter แบบตัวเลข
+- API key index: slot ของ API key แบบตัวเลข ใช้ index ที่ไม่ได้สงวนไว้ในช่วง `[4, 254]` Robinhood ยังสงวน `157`
+  ไว้ด้วย อย่าใช้ `[0, 3]` หรือ `255` เพราะ `255` เป็นค่า sentinel สำหรับ query `apikeys` ไม่ใช่ signing key
+- API private key: private key แบบ hex ขนาด 40 byte จะมีหรือไม่มี prefix `0x` ก็ได้
 
-Config values take precedence. Missing fields or empty or whitespace-only private keys fall back to the
-environment variable for the selected `deployment` and `environment`.
+ค่าใน config มีลำดับความสำคัญสูงกว่า field ที่หายไป หรือ private key ที่ว่างหรือมีแต่ช่องว่าง จะถอยไปใช้
+environment variable ของ `deployment` และ `environment` ที่เลือก
 
 | Deployment | Environment | API key index                             | API private key                        | Account index                             |
 | ---------- | ----------- | ----------------------------------------- | -------------------------------------- | ----------------------------------------- |
@@ -1235,57 +1217,57 @@ environment variable for the selected `deployment` and `environment`.
 | Robinhood  | Mainnet     | `LIGHTER_ROBINHOOD_API_KEY_INDEX`         | `LIGHTER_ROBINHOOD_API_SECRET`         | `LIGHTER_ROBINHOOD_ACCOUNT_INDEX`         |
 | Robinhood  | Testnet     | `LIGHTER_ROBINHOOD_TESTNET_API_KEY_INDEX` | `LIGHTER_ROBINHOOD_TESTNET_API_SECRET` | `LIGHTER_ROBINHOOD_TESTNET_ACCOUNT_INDEX` |
 
-Separate namespaces let one process target multiple deployments without sharing credentials.
+namespace ที่แยกกันทำให้ process เดียวกำหนดเป้าหมายไปยังหลาย deployment ได้โดยไม่ใช้ credential ร่วมกัน
 
-Execution rejects incomplete credentials. All data subscriptions and REST requests for instruments,
-books, trades, bars, and funding use public endpoints without credentials.
+execution จะปฏิเสธ credential ที่ไม่ครบ data subscription ทั้งหมดและ REST request สำหรับ instrument,
+book, trade, bar และ funding ใช้ endpoint สาธารณะโดยไม่ต้องใช้ credential
 
-## Configuration
+## Configuration {#configuration}
 
-### Data client configuration options
+### Option ของ data client {#data-client-configuration-options}
 
-| Option                             | Default   | Description                                                   |
-| ---------------------------------- | --------- | ------------------------------------------------------------- |
-| `environment`                      | `Mainnet` | `LighterEnvironment::Mainnet` or `Testnet`.                   |
-| `deployment`                       | `Lighter` | `LighterDeployment::Lighter` or `Robinhood`.                  |
-| `venue`                            | `None`    | Optional Nautilus venue override; defaults from `deployment`. |
-| `account_index`                    | `None`    | Optional factory field; public data calls do not use it.      |
-| `api_key_index`                    | `None`    | Optional factory field; public data calls do not use it.      |
-| `private_key`                      | `None`    | Optional factory field; public data calls do not use it.      |
-| `base_url_http`                    | `None`    | Optional REST URL override.                                   |
-| `base_url_ws`                      | `None`    | Optional WebSocket URL override.                              |
-| `proxy_url`                        | `None`    | Optional proxy URL for HTTP and WebSocket.                    |
-| `http_timeout_secs`                | `60`      | HTTP request timeout in seconds.                              |
-| `ws_timeout_secs`                  | `30`      | WebSocket connection and reconnection timeout.                |
-| `update_instruments_interval_mins` | `60`      | Instrument metadata refresh interval in minutes.              |
-| `book_snapshot_timeout_secs`       | `10`      | Initial, reconnect, and recovery snapshot wait.               |
-| `rest_quota_per_min`               | `None`    | REST quota override; unset keeps 60 req/min.                  |
-| `transport_backend`                | Default   | WebSocket transport backend.                                  |
+| Option                             | ค่าเริ่มต้น | คำอธิบาย                                                        |
+| ---------------------------------- | --------- | -------------------------------------------------------------- |
+| `environment`                      | `Mainnet` | `LighterEnvironment::Mainnet` หรือ `Testnet`                   |
+| `deployment`                       | `Lighter` | `LighterDeployment::Lighter` หรือ `Robinhood`                  |
+| `venue`                            | `None`    | override venue ของ Nautilus (ตัวเลือกเสริม) ค่าเริ่มต้นมาจาก `deployment` |
+| `account_index`                    | `None`    | field ของ factory (ตัวเลือกเสริม) การเรียกข้อมูลสาธารณะไม่ได้ใช้   |
+| `api_key_index`                    | `None`    | field ของ factory (ตัวเลือกเสริม) การเรียกข้อมูลสาธารณะไม่ได้ใช้   |
+| `private_key`                      | `None`    | field ของ factory (ตัวเลือกเสริม) การเรียกข้อมูลสาธารณะไม่ได้ใช้   |
+| `base_url_http`                    | `None`    | override URL ของ REST (ตัวเลือกเสริม)                           |
+| `base_url_ws`                      | `None`    | override URL ของ WebSocket (ตัวเลือกเสริม)                      |
+| `proxy_url`                        | `None`    | URL ของ proxy สำหรับ HTTP และ WebSocket (ตัวเลือกเสริม)          |
+| `http_timeout_secs`                | `60`      | timeout ของ HTTP request หน่วยวินาที                            |
+| `ws_timeout_secs`                  | `30`      | timeout ของการเชื่อมต่อและการเชื่อมต่อใหม่ของ WebSocket          |
+| `update_instruments_interval_mins` | `60`      | ช่วงเวลา refresh metadata ของ instrument หน่วยนาที              |
+| `book_snapshot_timeout_secs`       | `10`      | เวลารอ snapshot ตอนเริ่ม, reconnect และกู้คืน                   |
+| `rest_quota_per_min`               | `None`    | override โควตา REST หากไม่ตั้งจะคงไว้ที่ 60 req/min              |
+| `transport_backend`                | Default   | backend ของ WebSocket transport                                |
 
-### Execution client configuration options
+### Option ของ execution client {#execution-client-configuration-options}
 
-| Option                          | Default       | Description                                                                                             |
-| ------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------- |
-| `environment`                   | `Mainnet`     | `LighterEnvironment::Mainnet` or `Testnet`.                                                             |
-| `deployment`                    | `Lighter`     | `LighterDeployment::Lighter` or `Robinhood`.                                                            |
-| `venue`                         | `None`        | Optional Nautilus venue override; defaults from `deployment`.                                           |
-| `account_id`                    | `LIGHTER-001` | Nautilus account ID; issuer must match the resolved venue.                                              |
-| `account_index`                 | `None`        | Lighter account index.                                                                                  |
-| `api_key_index`                 | `None`        | Lighter API key slot.                                                                                   |
-| `private_key`                   | `None`        | Hex private key for auth and L2 transaction signing.                                                    |
-| `base_url_http`                 | `None`        | Optional REST URL override.                                                                             |
-| `base_url_ws`                   | `None`        | Optional WebSocket URL override.                                                                        |
-| `proxy_url`                     | `None`        | Optional proxy URL for HTTP and WebSocket.                                                              |
-| `http_timeout_secs`             | `60`          | HTTP request timeout in seconds.                                                                        |
-| `ws_timeout_secs`               | `30`          | WebSocket connection and reconnection timeout.                                                          |
-| `market_order_slippage_bps`     | `50`          | Slippage cap (bps) for `MARKET` / `STOP_MARKET` / `MIT`.                                                |
-| `rest_quota_per_min`            | `None`        | REST quota override; unset keeps 60 req/min.                                                            |
-| `sendtx_quota_per_min`          | `None`        | Transaction quota override; unset keeps 60 req/min.                                                     |
-| `transport_backend`             | Default       | WebSocket transport backend.                                                                            |
-| `use_gtd`                       | `true`        | Use venue-native GTD; see [GTD policy](#gtd-policy).                                                    |
-| `scheduled_cancel_timeout_secs` | `None`        | Automatic account-wide cancellation timeout in seconds; see [cancellation](#account-wide-cancellation). |
+| Option                          | ค่าเริ่มต้น     | คำอธิบาย                                                                                                  |
+| ------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------- |
+| `environment`                   | `Mainnet`     | `LighterEnvironment::Mainnet` หรือ `Testnet`                                                             |
+| `deployment`                    | `Lighter`     | `LighterDeployment::Lighter` หรือ `Robinhood`                                                            |
+| `venue`                         | `None`        | override venue ของ Nautilus (ตัวเลือกเสริม) ค่าเริ่มต้นมาจาก `deployment`                                  |
+| `account_id`                    | `LIGHTER-001` | account ID ของ Nautilus โดย issuer ต้องตรงกับ venue ที่ resolve ได้                                       |
+| `account_index`                 | `None`        | account index ของ Lighter                                                                                |
+| `api_key_index`                 | `None`        | slot ของ API key ของ Lighter                                                                             |
+| `private_key`                   | `None`        | private key แบบ hex สำหรับ auth และการ sign L2 transaction                                               |
+| `base_url_http`                 | `None`        | override URL ของ REST (ตัวเลือกเสริม)                                                                     |
+| `base_url_ws`                   | `None`        | override URL ของ WebSocket (ตัวเลือกเสริม)                                                                |
+| `proxy_url`                     | `None`        | URL ของ proxy สำหรับ HTTP และ WebSocket (ตัวเลือกเสริม)                                                    |
+| `http_timeout_secs`             | `60`          | timeout ของ HTTP request หน่วยวินาที                                                                      |
+| `ws_timeout_secs`               | `30`          | timeout ของการเชื่อมต่อและการเชื่อมต่อใหม่ของ WebSocket                                                    |
+| `market_order_slippage_bps`     | `50`          | เพดาน slippage (bps) สำหรับ `MARKET` / `STOP_MARKET` / `MIT`                                             |
+| `rest_quota_per_min`            | `None`        | override โควตา REST หากไม่ตั้งจะคงไว้ที่ 60 req/min                                                        |
+| `sendtx_quota_per_min`          | `None`        | override โควตา transaction หากไม่ตั้งจะคงไว้ที่ 60 req/min                                                 |
+| `transport_backend`             | Default       | backend ของ WebSocket transport                                                                          |
+| `use_gtd`                       | `true`        | ใช้ GTD แบบ native ของ venue ดู [GTD policy](#gtd-policy)                                                 |
+| `scheduled_cancel_timeout_secs` | `None`        | timeout ของการ cancel ทั้ง account อัตโนมัติ หน่วยวินาที ดู [การ cancel](#account-wide-cancellation)       |
 
-### Configuration example
+### ตัวอย่าง configuration {#configuration-example}
 
 ```rust
 use nautilus_lighter::{
@@ -1317,13 +1299,13 @@ let robinhood_exec_config = LighterExecutionClientConfig::builder()
     .build();
 ```
 
-These execution configs use their deployment and environment's [credential variables](#api-credentials).
-Explicit credential fields override them.
+execution config เหล่านี้ใช้[ตัวแปร credential](#api-credentials)ของ deployment และ environment ของตัวเอง
+field credential ที่ระบุชัดเจนจะ override ค่าเหล่านั้น
 
-Set `LiveExecutionEngineConfig.reconciliation_instrument_ids` to scope reconciliation and
-`reconciliation_lookback_mins` to bound inactive-order and fill replay.
+ตั้ง `LiveExecutionEngineConfig.reconciliation_instrument_ids` เพื่อกำหนดขอบเขตของ reconciliation และ
+`reconciliation_lookback_mins` เพื่อจำกัดการ replay ของ inactive order และ fill
 
-## Official documentation
+## เอกสารอย่างเป็นทางการ {#official-documentation}
 
 - [Get started](https://apidocs.lighter.xyz/docs/get-started)
 - [Trading and signing](https://apidocs.lighter.xyz/docs/trading)
@@ -1339,9 +1321,9 @@ Set `LiveExecutionEngineConfig.reconciliation_instrument_ids` to scope reconcili
 - [REST OpenAPI](https://raw.githubusercontent.com/elliottech/lighter-python/main/openapi.json)
 - [WebSocket reference](https://apidocs.lighter.xyz/docs/websocket-reference)
 
-## Contributing
+## การมีส่วนร่วม {#contributing}
 
 :::info
-To contribute to the Lighter adapter or request a feature, see the
-[contributing guide](https://github.com/nautechsystems/nautilus_trader/blob/develop/CONTRIBUTING.md).
+หากต้องการมีส่วนร่วมพัฒนา adapter ของ Lighter หรือขอฟีเจอร์ ดู
+[contributing guide](https://github.com/nautechsystems/nautilus_trader/blob/develop/CONTRIBUTING.md)
 :::

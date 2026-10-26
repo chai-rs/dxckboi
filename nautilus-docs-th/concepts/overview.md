@@ -1,164 +1,152 @@
-# Overview
+# ภาพรวม
 
-## Introduction
+## บทนำ {#introduction}
 
-NautilusTrader is an open-source, production-grade, Rust-native engine for multi-asset,
-multi-venue trading systems.
+NautilusTrader เป็น engine แบบ open-source ระดับ production ที่เขียนด้วย Rust เป็นหลัก (Rust-native)
+สำหรับระบบเทรดหลายประเภทสินทรัพย์และหลาย venue
 
-The system spans research, deterministic simulation, and live execution within a single event-driven
-architecture. Python serves as the control plane for strategy logic, configuration, and orchestration.
+ระบบครอบคลุมทั้งงานวิจัย การจำลองแบบ deterministic และ live execution ภายในสถาปัตยกรรมแบบ event-driven
+เดียวกัน ระบบเทรดสามารถเขียนด้วย Rust ทั้งหมดได้สำหรับงานที่ต้องการความเสถียรสูง (mission-critical)
 
-This separation provides the performance and safety of a compiled trading engine with
-the flexibility of Python for system composition and strategy development.
-Trading systems can also be written entirely in Rust for mission-critical workloads.
+โค้ดของ strategy และ execution algorithm ชุดเดียวกันรันได้ทั้งในระบบ backtest และ live ช่วยลดความต่าง
+ตอน deploy อย่างไรก็ตาม live execution ยังมีพฤติกรรมด้าน venue, transport, จังหวะเวลา, persistence,
+กิจกรรมจากภายนอก และ reconciliation ที่การจำลองอาจทำซ้ำไม่ได้ ดู
+[ความแตกต่างระหว่าง backtest และ live](live.md#backtest-and-live-differences)
 
-The same strategy and execution-algorithm code can run across backtest and live systems, reducing
-deployment divergence. Live execution still introduces venue, transport, timing, persistence,
-external-activity, and reconciliation behavior that a simulation may not reproduce. See
-[Backtest and live differences](live.md#backtest-and-live-differences).
+NautilusTrader ไม่ผูกกับประเภทสินทรัพย์ใดๆ venue ใดก็ตามที่มี REST API หรือ WebSocket feed สามารถ
+integrate ผ่าน adapter แบบ modular ได้ integration ที่มีครอบคลุมทั้ง crypto exchange แบบรวมศูนย์และกระจายศูนย์
+(CEX และ DEX), ตลาดแลกเปลี่ยนเงินตรา (FX), หุ้น, futures, options และ betting exchange
 
-NautilusTrader is asset-class-agnostic. Any venue with a REST API or WebSocket feed can be
-integrated through modular adapters. Integrations span centralized and decentralized crypto
-exchanges (CEX and DEX), foreign exchange (FX), equities, futures, options, and betting exchanges.
+## คุณสมบัติ {#features}
 
-## Features
+- **เร็ว**: แกนหลักเป็น Rust พร้อม networking แบบ asynchronous ด้วย [tokio](https://crates.io/crates/tokio)
+- **เชื่อถือได้**: Rust ให้ทั้ง type safety และ thread safety และรองรับการเก็บ state แบบ persistence
+  (ไม่บังคับ) ด้วย Redis หรือ PostgreSQL
+- **พกพาได้**: รันได้บน Linux, macOS และ Windows และ deploy ด้วย Docker ได้
+- **ยืดหยุ่น**: adapter แบบ modular integrate กับ REST API หรือ WebSocket feed ใดก็ได้
+- **Order ขั้นสูง**: ตัวเลือก time-in-force มี `IOC`, `FOK`, `GTC`, `GTD`, `DAY`,
+  `AT_THE_OPEN` และ `AT_THE_CLOSE` นอกจากนี้ domain model ยังรองรับ conditional trigger,
+  `post-only`, `reduce-only`, iceberg และ contingency order แบบ `OCO`, `OUO` และ `OTO` ทั้งนี้การรองรับ
+  ของ venue ขึ้นกับแต่ละ adapter
+- **ปรับแต่งได้**: สร้าง component ของตัวเองได้ หรือประกอบทั้งระบบขึ้นใหม่ตั้งแต่ต้นโดยใช้
+  [cache](cache.md) และ [message bus](message_bus.md)
+- **Backtesting**: รันหลาย venue, instrument และ strategy พร้อมกันด้วยข้อมูลย้อนหลังทั้ง quote, trade, bar,
+  order book และ custom data ที่ความละเอียดระดับ nanosecond
+- **Live**: ใช้ implementation ของ strategy ชุดเดียวกันทั้งตอนวิจัยและตอน deploy แบบ live
+- **หลาย venue**: รัน strategy แบบ market-making และแบบข้าม venue บนหลาย venue พร้อมกันได้
+- **AI training**: การจำลองที่มี throughput สูงรองรับงานอย่างการฝึก AI trading agent ด้วย
+  reinforcement learning (RL) หรือ evolutionary strategies (ES)
 
-- **Fast**: Rust core with asynchronous networking using [tokio](https://crates.io/crates/tokio).
-- **Reliable**: Rust provides type safety and thread safety, with optional state persistence backed
-  by Redis or PostgreSQL.
-- **Portable**: Runs on Linux, macOS, and Windows. Deploy using Docker.
-- **Flexible**: Modular adapters integrate any REST API or WebSocket feed.
-- **Advanced orders**: Time-in-force options include `IOC`, `FOK`, `GTC`, `GTD`, `DAY`,
-  `AT_THE_OPEN`, and `AT_THE_CLOSE`. The domain model also supports conditional triggers,
-  `post-only`, `reduce-only`, iceberg, and `OCO`, `OUO`, and `OTO` contingency orders. Venue
-  support varies by adapter.
-- **Customizable**: User-defined components, or assemble entire systems from scratch using the
-  [cache](cache.md) and [message bus](message_bus.md).
-- **Backtesting**: Run multiple venues, instruments, and strategies simultaneously using
-  historical quotes, trades, bars, order books, and custom data with nanosecond resolution.
-- **Live**: Identical strategy implementations between research and live deployment.
-- **Multi-venue**: Run market-making and cross-venue strategies across multiple venues simultaneously.
-- **AI training**: High-throughput simulation supports workloads such as training AI trading agents
-  with reinforcement learning (RL) or evolutionary strategies (ES).
+## ทำไมต้อง NautilusTrader? {#why-nautilustrader}
 
-## Why NautilusTrader?
+โดยทั่วไปงานวิจัย strategy การเทรดมักทำด้วย Python แบบ vectorized ขณะที่ระบบเทรดใน production
+ถูกสร้างแยกต่างหากด้วยสถาปัตยกรรมแบบ event-driven ในภาษาที่ compile
 
-Trading strategy research typically happens in Python using vectorized approaches, while
-production trading systems are built separately using event-driven architectures in
-compiled languages.
+NautilusTrader ขจัดการแยกส่วนนี้
 
-NautilusTrader removes this separation.
+แกนหลักที่เป็น Rust-native ให้ runtime แบบ event-driven ที่ deterministic ทั้งสำหรับงานวิจัยและ live
+execution สถาปัตยกรรม ความหมายของการ execute และโมเดลเวลาชุดเดียวกันทำงานในทั้งสองสภาพแวดล้อม
+ทำให้ย้าย strategy จากงานวิจัยไปสู่ production ได้โดยไม่ต้องเขียนใหม่
 
-A Rust-native core provides a deterministic event-driven runtime for both research and live
-execution, while Python serves as the control plane. The same architecture, execution
-semantics, and time model operate across both environments, allowing strategies to move
-from research to production without reimplementation.
+## กรณีการใช้งาน {#use-cases}
 
-The Rust-native runtime exposes Python bindings through [PyO3](https://pyo3.rs). Installing an official
-prebuilt Python wheel does not require a Rust toolchain.
+NautilusTrader รองรับกรณีการใช้งานหลักสามแบบ:
 
-## Use cases
+- Backtest ระบบเทรดด้วยข้อมูลย้อนหลัง (`backtest`)
+- จำลองระบบเทรดด้วยข้อมูล real-time และการ execute แบบเสมือน (`sandbox`)
+- Deploy ระบบเทรดแบบ live บน account จริงหรือ paper account (`live`)
 
-NautilusTrader supports three main use cases:
-
-- Backtest trading systems on historical data (`backtest`).
-- Simulate trading systems with real-time data and virtual execution (`sandbox`).
-- Deploy trading systems live on real or paper accounts (`live`).
-
-NautilusTrader provides backtest and live node implementations for both Python and Rust.
-The sandbox adapter supplies simulated execution for a `sandbox` environment.
+NautilusTrader มี implementation ของ node สำหรับ backtest และ live ใน Rust ส่วน sandbox adapter
+ให้การ execute แบบจำลองสำหรับสภาพแวดล้อม `sandbox`
 
 :::note
 
-- Examples use these node implementations unless stated otherwise.
-- A trading strategy is one component of an end-to-end trading system, which also includes
-  application and infrastructure layers.
+- ตัวอย่างต่างๆ ใช้ implementation ของ node เหล่านี้ เว้นแต่จะระบุไว้เป็นอย่างอื่น
+- strategy การเทรดเป็นเพียง component หนึ่งของระบบเทรดแบบ end-to-end ซึ่งยังรวมถึงชั้น application
+  และ infrastructure ด้วย
 
 :::
 
-## Distributed
+## ระบบแบบกระจาย {#distributed}
 
-The platform integrates into larger distributed systems:
+แพลตฟอร์มนี้ integrate เข้ากับระบบแบบกระจาย (distributed system) ที่ใหญ่กว่าได้:
 
-- The [external message bus](message_bus.md#encoding) supports JSON and MessagePack for native
-  messages, plus Simple Binary Encoding (SBE) for schema-covered market data.
-- Apache Arrow and Parquet provide columnar interchange and persistence through the [data
-  catalog](data/catalog.md).
+- [external message bus](message_bus.md#encoding) รองรับ JSON และ MessagePack สำหรับ message แบบ native
+  และรองรับ Simple Binary Encoding (SBE) สำหรับ market data ที่มี schema รองรับ
+- Apache Arrow และ Parquet ใช้สำหรับการแลกเปลี่ยนข้อมูลแบบ columnar และการเก็บข้อมูลผ่าน
+  [data catalog](data/catalog.md)
 
-Format support varies by payload type.
+รูปแบบที่รองรับขึ้นกับประเภทของ payload
 
-## Common core
+## แกนหลักร่วม {#common-core}
 
-The common system core is used by all node
-[environment contexts](architecture.md#environment-contexts): `backtest`, `sandbox`, and `live`.
-User-defined actors, strategies, and execution algorithms use the same lifecycle across these
-contexts.
+แกนหลักของระบบชุดเดียวกันถูกใช้โดย node ใน[บริบทสภาพแวดล้อม](architecture.md#environment-contexts)
+ทุกแบบ ได้แก่ `backtest`, `sandbox` และ `live` actor, strategy และ execution algorithm ที่ผู้ใช้สร้างเองจะใช้
+lifecycle เดียวกันในทุกบริบทเหล่านี้
 
-## Backtesting
+## Backtesting {#backtesting}
 
-Feed data to a `BacktestEngine` either directly or through a higher-level `BacktestNode` and
-`ParquetDataCatalog`, then run the data through the system with nanosecond resolution. See
-[Backtesting](backtesting/) for the APIs and execution model.
+ป้อนข้อมูลให้ `BacktestEngine` โดยตรง หรือผ่าน `BacktestNode` และ `ParquetDataCatalog` ที่เป็นระดับสูงกว่า
+แล้วรันข้อมูลผ่านระบบที่ความละเอียดระดับ nanosecond ดู [Backtesting](backtesting/) สำหรับ API และ
+โมเดลการ execute
 
-## Live trading
+## Live trading {#live-trading}
 
-A `LiveNode` ingests data and events from multiple data and execution clients, supporting demo, paper, and
-real accounts. The Rust-native node, including its PyO3 interface, runs the kernel event loop on the calling
-thread. Asynchronous I/O and background tasks use a shared multi-threaded Tokio runtime.
+`LiveNode` รับข้อมูลและ event จาก data client และ execution client หลายตัว รองรับทั้ง account แบบ demo,
+paper และ account จริง node แบบ Rust-native รัน event loop ของ kernel บน thread ที่เรียกใช้ ส่วน I/O
+แบบ asynchronous และ background task ใช้ Tokio runtime แบบ multi-threaded ร่วมกัน
 
-See [Live trading](live.md) for the node lifecycle and risk considerations, and [Execution
-reconciliation](execution/reconciliation.md) for state recovery.
+ดู [Live trading](live.md) สำหรับ lifecycle ของ node และข้อพิจารณาด้านความเสี่ยง และ
+[Execution reconciliation](execution/reconciliation.md) สำหรับการกู้คืน state
 
-## Domain model
+## Domain model {#domain-model}
 
-The trading domain model includes [value types](value_types.md) such as `Price` and `Quantity`,
-plus [orders](orders/) and [positions](positions.md) that aggregate events to determine state.
+domain model ด้านการเทรดประกอบด้วย [value type](value_types.md) เช่น `Price` และ `Quantity`
+รวมถึง [order](orders/) และ [position](positions.md) ที่รวบรวม event เพื่อกำหนด state
 
-## Timestamps
+## Timestamp {#timestamps}
 
-NautilusTrader represents system timestamps as **UNIX nanoseconds**. Its standard ISO 8601
-(RFC 3339) formatter uses UTC and preserves all nine fractional digits. A millisecond formatter
-preserves three fractional digits for selected displays, such as good-till-date (GTD) expiry times.
+NautilusTrader แทน timestamp ของระบบเป็น **UNIX nanoseconds** formatter มาตรฐานแบบ ISO 8601
+(RFC 3339) ใช้ UTC และเก็บทศนิยมครบทั้งเก้าหลัก ส่วน formatter แบบ millisecond เก็บทศนิยมสามหลัก
+สำหรับการแสดงผลบางอย่าง เช่น เวลาหมดอายุของ good-till-date (GTD)
 
-A timestamp string consists of:
+string ของ timestamp ประกอบด้วย:
 
-- Full date component always present: `YYYY-MM-DD`.
-- `T` separator between date and time components.
-- Nine fractional digits for nanosecond output, or three for millisecond output.
-- UTC timezone designated by the `Z` suffix.
+- ส่วนวันที่เต็มรูปแบบซึ่งมีเสมอ: `YYYY-MM-DD`
+- ตัวคั่น `T` ระหว่างส่วนวันที่และเวลา
+- ทศนิยมเก้าหลักสำหรับผลลัพธ์แบบ nanosecond หรือสามหลักสำหรับแบบ millisecond
+- timezone UTC ที่ระบุด้วยตัวท้าย `Z`
 
-Example: `2024-01-05T15:30:45.123456789Z`
+ตัวอย่าง: `2024-01-05T15:30:45.123456789Z`
 
-For the complete specification, refer to
-[RFC 3339: Date and Time on the Internet](https://datatracker.ietf.org/doc/html/rfc3339).
+ดูข้อกำหนดฉบับเต็มได้ที่
+[RFC 3339: Date and Time on the Internet](https://datatracker.ietf.org/doc/html/rfc3339)
 
-## UUIDs
+## UUID {#uuids}
 
-The `UUID4` value type provides random Universally Unique Identifier (UUID) version 4 values for
-events, commands, reports, and other internal messages. It uses the `uuid` crate to validate
-version and variant bits when parsing strings.
+value type `UUID4` ให้ค่า Universally Unique Identifier (UUID) เวอร์ชัน 4 แบบสุ่ม สำหรับ event, command,
+report และ message ภายในอื่นๆ โดยใช้ crate `uuid` ตรวจสอบบิตของ version และ variant ตอน parse string
 
-A valid UUID v4 under RFC 9562 consists of:
+UUID v4 ที่ถูกต้องตาม RFC 9562 ประกอบด้วย:
 
-- 32 hexadecimal digits displayed in 5 groups.
-- Groups separated by hyphens: `8-4-4-4-12` format.
-- Version 4 designation (indicated by the third group starting with "4").
-- IETF variant designation (indicated by the fourth group starting with "8", "9", "a", or "b").
+- เลขฐานสิบหก 32 หลัก แสดงเป็น 5 กลุ่ม
+- กลุ่มคั่นด้วยขีดกลางในรูปแบบ `8-4-4-4-12`
+- ระบุเวอร์ชัน 4 (กลุ่มที่สามขึ้นต้นด้วย "4")
+- ระบุ variant แบบ IETF (กลุ่มที่สี่ขึ้นต้นด้วย "8", "9", "a" หรือ "b")
 
-Example: `2d89666b-1a1e-4a75-b193-4eb3b454c757`
+ตัวอย่าง: `2d89666b-1a1e-4a75-b193-4eb3b454c757`
 
-For the complete specification, see
-[RFC 9562: Universally Unique Identifiers (UUIDs)](https://www.rfc-editor.org/rfc/rfc9562.html).
+ดูข้อกำหนดฉบับเต็มได้ที่
+[RFC 9562: Universally Unique Identifiers (UUIDs)](https://www.rfc-editor.org/rfc/rfc9562.html)
 
-## Data types
+## ประเภทข้อมูล {#data-types}
 
-NautilusTrader defines the following built-in market and reference data types. Availability for
-historical requests and live subscriptions depends on the provider and adapter. See
-[Data](data/index.md) for their fields and behavior.
+NautilusTrader กำหนดประเภทข้อมูลตลาดและข้อมูลอ้างอิงในตัวไว้ดังนี้ การรองรับ request ข้อมูลย้อนหลัง
+และ subscription แบบ live ขึ้นกับผู้ให้บริการข้อมูลและ adapter ดู [Data](data/index.md) สำหรับฟิลด์และพฤติกรรม
 
-- `OrderBookDelta` (single order book change)
-- `OrderBookDeltas` (container type)
-- `OrderBookDepth` (variable-depth snapshots with inline capacity for ten levels)
+- `OrderBookDelta` (การเปลี่ยนแปลงของ order book หนึ่งรายการ)
+- `OrderBookDeltas` (ประเภท container)
+- `OrderBookDepth` (snapshot ที่ความลึกแปรผันได้ พร้อมความจุแบบ inline สำหรับสิบระดับ)
 - `QuoteTick`
 - `TradeTick`
 - `Bar`
@@ -170,21 +158,21 @@ historical requests and live subscriptions depends on the provider and adapter. 
 - `InstrumentStatus`
 - `InstrumentClose`
 
-Use [custom data](custom_data.md) for application-specific types.
+ใช้ [custom data](custom_data.md) สำหรับประเภทข้อมูลเฉพาะของแอปพลิเคชัน
 
-The following `PriceType` options select granular data for internal bar aggregation:
+ตัวเลือก `PriceType` ต่อไปนี้ใช้เลือกข้อมูลละเอียดสำหรับการรวม bar ภายใน (internal bar aggregation):
 
 - `BID`
 - `ASK`
 - `MID`
 - `LAST`
 
-`BID`, `ASK`, and `MID` use `QuoteTick` data, while `LAST` uses `TradeTick` data.
-Composite bar types aggregate smaller bars instead.
+`BID`, `ASK` และ `MID` ใช้ข้อมูล `QuoteTick` ส่วน `LAST` ใช้ข้อมูล `TradeTick`
+ส่วน bar type แบบ composite จะรวมจาก bar ที่เล็กกว่าแทน
 
-## Bar aggregations
+## Bar aggregation {#bar-aggregations}
 
-The following `BarAggregation` methods are available:
+method `BarAggregation` ที่มีให้ใช้:
 
 - `MILLISECOND`
 - `SECOND`
@@ -196,8 +184,8 @@ The following `BarAggregation` methods are available:
 - `YEAR`
 - `TICK`
 - `VOLUME`
-- `VALUE` (also known as dollar bars)
-- `RENKO` (price-based bricks)
+- `VALUE` (หรือที่เรียกว่า dollar bar)
+- `RENKO` (brick ตามราคา)
 - `TICK_IMBALANCE`
 - `TICK_RUNS`
 - `VOLUME_IMBALANCE`
@@ -205,28 +193,27 @@ The following `BarAggregation` methods are available:
 - `VALUE_IMBALANCE`
 - `VALUE_RUNS`
 
-All listed aggregations are implemented for internal aggregation.
-Information-driven aggregations require `TradeTick` data.
+aggregation ทั้งหมดที่ระบุไว้ถูก implement สำหรับ internal aggregation แล้ว
+aggregation แบบ information-driven ต้องใช้ข้อมูล `TradeTick`
 
-A `BarSpecification` combines a price type, aggregation method, and positive step size. Fixed-subunit time
-bars have divisibility limits. See [Bar types](data/index.md#bar-types) for the validation rules. Internal
-aggregation can run during live trading when the required input data is available.
+`BarSpecification` ประกอบด้วย price type, method ของ aggregation และขนาด step ที่เป็นบวก time bar แบบ
+fixed-subunit มีข้อจำกัดเรื่องการหารลงตัว ดู [Bar types](data/index.md#bar-types) สำหรับกฎการตรวจสอบ
+internal aggregation รันระหว่าง live trading ได้เมื่อมีข้อมูล input ที่ต้องการ
 
-## Account types
+## ประเภทของ account {#account-types}
 
-The [accounting engine](accounting.md#account-types) supports the following configurations in both
-live and backtest environments:
+[accounting engine](accounting.md#account-types) รองรับการตั้งค่าต่อไปนี้ทั้งในสภาพแวดล้อม live และ backtest:
 
-- `Cash` single-currency (base currency)
-- `Cash` multi-currency
-- `Margin` single-currency (base currency)
-- `Margin` multi-currency
-- `Betting` single-currency
-- `Wallet` multi-currency (blockchain wallets, with execution client in development)
+- `Cash` สกุลเงินเดียว (base currency)
+- `Cash` หลายสกุลเงิน
+- `Margin` สกุลเงินเดียว (base currency)
+- `Margin` หลายสกุลเงิน
+- `Betting` สกุลเงินเดียว
+- `Wallet` หลายสกุลเงิน (blockchain wallet โดย execution client ยังอยู่ระหว่างพัฒนา)
 
-## Order types
+## ประเภทของ order {#order-types}
 
-The [order model](orders/) supports the following types, subject to venue adapter support:
+[order model](orders/) รองรับประเภทต่อไปนี้ ขึ้นกับการรองรับของ venue adapter:
 
 - `MARKET`
 - `LIMIT`
@@ -238,22 +225,20 @@ The [order model](orders/) supports the following types, subject to venue adapte
 - `TRAILING_STOP_MARKET`
 - `TRAILING_STOP_LIMIT`
 
-## Value types
+## Value type {#value-types}
 
-The following fixed-point value types are backed by either 128-bit or 64-bit raw integers,
-depending on the [precision mode](../getting_started/installation.md#precision-mode) used during
-compilation.
+value type แบบ fixed-point ต่อไปนี้ใช้ integer ดิบขนาด 128 บิตหรือ 64 บิต ขึ้นกับ
+[precision mode](../getting_started/installation.md#precision-mode) ที่ใช้ตอน compile
 
 - `Price`
 - `Quantity`
 - `Money`
 
-Official Python wheels use high-precision mode on all supported platforms. Pure Rust builds default
-to standard precision unless the `high-precision` feature is enabled.
+build แบบ Rust ล้วนใช้ standard precision เป็นค่าเริ่มต้น เว้นแต่จะเปิด feature `high-precision`
 
-### High-precision mode (128-bit)
+### High-precision mode (128 บิต) {#high-precision-mode-128-bit}
 
-When the `high-precision` feature flag is **enabled**, values use the specification:
+เมื่อ**เปิด** feature flag `high-precision` ค่าต่างๆ จะใช้ข้อกำหนดดังนี้:
 
 | Type       | Raw backing | Max precision | Min value           | Max value          |
 | :--------- | :---------- | :------------ | :------------------ | :----------------- |
@@ -261,9 +246,9 @@ When the `high-precision` feature flag is **enabled**, values use the specificat
 | `Money`    | `i128`      | 16            | -17,014,118,346,046 | 17,014,118,346,046 |
 | `Quantity` | `u128`      | 16            | 0                   | 34,028,236,692,093 |
 
-### Standard-precision mode (64-bit)
+### Standard-precision mode (64 บิต) {#standard-precision-mode-64-bit}
 
-When the `high-precision` feature flag is **disabled**, values use the specification:
+เมื่อ**ปิด** feature flag `high-precision` ค่าต่างๆ จะใช้ข้อกำหนดดังนี้:
 
 | Type       | Raw backing | Max precision | Min value      | Max value      |
 | :--------- | :---------- | :------------ | :------------- | :------------- |

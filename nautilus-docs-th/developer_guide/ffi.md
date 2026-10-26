@@ -1,76 +1,76 @@
-# FFI Memory Contract
+# สัญญาด้านหน่วยความจำของ FFI
 
-NautilusTrader exposes a C foreign function interface (FFI) only from `nautilus-core` and
-`nautilus-model`. Both crates gate the interface behind their `ffi` Cargo feature and keep the
-exported modules under `crates/core/src/ffi/` and `crates/model/src/ffi/`.
+NautilusTrader เปิด C foreign function interface (FFI) จากเพียง `nautilus-core` และ
+`nautilus-model` เท่านั้น ทั้งสอง crate ซ่อน interface นี้ไว้หลัง Cargo feature `ffi` และเก็บ
+module ที่ export ไว้ใน `crates/core/src/ffi/` และ `crates/model/src/ffi/`
 
-Other workspace crates use Rust APIs or PyO3 bindings. The separate `nautilus-plugin` crate defines
-the public guest plug-in ABI and does not share this memory contract.
+crate อื่นใน workspace ใช้ Rust API แทน ส่วน crate `nautilus-plugin` ที่แยกต่างหากกำหนด
+ABI สาธารณะสำหรับ guest plug-in และไม่ได้ใช้สัญญาด้านหน่วยความจำนี้ร่วมกัน
 
-The rules below are strict. Violating them can cause undefined behavior, including double frees,
-memory leaks, and invalid pointer access.
+กฎด้านล่างนี้เข้มงวด การละเมิดอาจทำให้เกิด undefined behavior รวมถึง double free,
+memory leak และการเข้าถึง pointer ที่ไม่ถูกต้อง
 
-## Panic handling
+## การจัดการ panic {#panic-handling}
 
-Rust panics must never unwind across an `extern "C"` function. Exported functions that can panic
-must route their implementation through `nautilus_core::ffi::abort_on_panic`, which logs the panic
-and aborts the process before unwinding crosses the C boundary.
+Rust panic ต้องไม่ unwind ข้ามฟังก์ชัน `extern "C"` เด็ดขาด ฟังก์ชันที่ export และอาจ panic ได้
+ต้องส่งการทำงานผ่าน `nautilus_core::ffi::abort_on_panic` ซึ่งจะ log panic
+และ abort process ก่อนที่การ unwind จะข้ามขอบเขตของ C
 
-## `CVec` ownership
+## ความเป็นเจ้าของ `CVec` {#cvec-ownership}
 
-`CVec` represents Rust vector allocation metadata in a C-compatible form. A `CVec` created from `Vec<T>`
-transfers unique ownership of the allocation to the foreign caller. In Rust, it is intentionally neither
-`Copy` nor `Clone`. But C can still copy its fields. Thus, callers must enforce the same exactly-once
-ownership rule.
+`CVec` แทน metadata ของการจัดสรรหน่วยความจำ (allocation) ของ vector ใน Rust ในรูปแบบที่เข้ากันได้กับ C
+`CVec` ที่สร้างจาก `Vec<T>` จะโอนความเป็นเจ้าของ allocation แบบผู้เดียว (unique ownership) ให้กับผู้เรียกฝั่ง foreign
+ใน Rust มันถูกออกแบบให้ไม่เป็นทั้ง `Copy` และ `Clone` โดยเจตนา แต่ฝั่ง C ยังคง copy ฟิลด์ของมันได้ ดังนั้น
+ผู้เรียกต้องบังคับใช้กฎความเป็นเจ้าของแบบครั้งเดียวเท่านั้น (exactly-once) แบบเดียวกัน
 
-| Step | Owner   | Action                                                                                        |
-| ---- | ------- | --------------------------------------------------------------------------------------------- |
-| 1    | Rust    | Convert `Vec<T>` into `CVec`, transferring the allocation to the caller.                      |
-| 2    | Foreign | Read the elements without changing `ptr`, `len`, or `cap`.                                    |
-| 3    | Foreign | Call the matching type-specific `vec_drop_*` function exactly once to release the allocation. |
+| ขั้น | เจ้าของ  | การกระทำ                                                                                     |
+| --- | ------- | ------------------------------------------------------------------------------------------- |
+| 1   | Rust    | แปลง `Vec<T>` เป็น `CVec` ซึ่งเป็นการโอน allocation ให้ผู้เรียก                                      |
+| 2   | Foreign | อ่าน element โดยไม่เปลี่ยนแปลง `ptr`, `len` หรือ `cap`                                            |
+| 3   | Foreign | เรียกฟังก์ชัน `vec_drop_*` ที่ตรงกับ type นั้นเพียงครั้งเดียวเท่านั้นเพื่อคืน allocation                      |
 
-Forgetting the drop leaks the allocation. Dropping the same allocation more than once can corrupt
-the allocator and crash the process.
+หากลืม drop จะทำให้ allocation รั่ว (leak) การ drop allocation เดียวกันมากกว่าหนึ่งครั้งอาจทำให้
+allocator เสียหายและ process crash ได้
 
-Empty `CVec` values have `len == 0` and `cap == 0`. Their pointer is an opaque sentinel and must not
-be dereferenced. Rust consumers must use `CVec::into_vec`, which handles the empty case before it
-inspects the pointer. Borrowing consumers must use `CVec::as_slice` for the same reason.
+ค่า `CVec` ที่ว่างจะมี `len == 0` และ `cap == 0` pointer ของมันเป็น sentinel แบบ opaque และห้าม
+dereference ผู้ใช้ฝั่ง Rust ต้องใช้ `CVec::into_vec` ซึ่งจัดการกรณีว่างก่อนจะ
+ตรวจสอบ pointer ผู้ใช้ที่ยืม (borrow) ข้อมูลต้องใช้ `CVec::as_slice` ด้วยเหตุผลเดียวกัน
 
-Both methods are unsafe because the public metadata cannot prove allocation provenance, alignment,
-initialization, or exclusive ownership. Any exported function that accepts a caller-provided
-`CVec` and invokes either method must:
+ทั้งสอง method เป็น unsafe เพราะ metadata สาธารณะไม่สามารถพิสูจน์ที่มาของ allocation (provenance), alignment,
+การ initialize หรือความเป็นเจ้าของแบบผูกขาดได้ ฟังก์ชันที่ export ใดๆ ที่รับ `CVec` จากผู้เรียก
+และเรียก method ใด method หนึ่งในสองตัวนี้ต้อง:
 
-- Be an `unsafe extern "C" fn`.
-- Document the caller obligations in a `# Safety` section.
-- Validate `len`, `cap`, and null-pointer invariants before reconstructing or borrowing data.
-- Use a concrete element type that matches the original `Vec<T>` allocation.
+- เป็น `unsafe extern "C" fn`
+- ระบุหน้าที่ของผู้เรียกไว้ในส่วน `# Safety` ของเอกสาร
+- ตรวจสอบ invariant ของ `len`, `cap` และ null pointer ก่อนสร้างข้อมูลกลับคืนหรือยืมข้อมูล
+- ใช้ element type แบบ concrete ที่ตรงกับ allocation ของ `Vec<T>` ต้นทาง
 
-## Type-specific drop functions
+## ฟังก์ชัน drop เฉพาะ type {#type-specific-drop-functions}
 
-There is no generic `cvec_drop`. Reconstructing every allocation as `Vec<u8>` gives the allocator
-the wrong element layout for other types. Each owned vector crossing the boundary requires a drop
-function for its exact element type, such as `vec_drop_book_levels`, `vec_drop_book_orders`, or
-`vec_drop_fills`.
+ไม่มี `cvec_drop` แบบ generic การสร้างทุก allocation กลับเป็น `Vec<u8>` จะทำให้ allocator ได้
+layout ของ element ที่ผิดสำหรับ type อื่น vector ที่มีเจ้าของแต่ละตัวที่ข้ามขอบเขตต้องมีฟังก์ชัน drop
+สำหรับ element type ที่ตรงกันพอดี เช่น `vec_drop_book_levels`, `vec_drop_book_orders` หรือ
+`vec_drop_fills`
 
-Add the drop function beside the producer so reviews can verify the pair together. Tests must cover
-the empty sentinel and any metadata checks implemented by the consumer.
+ให้เพิ่มฟังก์ชัน drop ไว้ข้างๆ ฟังก์ชันที่สร้างข้อมูล (producer) เพื่อให้การ review ตรวจสอบทั้งคู่ไปพร้อมกันได้ test ต้องครอบคลุม
+sentinel ของค่าว่างและการตรวจสอบ metadata ที่ฝั่งผู้ใช้ implement ไว้
 
-## Borrowed foreign buffers
+## Buffer ที่ยืมมาจากฝั่ง foreign {#borrowed-foreign-buffers}
 
-Memory allocated outside Rust must not be reconstructed as `Vec<T>`. Borrow it with
-`CVec::as_slice`, and copy it with `to_vec()` when Rust needs owned storage. The foreign caller keeps
-ownership and must release the original buffer with the allocator that created it.
+หน่วยความจำที่จัดสรรนอก Rust ต้องไม่ถูกสร้างกลับเป็น `Vec<T>` ให้ยืมผ่าน
+`CVec::as_slice` และ copy ด้วย `to_vec()` เมื่อ Rust ต้องการพื้นที่เก็บที่เป็นเจ้าของเอง ผู้เรียกฝั่ง foreign ยังคง
+เป็นเจ้าของและต้องคืน buffer ต้นฉบับด้วย allocator ที่สร้างมันขึ้นมา
 
-## Opaque pointers
+## Opaque pointer {#opaque-pointers}
 
-Model objects whose layout is not `repr(C)` cross the ABI as opaque owning pointers. The generated
-header forward-declares the type, so foreign callers handle it only through exported functions:
+model object ที่ layout ไม่ได้เป็น `repr(C)` จะข้าม ABI ในรูปของ opaque pointer ที่เป็นเจ้าของ (owning)
+header ที่ generate ขึ้นจะ forward-declare type นั้นไว้ ผู้เรียกฝั่ง foreign จึงจัดการมันได้ผ่านฟังก์ชันที่ export เท่านั้น:
 
-- Constructors return an owning `*mut T` from `Box::into_raw`.
-- Pure accessors take `&T` or `&mut T` references.
-- Every constructor must have a matching drop function.
+- constructor คืนค่า `*mut T` ที่เป็นเจ้าของ จาก `Box::into_raw`
+- accessor แบบ pure รับ reference แบบ `&T` หรือ `&mut T`
+- ทุก constructor ต้องมีฟังก์ชัน drop ที่คู่กัน
 
-For example:
+ตัวอย่างเช่น:
 
 ```rust
 #[unsafe(no_mangle)]
@@ -96,16 +96,16 @@ pub unsafe extern "C" fn orderbook_drop(book: *mut OrderBook) {
 }
 ```
 
-The foreign owner must call the drop function exactly once. It must not copy the pointer, consume
-both copies, or use the pointer after the drop.
+เจ้าของฝั่ง foreign ต้องเรียกฟังก์ชัน drop เพียงครั้งเดียวเท่านั้น ห้าม copy pointer แล้วนำทั้งสองสำเนา
+ไปใช้ (consume) และห้ามใช้ pointer หลังจาก drop แล้ว
 
-## Review checklist
+## Checklist สำหรับการ review {#review-checklist}
 
-For each new or changed FFI export:
+สำหรับ FFI export ที่เพิ่มใหม่หรือมีการเปลี่ยนแปลงแต่ละตัว:
 
-- Keep the implementation in `nautilus-core` or `nautilus-model`.
-- Use `repr(C)` for every type whose layout crosses the boundary.
-- Prevent panics from unwinding across the boundary.
-- Pair each owned allocation with one type-specific release path.
-- State complete pointer and ownership obligations in `# Safety` documentation.
-- Add focused tests for the ownership and validation rules.
+- เก็บ implementation ไว้ใน `nautilus-core` หรือ `nautilus-model`
+- ใช้ `repr(C)` กับทุก type ที่ layout ข้ามขอบเขต
+- ป้องกันไม่ให้ panic unwind ข้ามขอบเขต
+- จับคู่ allocation ที่มีเจ้าของแต่ละตัวกับเส้นทางการคืนหน่วยความจำเฉพาะ type หนึ่งเส้นทาง
+- ระบุหน้าที่ด้าน pointer และความเป็นเจ้าของให้ครบถ้วนในเอกสาร `# Safety`
+- เพิ่ม test ที่เจาะจงสำหรับกฎความเป็นเจ้าของและการตรวจสอบความถูกต้อง

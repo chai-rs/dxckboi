@@ -1,33 +1,23 @@
-# How-to Guides
+# คู่มือ How-to
 
-Goal-oriented recipes for common tasks. Each guide assumes familiarity with
-Nautilus concepts and focuses on achieving a specific outcome.
+สูตรสำเร็จที่มุ่งเป้าหมายสำหรับงานที่พบบ่อย แต่ละคู่มือถือว่าผู้อ่านคุ้นเคยกับแนวคิดของ Nautilus แล้ว
+และมุ่งไปที่การทำให้ได้ผลลัพธ์เฉพาะอย่าง
 
-New to Nautilus? Start with the [getting started](../getting_started/)
-path and [tutorials](../tutorials/) first.
+เพิ่งเริ่มใช้ Nautilus? ให้เริ่มจาก[เส้นทาง getting started](../getting_started/)
+และ[tutorials](../tutorials/) ก่อน
 
-## Data workflows
+## Live trading {#live-trading}
 
-| Guide                                                 | Description                                  |
-| :---------------------------------------------------- | :------------------------------------------- |
-| [Loading external data][loading_external_data]        | Load CSV data into the Parquet data catalog. |
-| [Data catalog with Databento][data_catalog_databento] | Set up a catalog with Databento market data. |
+| คู่มือ                                                     | คำอธิบาย                                                |
+| :------------------------------------------------------ | :---------------------------------------------------- |
+| [ตั้งค่า live trading node](configure_live_trading)        | ตั้งค่า LiveNodeConfig, execution engine และ venue       |
+| [เริ่มต้นใช้งาน Lighter](get_started_lighter)               | เริ่มใช้งาน Lighter จาก Rust                              |
 
-## Live trading
+## Rust {#rust}
 
-| Guide                                                   | Description                                          |
-| :------------------------------------------------------ | :--------------------------------------------------- |
-| [Configure a live trading node](configure_live_trading) | Set up LiveNodeConfig, execution engine, and venues. |
-| [Get started with Lighter](get_started_lighter)         | Start Lighter from Rust or Python.                   |
-
-## Rust
-
-| Guide                                            | Description                                         |
-| :----------------------------------------------- | :-------------------------------------------------- |
-| [Write an Actor (Rust)](write_rust_actor)        | Build a data actor with subscriptions and handlers. |
-| [Write a Strategy (Rust)](write_rust_strategy)   | Build a strategy with order management.             |
-| [Run a Backtest (Rust)](run_rust_backtest)       | Use BacktestEngine or BacktestNode with a catalog.  |
-| [Run Live Trading (Rust)](run_rust_live_trading) | Connect to a venue with LiveNode.                   |
-
-[loading_external_data]: https://github.com/nautechsystems/nautilus_trader/blob/develop/docs/how_to/loading_external_data.py
-[data_catalog_databento]: https://github.com/nautechsystems/nautilus_trader/blob/develop/docs/how_to/data_catalog_databento.py
+| คู่มือ                                              | คำอธิบาย                                                  |
+| :----------------------------------------------- | :------------------------------------------------------ |
+| [เขียน Actor (Rust)](write_rust_actor)            | สร้าง data actor พร้อม subscription และ handler           |
+| [เขียน Strategy (Rust)](write_rust_strategy)      | สร้าง strategy พร้อมการจัดการ order                        |
+| [รัน Backtest (Rust)](run_rust_backtest)          | ใช้ BacktestEngine หรือ BacktestNode กับ catalog           |
+| [รัน Live Trading (Rust)](run_rust_live_trading)  | เชื่อมต่อกับ venue ด้วย LiveNode                            |

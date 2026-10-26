@@ -1,29 +1,27 @@
-# Mean Reversion with Proxy FX Data (AX Exchange)
+# Mean reversion ด้วยข้อมูล FX แทน (AX Exchange)
 
-This tutorial backtests a Bollinger-band mean-reversion strategy on
-**EURUSD-PERP** at [AX Exchange](https://architect.exchange) using
-[TrueFX](https://www.truefx.com) EUR/USD spot ticks as a proxy.
+tutorial นี้ backtest strategy แบบ mean reversion ด้วย Bollinger band บน **EURUSD-PERP** ที่
+[AX Exchange](https://architect.exchange) โดยใช้ spot tick ของ EUR/USD จาก [TrueFX](https://www.truefx.com)
+เป็นข้อมูลแทน (proxy)
 
-## Introduction
+## บทนำ {#introduction}
 
-The strategy combines two indicators on 1-minute mid bars:
+strategy นี้ใช้ indicator สองตัวบน mid bar 1 นาที:
 
-- **Bollinger Bands** (`BBMeanReversion`'s `BB(20, 2.0sd)`): a rolling
-  20-bar mean and a +/-2sd envelope. The bands flag price as overextended
-  relative to recent volatility.
-- **Relative Strength Index** (`RSI(14)`): a 14-bar momentum oscillator on
-  `[0, 100]`, used with the conventional 30/70 thresholds.
+- **Bollinger Bands** (`BB(20, 2.0sd)` ของ `BBMeanReversion`): ค่าเฉลี่ยแบบ rolling 20 bar และกรอบ +/-2sd
+  band จะบอกว่าราคาเคลื่อนไปไกลเกินไปเมื่อเทียบกับ volatility ล่าสุด
+- **Relative Strength Index** (`RSI(14)`): momentum oscillator 14 bar ในช่วง `[0, 100]` ใช้กับ threshold
+  มาตรฐานที่ 30/70
 
-Entry requires both signals at once:
+การเข้า position ต้องเกิดสัญญาณทั้งสองพร้อมกัน:
 
-- A touch of the lower band with `RSI < 30` opens a long position.
-- A touch of the upper band with `RSI > 70` opens a short position.
+- แตะ band ล่างพร้อม `RSI < 30` จะเปิด long position
+- แตะ band บนพร้อม `RSI > 70` จะเปิด short position
 
-Exit uses only the closing-price condition: any open position closes when the closing price crosses back
-through the BB middle. The strategy closes existing positions on the opposite side before a new entry.
+การออกใช้เฉพาะเงื่อนไขของราคาปิด: position ที่เปิดอยู่จะปิดเมื่อราคาปิดตัดกลับผ่านเส้นกลางของ BB strategy จะ
+ปิด position ฝั่งตรงข้ามที่มีอยู่ก่อนเข้า position ใหม่
 
-The shipped `BBMeanReversion` strategy is intentionally simple and has no
-edge.
+strategy `BBMeanReversion` ที่ให้มาตั้งใจทำให้เรียบง่าย และไม่มี edge
 
 ```mermaid
 flowchart LR
@@ -69,288 +67,110 @@ flowchart LR
     CL --> SELL
 ```
 
-### Why proxy data
+### ทำไมต้องใช้ข้อมูลแทน {#why-proxy-data}
 
-Historical data vendors do not yet cover AX Exchange. [TrueFX](https://www.truefx.com) publishes free,
-institutional-grade EUR/USD spot tick archives from the Integral and Jefferies pools. These archives provide
-proxy data for AX EURUSD-PERP backtests.
+ผู้ให้บริการข้อมูลย้อนหลังยังไม่ครอบคลุม AX Exchange [TrueFX](https://www.truefx.com) เผยแพร่คลัง tick ของ
+EUR/USD spot ระดับสถาบันจาก pool ของ Integral และ Jefferies ให้ใช้ฟรี คลังข้อมูลนี้ใช้เป็นข้อมูลแทนสำหรับ
+backtest AX EURUSD-PERP ได้
 
-## Prerequisites
+## สิ่งที่ต้องมี {#prerequisites}
 
-- Python 3.13+
-- [NautilusTrader installed](../getting_started/installation.md) with the
-  [`visualization` extra](../getting_started/installation.md#extras), which
-  provides pandas.
-- A source checkout of the repository. The backtest imports
-  `BBMeanReversion` from `examples/live/architect_ax/strategies.py`, which
-  the installed package does not include.
-- A free TrueFX account, used to download a monthly tick archive.
+- บัญชี TrueFX แบบฟรี สำหรับดาวน์โหลดคลัง tick รายเดือน
 
-## Data preparation
+> หมายเหตุ: ตัวอย่าง strategy, การโหลดข้อมูล และการตั้งค่า backtest ในต้นฉบับเป็นโค้ด Python ทั้งหมด จึงตัดออก
+> ดูวิธีรัน backtest ด้วย Rust ได้ที่ [รัน backtest (Rust)](../how_to/run_rust_backtest.md)
 
-### Download TrueFX EUR/USD ticks
+## การเตรียมข้อมูล {#data-preparation}
 
-1. Go to the [TrueFX historical downloads page](https://www.truefx.com/truefx-historical-downloads/).
-1. Select **EUR/USD** and a month, for example **December 2025**.
-1. Extract the ZIP. The CSV has no header and contains the columns
-   `pair, timestamp, bid, ask`.
+### ดาวน์โหลด tick EUR/USD จาก TrueFX {#download-truefx-eurusd-ticks}
 
-### Load into Nautilus quote ticks
+1. ไปที่[หน้าดาวน์โหลดข้อมูลย้อนหลังของ TrueFX](https://www.truefx.com/truefx-historical-downloads/)
+1. เลือก **EUR/USD** และเดือน เช่น **December 2025**
+1. แตกไฟล์ ZIP ไฟล์ CSV ไม่มี header และมี column `pair, timestamp, bid, ask`
 
-Define `EURUSD_PERP` and `instrument_id` in the next section before running this snippet.
+### โหลดเป็น quote tick ของ Nautilus {#load-into-nautilus-quote-ticks}
 
-```python
-from pathlib import Path
+quote แต่ละตัวใช้ instrument ID ของ proxy และใช้ขนาด bid และ ask เท่ากับหนึ่งหน่วย strategy ประกาศ
+`1-MINUTE-MID-INTERNAL` ดังนั้น engine จะสร้าง MID bar 1 นาทีภายในจาก tick stream
 
-import pandas as pd
+## การนิยาม instrument {#instrument-definition}
 
-from nautilus_trader.model import Quantity
-from nautilus_trader.model import QuoteTick
+ข้อมูลแทนต้องนิยาม instrument เอง multiplier ที่ `1000` ทำให้สัญญาหนึ่งสัญญามี notional เท่ากับ 1,000 EUR
+ดูตัวอย่างการสร้าง `PerpetualContract` สำหรับ `EURUSD-PERP.AX` ด้วย Rust ได้ที่
+[Perpetual Contract](../concepts/instruments/perpetual_contract.md)
 
-df = pd.read_csv(
-    Path("EURUSD-2025-12.csv"),
-    header=None,
-    names=["pair", "timestamp", "bid", "ask"],
-)
-df["timestamp"] = pd.to_datetime(
-    df["timestamp"],
-    format="%Y%m%d %H:%M:%S.%f",
-    utc=True,
-)
-df = df.set_index("timestamp")[["bid", "ask"]].sort_index()
+ค่าธรรมเนียมและ margin เป็นสมมติฐานของ backtest ที่กำหนดไว้อย่างชัดเจน ตรวจสอบอัตราปัจจุบันได้ที่
+[เอกสารของ AX Exchange](https://docs.architect.exchange/)
 
-ticks = []
-for timestamp, row in df.iterrows():
-    ts_ns = pd.Timestamp(str(timestamp)).value
-    ticks.append(
-        QuoteTick(
-            instrument_id=instrument_id,
-            bid_price=EURUSD_PERP.make_price(float(row.bid)),
-            ask_price=EURUSD_PERP.make_price(float(row.ask)),
-            bid_size=Quantity.from_int(1),
-            ask_size=Quantity.from_int(1),
-            ts_event=ts_ns,
-            ts_init=ts_ns,
-        ),
-    )
-```
+## การตั้งค่า {#configuration}
 
-Each quote carries the proxy instrument ID and one unit of bid and ask size. The strategy declares
-`1-MINUTE-MID-INTERNAL`. The engine therefore builds 1-minute MID bars internally from the tick stream.
-
-## Instrument definition
-
-Proxy data needs a manual instrument definition. The multiplier of `1000`
-gives one contract a notional of 1,000 EUR.
-
-```python
-from decimal import Decimal
-
-from nautilus_trader.model import AssetClass
-from nautilus_trader.model import Currency
-from nautilus_trader.model import InstrumentId
-from nautilus_trader.model import PerpetualContract
-from nautilus_trader.model import Price
-from nautilus_trader.model import Quantity
-from nautilus_trader.model import Symbol
-
-USD = Currency.from_str("USD")
-
-instrument_id = InstrumentId.from_str("EURUSD-PERP.AX")
-
-EURUSD_PERP = PerpetualContract(
-    instrument_id=instrument_id,
-    raw_symbol=Symbol("EURUSD-PERP"),
-    underlying="EUR",
-    asset_class=AssetClass.FX,
-    quote_currency=USD,
-    settlement_currency=USD,
-    is_inverse=False,
-    price_precision=5,
-    size_precision=0,
-    price_increment=Price.from_str("0.00001"),
-    size_increment=Quantity.from_int(1),
-    multiplier=Quantity.from_int(1000),
-    lot_size=Quantity.from_int(1),
-    margin_init=Decimal("0.05"),
-    margin_maint=Decimal("0.025"),
-    ts_event=0,
-    ts_init=0,
-)
-```
-
-Fees and margin are explicit backtest assumptions. Check the
-[AX Exchange documentation](https://docs.architect.exchange/) for current
-rates.
-
-## Configuration
-
-| Parameter            | Value  | Description                                                |
+| Parameter            | ค่า    | คำอธิบาย                                                   |
 | -------------------- | ------ | ---------------------------------------------------------- |
-| `bb_period`          | `20`   | Rolling window for the BB mean and the standard deviation. |
-| `bb_std`             | `2.0`  | Band width in standard deviations.                         |
-| `rsi_period`         | `14`   | RSI lookback in bars.                                      |
-| `rsi_buy_threshold`  | `30.0` | Long entry confirmation (RSI is on `[0, 100]`).            |
-| `rsi_sell_threshold` | `70.0` | Short entry confirmation.                                  |
-| `trade_size`         | `1`    | One contract per trade (1,000 EUR notional).               |
+| `bb_period`          | `20`   | rolling window สำหรับค่าเฉลี่ยของ BB และส่วนเบี่ยงเบนมาตรฐาน |
+| `bb_std`             | `2.0`  | ความกว้างของ band เป็นจำนวนเท่าของส่วนเบี่ยงเบนมาตรฐาน       |
+| `rsi_period`         | `14`   | lookback ของ RSI เป็นจำนวน bar                              |
+| `rsi_buy_threshold`  | `30.0` | การยืนยันเพื่อเข้า long (RSI อยู่ในช่วง `[0, 100]`)        |
+| `rsi_sell_threshold` | `70.0` | การยืนยันเพื่อเข้า short                                    |
+| `trade_size`         | `1`    | หนึ่งสัญญาต่อ trade (notional 1,000 EUR)                    |
 
-## Backtest setup
+## การตั้งค่า backtest {#backtest-setup}
 
-From the repository root:
+ในต้นฉบับ backtest ตั้ง venue `AX` แบบ `OmsType.NETTING` และ `AccountType.MARGIN` ด้วย base currency USD,
+starting balance `100000 USD` และ `MakerTakerFeeModel` ที่ maker rate `0.0002` และ taker rate `0.0005`
+จากนั้นเพิ่ม instrument, tick และ strategy ด้วย bar type `EURUSD-PERP.AX-1-MINUTE-MID-INTERNAL` แล้วรัน
+และสร้าง report ของ account, order fill และ position จาก engine
 
-```python
-import sys
-from decimal import Decimal
-from pathlib import Path
+## ผลลัพธ์จากการรัน {#what-the-run-produces}
 
-from nautilus_trader.backtest import BacktestEngine
-from nautilus_trader.common import LogLevel
-from nautilus_trader.config import BacktestEngineConfig
-from nautilus_trader.config import LoggerConfig
-from nautilus_trader.execution import MakerTakerFeeModel
-from nautilus_trader.model import AccountType
-from nautilus_trader.model import BarType
-from nautilus_trader.model import Money
-from nautilus_trader.model import OmsType
-from nautilus_trader.model import TraderId
-from nautilus_trader.model import Venue
-
-sys.path.insert(0, str(Path("examples/live/architect_ax")))
-
-from strategies import BBMeanReversion
-from strategies import BBMeanReversionConfig
-
-engine = BacktestEngine(
-    BacktestEngineConfig(
-        trader_id=TraderId.from_str("BACKTESTER-001"),
-        logging=LoggerConfig(stdout_level=LogLevel.INFO),
-    ),
-)
-
-AX = Venue("AX")
-engine.add_venue(
-    venue=AX,
-    oms_type=OmsType.NETTING,
-    account_type=AccountType.MARGIN,
-    base_currency=USD,
-    starting_balances=[Money.from_str("100000 USD")],
-    fee_model=MakerTakerFeeModel(
-        maker_rate=Decimal("0.0002"),
-        taker_rate=Decimal("0.0005"),
-    ),
-)
-
-engine.add_instrument(EURUSD_PERP)
-engine.add_data(ticks)
-
-strategy = BBMeanReversion(
-    config=BBMeanReversionConfig(
-        instrument_id=instrument_id,
-        bar_type=BarType.from_str("EURUSD-PERP.AX-1-MINUTE-MID-INTERNAL"),
-        trade_size=Decimal("1"),
-        bb_period=20,
-        bb_std=2.0,
-        rsi_period=14,
-        rsi_buy_threshold=30.0,
-        rsi_sell_threshold=70.0,
-    ),
-)
-engine.add_strategy(strategy)
-engine.run()
-```
-
-Get reports from the engine:
-
-```python
-print(engine.generate_account_report(venue=AX))
-print(engine.generate_order_fills_report())
-print(engine.generate_positions_report())
-
-engine.reset()
-engine.dispose()
-```
-
-The self-contained runnable example uses the bundled AUD/USD fixture with the
-same strategy and setup pattern. It is at
-[`architect_ax_mean_reversion.py`](https://github.com/nautechsystems/nautilus_trader/tree/develop/examples/backtest/architect_ax_mean_reversion.py).
-
-## What the run produces
-
-A replay of TrueFX EUR/USD December 2025 through `BBMeanReversion(20, 2sd, RSI 14)` produces 44,591 1-minute
-mid bars. It closes 1,089 positions across 2,178 fills. Cumulative realized pnl ends at **-1,287 USD**. The
-strategy loses money steadily through the month, with no clear recovery from a change in regime. Mean
-reversion without a regime filter pays the spread on every cycle. EUR/USD trends strongly upward through the
-second half of December, and the strategy repeatedly trades against that trend.
+การ replay ข้อมูล TrueFX EUR/USD เดือนธันวาคม 2025 ผ่าน `BBMeanReversion(20, 2sd, RSI 14)` ได้ mid bar 1 นาที
+จำนวน 44,591 bar ปิด position ไป 1,089 position จาก fill 2,178 ครั้ง realized PnL สะสมจบที่ **-1,287 USD**
+strategy ขาดทุนอย่างต่อเนื่องตลอดเดือน โดยไม่มีการฟื้นตัวที่ชัดเจนจากการเปลี่ยน regime mean reversion ที่ไม่มี
+regime filter ต้องจ่าย spread ทุกรอบ EUR/USD มีแนวโน้มขาขึ้นแรงตลอดครึ่งหลังของเดือนธันวาคม และ strategy
+เทรดสวนแนวโน้มนั้นซ้ำแล้วซ้ำเล่า
 
 ![EUR/USD 1-minute mid bars across December 2025 with BB envelope](./assets/fx_mean_reversion_ax/panel_a_overview.png)
 
-**Figure 1.** *EUR/USD 1-minute mid bars across December 2025 with the BB
-middle and +/-2sd envelope. Long flat patches are weekend gaps in the TrueFX
-feed.*
+**รูปที่ 1** *mid bar 1 นาทีของ EUR/USD ตลอดเดือนธันวาคม 2025 พร้อมเส้นกลางของ BB และกรอบ +/-2sd ช่วงแบนยาว ๆ
+คือช่วงวันหยุดสุดสัปดาห์ที่ไม่มีข้อมูลใน feed ของ TrueFX*
 
 ![Twelve-hour zoom on entries, exits, and RSI](./assets/fx_mean_reversion_ax/panel_b_zoom.png)
 
-**Figure 2.** *Twelve-hour zoom around the dataset midpoint. Top: mid with
-BB envelope, long entries (triangles up), short entries (triangles down),
-and closing fills (crosses). Bottom: RSI(14) with the 30 buy / 70 sell
-thresholds.*
+**รูปที่ 2** *ขยายช่วง 12 ชั่วโมงรอบจุดกึ่งกลางของชุดข้อมูล บน: mid พร้อมกรอบ BB, การเข้า long (สามเหลี่ยมชี้ขึ้น),
+การเข้า short (สามเหลี่ยมชี้ลง) และ fill ที่ปิด position (กากบาท) ล่าง: RSI(14) พร้อม threshold ซื้อที่ 30 / ขายที่ 70*
 
 ![Decision space scatter](./assets/fx_mean_reversion_ax/panel_c_decision_scatter.png)
 
-**Figure 3.** *Per-bar BB z-score against RSI for the whole month. Shaded
-regions mark the entry-eligible quadrants: lower-left (long) and upper-right
-(short). The diagonal lobe is the natural co-movement of band-relative price
-and RSI.*
+**รูปที่ 3** *BB z-score ราย bar เทียบกับ RSI ตลอดทั้งเดือน บริเวณที่แรเงาคือ quadrant ที่เข้า position ได้:
+ล่างซ้าย (long) และบนขวา (short) กลุ่มจุดแนวทแยงคือการเคลื่อนไหวไปด้วยกันตามธรรมชาติของราคาเทียบกับ band
+และ RSI*
 
 ![Cumulative realized pnl per closed position](./assets/fx_mean_reversion_ax/panel_d_pnl.png)
 
-**Figure 4.** *Cumulative realized USD pnl across closed positions. The
-curve declines roughly linearly, dominated by spread and small adverse
-moves on each cycle.*
+**รูปที่ 4** *realized PnL สะสมหน่วย USD ตาม position ที่ปิดแล้ว เส้นกราฟลดลงแบบเกือบเป็นเส้นตรง โดยมีสาเหตุหลัก
+จาก spread และการเคลื่อนไหวที่ไม่เป็นใจเล็กน้อยในแต่ละรอบ*
 
-### Regenerate the panels
+## ขั้นตอนถัดไป {#next-steps}
 
-A self-contained renderer runs the backtest again and calculates BB and RSI on the captured bars. It writes
-PNG panels with the shared `nautilus_dark` tearsheet theme.
+- **Regime filter**: drawdown กระจุกตัวใน session ที่มีแนวโน้ม ให้ระงับการเข้า position เมื่อ realized range
+  หรือ trend filter ที่ช้ากว่าบ่งชี้ว่าตลาดมีทิศทาง
+- **Threshold**: band ที่กว้างขึ้น (`bb_std=2.5`) หรือเกณฑ์ RSI ที่เข้มขึ้น (`25` / `75`) จะลดการเข้า position
+  และต้องการการยืนยันที่แรงขึ้น
+- **Stop**: order แบบ hard stop-loss จำกัด downside ในแต่ละรอบ และป้องกันไม่ให้ strategy ถือ position ที่ขาดทุน
+  ไว้จนกว่าราคาจะกลับไปที่เส้นกลางของ BB
+- **AX sandbox**: เชื่อมต่อกับ AX sandbox เพื่อทำ paper trading เมื่อ backtest ทำงานได้ตามต้องการแล้ว ดูการตั้งค่า
+  ได้ที่ [คู่มือ integration ของ AX Exchange](../integrations/architect_ax.md)
 
-After building NautilusTrader from source, run these commands from the repository root:
+## การรันแบบ live {#running-live}
 
-```bash
-make sync
-TRUEFX_CSV=test_data/local/truefx/EURUSD-2025-12.csv \
-    uv run --project python --no-sync \
-        python docs/tutorials/assets/fx_mean_reversion_ax/render_panels.py
-```
+strategy เดียวกันสามารถรันแบบ live กับ AX Exchange ได้ โดยใช้ `LiveNode` พร้อม data client และ execution client
+ของ AX แทน `BacktestEngine` ตัวอย่าง live ในต้นฉบับเชื่อมต่อกับ AX sandbox (`AxEnvironment.SANDBOX` ใน config
+ของ client ทั้งสอง) และส่ง order จริงใน sandbox และยังตั้ง `LiveRiskEngineConfig(bypass=True)` ซึ่งข้าม
+pre-trade risk check และ order rate limit ดูการรัน live ด้วย Rust ได้ที่
+[รัน live trading (Rust)](../how_to/run_rust_live_trading.md)
 
-Set `TRUEFX_CSV` to the path of your EUR/USD archive.
+ดูการตั้งค่าการเชื่อมต่อและ API key ได้ที่ [คู่มือ integration ของ AX Exchange](../integrations/architect_ax.md)
 
-## Next steps
+## อ่านเพิ่มเติม {#further-reading}
 
-- **Regime filter**: The drawdown concentrates in trending sessions.
-  Suppress entries when realized range or a slower trend filter indicates a directional market.
-- **Thresholds**: A wider band (`bb_std=2.5`) or stricter RSI cutoffs (`25` / `75`) reduce entries
-  and require stronger confirmation.
-- **Stops**: Hard stop-loss orders cap downside per cycle.
-  They prevent the strategy from holding a losing position until the price returns to the BB middle.
-- **AX sandbox**: Connect to the AX sandbox for paper
-  trading once the backtest behaves. See the
-  [AX Exchange integration guide](../integrations/architect_ax.md) for
-  setup.
-
-## Running live
-
-The same `BBMeanReversion` strategy runs live against AX Exchange. The launch script uses a `LiveNode` with AX
-data and execution clients in place of the `BacktestEngine`. See the live example:
-[`ax_mean_reversion.py`](https://github.com/nautechsystems/nautilus_trader/tree/develop/examples/live/architect_ax/ax_mean_reversion.py).
-The script targets the AX sandbox (`AxEnvironment.SANDBOX` on both client configs) and places live sandbox
-orders. It also sets `LiveRiskEngineConfig(bypass=True)`, which skips pre-trade risk checks and order rate
-limits.
-
-For connection setup and API key configuration, see the
-[AX Exchange integration guide](../integrations/architect_ax.md).
-
-## Further reading
-
-- [`BBMeanReversion` strategy source](https://github.com/nautechsystems/nautilus_trader/blob/develop/examples/live/architect_ax/strategies.py)
-- [Gold perpetual book imbalance tutorial](gold_book_imbalance_ax.md)
-- [Architect Exchange documentation](https://docs.architect.exchange/)
+- [Tutorial book imbalance ของ gold perpetual](gold_book_imbalance_ax.md)
+- [เอกสารของ Architect Exchange](https://docs.architect.exchange/)

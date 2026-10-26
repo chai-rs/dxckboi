@@ -1,126 +1,63 @@
 # Behavioral Models
 
-This page describes the pluggable models that change or extend NautilusTrader behavior.
+หน้านี้อธิบาย model แบบ pluggable ที่ใช้เปลี่ยนหรือขยายพฤติกรรมของ NautilusTrader
 
-A **behavioral model** supplies the rules for a specific calculation or decision made by the system.
-For example, a fill model determines simulated fill eligibility and liquidity, while a fee model
-calculates the commission on a fill. The engine calls the configured model through a defined
-interface, so users can change these rules without modifying the engine or their strategy.
+**behavioral model** คือส่วนที่กำหนดกฎสำหรับการคำนวณหรือการตัดสินใจเฉพาะอย่างหนึ่งของระบบ
+เช่น fill model กำหนดว่า order ใดมีสิทธิ์ถูก fill แบบจำลองและมี liquidity เท่าใด ส่วน fee model คำนวณค่า
+commission ของแต่ละ fill engine จะเรียก model ที่ตั้งค่าไว้ผ่าน interface ที่นิยามไว้ ผู้ใช้จึงเปลี่ยนกฎเหล่านี้ได้
+โดยไม่ต้องแก้ engine หรือ strategy ของตัวเอง
 
-Models are supplied as objects in configuration or through runtime APIs. Users can select a built-in
-implementation, configure its parameters, or supply a custom implementation where the model family and API
-support it. Here, pluggable means that users replace behavior through these interfaces.
-[runtime loading of native libraries](#native-extension-boundary) is a separate capability.
+model ถูกส่งเข้ามาเป็น object ใน config หรือผ่าน runtime API ผู้ใช้เลือก implementation ที่มีมาให้ในตัว
+ปรับพารามิเตอร์ หรือส่ง implementation ของตัวเองได้ในกรณีที่ model family และ API นั้นรองรับ คำว่า pluggable
+ในที่นี้หมายถึงการแทนที่พฤติกรรมผ่าน interface เหล่านี้
+[การโหลด native library ตอน runtime](#native-extension-boundary) เป็นความสามารถอีกเรื่องหนึ่งแยกต่างหาก
 
-## Model families
+## Model family {#model-families}
 
-| Family  | Controls                                                                             | Built-in examples                                             |
-| ------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
-| Fill    | Simulated limit-fill eligibility, slippage, and optional synthetic liquidity.        | `DefaultFillModel`, `BestPriceFillModel`, `TwoTierFillModel`. |
-| Fee     | Commission calculated from an order, fill, instrument, and optional pricing context. | `MakerTakerFeeModel`, `FixedFeeModel`, `PerContractFeeModel`. |
-| Margin  | Initial order margin and maintenance position margin.                                | `StandardMarginModel`, `LeveragedMarginModel`.                |
-| Latency | Simulated delays for order submission, modification, and cancellation.               | `StaticLatencyModel`.                                         |
+| Family  | ควบคุมอะไร                                                                                | ตัวอย่างที่มีในตัว                                                |
+| ------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Fill    | สิทธิ์การ fill ของ limit order แบบจำลอง, slippage และ liquidity สังเคราะห์ (ถ้าเปิดใช้)        | `DefaultFillModel`, `BestPriceFillModel`, `TwoTierFillModel`. |
+| Fee     | commission ที่คำนวณจาก order, fill, instrument และ pricing context (ถ้ามี)                 | `MakerTakerFeeModel`, `FixedFeeModel`, `PerContractFeeModel`. |
+| Margin  | initial margin ของ order และ maintenance margin ของ position                             | `StandardMarginModel`, `LeveragedMarginModel`.                |
+| Latency | delay แบบจำลองของการ submit, modify และ cancel order                                     | `StaticLatencyModel`.                                         |
 
-Fill models range from using the recorded book to supplying synthetic liquidity with tiered,
-partial-fill, size-aware, competition-aware, volume-sensitive, or market-hours behavior. See
-[fill models](backtesting/fill-models.md) for the complete built-in list and the effect of book type
-on fill simulation.
+fill model มีตั้งแต่แบบที่ใช้ book ที่บันทึกไว้ ไปจนถึงแบบที่สร้าง liquidity สังเคราะห์ที่มีพฤติกรรมแบบหลายชั้น (tiered),
+partial fill, คำนึงถึงขนาด, คำนึงถึงการแข่งขัน, อ่อนไหวต่อ volume หรือขึ้นกับเวลาทำการของตลาด ดู
+[fill models](backtesting/fill-models.md) สำหรับรายการที่มีในตัวทั้งหมดและผลของ book type ต่อการจำลอง fill
 
-Fee models also include `ProbabilityPriceFeeModel`, `CappedOptionFeeModel`, and `TieredNotionalOptionFeeModel`
-for probability-priced instruments and option fee schedules.
+fee model ยังมี `ProbabilityPriceFeeModel`, `CappedOptionFeeModel` และ `TieredNotionalOptionFeeModel`
+สำหรับ instrument ที่ตั้งราคาแบบความน่าจะเป็น และตารางค่าธรรมเนียมของ option
 
-The [margin models](backtesting/accounts-and-margin.md#margin-models) select whether instrument margin
-requirements are reduced by account leverage. `StaticLatencyModel` adds a base delay to separately configured
-insert, update, and cancel delays.
+[margin models](backtesting/accounts-and-margin.md#margin-models) เลือกว่าจะลด margin requirement ของ
+instrument ตาม leverage ของ account หรือไม่ `StaticLatencyModel` เพิ่ม base delay เข้ากับ delay ของ insert,
+update และ cancel ที่ตั้งค่าแยกกัน
 
-Fill and latency models control simulated execution. They do not determine whether or when a live venue fills
-an order. Model behavior applies at the engine or account boundary that consumes it. Changing a model does not
-replace order-state validation, execution routing, or the rest of the runtime.
+fill model และ latency model ควบคุมเฉพาะ execution แบบจำลอง ไม่ได้กำหนดว่า venue จริงใน live จะ fill order
+หรือไม่และเมื่อใด พฤติกรรมของ model มีผลที่ขอบเขตของ engine หรือ account ที่ใช้ model นั้น การเปลี่ยน model
+ไม่ได้แทนที่การตรวจสอบ state ของ order, การ route execution หรือส่วนอื่นของ runtime
 
-## Simulation modules
+## Simulation modules {#simulation-modules}
 
-[Simulation modules](backtesting/simulation-modules.md) provide a related extension point for
-behavior across the simulated exchange lifecycle. Instead of answering a fill, fee, margin, or
-latency calculation, a module processes exchange state and returns account adjustments. Built-in
-FX rollover and CFD swap modules use this interface. Custom modules can extend simulation behavior
-through the same lifecycle and acknowledgement contract.
+[Simulation modules](backtesting/simulation-modules.md) เป็นจุดขยายที่เกี่ยวข้องกันสำหรับพฤติกรรมตลอด
+lifecycle ของ exchange แบบจำลอง แทนที่จะตอบคำถามการคำนวณ fill, fee, margin หรือ latency module จะประมวลผล
+state ของ exchange แล้วคืนค่า account adjustment module FX rollover และ CFD swap ที่มีในตัวใช้ interface นี้
+module ที่เขียนเองก็ขยายพฤติกรรมการจำลองผ่าน lifecycle และ acknowledgement contract เดียวกันได้
 
-## Supplying implementations
+## การส่ง implementation {#supplying-implementations}
 
-Rust callers can implement the model family's trait and pass the implementation through its runtime
-handle. Python callers can supply built-in or custom models through these APIs. Model parameters follow
-the order `fill_model`, `fee_model`, `margin_model`, and `latency_model`. When available, `modules` follows
-the model group. Use keyword arguments to keep calls independent of parameter order.
+ฝั่ง Rust สามารถ implement trait ของ model family นั้น แล้วส่ง implementation ผ่าน runtime handle ของมัน
+พารามิเตอร์ของ model เรียงลำดับเป็น `fill_model`, `fee_model`, `margin_model` และ `latency_model`
+เมื่อมี `modules` จะตามหลังกลุ่ม model
 
-| Family  | `BacktestVenueConfig`                    | `BacktestEngine.add_venue()`             | `SandboxExecutionClientConfig`           |
-| ------- | ---------------------------------------- | ---------------------------------------- | ---------------------------------------- |
-| Fill    | Built-in models or custom Python models. | Built-in models or custom Python models. | Built-in models or custom Python models. |
-| Fee     | Built-in models or custom Python models. | Built-in models or custom Python models. | Built-in models or custom Python models. |
-| Margin  | Built-in models or custom Python models. | Built-in models or custom Python models. | Built-in models or custom Python models. |
-| Latency | Built-in models or custom Python models. | Built-in models or custom Python models. | Built-in models or custom Python models. |
+### Latency model {#custom-python-latency-models}
 
-Configuration copies share the supplied custom Python model instance. Its random generator, replay state,
-and other state persist across runs and `engine.reset()`. For an independent run, reset that state yourself
-or construct a new engine with a fresh model.
+ค่า delay ที่ latency model คืนให้ต้องรวม base latency ไว้แล้ว เพราะ engine ไม่บวกเพิ่มให้
 
-### Custom Python fill models
+ใน backtest engine จะเรียก model เฉพาะกับ command ที่เข้าคิว venue ที่สร้างจาก `BacktestVenueConfig`
+จะเข้าคิว command เสมอ
 
-Pass a `FillModel` subclass or a compatible Python object as `fill_model` to
-`BacktestVenueConfig`, `BacktestEngine.add_venue()`, `BacktestEngine.change_fill_model(venue, fill_model)`,
-or `SandboxExecutionClientConfig`. See [custom fill models](backtesting/fill-models.md#custom-fill-models)
-for the required methods, optional spread-fill behavior, and liquidity hook.
-
-### Custom Python fee models
-
-Implement `get_commission(order, fill_quantity, fill_px, instrument)` and return a `Money` commission
-for each fill. Subclass `FeeModel` or supply a Python object with this method, then pass the instance as
-`fee_model` to `BacktestVenueConfig`, `BacktestEngine.add_venue()`, or `SandboxExecutionClientConfig`.
-
-When the calculation needs the underlying price, implement `get_commission_with_context`.
-It receives the same arguments and an additional `underlying_px`. The engine supplies an underlying price
-only for `CryptoOption` and `OptionContract` instruments when one is available; otherwise, it passes `None`.
-Without an override, the engine calls `get_commission`.
-
-### Custom Python margin models
-
-Pass a subclass of `nautilus_trader.model.MarginModel` or a compatible Python object as `margin_model`
-to these APIs. See [Python model selection](accounting.md#python-model-selection) for the callback contract.
-
-### Custom Python latency models
-
-Subclass `LatencyModel` and override all three methods. Each method returns an `int` delay in
-`[0, 2**64 - 1]` nanoseconds, including any base latency; the engine adds none. Boolean values are invalid.
-
-```python
-from random import Random
-
-from nautilus_trader.execution import LatencyModel
-
-
-class SampledLatency(LatencyModel):
-    def __init__(self, seed=42):
-        self._rng = Random(seed)
-
-    def get_insert_latency(self, command, ts_now):
-        return self._rng.choice((1_000_000, 2_000_000, 5_000_000))
-
-    def get_update_latency(self, command, ts_now):
-        return self._rng.choice((500_000, 1_000_000))
-
-    def get_delete_latency(self, command, ts_now):
-        return self._rng.choice((250_000, 500_000))
-```
-
-Pass an instance as `latency_model` to `BacktestVenueConfig`, `BacktestEngine.add_venue()`, or
-`SandboxExecutionClientConfig`. Custom objects that do not subclass `LatencyModel` raise `TypeError`.
-An unimplemented callback raises `NotImplementedError` when called and triggers the failure handling below.
-
-In backtests, the engine calls the model only for queued commands. Venues created from `BacktestVenueConfig`
-always queue commands. `BacktestEngine.add_venue()` queues commands by default; with `use_message_queue=False`,
-it processes them immediately without calling the latency model.
-
-Each callback receives the concrete command and `ts_now`, the current clock time in Unix nanoseconds:
-simulation time in backtests and the sandbox client's clock time in sandbox.
+callback แต่ละตัวได้รับ command จริงและ `ts_now` ซึ่งคือเวลาปัจจุบันของ clock เป็น Unix nanoseconds:
+เวลาจำลองใน backtest และเวลาจาก clock ของ sandbox client ใน sandbox
 
 | Method               | Command types                                          |
 | -------------------- | ------------------------------------------------------ |
@@ -128,67 +65,47 @@ simulation time in backtests and the sandbox client's clock time in sandbox.
 | `get_update_latency` | `ModifyOrder`, `BatchModifyOrders`.                    |
 | `get_delete_latency` | `CancelOrder`, `BatchCancelOrders`, `CancelAllOrders`. |
 
-Import command classes from `nautilus_trader.live`. For single-order commands, use
-`command.client_order_id` to look up measured delays. The same methods receive whole batch commands and
-return one delay for all their members. The engine calls the model once per command.
+method เดียวกันนี้รับ batch command ทั้งชุด และคืน delay เดียวสำหรับสมาชิกทั้งหมดในชุด engine เรียก model
+หนึ่งครั้งต่อหนึ่ง command
 
-Backtest arrival time is `command.ts_init + delay`; the engine processes the command at the first eligible
-[settlement point](backtesting/execution-flow.md#latency-delayed-commands) at or after that time.
-Sandbox arrival time is `ts_now + delay`, where `ts_now` is the receipt time.
+เวลาที่ command มาถึงใน backtest คือ `command.ts_init + delay` โดย engine จะประมวลผล command ที่
+[settlement point](backtesting/execution-flow.md#latency-delayed-commands) แรกที่มีสิทธิ์ ณ เวลานั้นหรือหลังจากนั้น
+ส่วนใน sandbox เวลาที่มาถึงคือ `ts_now + delay` โดย `ts_now` คือเวลาที่ได้รับ command
 
-Callback errors, invalid delays, and arrival-time overflow have these effects:
+## โครงสร้างของ model family {#model-family-structure}
 
-- **`BacktestEngine`**: `run()` or `end()` raises `RuntimeError` and aborts the run. Call `engine.reset()`
-  before the next run.
-- **`BacktestNode`**: the node logs the error and omits that run's result by default. With `raise_exception=True`
-  in `BacktestRunConfig`, it raises the error instead.
-- **Sandbox**: the client rejects failed submits and emits modify or cancel rejections for targets that remain
-  open. It logs and discards a failed `CancelAllOrders`.
+behavioral model family ใช้รูปแบบการแทนค่าร่วมกันทั้งใน simulation และ execution:
 
-## Model family structure
+- Rust trait `<Family>Model` นิยาม behavioral contract
+- Rust type ที่เป็น concrete type ใช้ implement model ที่มีในตัว
+- enum `<Family>ModelAny` รวม built-in หลักและ language bridge ที่ต้องเก็บเป็น enum แล้ว implement trait ผ่าน
+  enum dispatch แบบ explicit
+- `<Family>ModelHandle` เก็บ trait object แบบ shared ในจุดที่ runtime component รับ Rust implementation ที่
+  link เข้ามา นอกเหนือจาก variant ของ enum
 
-Behavioral model families use a common representation across simulation and execution:
+model เฉพาะของ adapter อยู่ใน crate ของ adapter นั้น ในกรณีที่การเพิ่ม variant ใน core enum จะทำให้เกิด reverse
+dependency โค้ด Rust ระดับล่างส่ง model เหล่านี้ผ่าน handle ที่ตรงกัน
 
-- A Rust `<Family>Model` trait defines the behavioral contract.
-- Concrete Rust types implement the built-in models.
-- A `<Family>ModelAny` enum lists the core built-ins and any language bridges that require enum
-  storage, then implements the trait through explicit enum dispatch.
-- A `<Family>ModelHandle` stores a shared trait object where runtime components accept linked Rust
-  implementations beyond the enum variants.
+## ขอบเขตของ dispatch {#dispatch-boundary}
 
-Supported concrete built-ins are exposed as PyO3 classes. Their
-[type stub annotations](../developer_guide/rust.md#type-stub-annotations) feed the
-[generated Python artifacts](../developer_guide/rust.md#generated-python-artifacts). Backtest configuration accepts
-these concrete model objects directly rather than using separate model configuration and factory
-wrappers.
-
-Adapter-specific models live in their adapter crate when a core enum variant would create a reverse
-dependency. Low-level Rust code passes these models through the corresponding handle.
-
-Python exposure uses an explicit bridge for the model family. Depending on the storage boundary, this is an
-enum variant or a trait implementation passed through the handle.
-
-## Dispatch boundary
-
-| Form                     | Accepted implementations               | Dispatch     | Role                                          |
+| รูปแบบ                    | implementation ที่รับได้                   | Dispatch     | บทบาท                                          |
 | ------------------------ | -------------------------------------- | ------------ | --------------------------------------------- |
-| Concrete type or generic | One concrete implementation            | Static       | Model internals and specialized callers.      |
-| `<Family>ModelAny`       | Declared built-ins and bridge variants | Enum match   | Built-in and bridge configuration or storage. |
-| `<Family>ModelHandle`    | Any accepted Rust trait implementation | Trait object | Shared runtime storage and custom types.      |
+| Concrete type หรือ generic | concrete implementation ตัวเดียว          | Static       | ส่วนภายในของ model และผู้เรียกที่เฉพาะทาง          |
+| `<Family>ModelAny`       | built-in ที่ประกาศไว้และ bridge variant      | Enum match   | config หรือการจัดเก็บ built-in และ bridge         |
+| `<Family>ModelHandle`    | Rust trait implementation ใดก็ได้ที่รับได้     | Trait object | การจัดเก็บ runtime แบบ shared และ type ที่เขียนเอง |
 
-`<Family>ModelAny` uses enum dispatch. `<Family>ModelHandle` uses dynamic dispatch through a trait object, so
-a built-in converted from the enum into a handle crosses a vtable before its enum match. Built-in-only storage
-stays typed as `<Family>ModelAny` where avoiding trait-object dispatch matters.
+`<Family>ModelAny` ใช้ enum dispatch ส่วน `<Family>ModelHandle` ใช้ dynamic dispatch ผ่าน trait object
+ดังนั้น built-in ที่แปลงจาก enum เป็น handle จะผ่าน vtable ก่อนถึง enum match การจัดเก็บที่มีเฉพาะ built-in จึง
+คง type เป็น `<Family>ModelAny` ไว้ในจุดที่การเลี่ยง trait-object dispatch มีความสำคัญ
 
-The handle has no separate built-in fast path. The handle uses the simpler single representation because no
-measured performance case justifies the additional variant and dispatch complexity.
+handle ไม่มี fast path แยกสำหรับ built-in โดยใช้รูปแบบเดียวที่เรียบง่ายกว่า เพราะยังไม่มีกรณีด้าน performance ที่วัดผล
+แล้วคุ้มค่ากับความซับซ้อนของ variant และ dispatch ที่เพิ่มขึ้น
 
-## Native extension boundary
+## ขอบเขตของ native extension {#native-extension-boundary}
 
-The open-source [plug-in crate](../developer_guide/plugins.md) defines an artifact ABI, but model registration and the
-loading host are not part of this repository. The open-source distribution does not provide runtime
-native model plugins. Native models are composed at compile time and passed through the
-corresponding enum or handle.
+[plug-in crate](../developer_guide/plugins.md) แบบ open-source นิยาม artifact ABI ไว้ แต่การลงทะเบียน model
+และ host ที่ทำหน้าที่โหลดไม่ได้อยู่ใน repository นี้ distribution แบบ open-source ไม่มี native model plugin แบบ
+runtime ให้ใช้ native model จะถูกประกอบเข้าด้วยกันตอน compile และส่งผ่าน enum หรือ handle ที่ตรงกัน
 
-[Simulation modules](backtesting/simulation-modules.md) use these representations at
-backtest configuration and runtime boundaries.
+[Simulation modules](backtesting/simulation-modules.md) ใช้รูปแบบการแทนค่าเหล่านี้ที่ขอบเขตของ backtest
+config และ runtime

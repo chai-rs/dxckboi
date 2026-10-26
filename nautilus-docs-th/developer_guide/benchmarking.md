@@ -1,33 +1,33 @@
 # Benchmarking
 
-Use this guide to write, run, and profile NautilusTrader benchmarks. It contains benchmark layout,
-examples, local commands, and the measurement procedure for published results.
+คู่มือนี้อธิบายการเขียน รัน และ profile benchmark ของ NautilusTrader ครอบคลุมโครงสร้างของ benchmark,
+ตัวอย่าง, คำสั่งที่ใช้ในเครื่อง และขั้นตอนการวัดผลสำหรับผลลัพธ์ที่จะเผยแพร่
 
-For benchmark scope, evidence requirements, and CI policy, see
-[`/BENCHMARKING.md`](../../BENCHMARKING.md) at the repository root.
+สำหรับขอบเขตของ benchmark, หลักฐานที่ต้องมี และนโยบาย CI ดูที่
+[`/BENCHMARKING.md`](../../BENCHMARKING.md) ที่ root ของ repository
 
 ---
 
-## Tooling overview
+## ภาพรวมของเครื่องมือ {#tooling-overview}
 
-Select a tool based on the work and result:
+เลือกเครื่องมือตามงานและผลลัพธ์ที่ต้องการ:
 
-| Tool                                                      | What it measures                          | Use it for                                                |
+| เครื่องมือ                                                  | สิ่งที่วัด                                     | ใช้สำหรับ                                                  |
 | --------------------------------------------------------- | ----------------------------------------- | --------------------------------------------------------- |
-| [Criterion](https://docs.rs/criterion/latest/criterion/)  | Wall-clock time with confidence intervals | Operations above roughly 100 ns and elapsed time          |
-| [iai](https://docs.rs/iai/latest/iai/)                    | Retired CPU instructions under Cachegrind | Small, deterministic operations and change detection      |
-| [CodSpeed](https://codspeed.io/docs/instruments/cpu)      | Simulated CPU cost and cache behavior     | Stable pull request comparisons of deterministic CPU work |
-| [flamegraph](https://github.com/flamegraph-rs/flamegraph) | Sampled call-stack profile                | Locating work inside a representative slow path           |
+| [Criterion](https://docs.rs/criterion/latest/criterion/)  | เวลา wall-clock พร้อม confidence interval   | operation ที่ใช้เวลาเกินราว 100 ns และเวลาที่ใช้จริง          |
+| [iai](https://docs.rs/iai/latest/iai/)                    | จำนวน CPU instruction ที่ถูก retire ภายใต้ Cachegrind | operation ขนาดเล็กที่ deterministic และการตรวจจับการเปลี่ยนแปลง |
+| [CodSpeed](https://codspeed.io/docs/instruments/cpu)      | ต้นทุน CPU และพฤติกรรม cache แบบจำลอง        | การเปรียบเทียบงาน CPU ที่ deterministic ใน pull request อย่างเสถียร |
+| [flamegraph](https://github.com/flamegraph-rs/flamegraph) | profile ของ call stack แบบ sampling        | การหาว่างานอยู่ตรงไหนใน slow path ที่เป็นตัวแทน              |
 
-Criterion reports user-visible elapsed time. iai produces stable counts for the same binary,
-toolchain, and inputs without requiring host noise controls. Compare iai results only under the
-same code generation assumptions, and use Criterion when elapsed time is the required result.
+Criterion รายงานเวลาที่ผู้ใช้มองเห็นได้จริง ส่วน iai ให้ค่าที่เสถียรสำหรับ binary, toolchain และ input เดียวกัน
+โดยไม่ต้องควบคุม noise ของเครื่อง host ให้เปรียบเทียบผลของ iai เฉพาะภายใต้สมมติฐานการ generate code แบบเดียวกัน
+และใช้ Criterion เมื่อผลลัพธ์ที่ต้องการคือเวลาที่ใช้จริง
 
 ---
 
-## Directory layout
+## โครงสร้างไดเรกทอรี {#directory-layout}
 
-Each crate keeps its benchmarks in a local `benches/` folder:
+แต่ละ crate เก็บ benchmark ไว้ในโฟลเดอร์ `benches/` ของตัวเอง:
 
 ```text
 crates/<crate_name>/
@@ -36,8 +36,7 @@ crates/<crate_name>/
     └── foo_iai.rs
 ```
 
-Register each benchmark explicitly in the crate's `Cargo.toml` so
-`cargo bench` discovers it:
+ลงทะเบียน benchmark แต่ละตัวอย่างชัดเจนใน `Cargo.toml` ของ crate เพื่อให้ `cargo bench` ค้นพบได้:
 
 ```toml
 [[bench]]
@@ -51,25 +50,25 @@ path = "benches/foo_iai.rs"
 harness = false
 ```
 
-To use the nightly CI performance workflow, register the benchmark. If `CI_BENCH_CRATES` does not include its
-crate, add the crate in the workspace `Makefile`. Add a deterministic Criterion target to
-`CODSPEED_BENCH_TARGETS` when CPU simulation preserves what the benchmark intends to measure. Do not add iai,
-Criterion's `iter_custom` or `with_filter` APIs, OS-dependent work, or concurrent wall-clock benchmarks to the
-CodSpeed subset.
+หากต้องการใช้ workflow วัดประสิทธิภาพของ CI ที่รันทุกคืน ให้ลงทะเบียน benchmark ไว้ ถ้า `CI_BENCH_CRATES` ยังไม่มี
+crate นั้น ให้เพิ่ม crate ใน `Makefile` ของ workspace เพิ่ม target ของ Criterion ที่ deterministic ลงใน
+`CODSPEED_BENCH_TARGETS` เมื่อการจำลอง CPU ยังคงวัดสิ่งที่ benchmark ตั้งใจจะวัดได้ อย่าเพิ่ม iai, API
+`iter_custom` หรือ `with_filter` ของ Criterion, งานที่ขึ้นกับ OS หรือ benchmark แบบ wall-clock ที่ทำงานพร้อมกัน
+ลงในชุดของ CodSpeed
 
 ---
 
-## Writing Criterion benchmarks
+## การเขียน benchmark ด้วย Criterion {#writing-criterion-benchmarks}
 
-- **Setup**: Put all work that stays the same between iterations in the surrounding code or
-  `iter_batched_ref`'s setup closure, outside the body passed to `iter`.
-- **Inputs**: Wrap inputs in `black_box` so the optimizer cannot fold them away.
-- **Mutating benchmarks**: Use `iter_batched_ref` to exclude input `Drop` from the timed region.
-  Otherwise, dropping large owned structures dominates the measurement.
-- **Throughput**: Add `Throughput::Elements(n)` to size-parameterized groups so Criterion reports
-  per-element throughput.
-- **Intent**: Comment on what the benchmark measures (the hot path, worst case, or cache-cold case)
-  so readers understand what a regression would mean.
+- **Setup**: วางงานทั้งหมดที่ไม่เปลี่ยนระหว่างแต่ละรอบไว้ในโค้ดรอบนอก หรือใน setup closure ของ
+  `iter_batched_ref` ให้อยู่นอก body ที่ส่งให้ `iter`
+- **Input**: ห่อ input ด้วย `black_box` เพื่อไม่ให้ optimizer ตัดทิ้งไป
+- **Benchmark ที่แก้ไขข้อมูล**: ใช้ `iter_batched_ref` เพื่อไม่ให้การ `Drop` ของ input อยู่ในช่วงที่จับเวลา
+  มิฉะนั้นการ drop โครงสร้างขนาดใหญ่ที่เป็นเจ้าของจะครอบงำผลการวัด
+- **Throughput**: เพิ่ม `Throughput::Elements(n)` ให้กับกลุ่มที่กำหนดพารามิเตอร์ตามขนาด เพื่อให้ Criterion
+  รายงาน throughput ต่อ element
+- **เจตนา**: เขียน comment ว่า benchmark วัดอะไร (hot path, worst case หรือกรณี cache-cold)
+  เพื่อให้ผู้อ่านเข้าใจว่า regression มีความหมายอย่างไร
 
 ```rust
 use std::hint::black_box;
@@ -101,10 +100,10 @@ criterion_main!(benches);
 
 ---
 
-## Writing iai benchmarks
+## การเขียน benchmark ด้วย iai {#writing-iai-benchmarks}
 
-`iai` requires functions that take no parameters. Use it for small, pure operations so the measured
-instruction count stays focused on the intended work.
+`iai` ต้องการฟังก์ชันที่ไม่รับพารามิเตอร์ ใช้กับ operation ขนาดเล็กที่เป็น pure เพื่อให้จำนวน instruction
+ที่วัดได้เน้นเฉพาะงานที่ตั้งใจวัด
 
 ```rust
 use std::hint::black_box;
@@ -118,94 +117,88 @@ fn bench_add() -> i64 {
 iai::main!(bench_add);
 ```
 
-Allocations, randomness, and system calls add their own instructions to the result. Keep variable
-setup outside the measured function and compare counts produced by the same toolchain and target.
+การจองหน่วยความจำ, การสุ่ม และ system call จะเพิ่ม instruction ของตัวเองเข้าไปในผลลัพธ์ ให้วางการ setup
+ตัวแปรไว้นอกฟังก์ชันที่วัด และเปรียบเทียบเฉพาะค่าที่ได้จาก toolchain และ target เดียวกัน
 
 ---
 
-## Running benches locally
+## การรัน benchmark ในเครื่อง {#running-benches-locally}
 
-| Goal                               | Command                                                               |
+| เป้าหมาย                              | คำสั่ง                                                                 |
 | ---------------------------------- | --------------------------------------------------------------------- |
-| All benches in one crate           | `cargo bench -p nautilus-execution`                                   |
-| One core bench module              | `cargo bench -p nautilus-execution --bench matching`                  |
-| One engine bench module            | `cargo bench -p nautilus-execution --bench matching_engine`           |
-| One core benchmark name pattern    | `cargo bench -p nautilus-execution --bench matching -- iterate`       |
-| One engine benchmark name pattern  | `cargo bench -p nautilus-execution --bench matching_engine -- submit` |
-| Quick smoke run (low sample count) | `cargo bench ... -- --quick`                                          |
-| All nightly registered benches     | `make cargo-ci-benches`                                               |
-| Build the CodSpeed subset          | `make cargo-codspeed-build`                                           |
-| Check the built CodSpeed subset    | `make cargo-codspeed-run`                                             |
+| ทุก bench ใน crate เดียว              | `cargo bench -p nautilus-execution`                                   |
+| bench module ของ core หนึ่งตัว          | `cargo bench -p nautilus-execution --bench matching`                  |
+| bench module ของ engine หนึ่งตัว        | `cargo bench -p nautilus-execution --bench matching_engine`           |
+| pattern ชื่อ benchmark ของ core หนึ่งแบบ | `cargo bench -p nautilus-execution --bench matching -- iterate`       |
+| pattern ชื่อ benchmark ของ engine หนึ่งแบบ | `cargo bench -p nautilus-execution --bench matching_engine -- submit` |
+| smoke run แบบเร็ว (sample น้อย)         | `cargo bench ... -- --quick`                                          |
+| ทุก bench ที่ลงทะเบียนไว้สำหรับรอบกลางคืน   | `make cargo-ci-benches`                                               |
+| build ชุดของ CodSpeed                 | `make cargo-codspeed-build`                                           |
+| ตรวจสอบชุดของ CodSpeed ที่ build แล้ว    | `make cargo-codspeed-run`                                             |
 
-Criterion writes HTML reports to `target/criterion/`. Open
-`target/criterion/report/index.html`. The report includes per-bench violin
-plots, confidence intervals, and comparisons against the previous run's
-saved baseline.
+Criterion เขียนรายงาน HTML ไว้ที่ `target/criterion/` เปิดดูได้ที่ `target/criterion/report/index.html`
+รายงานมี violin plot ของแต่ละ bench, confidence interval และการเปรียบเทียบกับ baseline ที่บันทึกไว้จากการรันครั้งก่อน
 
-`make install-tools` installs the pinned `cargo-codspeed` version. A local CodSpeed run checks that
-the selected benchmark targets build and register, but it does not upload measurements. The
-`codspeed-benchmarks` job in `.github/workflows/performance.yml` measures and uploads the results.
+`make install-tools` ติดตั้ง `cargo-codspeed` ตามเวอร์ชันที่ pin ไว้ การรัน CodSpeed ในเครื่องจะตรวจสอบว่า
+benchmark target ที่เลือกไว้ build และลงทะเบียนได้ แต่จะไม่อัปโหลดผลการวัด job `codspeed-benchmarks` ใน
+`.github/workflows/performance.yml` เป็นผู้วัดและอัปโหลดผลลัพธ์
 
-### Canonical backtest workloads
+### Workload มาตรฐานของ backtest {#canonical-backtest-workloads}
 
-The canonical backtest cases use the first 10,000 rows of the checked-in
-`test_data/btc-perp-20211231-20220201_1m.csv` file. A shared fixture drives replay-only, scheduled
-market-order, passive limit-order, and bar-EMA scenarios. The correctness test and both timed paths
-use the same fixture loader and exact result fingerprints.
+กรณี backtest มาตรฐานใช้ 10,000 แถวแรกของไฟล์ `test_data/btc-perp-20211231-20220201_1m.csv` ที่ check-in
+ไว้ใน repository โดยมี fixture ร่วมที่ขับเคลื่อนสถานการณ์แบบ replay อย่างเดียว, market order ตามตารางเวลา,
+limit order แบบ passive และ bar-EMA ทั้ง test ความถูกต้องและเส้นทางการจับเวลาทั้งสองแบบใช้ fixture loader
+และ fingerprint ของผลลัพธ์ชุดเดียวกันทุกประการ
 
-Run the semantic check first:
+รันการตรวจสอบเชิงความหมายก่อน:
 
 ```bash
 CARGO_BUILD_JOBS=16 cargo test --locked -p nautilus-backtest \
     --test integration canonical_backtest_workloads::
 ```
 
-Then run Criterion in test mode to confirm that every affected benchmark case executes without
-collecting samples:
+จากนั้นรัน Criterion ในโหมด test เพื่อยืนยันว่าทุกกรณีของ benchmark ที่ได้รับผลกระทบทำงานได้ โดยไม่เก็บ sample:
 
 ```bash
 CARGO_BUILD_JOBS=16 cargo bench --locked -p nautilus-backtest \
     --bench engine -- canonical --test
 ```
 
-The `run_preloaded` cases load the CSV and build the engine outside the returned `iter_custom`
-duration. The `load_build_run` cases include CSV loading, engine setup, data registration, and
-`BacktestEngine::run`. Both exclude result projection and fingerprint verification from the
-reported duration, while still checking the result after every measured iteration.
+กรณี `run_preloaded` จะโหลด CSV และ build engine นอกช่วงเวลาที่ `iter_custom` คืนค่า ส่วนกรณี
+`load_build_run` รวมการโหลด CSV, การ setup engine, การลงทะเบียนข้อมูล และ `BacktestEngine::run`
+ทั้งสองแบบไม่นับการ project ผลลัพธ์และการตรวจสอบ fingerprint ไว้ในเวลาที่รายงาน แต่ยังคงตรวจสอบผลลัพธ์
+หลังทุกรอบที่วัด
 
-See [`crates/backtest/benches/BENCHMARKS.md`](../../crates/backtest/benches/BENCHMARKS.md) for the
-published baseline, measurement record, and current profile target.
+ดู baseline ที่เผยแพร่, บันทึกการวัด และ profile target ปัจจุบันได้ที่
+[`crates/backtest/benches/BENCHMARKS.md`](../../crates/backtest/benches/BENCHMARKS.md)
 
-The [v2 migration guide](../../MIGRATION_V2.md#compare-backtest-performance) contains the
-cross-version backtest comparison procedure.
+[คู่มือการย้ายไป v2](../../MIGRATION_V2.md#compare-backtest-performance) มีขั้นตอนการเปรียบเทียบประสิทธิภาพ
+backtest ข้ามเวอร์ชัน
 
 ---
 
-## Measure Criterion for publication
+## การวัดผลด้วย Criterion เพื่อเผยแพร่ {#measure-criterion-for-publication}
 
-Use the `bench-lto` profile for Criterion results that will be reported or published. The profile
-inherits from `release`, preserves full debug symbols, enables fat LTO, and uses one code generation
-unit. The default `bench` profile keeps full debug symbols without LTO and is better suited to local
-iteration.
+ใช้ profile `bench-lto` สำหรับผลของ Criterion ที่จะรายงานหรือเผยแพร่ profile นี้สืบทอดจาก `release`,
+เก็บ debug symbol ไว้ครบ, เปิด fat LTO และใช้ code generation unit เดียว ส่วน profile `bench` ปกติจะเก็บ
+debug symbol ครบแต่ไม่มี LTO และเหมาะกับการทำงานวนรอบในเครื่องมากกว่า
 
-1. Quiesce the machine. On Linux, set the CPU governor to `performance` when you administer the
-   host and can restore its prior state:
+1. ทำให้เครื่องเงียบที่สุด บน Linux ให้ตั้ง CPU governor เป็น `performance` หากคุณดูแลเครื่อง host นั้นเอง
+   และสามารถคืนค่าเดิมได้:
 
    ```bash
    sudo cpupower frequency-set -g performance
    ```
 
-1. On Linux, disable ASLR for the benchmark process and run the selected benchmark with
-   `bench-lto`:
+1. บน Linux ให้ปิด ASLR สำหรับ process ของ benchmark และรัน benchmark ที่เลือกด้วย `bench-lto`:
 
    ```bash
    setarch "$(uname -m)" -R cargo bench --profile bench-lto -p <crate> --bench <name>
    ```
 
-1. Run multiple full sessions and report whether each case uses its best or median result.
+1. รันแบบเต็มหลาย session และระบุว่าแต่ละกรณีใช้ผลที่ดีที่สุดหรือค่ามัธยฐาน
 
-1. Record the CPU model, kernel or operating system, Rust toolchain, and build profile with the
-   results:
+1. บันทึกรุ่น CPU, kernel หรือระบบปฏิบัติการ, Rust toolchain และ build profile ไว้พร้อมกับผลลัพธ์:
 
    ```text
    Hardware: <CPU model>, <kernel or operating system>
@@ -213,82 +206,77 @@ iteration.
    Profile: bench-lto (release + lto = "fat" + codegen-units = 1, debug = full)
    ```
 
-For deeper analysis, control hyper-threading and dynamic frequency scaling in firmware. Published
-results must record those controls when they differ from the normal host state.
+สำหรับการวิเคราะห์เชิงลึก ให้ควบคุม hyper-threading และการปรับความถี่แบบไดนามิกใน firmware ผลลัพธ์ที่เผยแพร่
+ต้องบันทึกการควบคุมเหล่านี้ไว้ เมื่อต่างจากสถานะปกติของเครื่อง host
 
-iai runs under Cachegrind's virtual CPU model, so host quiescence, frequency scaling, and ASLR do
-not affect its instruction counts. Run iai without the Criterion noise controls.
+iai ทำงานภายใต้โมเดล CPU เสมือนของ Cachegrind ดังนั้นความเงียบของ host, การปรับความถี่ และ ASLR
+จึงไม่มีผลต่อจำนวน instruction ให้รัน iai โดยไม่ต้องใช้การควบคุม noise แบบที่ใช้กับ Criterion
 
 ---
 
-## Generating a flamegraph
+## การสร้าง flamegraph {#generating-a-flamegraph}
 
-`cargo-flamegraph` produces a sampled call-stack profile for one bench. Use it
-when a benchmark regresses and the responsible inner call is unclear.
+`cargo-flamegraph` สร้าง profile ของ call stack แบบ sampling สำหรับ bench หนึ่งตัว ใช้เมื่อ benchmark
+เกิด regression และยังไม่ชัดว่าการเรียกภายในตัวไหนเป็นต้นเหตุ
 
-1. Install once per machine:
+1. ติดตั้งครั้งเดียวต่อเครื่อง:
 
    ```bash
    cargo install flamegraph
    ```
 
-2. Run a specific bench with the `bench` profile:
+2. รัน bench ที่ต้องการด้วย profile `bench`:
 
    ```bash
    cargo flamegraph --bench matching -p nautilus-common --profile bench
    ```
 
-3. Open `flamegraph.svg` in a browser and zoom into hot paths.
+3. เปิด `flamegraph.svg` ในเบราว์เซอร์แล้วซูมเข้าไปดู hot path
 
-### Linux
+### Linux {#linux}
 
-`perf` must be available. On Debian/Ubuntu:
+ต้องมี `perf` บน Debian/Ubuntu:
 
 ```bash
 sudo apt install linux-tools-common linux-tools-$(uname -r)
 ```
 
-If `perf_event_paranoid` blocks the run:
+หาก `perf_event_paranoid` บล็อกการรัน:
 
 ```bash
 sudo sh -c 'echo 1 > /proc/sys/kernel/perf_event_paranoid'
 ```
 
-A value of `1` is usually enough. Set it back to `2` (default) afterwards
-or persist via `/etc/sysctl.conf`.
+ค่า `1` มักจะเพียงพอ ตั้งกลับเป็น `2` (ค่าเริ่มต้น) หลังใช้งานเสร็จ หรือกำหนดให้ถาวรผ่าน `/etc/sysctl.conf`
 
-### macOS
+### macOS {#macos}
 
-`DTrace` requires root, so `cargo flamegraph` must be run with `sudo`.
+`DTrace` ต้องใช้สิทธิ์ root ดังนั้นต้องรัน `cargo flamegraph` ด้วย `sudo`
 
 :::warning
-Running with `sudo` creates files in `target/` owned by root, causing
-permission errors with subsequent `cargo` commands. You may need to remove
-root-owned files manually or run `sudo cargo clean`.
+การรันด้วย `sudo` จะสร้างไฟล์ใน `target/` ที่มีเจ้าของเป็น root ทำให้คำสั่ง `cargo` ครั้งถัดไปเกิด
+permission error คุณอาจต้องลบไฟล์ที่เป็นของ root ด้วยตนเอง หรือรัน `sudo cargo clean`
 :::
 
 ```bash
 sudo cargo flamegraph --bench matching -p nautilus-common --profile bench
 ```
 
-The `bench` profile keeps full debug symbols, so flamegraphs render with
-readable function names without bloating production binaries (which still
-use `panic = "abort"` and are built via `[profile.release]`).
+profile `bench` เก็บ debug symbol ไว้ครบ flamegraph จึงแสดงชื่อฟังก์ชันที่อ่านได้ โดยไม่ทำให้ binary สำหรับ
+production บวม (binary เหล่านั้นยังคงใช้ `panic = "abort"` และ build ผ่าน `[profile.release]`)
 
-> **Note** Benchmark binaries are compiled with the custom `[profile.bench]`
-> defined in the workspace `Cargo.toml`. That profile inherits from
-> `release` and sets `debug = "full"`, preserving full optimization *and*
-> debug symbols so tools like `cargo flamegraph` or `perf` produce
-> human-readable stack traces.
+> **หมายเหตุ** binary ของ benchmark คอมไพล์ด้วย `[profile.bench]` แบบกำหนดเองที่นิยามไว้ใน `Cargo.toml`
+> ของ workspace profile นี้สืบทอดจาก `release` และตั้ง `debug = "full"` จึงคงทั้ง optimization เต็มรูปแบบ
+> *และ* debug symbol ไว้ ทำให้เครื่องมืออย่าง `cargo flamegraph` หรือ `perf` แสดง stack trace ที่คนอ่านได้
 
 ---
 
-## Templates
+## Template {#templates}
 
-Starter files live in [`docs/dev_templates/`](../dev_templates/):
+ไฟล์ตั้งต้นอยู่ใน [`docs/dev_templates/`](../dev_templates/):
 
 - **Criterion**: [`criterion_template.rs`](../dev_templates/criterion_template.rs)
 - **iai**: [`iai_template.rs`](../dev_templates/iai_template.rs)
 
-Copy the template into the target crate's `benches/`, adjust imports and
-group names, register in `Cargo.toml`, and start measuring.
+คัดลอก template ไปไว้ใน `benches/` ของ crate เป้าหมาย ปรับ import และชื่อกลุ่ม ลงทะเบียนใน `Cargo.toml`
+แล้วเริ่มวัดผลได้เลย

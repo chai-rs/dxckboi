@@ -1,284 +1,152 @@
-# Backtest APIs and Repeated Runs
+# Backtest API และการรันซ้ำ
 
-NautilusTrader provides a **low-level** `BacktestEngine` API for direct control and a **high-level**
-`BacktestNode` API for catalog-backed, configurable runs.
+NautilusTrader มี API ระดับ **low-level** คือ `BacktestEngine` สำหรับควบคุมโดยตรง และ API ระดับ **high-level**
+คือ `BacktestNode` สำหรับการรันที่อิง catalog และกำหนดค่าผ่าน config ได้
 
-## Choosing an API level
+## การเลือกระดับ API {#choosing-an-api-level}
 
-Use the low-level API when:
+ใช้ low-level API เมื่อ:
 
-- The data fits in memory or you will stream batches manually.
-- You want to load data from formats other than a Nautilus Parquet catalog.
-- You need direct control over venues, instruments, actors, strategies, or execution algorithms.
-- You want to rerun the same loaded data with selected components changed.
+- ข้อมูลใส่ใน memory ได้พอ หรือคุณจะ stream เป็น batch เอง
+- ต้องการโหลดข้อมูลจาก format อื่นที่ไม่ใช่ Parquet catalog ของ Nautilus
+- ต้องการควบคุม venue, instrument, actor, strategy หรือ execution algorithm โดยตรง
+- ต้องการรันข้อมูลชุดเดิมที่โหลดไว้ซ้ำ โดยเปลี่ยนเฉพาะบาง component
 
-Use the high-level API when:
+ใช้ high-level API เมื่อ:
 
-- The data lives in a `ParquetDataCatalog`.
-- The data requires automatic chunked loading.
-- You want one configuration object to describe and identify a catalog-backed run.
-- You want each independent run to use a fresh engine.
+- ข้อมูลอยู่ใน `ParquetDataCatalog`
+- ข้อมูลต้องโหลดเป็น chunk โดยอัตโนมัติ
+- ต้องการให้ config object เดียวอธิบายและระบุตัวตนของการรันที่อิง catalog
+- ต้องการให้การรันที่เป็นอิสระต่อกันแต่ละครั้งใช้ engine ใหม่
 
-## Low-level API
+## Low-level API {#low-level-api}
 
-The low-level API centers on `BacktestEngine`. Create the engine with a
-`BacktestEngineConfig`, then add venues, instruments, components, and data before calling `run()`:
+Low-level API มี `BacktestEngine` เป็นศูนย์กลาง สร้าง engine ด้วย `BacktestEngineConfig` แล้วเพิ่ม venue,
+instrument, component และข้อมูล (`add_venue`, `add_instrument`, `add_strategy`, `add_data`) ก่อนเรียก `run()`
 
-```python
-from nautilus_trader.backtest import BacktestEngine
-from nautilus_trader.config import BacktestEngineConfig
-
-engine = BacktestEngine(BacktestEngineConfig())
-engine.add_venue(...)
-engine.add_instrument(instrument)
-engine.add_strategy(strategy)
-engine.add_data(data)
-engine.run()
-```
-
-Each instrument ID is registered once. Adding the same definition again is a no-op that keeps the
-existing matching engine, so resting orders, book state, and generated IDs are preserved. Adding a
-different definition for a registered ID raises an error and leaves the engine unchanged. The
-comparison ignores `ts_event` and `ts_init`.
-
-### Loading data
-
-Each `add_data()` call copies its input into an independent stream. The engine orders each stream
-by replay timestamp and merges all streams chronologically during the run. Adding one batch per
-instrument does not repeatedly sort a cumulative list:
-
-```python
-engine.add_data(instrument1_bars)
-engine.add_data(instrument2_bars)
-engine.add_data(instrument3_bars)
-engine.run()
-```
-
-**Run readiness**: Keep the default `sort=True` unless a batching workflow deliberately manages
-readiness. A call with `sort=False` marks the engine as not ready to run. Call `sort_data()` before
-`run()` unless a later `add_data(..., sort=True)` call has restored readiness:
-
-```python
-engine.add_data(instrument1_bars, sort=False)
-engine.add_data(instrument2_bars, sort=False)
-engine.sort_data()
-engine.run()
-```
-
-`sort_data()` marks the independently ordered streams as ready for replay. It is safe to call more
-than once.
-
-**Input ownership**: Clearing or modifying the original Python list after `add_data()` does not
-change the loaded stream.
-
-### Streaming batches manually
-
-Use **streaming mode** when the complete dataset does not fit in memory:
-
-```python
-engine.add_strategy(strategy)
-
-for batch in data_batches:
-    engine.add_data(batch)
-    engine.run(streaming=True)
-    engine.clear_data()
-
-engine.end()
-```
-
-`run(streaming=True)` pauses when the current data is exhausted. It does not finalize the trader or advance
-timers beyond that batch. Call `end()` after the final batch. This flushes timers to the last run boundary,
-invokes stop handlers, and produces the final result.
-
-The low-level API does not expose a generator-based `add_data_iterator()` method. `BacktestNode` provides
-automatic catalog chunking. Direct engine users stream with the loop above.
-
-## High-level API
-
-The high-level API centers on `BacktestNode`. Each `BacktestRunConfig` contains:
-
-- One or more `BacktestVenueConfig` objects.
-- One or more `BacktestDataConfig` objects.
-- An optional `BacktestEngineConfig`.
-- Optional chunk size, time bounds, exception handling, and disposal settings.
-
-Build the node before adding strategies through its run-specific methods:
-
-```python
-from decimal import Decimal
-
-from nautilus_trader.config import BacktestDataConfig
-from nautilus_trader.config import BacktestEngineConfig
-from nautilus_trader.backtest import BacktestNode
-from nautilus_trader.config import BacktestRunConfig
-from nautilus_trader.config import BacktestVenueConfig
-from nautilus_trader.execution import MakerTakerFeeModel
-from nautilus_trader.model import AccountType
-from nautilus_trader.model import BookType
-from nautilus_trader.model import NautilusDataType
-from nautilus_trader.model import OmsType
-
-venue = BacktestVenueConfig(
-    name="SIM",
-    oms_type=OmsType.HEDGING,
-    account_type=AccountType.MARGIN,
-    book_type=BookType.L1_MBP,
-    starting_balances=["1_000_000 USD"],
-    fee_model=MakerTakerFeeModel(
-        maker_rate=Decimal("0"),
-        taker_rate=Decimal("0"),
-    ),
-)
-data = BacktestDataConfig(
-    data_type=NautilusDataType.QuoteTick,
-    catalog_path="/data/catalog",
-    instrument_id=instrument_id,
-)
-config = BacktestRunConfig(
-    venues=[venue],
-    data=[data],
-    engine=BacktestEngineConfig(),
-    chunk_size=100_000,
-)
-
-node = BacktestNode([config])
-node.build()
-node.add_strategy_from_config(config.id, strategy_config)
-results = node.run()
-```
-
-Fees belong to the venue configuration, not to instruments. Each venue needs an explicit `fee_model`,
-including an explicit zero-rate model for a frictionless baseline. Two accounts can trade the same instrument
-under different schedules without changing the instrument definition.
-
-Set `chunk_size` to a value in `[1, 1_000_000]` to enable streaming. Leave it as `None` to load all
-data at once.
-
-`BacktestNode` also provides methods for adding actors and built-in strategies to a built run.
-
-### Order book delta replay
-
-`BacktestNode` replays `OrderBookDelta` catalog data as `OrderBookDeltas` batches by default in both
-one-shot and streaming runs. It groups each instrument's deltas in catalog order and closes each
-batch at the `F_LAST` delta, so the batch holds one complete book event.
-
-Each batch takes its flags, sequence, and timestamps from its closing delta and replays at that
-delta's `ts_init`.
-
-Batching changes how the backtest processes book events:
-
-- **Matching**: The matching engine applies a whole event before it matches orders. Thus, an order cannot fill
-  against a book state that exists only partway through an event. Fills can differ from individual delta
-  replay.
-- **Callbacks**: Strategies receive each event in one `on_book_deltas` callback, even when the data
-  engine's `buffer_deltas` is disabled.
-- **Chunk size**: In streaming runs, `chunk_size` counts each batch as one replay item, so a chunk
-  can hold more rows than `chunk_size`.
-
-Each event must end with an `F_LAST` delta. If a query ends with an instrument's deltas still awaiting that
-closing delta, the run fails with an error that names the instrument.
-
-Time bounds and `filter_expr` select individual rows. Choose them to keep events complete: a bound that cuts
-off the start of an event goes undetected.
-
-Set `batch_deltas=False` to replay each delta individually:
-
-```python
-data = BacktestDataConfig(
-    data_type=NautilusDataType.OrderBookDelta,
-    catalog_path="/data/catalog",
-    instrument_id=instrument_id,
-    batch_deltas=False,
-)
-```
-
-## Shutdown on error
-
-Set `BacktestEngineConfig.shutdown_on_error=True` to request a normal shutdown when the Rust logger
-emits an error record:
-
-```python
-from nautilus_trader.config import BacktestEngineConfig
-
-config = BacktestEngineConfig(shutdown_on_error=True)
-```
-
-The backtest loop observes the request, stops the trader and engines, and returns results collected
-up to that point. It does not abort the process.
-
-With `shutdown_on_error=True`:
-
-- Rust logger error records still request shutdown when component filters or `bypass_logging=True`
-  suppress them.
-- Python `logging.error(...)` calls do not request shutdown.
-
-The trigger resets when a new kernel run starts. For final `on_stop` and command-settling behavior,
-see [shutdown semantics](execution-flow.md#shutdown-semantics).
-
-## Repeated runs
-
-`BacktestEngine.reset()` returns trading state and loaded component state to their initial values.
-
-**Cleared state**:
-
-- Orders, positions, and account balances.
-- Component runtime state.
-- Engine counters and timestamps.
-
-**Retained data and registrations**:
-
-- Data added through `add_data()`.
-- Registered instruments and venues, including venue configuration.
-- Registered actors, strategies, and execution algorithms.
-
-Instruments stay loaded because the default backtest cache configuration sets
-`drop_instruments_on_reset=False`.
-
-### Use fresh nodes for independent runs
-
-`BacktestNode` accepts one `BacktestRunConfig`. To run independent configurations, create and
-dispose one node at a time:
-
-```python
-configs = [
-    BacktestRunConfig(...),
-    BacktestRunConfig(...),
-    BacktestRunConfig(...),
-]
-results = []
-
-for config in configs:
-    node = BacktestNode([config])
-    try:
-        results.extend(node.run())
-    finally:
-        node.dispose()
-```
-
-Build each node and register its strategies before `run()` when they are not supplied by a
-controller.
-
-### Reuse loaded data for parameter runs
-
-Use `reset()` when runs should share loaded data and venue setup:
-
-```python
-engine = BacktestEngine(BacktestEngineConfig())
-engine.add_venue(...)
-engine.add_instrument(instrument)
-engine.add_data(data)
-
-engine.add_strategy(strategy1)
-engine.run()
-
-engine.reset()
-engine.run()
-
-engine.reset()
-engine.clear_strategies()
-engine.add_strategy(strategy2)
-engine.run()
-```
-
-Call `clear_strategies()` before replacing a strategy instance. Use `clear_data()` only when the
-next run should load a different dataset.
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก ดูตัวอย่างฝั่ง Rust ได้ที่[การรัน backtest ด้วย Rust](../../how_to/run_rust_backtest.md)
+
+Instrument ID แต่ละตัวลงทะเบียนได้ครั้งเดียว การเพิ่มนิยามเดิมซ้ำจะไม่มีผลอะไร (no-op) และคง matching engine
+เดิมไว้ ดังนั้น resting order, สถานะ book และ ID ที่สร้างไว้จะยังอยู่ แต่การเพิ่มนิยามที่ต่างออกไปให้กับ ID
+ที่ลงทะเบียนแล้วจะเกิด error และ engine จะไม่เปลี่ยนแปลง การเปรียบเทียบนี้ไม่สนใจ `ts_event` และ `ts_init`
+
+### การโหลดข้อมูล {#loading-data}
+
+การเรียก `add_data()` แต่ละครั้งจะคัดลอก input ไปเป็น stream อิสระหนึ่งชุด engine จะเรียงแต่ละ stream ตาม
+replay timestamp แล้ว merge ทุก stream ตามลำดับเวลาระหว่างรัน การเพิ่มข้อมูลทีละ batch ต่อ instrument
+จึงไม่ทำให้ต้อง sort list สะสมซ้ำไปซ้ำมา
+
+**ความพร้อมในการรัน**: ให้คงค่าเริ่มต้น `sort=True` ไว้ เว้นแต่ workflow แบบ batch จะจัดการความพร้อมเองโดยตั้งใจ
+การเรียกด้วย `sort=False` จะทำให้ engine อยู่ในสถานะยังไม่พร้อมรัน ต้องเรียก `sort_data()` ก่อน `run()`
+เว้นแต่จะมีการเรียก `add_data(..., sort=True)` ภายหลังซึ่งคืนสถานะพร้อมให้แล้ว
+
+`sort_data()` จะทำเครื่องหมายว่า stream ที่เรียงลำดับแยกกันเหล่านั้นพร้อมสำหรับ replay และเรียกซ้ำได้อย่างปลอดภัย
+
+**ความเป็นเจ้าของ input**: การล้างหรือแก้ไข collection ต้นฉบับหลังเรียก `add_data()` ไม่ทำให้ stream ที่โหลดแล้วเปลี่ยน
+
+### การ stream batch เอง {#streaming-batches-manually}
+
+ใช้ **streaming mode** เมื่อชุดข้อมูลทั้งหมดใส่ใน memory ไม่พอ: เพิ่ม strategy ก่อน จากนั้นวนลูปแต่ละ batch โดยเรียก
+`add_data(batch)` ตามด้วย `run(streaming=True)` และ `clear_data()` แล้วเรียก `end()` เมื่อจบ
+
+`run(streaming=True)` จะหยุดพักเมื่อข้อมูลปัจจุบันหมด โดยไม่ finalize trader และไม่เลื่อน timer เกิน batch นั้น
+ให้เรียก `end()` หลัง batch สุดท้าย ซึ่งจะ flush timer ไปถึงขอบเขตของการรันครั้งสุดท้าย เรียก stop handler
+และสร้างผลลัพธ์สุดท้าย
+
+Low-level API ไม่มี method `add_data_iterator()` แบบ generator ส่วน `BacktestNode` มีการแบ่ง chunk จาก catalog
+ให้อัตโนมัติ ผู้ที่ใช้ engine โดยตรงให้ stream ด้วยลูปข้างต้น
+
+## High-level API {#high-level-api}
+
+High-level API มี `BacktestNode` เป็นศูนย์กลาง `BacktestRunConfig` แต่ละตัวประกอบด้วย:
+
+- `BacktestVenueConfig` อย่างน้อยหนึ่งตัว
+- `BacktestDataConfig` อย่างน้อยหนึ่งตัว
+- `BacktestEngineConfig` (ไม่บังคับ)
+- ค่าตั้งเพิ่มเติม (ไม่บังคับ) เช่น chunk size, ขอบเขตเวลา, การจัดการ exception และการ dispose
+
+ต้อง build node ก่อน แล้วจึงเพิ่ม strategy ผ่าน method เฉพาะของแต่ละการรัน (เช่น `node.build()` ตามด้วย
+`add_strategy_from_config(config.id, strategy_config)` แล้วจึง `run()`)
+
+Fee เป็นส่วนหนึ่งของ config ของ venue ไม่ใช่ของ instrument venue ทุกตัวต้องมี `fee_model` ที่ระบุชัดเจน
+รวมถึงกรณีต้องการ baseline ที่ไม่มีค่าธรรมเนียมก็ต้องระบุ model แบบ rate เป็นศูนย์อย่างชัดเจน (เช่น
+`MakerTakerFeeModel` ที่ maker/taker rate เป็น 0) สอง account สามารถเทรด instrument เดียวกันภายใต้ตาราง
+ค่าธรรมเนียมต่างกันได้โดยไม่ต้องเปลี่ยนนิยาม instrument
+
+ตั้ง `chunk_size` เป็นค่าในช่วง `[1, 1_000_000]` เพื่อเปิด streaming หรือปล่อยเป็น `None` เพื่อโหลดข้อมูลทั้งหมดในครั้งเดียว
+
+`BacktestNode` ยังมี method สำหรับเพิ่ม actor และ strategy ที่มีมาในตัวเข้าไปในการรันที่ build แล้วด้วย
+
+### การ replay order book delta {#order-book-delta-replay}
+
+โดยค่าเริ่มต้น `BacktestNode` จะ replay ข้อมูล `OrderBookDelta` จาก catalog เป็น batch แบบ `OrderBookDeltas`
+ทั้งการรันแบบครั้งเดียวและแบบ streaming โดยจัดกลุ่ม delta ของแต่ละ instrument ตามลำดับใน catalog และปิด batch
+ที่ delta ที่มี `F_LAST` เพื่อให้ batch หนึ่งเก็บ book event ที่สมบูรณ์หนึ่ง event
+
+แต่ละ batch ใช้ flags, sequence และ timestamp จาก delta ตัวปิด และ replay ที่ `ts_init` ของ delta ตัวนั้น
+
+การทำ batch เปลี่ยนวิธีที่ backtest ประมวลผล book event ดังนี้:
+
+- **Matching**: matching engine จะ apply event ทั้งก้อนก่อนจับคู่ order ดังนั้น order จะไม่ fill กับสถานะ book
+  ที่มีอยู่เพียงระหว่างกลาง event ผลการ fill จึงอาจต่างจากการ replay ทีละ delta
+- **Callback**: strategy จะได้รับแต่ละ event ใน callback `on_book_deltas` ครั้งเดียว แม้ `buffer_deltas`
+  ของ data engine จะปิดอยู่ก็ตาม
+- **Chunk size**: ในการรันแบบ streaming `chunk_size` นับแต่ละ batch เป็น replay item หนึ่งชิ้น ดังนั้น chunk
+  หนึ่งอาจมีจำนวนแถวมากกว่า `chunk_size`
+
+ทุก event ต้องจบด้วย delta ที่มี `F_LAST` หาก query จบลงโดยที่ delta ของ instrument ใดยังรอ delta ตัวปิดอยู่
+การรันจะล้มเหลวพร้อม error ที่ระบุชื่อ instrument นั้น
+
+ขอบเขตเวลาและ `filter_expr` คัดเลือกเป็นรายแถว จึงควรเลือกให้ event ยังสมบูรณ์ เพราะขอบเขตที่ตัดส่วนต้นของ
+event ออกไปจะไม่ถูกตรวจพบ
+
+ตั้ง `batch_deltas=False` ใน `BacktestDataConfig` เพื่อ replay ทีละ delta
+
+## Shutdown เมื่อเกิด error {#shutdown-on-error}
+
+ตั้ง `BacktestEngineConfig.shutdown_on_error=True` เพื่อขอให้ shutdown ตามปกติเมื่อ logger ของ Rust ปล่อย
+error record ออกมา
+
+Backtest loop จะรับรู้คำขอ หยุด trader และ engine แล้วคืนผลลัพธ์ที่เก็บได้จนถึงจุดนั้น โดยไม่ abort process
+
+เมื่อใช้ `shutdown_on_error=True`:
+
+- error record จาก logger ของ Rust ยังคงขอ shutdown แม้ component filter หรือ `bypass_logging=True`
+  จะกดไม่ให้แสดงผลก็ตาม
+
+Trigger นี้จะ reset เมื่อเริ่มการรัน kernel ครั้งใหม่ สำหรับพฤติกรรมของ `on_stop` ช่วงสุดท้ายและการรอคำสั่งให้เสร็จ
+ดู [shutdown semantics](execution-flow.md#shutdown-semantics)
+
+## การรันซ้ำ {#repeated-runs}
+
+`BacktestEngine.reset()` คืนสถานะการเทรดและสถานะของ component ที่โหลดไว้กลับเป็นค่าเริ่มต้น
+
+**สถานะที่ถูกล้าง**:
+
+- Order, position และยอดเงินใน account
+- สถานะ runtime ของ component
+- ตัวนับและ timestamp ของ engine
+
+**ข้อมูลและการลงทะเบียนที่ยังคงอยู่**:
+
+- ข้อมูลที่เพิ่มผ่าน `add_data()`
+- Instrument และ venue ที่ลงทะเบียนไว้ รวมถึง config ของ venue
+- Actor, strategy และ execution algorithm ที่ลงทะเบียนไว้
+
+Instrument ยังคงโหลดอยู่ เพราะ config ของ cache สำหรับ backtest โดยค่าเริ่มต้นตั้ง `drop_instruments_on_reset=False`
+
+### ใช้ node ใหม่สำหรับการรันที่เป็นอิสระต่อกัน {#use-fresh-nodes-for-independent-runs}
+
+`BacktestNode` รับ `BacktestRunConfig` หนึ่งตัว หากต้องการรัน config ที่เป็นอิสระต่อกัน ให้สร้างและ dispose
+node ทีละตัว: สร้าง node ด้วย config แต่ละตัว เรียก `run()` เก็บผลลัพธ์ แล้วเรียก `dispose()` เสมอแม้จะเกิด error
+
+Build แต่ละ node และลงทะเบียน strategy ก่อน `run()` ในกรณีที่ไม่ได้ส่ง strategy มาจาก controller
+
+### ใช้ข้อมูลที่โหลดไว้ซ้ำสำหรับการรันหลายพารามิเตอร์ {#reuse-loaded-data-for-parameter-runs}
+
+ใช้ `reset()` เมื่อต้องการให้การรันหลายครั้งใช้ข้อมูลและการตั้งค่า venue ที่โหลดไว้ร่วมกัน: เพิ่ม venue, instrument
+และข้อมูลครั้งเดียว แล้วสลับ `run()` กับ `reset()` และหากต้องการเปลี่ยน strategy ให้เรียก `clear_strategies()`
+แล้ว `add_strategy()` ตัวใหม่ก่อน `run()`
+
+เรียก `clear_strategies()` ก่อนเปลี่ยน strategy instance และใช้ `clear_data()` เฉพาะเมื่อการรันครั้งถัดไปต้องโหลด
+ชุดข้อมูลที่ต่างออกไป

@@ -1,141 +1,110 @@
 # Execution Algorithms
 
-An `ExecutionAlgorithm` receives primary orders selected by `exec_algorithm_id` and can split them
-into smaller spawned orders. NautilusTrader supports custom algorithms and includes a native Rust
-TWAP implementation. Use this page to configure TWAP, write an algorithm, and manage spawned
-orders.
+`ExecutionAlgorithm` รับ primary order ที่ถูกเลือกด้วย `exec_algorithm_id` และสามารถแบ่ง order นั้นออกเป็น
+spawned order ย่อย ๆ ได้ NautilusTrader รองรับ algorithm แบบกำหนดเอง และมี TWAP ที่ implement แบบ native
+ใน Rust มาให้ หน้านี้อธิบายการตั้งค่า TWAP, การเขียน algorithm และการจัดการ spawned order
 
-For the component and routing model, see [Execution](index.md#execution-flow).
+สำหรับโมเดลของ component และการ routing ดูที่ [Execution](index.md#execution-flow)
 
-## TWAP (time-weighted average price)
+## TWAP (time-weighted average price) {#twap-time-weighted-average-price}
 
-TWAP spreads a primary order across regular intervals to reduce the market impact of submitting
-the full quantity at once. To register the native algorithm with an initialized `BacktestEngine`:
+TWAP กระจาย primary order ออกเป็นช่วงเวลาสม่ำเสมอ เพื่อลด market impact จากการส่งปริมาณทั้งหมดในครั้งเดียว
+algorithm แบบ native นี้ลงทะเบียนกับ `BacktestEngine` ที่ initialize แล้วได้ในชื่อ `"TwapAlgorithm"`
+โดยใช้ `ExecAlgorithmId` เป็น `"TWAP"`
 
-```python
-from nautilus_trader.model import ExecAlgorithmId
-from nautilus_trader.config import ExecutionAlgorithmConfig
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่างการลงทะเบียนแบบ Python จึงตัดออก
 
-engine.add_native_exec_algorithm(
-    "TwapAlgorithm",
-    ExecutionAlgorithmConfig(exec_algorithm_id=ExecAlgorithmId("TWAP")),
-)
-```
+order ที่ route ไปยัง TWAP ต้องมี `exec_algorithm_params` ซึ่งเป็นค่า string ดังนี้:
 
-Orders routed to TWAP require these string-valued `exec_algorithm_params`:
-
-| Key             | Meaning                                                 |
+| Key             | ความหมาย                                                |
 | --------------- | ------------------------------------------------------- |
-| `horizon_secs`  | Horizon used with the interval to determine the slices. |
-| `interval_secs` | Time between slices.                                    |
+| `horizon_secs`  | ช่วงเวลารวม ใช้ร่วมกับ interval เพื่อกำหนดจำนวน slice      |
+| `interval_secs` | ระยะเวลาระหว่างแต่ละ slice                               |
 
-Both values must parse as positive numbers, and `horizon_secs` must be at least `interval_secs`.
-The algorithm submits the first slice immediately and the remaining slices at the configured interval.
+ทั้งสองค่าต้อง parse เป็นตัวเลขบวกได้ และ `horizon_secs` ต้องไม่น้อยกว่า `interval_secs`
+algorithm จะส่ง slice แรกทันที และส่ง slice ที่เหลือตาม interval ที่ตั้งไว้
 
-TWAP denies the primary order before submission when the order type, instrument, or schedule is
-unsupported or invalid.
+TWAP จะ deny primary order ก่อนการส่ง หากประเภท order, instrument หรือตารางเวลาไม่รองรับหรือไม่ถูกต้อง
 
-## Custom execution algorithms
+## Execution algorithm แบบกำหนดเอง {#custom-execution-algorithms}
 
-To define a Python execution algorithm, subclass `ExecutionAlgorithm` and implement
-`on_order(...)`:
+execution algorithm แบบกำหนดเองรับ order ผ่าน `on_order(...)` และมีสิทธิ์เข้าถึง cache และ portfolio,
+clock สำหรับ timer, signal และเมธอดสำหรับ spawn order
 
-```python
-from nautilus_trader.model import ExecAlgorithmId
-from nautilus_trader.trading import ExecutionAlgorithm
-from nautilus_trader.config import ExecutionAlgorithmConfig
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่างการเขียน algorithm แบบ Python จึงตัดออก
 
+หลังลงทะเบียนแล้ว message bus จะ route order ไปยัง algorithm ที่มี `ExecAlgorithmId` ตรงกับ
+`exec_algorithm_id` ของ order ฟิลด์ `exec_algorithm_params` (ไม่บังคับ) เป็น map จาก string ไปยัง string
+override `on_order_list(...)` หากต้องการจัดการ list ของ order เป็นหน่วยเดียว ส่วน implementation เริ่มต้นจะส่ง
+order แต่ละตัวไปยัง `on_order(...)`
 
-class MyExecutionAlgorithm(ExecutionAlgorithm):
-    def __init__(self) -> None:
-        super().__init__(
-            ExecutionAlgorithmConfig(exec_algorithm_id=ExecAlgorithmId("MY-ALGO")),
-        )
+ตรวจสอบว่ามี key ที่จำเป็นใน `exec_algorithm_params` ครบ และ parse ค่า string ให้เรียบร้อยก่อน execute order
+หาก execute order ไม่ได้ ให้เรียก `deny_order(...)` พร้อม [reason code](index.md#order-denied-reasons)
+มาตรฐาน เช่น `VALIDATION_FAILED: horizon_secs not found in exec_algorithm_params`
 
-    def on_order(self, order) -> None: ...
-```
+order ที่ execution algorithm ได้รับคือ **primary order** ใช้เมธอดต่อไปนี้เพื่อสร้าง **spawned order**:
 
-Python execution algorithms provide cache and portfolio access, a clock for timers, signals, and
-methods for spawning orders.
+- `spawn_market(...)`: สร้าง order แบบ `MARKET`
+- `spawn_market_to_limit(...)`: สร้าง order แบบ `MARKET_TO_LIMIT`
+- `spawn_limit(...)`: สร้าง order แบบ `LIMIT`
 
-After registration, the message bus routes an order to the algorithm whose `ExecAlgorithmId` matches the
-order's `exec_algorithm_id`. The optional `exec_algorithm_params` field is a `Mapping[str, str]`. Override
-`on_order_list(...)` to handle a list as a unit. Its default implementation passes each order to
-`on_order(...)`.
-
-Validate required `exec_algorithm_params` keys and parse their string values before executing an
-order. Call `deny_order(...)` with a standardized
-[reason code](index.md#order-denied-reasons), such as
-`VALIDATION_FAILED: horizon_secs not found in exec_algorithm_params`, when the order cannot be
-executed.
-
-An order received by an execution algorithm is the **primary order**. Use these methods to create
-**spawned orders**:
-
-- `spawn_market(...)`: Creates a `MARKET` order.
-- `spawn_market_to_limit(...)`: Creates a `MARKET_TO_LIMIT` order.
-- `spawn_limit(...)`: Creates a `LIMIT` order.
-
-Each method takes the primary order as its first argument. By default, the method reduces the
-primary order quantity by the spawned `quantity`. Pass `reduce_primary=False` to keep the primary
-quantity unchanged.
+ทุกเมธอดรับ primary order เป็น argument แรก โดยค่าเริ่มต้นเมธอดจะลดปริมาณของ primary order ลงเท่ากับ
+`quantity` ที่ spawn ออกไป ตั้ง `reduce_primary` เป็น false หากต้องการให้ปริมาณของ primary คงเดิม
 
 :::warning
-When `reduce_primary=True`, the spawned quantity must not exceed the primary order's `leaves_qty`
-(remaining unfilled quantity).
+เมื่อ `reduce_primary` เป็น true ปริมาณที่ spawn ต้องไม่เกิน `leaves_qty` ของ primary order
+(ปริมาณที่ยังไม่ถูก fill)
 :::
 
-While the primary stays local, spawned-order outcomes affect its quantity as follows:
+ขณะที่ primary ยังอยู่ในระบบ local ผลลัพธ์ของ spawned order จะส่งผลต่อปริมาณของ primary ดังนี้:
 
-- **Unfilled quantity**: a spawned order can be denied, rejected, canceled, expired, or refused before
-  submission. In these cases, its unfilled proportion is restored in the primary order's quantity units. This
-  also applies when a venue converts a quote-quantity spawn to base quantity.
-- **Late fill**: a late fill on a canceled spawn re-deducts the corresponding restored quantity while the
-  primary stays locally mutable. If that quantity was already reused by a later spawn, the excess is netted
-  from that spawn's own restoration instead.
+- **ปริมาณที่ไม่ถูก fill**: spawned order อาจถูก deny, reject, cancel, expire หรือถูกปฏิเสธก่อนการส่ง ในกรณีเหล่านี้
+  สัดส่วนที่ไม่ถูก fill จะถูกคืนกลับไปยังปริมาณของ primary order ในหน่วยปริมาณของ primary กรณีนี้ใช้กับ
+  spawn แบบ quote-quantity ที่ venue แปลงเป็น base quantity ด้วย
+- **Late fill**: late fill บน spawn ที่ถูก cancel แล้วจะหักปริมาณที่เคยคืนไปกลับออกอีกครั้ง ตราบใดที่ primary
+  ยังแก้ไขได้ในระบบ local หากปริมาณนั้นถูกนำไปใช้โดย spawn ถัดไปแล้ว ส่วนเกินจะถูกหักจากปริมาณที่คืนให้
+  spawn นั้นแทน
 
-Once primary submission is handed off, its quantity is committed and is not changed by a later
-spawn outcome.
+เมื่อส่งต่อ primary ไปยังขั้นตอนการ submit แล้ว ปริมาณของ primary จะถูก commit และจะไม่เปลี่ยนแปลงจากผลลัพธ์
+ของ spawn ที่ตามมาภายหลัง
 
-Converted quote-quantity spawns calculate the remaining unfilled quantity from cumulative fills and
-round it down to the primary's quantity precision. The total deduction does not depend on how many
-fill events report the filled quantity.
+spawn แบบ quote-quantity ที่ถูกแปลงแล้ว จะคำนวณปริมาณที่ยังไม่ถูก fill จาก fill สะสม และปัดลงตาม
+quantity precision ของ primary ยอดหักรวมไม่ขึ้นกับว่ามี fill event กี่ครั้งที่รายงานปริมาณที่ fill
 
-If a [fill is voided](../events/order_fill_voided.md) after any spawn's unfilled quantity was restored, the
-correction returns the additional unfilled quantity while the primary stays local. It first offsets any
-late-fill quantity that could not be deducted from the primary.
+หาก [fill ถูก void](../events/order_fill_voided.md) หลังจากที่ปริมาณที่ไม่ถูก fill ของ spawn ใดถูกคืนไปแล้ว
+การแก้ไขนี้จะคืนปริมาณที่ไม่ถูก fill เพิ่มเติมให้ ตราบใดที่ primary ยังอยู่ใน local โดยจะหักกลบกับปริมาณจาก
+late fill ที่ยังหักจาก primary ไม่ได้ก่อน
 
-An execution algorithm can keep spawning orders, submit the remaining primary order, or do both.
-The built-in TWAP algorithm submits the remaining primary order on the final interval.
+execution algorithm อาจ spawn order ต่อไปเรื่อย ๆ, submit ส่วนที่เหลือของ primary order หรือทำทั้งสองอย่าง
+TWAP ในตัวจะ submit ส่วนที่เหลือของ primary order ใน interval สุดท้าย
 
-## Spawned orders
+## Spawned order {#spawned-orders}
 
-Each spawned order sets `exec_spawn_id` to the primary order's `client_order_id`. Its own `client_order_id`
-follows this pattern:
+spawned order แต่ละตัวจะตั้ง `exec_spawn_id` เป็น `client_order_id` ของ primary order ส่วน `client_order_id`
+ของตัวมันเองเป็นไปตามรูปแบบนี้:
 
 ```text
 {exec_spawn_id}-E{spawn_sequence}
 ```
 
-For example, the first order spawned from `O-20230404-001-000` has the ID
-`O-20230404-001-000-E1`.
+เช่น order แรกที่ spawn จาก `O-20230404-001-000` จะมี ID เป็น `O-20230404-001-000-E1`
 
 :::note
-The primary and spawned terminology distinguishes execution slicing from parent and child
-contingent-order relationships.
+คำว่า primary และ spawned ใช้แยกการแบ่ง execution ออกจากความสัมพันธ์แบบ parent และ child
+ของ contingent order
 :::
 
-## Execution algorithm order queries
+## การ query order ของ execution algorithm {#execution-algorithm-order-queries}
 
-The `Cache` provides two primary queries:
+`Cache` มี query หลักสองตัว:
 
-- `orders_for_exec_algorithm(...)`: Returns orders for an algorithm, with optional venue,
-  instrument, strategy, account, and side filters.
-- `orders_for_exec_spawn(...)`: Returns the primary order and its spawned orders for a primary
-  `ClientOrderId`.
+- `orders_for_exec_algorithm(...)`: คืน order ของ algorithm หนึ่ง โดยกรองตาม venue,
+  instrument, strategy, account และ side ได้ (ไม่บังคับ)
+- `orders_for_exec_spawn(...)`: คืน primary order และ spawned order ทั้งหมดของ primary
+  `ClientOrderId` หนึ่ง
 
-## Related guides
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-- [Execution](index.md): Component routing, OMS behavior, risk checks, and command outcomes.
-- [Execution policies](policies.md): Order-state and command-delivery boundaries.
-- [Orders](../orders/): Order types, instructions, and state transitions.
+- [Execution](index.md): การ routing ของ component, พฤติกรรม OMS, risk check และผลลัพธ์ของ command
+- [Execution policies](policies.md): ขอบเขตของ order state และการส่ง command
+- [Orders](../orders/): ประเภทของ order, instruction และการเปลี่ยนสถานะ

@@ -1,208 +1,157 @@
 # Synthetics
 
-**Synthetic instruments** are locally defined instruments whose prices derive from other instruments.
-They can combine components from one venue or many venues and expose the result as a standard
-Nautilus instrument with the synthetic venue code `SYNTH`.
+**Synthetic instrument** คือ instrument ที่กำหนดขึ้นที่ฝั่ง local โดยราคาได้มาจาก instrument อื่น
+สามารถรวม component จาก venue เดียวหรือหลาย venue แล้วนำผลลัพธ์มาแสดงเป็น
+instrument มาตรฐานของ Nautilus ภายใต้ venue code สังเคราะห์ `SYNTH`
 
-Synthetic instruments are useful for:
+synthetic instrument มีประโยชน์สำหรับ:
 
-- Enabling `DataActor` and `Strategy` components to subscribe to quote or trade feeds.
-- Triggering emulated orders from derived prices.
-- Constructing bars from synthetic quotes or trades.
+- ให้ component ประเภท `DataActor` และ `Strategy` subscribe feed ของ quote หรือ trade ได้
+- trigger emulated order จากราคาที่คำนวณขึ้น
+- สร้าง bar จาก quote หรือ trade สังเคราะห์
 
 :::info
-Synthetic instruments cannot be traded directly. They exist locally within the platform and serve
-as analytical tools. In the future, Nautilus may support trading component instruments based
-on synthetic instrument behavior.
+synthetic instrument ซื้อขายโดยตรงไม่ได้ มันมีอยู่เฉพาะภายในแพลตฟอร์มฝั่ง local และใช้
+เป็นเครื่องมือวิเคราะห์ ในอนาคต Nautilus อาจรองรับการซื้อขาย instrument ที่เป็น component โดยอิงจาก
+พฤติกรรมของ synthetic instrument
 :::
 
-## Formula language
+## ภาษาของ formula {#formula-language}
 
-Each synthetic instrument defines a derivation formula. Nautilus evaluates this formula with
-its built-in numeric expression engine and converts the final numeric result to the synthetic
-`Price`.
+synthetic instrument แต่ละตัวกำหนด formula สำหรับคำนวณราคา Nautilus จะประเมิน formula นี้ด้วย
+expression engine เชิงตัวเลขที่มีมาในตัว แล้วแปลงผลลัพธ์ตัวเลขสุดท้ายเป็น `Price`
+ของ synthetic
 
-### Supported syntax
+### Syntax ที่รองรับ {#supported-syntax}
 
-Formulas can reference component `InstrumentId` values directly, including IDs that contain `/`
-and `-`.
+formula สามารถอ้างอิงค่า `InstrumentId` ของ component ได้โดยตรง รวมถึง ID ที่มี `/`
+และ `-`
 
-| Construct           | Example                                        | Notes                                                                 |
-| ------------------- | ---------------------------------------------- | --------------------------------------------------------------------- |
-| Component reference | `BTCUSDT.BINANCE`                              | Use the raw `InstrumentId` text.                                      |
-| Component reference | `AUD/USD.SIM`                                  | IDs containing `/` are valid.                                         |
-| Component reference | `ETH-USDT-SWAP.OKX`                            | IDs containing `-` are valid.                                         |
-| Numeric literal     | `1`, `0.5`, `1.2e-3`                           | Evaluated with `f64` semantics.                                       |
-| Boolean literal     | `true`, `false`                                | Used in conditions and logical expressions.                           |
-| Parentheses         | `(a + b) / 2`                                  | Use parentheses to override precedence.                               |
-| Unary operators     | `-x`, `!flag`                                  | Unary `-` negates numbers. Unary `!` negates booleans.                |
-| Binary operators    | `+ - * / % ^`, `== !=`, `< <= > >=`, `&& \|\|` | Arithmetic is numeric. Logical operators are boolean.                 |
-| Local assignment    | `spread = a - b; spread / 2`                   | Statements run from left to right. The formula must end with a value. |
-| Comments            | `// line`, `/* block */`                       | Comments are ignored.                                                 |
+| Construct           | Example                                        | Notes                                                                       |
+| ------------------- | ---------------------------------------------- | --------------------------------------------------------------------------- |
+| Component reference | `BTCUSDT.BINANCE`                              | ใช้ข้อความ `InstrumentId` ดิบ                                                |
+| Component reference | `AUD/USD.SIM`                                  | ID ที่มี `/` ใช้ได้                                                          |
+| Component reference | `ETH-USDT-SWAP.OKX`                            | ID ที่มี `-` ใช้ได้                                                          |
+| Numeric literal     | `1`, `0.5`, `1.2e-3`                           | ประเมินด้วย semantics ของ `f64`                                              |
+| Boolean literal     | `true`, `false`                                | ใช้ในเงื่อนไขและ logical expression                                         |
+| Parentheses         | `(a + b) / 2`                                  | ใช้วงเล็บเพื่อเปลี่ยนลำดับความสำคัญ                                           |
+| Unary operators     | `-x`, `!flag`                                  | unary `-` กลับเครื่องหมายตัวเลข unary `!` กลับค่า boolean                     |
+| Binary operators    | `+ - * / % ^`, `== !=`, `< <= > >=`, `&& \|\|` | arithmetic ทำงานกับตัวเลข logical operator ทำงานกับ boolean                  |
+| Local assignment    | `spread = a - b; spread / 2`                   | statement ทำงานจากซ้ายไปขวา และ formula ต้องจบด้วยค่า                        |
+| Comments            | `// line`, `/* block */`                       | comment จะถูกละเว้น                                                          |
 
 :::note
-New formulas should use raw `InstrumentId` values. For backward compatibility, formulas that replace `-` with
-`_` in component IDs stay accepted.
+formula ใหม่ควรใช้ค่า `InstrumentId` ดิบ เพื่อความเข้ากันได้ย้อนหลัง formula ที่แทน `-` ด้วย
+`_` ใน component ID ยังคงใช้ได้
 :::
 
-### Operator precedence
+### ลำดับความสำคัญของ operator {#operator-precedence}
 
-The expression engine evaluates operators in the following order, from highest precedence to
-lowest precedence:
+expression engine ประเมิน operator ตามลำดับต่อไปนี้ จากลำดับความสำคัญสูงสุดไป
+ต่ำสุด:
 
-| Level   | Operators            | Notes                                                        |
-| ------- | -------------------- | ------------------------------------------------------------ |
-| Highest | `^`                  | Exponentiation. Right associative.                           |
-|         | Unary `-`, unary `!` | `-2 ^ 2` evaluates as `-(2 ^ 2)`.                            |
-|         | `*`, `/`, `%`        | Multiplication, division, and modulo.                        |
-|         | `+`, `-`             | Addition and subtraction.                                    |
-|         | `<`, `<=`, `>`, `>=` | Numeric comparisons.                                         |
-|         | `==`, `!=`           | Equality and inequality. Both sides must have the same type. |
-| Lowest  | `&&`, `\|\|`         | Boolean operators.                                           |
+| Level   | Operators            | Notes                                                         |
+| ------- | -------------------- | ------------------------------------------------------------- |
+| Highest | `^`                  | ยกกำลัง เชื่อมจากขวา (right associative)                        |
+|         | Unary `-`, unary `!` | `-2 ^ 2` ประเมินเป็น `-(2 ^ 2)`                                |
+|         | `*`, `/`, `%`        | คูณ, หาร และ modulo                                            |
+|         | `+`, `-`             | บวกและลบ                                                       |
+|         | `<`, `<=`, `>`, `>=` | การเปรียบเทียบตัวเลข                                           |
+|         | `==`, `!=`           | เท่ากันและไม่เท่ากัน ทั้งสองฝั่งต้องเป็น type เดียวกัน               |
+| Lowest  | `&&`, `\|\|`         | operator แบบ boolean                                          |
 
-Assignments are not expression operators. Separate statements with `;`, and make the last
-statement the value you want the synthetic to produce.
+assignment ไม่ใช่ expression operator ให้คั่น statement ด้วย `;` และให้ statement สุดท้าย
+เป็นค่าที่ต้องการให้ synthetic สร้างออกมา
 
-### Built-in functions
+### ฟังก์ชันในตัว {#built-in-functions}
 
-| Function | Signature                              | Notes                                                                                                     |
-| -------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `abs`    | `abs(x)`                               | Absolute value.                                                                                           |
-| `ceil`   | `ceil(x)`                              | Ceiling.                                                                                                  |
-| `floor`  | `floor(x)`                             | Floor.                                                                                                    |
-| `round`  | `round(x)`                             | Round to the nearest integer using Rust `f64` rules.                                                      |
-| `min`    | `min(x1, x2, ...)`                     | Accepts one or more numeric arguments.                                                                    |
-| `max`    | `max(x1, x2, ...)`                     | Accepts one or more numeric arguments.                                                                    |
-| `if`     | `if(condition, when_true, when_false)` | The condition must be boolean. Both branches must have the same type. Only the selected branch evaluates. |
+| Function | Signature                              | Notes                                                                                                 |
+| -------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `abs`    | `abs(x)`                               | ค่าสัมบูรณ์                                                                                            |
+| `ceil`   | `ceil(x)`                              | ปัดขึ้น                                                                                                |
+| `floor`  | `floor(x)`                             | ปัดลง                                                                                                  |
+| `round`  | `round(x)`                             | ปัดเป็นจำนวนเต็มที่ใกล้ที่สุดตามกฎ `f64` ของ Rust                                                        |
+| `min`    | `min(x1, x2, ...)`                     | รับ argument ตัวเลขตั้งแต่หนึ่งตัวขึ้นไป                                                                  |
+| `max`    | `max(x1, x2, ...)`                     | รับ argument ตัวเลขตั้งแต่หนึ่งตัวขึ้นไป                                                                  |
+| `if`     | `if(condition, when_true, when_false)` | condition ต้องเป็น boolean ทั้งสอง branch ต้องเป็น type เดียวกัน และจะประเมินเฉพาะ branch ที่ถูกเลือก        |
 
-### Type rules
+### กฎของ type {#type-rules}
 
-- Component inputs are numeric.
-- Arithmetic operators require numeric operands and return numeric results.
-- `<`, `<=`, `>`, `>=` require numeric operands and return boolean results.
-- `==` and `!=` accept any matching type (both numeric or both boolean) and return boolean
-  results.
-- `&&`, `||`, and unary `!` require boolean operands.
-- `&&` and `||` short-circuit. The right-hand side evaluates only when needed.
-- Local variables must be assigned before use.
-- Local variable names must start with an ASCII letter or `_` and then use ASCII letters, digits,
-  or `_`.
-- The final formula result must be numeric. A formula that ends with an assignment or produces a
-  boolean result is invalid for a synthetic instrument.
+- input จาก component เป็นตัวเลข
+- arithmetic operator ต้องการ operand เป็นตัวเลขและคืนผลเป็นตัวเลข
+- `<`, `<=`, `>`, `>=` ต้องการ operand เป็นตัวเลขและคืนผลเป็น boolean
+- `==` และ `!=` รับ type ใดก็ได้ที่ตรงกัน (ตัวเลขทั้งคู่หรือ boolean ทั้งคู่) และคืนผลเป็น
+  boolean
+- `&&`, `||` และ unary `!` ต้องการ operand เป็น boolean
+- `&&` และ `||` เป็นแบบ short-circuit ฝั่งขวาจะถูกประเมินเฉพาะเมื่อจำเป็น
+- local variable ต้องถูก assign ก่อนใช้งาน
+- ชื่อ local variable ต้องขึ้นต้นด้วยตัวอักษร ASCII หรือ `_` และตามด้วยตัวอักษร ASCII, ตัวเลข
+  หรือ `_`
+- ผลลัพธ์สุดท้ายของ formula ต้องเป็นตัวเลข formula ที่จบด้วย assignment หรือให้ผลเป็น
+  boolean ใช้กับ synthetic instrument ไม่ได้
 
-### Limits
+### ข้อจำกัด {#limits}
 
-The expression engine enforces the following compile-time limits. Formulas that exceed them
-produce a clear error at construction time.
+expression engine บังคับใช้ข้อจำกัดตอน compile ต่อไปนี้ formula ที่เกินข้อจำกัดจะ
+เกิด error ที่ชัดเจนตอนสร้าง
 
-| Limit           | Value | Description                                                                                     |
-| --------------- | ----- | ----------------------------------------------------------------------------------------------- |
-| Stack depth     | 32    | Maximum number of intermediate values on the evaluation stack.                                  |
-| Local variables | 16    | Maximum number of distinct local variable names.                                                |
-| Nesting depth   | 128   | Maximum syntax nesting and expression tree depth. The top-level expression counts as one level. |
+| Limit           | Value | Description                                                                                       |
+| --------------- | ----- | ------------------------------------------------------------------------------------------------- |
+| Stack depth     | 32    | จำนวนค่าระหว่างกลางสูงสุดบน evaluation stack                                                        |
+| Local variables | 16    | จำนวนชื่อ local variable ที่ไม่ซ้ำกันสูงสุด                                                          |
+| Nesting depth   | 128   | ความลึกสูงสุดของการซ้อน syntax และ expression tree โดย expression ระดับบนสุดนับเป็นหนึ่งระดับ          |
 
-A weighted sum of 8 components uses a peak stack depth of 3 and zero locals. A weighted sum of
-N components builds a tree of depth N + 1, so the nesting depth limit caps a weighted sum at
-127 components.
+weighted sum ของ 8 component ใช้ stack depth สูงสุด 3 และไม่มี local เลย weighted sum ของ
+N component จะสร้าง tree ที่ลึก N + 1 ดังนั้นข้อจำกัด nesting depth จึงจำกัด weighted sum ไว้ที่
+127 component
 
-### Examples
+### ตัวอย่าง {#examples}
 
-```python
-# Simple spread
-formula = "BTCUSDT.BINANCE - ETHUSDT.BINANCE"
+- spread แบบง่าย: `BTCUSDT.BINANCE - ETHUSDT.BINANCE`
+- ค่าเฉลี่ยของคู่ FX สองคู่: `(AUD/USD.SIM + NZD/USD.SIM) / 2`
+- นำค่าระหว่างกลางมาใช้ซ้ำ: `spread = BTCUSDT.BINANCE - ETHUSDT.BINANCE; spread / 2`
+- output แบบมีเงื่อนไข: `if(BTCUSDT.BINANCE > ETHUSDT.BINANCE, BTCUSDT.BINANCE, ETHUSDT.BINANCE)`
 
-# Average of two FX pairs
-formula = "(AUD/USD.SIM + NZD/USD.SIM) / 2"
+## การสร้าง synthetic instrument {#creating-a-synthetic-instrument}
 
-# Reuse an intermediate value
-formula = "spread = BTCUSDT.BINANCE - ETHUSDT.BINANCE; spread / 2"
+ก่อนสร้าง synthetic instrument ต้องแน่ใจว่า instrument ที่เป็น component ทั้งหมดมีอยู่ใน cache แล้ว ให้ subscribe
+feed ของ quote หรือ trade ของแต่ละ component รวมถึงของ synthetic ด้วย quote สังเคราะห์ได้มาจาก quote
+ของ component เท่านั้น และ trade สังเคราะห์ได้มาจาก trade ของ component เท่านั้น
 
-# Conditional output
-formula = "if(BTCUSDT.BINANCE > ETHUSDT.BINANCE, BTCUSDT.BINANCE, ETHUSDT.BINANCE)"
-```
+เมื่อ tick ของ component มาถึง engine จะรวมเข้ากับราคาล่าสุดใน cache ของ component อื่น เพื่อ
+คำนวณราคาสังเคราะห์ จนกว่า **ทุก component จะมี tick อย่างน้อยหนึ่งครั้ง** synthetic
+จะไม่ publish อะไรออกมาเลย
 
-## Creating a synthetic instrument
-
-Before creating a synthetic instrument, ensure all component instruments exist in the cache. Subscribe to each
-component's quote or trade feed as well as the synthetic's. Synthetic quotes derive only from component
-quotes, and synthetic trades only from component trades.
-
-When a component tick arrives, the engine combines it with the latest cached prices of the other components to
-calculate the synthetic price. Until **each component has produced at least one tick**, the synthetic
-publishes nothing.
-
-The following example creates a synthetic instrument with an actor or strategy. This synthetic
-represents a simple spread between Bitcoin and Ethereum spot prices on Binance. It assumes that
-`BTCUSDT.BINANCE` and `ETHUSDT.BINANCE` already exist in the cache.
-
-```python
-from nautilus_trader.model import SyntheticInstrument
-
-btcusdt_binance_id = InstrumentId.from_str("BTCUSDT.BINANCE")
-ethusdt_binance_id = InstrumentId.from_str("ETHUSDT.BINANCE")
-
-synthetic = SyntheticInstrument(
-    symbol=Symbol("BTC-ETH:BINANCE"),
-    price_precision=8,
-    components=[
-        btcusdt_binance_id,
-        ethusdt_binance_id,
-    ],
-    formula=f"{btcusdt_binance_id} - {ethusdt_binance_id}",
-    ts_event=self.clock.timestamp_ns(),
-    ts_init=self.clock.timestamp_ns(),
-)
-
-self._synthetic_id = synthetic.id
-self.add_synthetic(synthetic)
-self.subscribe_quotes(self._synthetic_id)
-```
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python (สร้าง synthetic แทน spread ระหว่าง `BTCUSDT.BINANCE` และ `ETHUSDT.BINANCE` จาก actor หรือ strategy) จึงตัดออก
 
 :::note
-The synthetic `instrument_id` in the example above is `{symbol}.SYNTH`, which produces
-`BTC-ETH:BINANCE.SYNTH`.
+`instrument_id` ของ synthetic อยู่ในรูป `{symbol}.SYNTH` เช่น symbol `BTC-ETH:BINANCE` จะได้
+`BTC-ETH:BINANCE.SYNTH`
 :::
 
-## Updating formulas
+## การอัปเดต formula {#updating-formulas}
 
-You can update a synthetic formula at any time.
+สามารถอัปเดต formula ของ synthetic ได้ทุกเมื่อ
 
-```python
-synthetic = self.cache.synthetic(self._synthetic_id)
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-new_formula = "(BTCUSDT.BINANCE + ETHUSDT.BINANCE) / 2"
-synthetic.change_formula(new_formula)
+## Trigger instrument ID {#trigger-instrument-ids}
 
-self.update_synthetic(synthetic)
-```
+สามารถ trigger emulated order จากราคาสังเคราะห์ได้ โดย synthetic
+instrument จะปล่อย emulated order ออกไปเมื่อราคาสังเคราะห์ถึงเงื่อนไข trigger (กำหนดผ่าน
+`emulation_trigger` และ `trigger_instrument_id` ของ order)
 
-## Trigger instrument IDs
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-You can trigger emulated orders from synthetic prices. In the following example, a synthetic
-instrument releases an emulated order once the synthetic price reaches the trigger condition.
+## ประสิทธิภาพ {#performance}
 
-```python
-order = self.order_factory.limit(
-    instrument_id=InstrumentId.from_str("ETHUSDT.BINANCE"),
-    order_side=OrderSide.BUY,
-    quantity=Quantity.from_str("1.5"),
-    price=Price.from_str("30000.00000000"),
-    emulation_trigger=TriggerType.DEFAULT,
-    trigger_instrument_id=self._synthetic_id,
-)
+formula ถูก compile ครั้งเดียวตอนสร้าง และถูกประเมินทุกครั้งที่ tick ราคาของ component เข้ามา expression
+engine ใช้ stack ของ `f64` ที่ไม่มีการ allocate หน่วยความจำ (zero-allocation) ในการประเมิน จึงเพิ่ม overhead น้อยมากต่อเส้นทาง
+การประมวลผล tick
 
-self.submit_order(order)
-```
+วัดบน Apple M4 Pro, rustc 1.94.1, release profile (opt-level 3):
 
-## Performance
-
-Formulas compile once at construction time and evaluate on each incoming component price tick. The expression
-engine uses a zero-allocation `f64` stack for evaluation, adding negligible overhead to the tick-processing
-path.
-
-Measured on Apple M4 Pro, rustc 1.94.1, release profile (opt-level 3):
-
-### Evaluation (hot path)
+### การประเมิน (hot path) {#evaluation-hot-path}
 
 | Formula pattern                         | Time  |
 | --------------------------------------- | ----- |
@@ -212,7 +161,7 @@ Measured on Apple M4 Pro, rustc 1.94.1, release profile (opt-level 3):
 | `spread = A - B; mid = ...; mid + ...`  | 19 ns |
 | `max(min(A, B * 20), abs(A - B))`       | 15 ns |
 
-### Evaluation scaling (weighted sum)
+### การ scale ของการประเมิน (weighted sum) {#evaluation-scaling-weighted-sum}
 
 | Components | Time  |
 | ---------- | ----- |
@@ -220,7 +169,7 @@ Measured on Apple M4 Pro, rustc 1.94.1, release profile (opt-level 3):
 | 4          | 18 ns |
 | 8          | 28 ns |
 
-### Compilation (cold path)
+### การ compile (cold path) {#compilation-cold-path}
 
 | Formula pattern  | Time   |
 | ---------------- | ------ |
@@ -230,18 +179,16 @@ Measured on Apple M4 Pro, rustc 1.94.1, release profile (opt-level 3):
 | With locals      | 1.3 us |
 | Hyphenated IDs   | 755 ns |
 
-## Error handling
+## การจัดการ error {#error-handling}
 
-Nautilus validates synthetic instruments at each boundary. Formula compilation rejects unknown symbols, type
-errors, and capacity overflows. Evaluation rejects wrong input counts and non-finite prices (NaN, Infinity)
-before they reach the formula.
+Nautilus validate synthetic instrument ในทุกขอบเขต การ compile formula จะปฏิเสธ symbol ที่ไม่รู้จัก, error
+ด้าน type และการใช้ capacity เกิน ส่วนการประเมินจะปฏิเสธจำนวน input ที่ไม่ถูกต้องและราคาที่ไม่ใช่ค่าจำกัด (NaN, Infinity)
+ก่อนที่ค่าเหล่านั้นจะไปถึง formula
 
-See the
-[`SyntheticInstrument` API Reference](/docs/python-api-latest/model/instruments.html#nautilus_trader.model.SyntheticInstrument)
-for input requirements and exceptions.
+ดูข้อกำหนดของ input และ error ได้ที่ [Rust API reference](https://nautilustrader.io/docs/core-latest/)
 
-## Related guides
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-- [Instruments](instruments/) - Instrument definitions and venue-specific instrument types.
-- [Data](data/) - Market data types that reference instruments.
-- [Orders](orders/) - Orders can use synthetic instrument IDs for emulation triggers.
+- [Instruments](instruments/) - นิยามของ instrument และ instrument type เฉพาะของแต่ละ venue
+- [Data](data/) - market data type ที่อ้างอิงถึง instrument
+- [Orders](orders/) - order สามารถใช้ synthetic instrument ID เป็น emulation trigger ได้

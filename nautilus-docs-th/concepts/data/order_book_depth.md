@@ -1,36 +1,36 @@
 # OrderBookDepth
 
-`OrderBookDepth` represents a snapshot with a variable number of bid and ask levels.
-Use it when a venue publishes a self-contained depth snapshot rather than incremental deltas.
+`OrderBookDepth` แทน snapshot ที่มีจำนวนระดับราคา bid และ ask แปรผันได้
+ใช้เมื่อ venue ส่ง depth snapshot ที่สมบูรณ์ในตัวเอง แทนที่จะเป็น delta แบบ incremental
 
-## Fields
+## Fields {#fields}
 
-| Field           | Rust type                   | Python type       | Required/default | Notes                                      |
-| --------------- | --------------------------- | ----------------- | ---------------- | ------------------------------------------ |
-| `instrument_id` | `InstrumentId`              | `InstrumentId`    | Required         | Instrument whose book is represented.      |
-| `bids`          | `SmallVec<[BookOrder; 10]>` | `list[BookOrder]` | Required         | Bid levels in book order.                  |
-| `asks`          | `SmallVec<[BookOrder; 10]>` | `list[BookOrder]` | Required         | Ask levels in book order.                  |
-| `bid_counts`    | `SmallVec<[u32; 10]>`       | `list[int]`       | Required         | Number of bid orders at each level.        |
-| `ask_counts`    | `SmallVec<[u32; 10]>`       | `list[int]`       | Required         | Number of ask orders at each level.        |
-| `flags`         | `u8`                        | `int`             | Required         | `RecordFlag` bit field for event metadata. |
-| `sequence`      | `u64`                       | `int`             | Required         | Venue sequence number, or zero if absent.  |
-| `ts_event`      | `UnixNanos`                 | `int`             | Required         | Event timestamp in nanoseconds.            |
-| `ts_init`       | `UnixNanos`                 | `int`             | Required         | Initialization timestamp in nanoseconds.   |
+| Field           | Rust type                   | Required/default | หมายเหตุ                                      |
+| --------------- | --------------------------- | ---------------- | --------------------------------------------- |
+| `instrument_id` | `InstrumentId`              | Required         | instrument ที่ book นี้แทน                     |
+| `bids`          | `SmallVec<[BookOrder; 10]>` | Required         | ระดับ bid ตามลำดับใน book                      |
+| `asks`          | `SmallVec<[BookOrder; 10]>` | Required         | ระดับ ask ตามลำดับใน book                      |
+| `bid_counts`    | `SmallVec<[u32; 10]>`       | Required         | จำนวน bid order ในแต่ละระดับ                   |
+| `ask_counts`    | `SmallVec<[u32; 10]>`       | Required         | จำนวน ask order ในแต่ละระดับ                   |
+| `flags`         | `u8`                        | Required         | bit field ของ `RecordFlag` สำหรับ metadata ของ event |
+| `sequence`      | `u64`                       | Required         | sequence number ของ venue หรือศูนย์หากไม่มี     |
+| `ts_event`      | `UnixNanos`                 | Required         | timestamp ของ event หน่วยนาโนวินาที            |
+| `ts_init`       | `UnixNanos`                 | Required         | timestamp ตอน initialize หน่วยนาโนวินาที        |
 
-## Behavior
+## พฤติกรรม {#behavior}
 
-- Rust and PyO3 Python constructors accept variable-length sides. Each side requires one count per order. Bid
-  and ask sides can have different lengths.
-- Empty sides use empty sequences. The inline capacity is ten. Larger snapshots allocate as needed.
-- This type is not interchangeable with incremental `OrderBookDelta` streams.
+- constructor ใน Rust รับ side ที่มีความยาวแปรผันได้ แต่ละ side ต้องมี count หนึ่งค่าต่อหนึ่ง order
+  และฝั่ง bid กับ ask มีความยาวต่างกันได้
+- side ที่ว่างใช้ sequence ว่าง inline capacity คือสิบ snapshot ที่ใหญ่กว่านั้นจะ allocate เพิ่มตามต้องการ
+- type นี้ใช้แทนกันกับ stream ของ `OrderBookDelta` แบบ incremental ไม่ได้
 
-**Legacy compatibility**:
+**ความเข้ากันได้กับของเดิม**:
 
-- The former `OrderBookDepth10` type name is gone. Catalog directories named `order_book_depth10`
-  still migrate, and Arrow files that stored that type in schema metadata still transcode.
-- The legacy C FFI and fixed-depth SBE encoding require exactly ten levels per side.
+- ชื่อ type เดิม `OrderBookDepth10` ถูกยกเลิกแล้ว แต่ไดเรกทอรีใน catalog ที่ชื่อ `order_book_depth10`
+  ยังคง migrate ได้ และไฟล์ Arrow ที่เก็บ type นั้นไว้ใน schema metadata ยังคง transcode ได้
+- legacy C FFI และการเข้ารหัส SBE แบบ fixed-depth ต้องมีระดับราคาครบสิบระดับพอดีในแต่ละ side
 
-## Example
+## ตัวอย่าง {#example}
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -57,48 +57,8 @@ let depth = OrderBookDepth::new(
 );
 ```
 
-```python tab="Python"
-from nautilus_trader.model import InstrumentId
-from nautilus_trader.model import Price
-from nautilus_trader.model import Quantity
-from nautilus_trader.model import BookOrder
-from nautilus_trader.model import OrderBookDepth
-from nautilus_trader.model import OrderSide
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-bids = [
-    BookOrder(
-        OrderSide.BUY,
-        Price.from_str(f"{2500.10 - i * 0.10:.2f}"),
-        Quantity.from_str("3.5"),
-        i + 1,
-    )
-    for i in range(3)
-]
-asks = [
-    BookOrder(
-        OrderSide.SELL,
-        Price.from_str(f"{2500.20 + i * 0.10:.2f}"),
-        Quantity.from_str("2.0"),
-        i + 11,
-    )
-    for i in range(2)
-]
-
-depth = OrderBookDepth(
-    instrument_id=InstrumentId.from_str("ETHUSDT-PERP.BINANCE"),
-    bids=bids,
-    asks=asks,
-    bid_counts=[1] * len(bids),
-    ask_counts=[1] * len(asks),
-    flags=0,
-    sequence=42,
-    ts_event=1_000_000_000,
-    ts_init=1_000_000_100,
-)
-```
-
-## Related guides
-
-- [QuoteTick](quote_tick.md) covers top-of-book data derived from depth.
-- [Order books](index.md#order-books) explains order book state.
-- [Python API reference](/docs/python-api-latest/model/data.html) lists Python members.
+- [QuoteTick](quote_tick.md) อธิบายข้อมูล top-of-book ที่ได้จาก depth
+- [Order books](index.md#order-books) อธิบายสถานะของ order book
+- [Rust API docs](https://nautilustrader.io/docs/core-latest/) แสดงรายละเอียด API ฝั่ง Rust

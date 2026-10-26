@@ -1,171 +1,162 @@
-# Concepts
+# แนวคิด (Concepts)
 
-These guides explain the core components, architecture, and design of NautilusTrader.
+คู่มือในหมวดนี้อธิบาย component หลัก สถาปัตยกรรม และการออกแบบของ NautilusTrader
 
-## Overview
+## ภาพรวม {#overview}
 
-Main features and intended use cases for the platform.
+ฟีเจอร์หลักและกรณีการใช้งานที่แพลตฟอร์มออกแบบมารองรับ
 
-## Architecture
+## สถาปัตยกรรม {#architecture}
 
-[Architecture](architecture.md) describes the components, runtime boundaries, and data flows.
+[Architecture](architecture.md) อธิบาย component, ขอบเขตของ runtime และการไหลของข้อมูล
 
-## Actors
+## Actors {#actors}
 
-The `DataActor` is the base component for interacting with the trading system.
-Covers capabilities and implementation details.
+`DataActor` คือ component พื้นฐานสำหรับโต้ตอบกับระบบเทรด
+ครอบคลุมความสามารถและรายละเอียดการ implement
 
-## Strategies
+## Strategies {#strategies}
 
-How to implement trading strategies using the `Strategy` component.
+วิธี implement trading strategy ด้วย component `Strategy`
 
-## Instruments
+## Instruments {#instruments}
 
-Instrument definitions for tradable assets and contracts.
+นิยาม instrument สำหรับสินทรัพย์และสัญญาที่ซื้อขายได้
 
-## Synthetics
+## Synthetics {#synthetics}
 
-User-defined instruments whose prices are computed by evaluating a numeric expression over component instrument prices.
+Instrument ที่ผู้ใช้กำหนดเอง ซึ่งราคาคำนวณจากการประเมิน expression เชิงตัวเลขบนราคาของ instrument ที่เป็นองค์ประกอบ
 
-## Continuous Futures
+## Continuous Futures {#continuous-futures}
 
-Consecutive futures contracts form one adjusted bar series through an explicit roll table. The guide covers
-the four adjustment modes, request and subscription flow, and the mid-bar roll boundary policy.
+สัญญา futures ที่ต่อเนื่องกันรวมเป็น bar series ที่ปรับแล้วชุดเดียวผ่าน roll table ที่กำหนดชัดเจน คู่มือนี้ครอบคลุม
+โหมดการปรับ 4 แบบ ขั้นตอน request และ subscription และนโยบายขอบเขตการ roll กลาง bar
 
-## Value Types
+## Value Types {#value-types}
 
-The immutable numeric types (`Price`, `Quantity`, `Money`) used throughout the platform,
-including their arithmetic behavior, precision handling, and type-specific constraints.
+Numeric type แบบ immutable (`Price`, `Quantity`, `Money`) ที่ใช้ทั่วทั้งแพลตฟอร์ม
+รวมถึงพฤติกรรมทางคณิตศาสตร์ การจัดการ precision และข้อจำกัดเฉพาะของแต่ละ type
 
-## Data
+## Data {#data}
 
-Built-in data types for the trading domain, and how to work with custom data.
+Data type ที่มีมาในตัวสำหรับโดเมนการเทรด และวิธีทำงานกับ custom data
 
-## Events
+## Events {#events}
 
-The event types that drive the system: order events, position events, account
-events, and time events. Covers handler dispatch, the causal chain from order
-fills to position events, and tracing orders to positions.
+Event type ที่ขับเคลื่อนระบบ ได้แก่ order event, position event, account event และ time event ครอบคลุมการ
+dispatch ไปยัง handler, ห่วงโซ่เหตุและผลตั้งแต่ order fill ไปจนถึง position event และการติดตามจาก order ไปยัง position
 
-## Event Sourcing
+## Event Sourcing {#event-sourcing}
 
-The durable event-store log for state-affecting messages, including capture boundaries,
-correlation headers, replay modes, recovery anchors, and verifier behavior.
+Log ของ event store แบบถาวรสำหรับ message ที่มีผลต่อสถานะ รวมถึงขอบเขตการบันทึก, correlation header,
+โหมด replay, recovery anchor และพฤติกรรมของ verifier
 
-## Options
+## Options {#options}
 
-Option instrument types, venue-provided Greeks streaming, option chain subscriptions
-with strike range filtering, and snapshot aggregation.
+Type ของ option instrument, การ stream greeks ที่ venue ให้มา, การ subscribe option chain พร้อมการกรองช่วง strike
+และการรวม snapshot
 
-## Greeks
+## Greeks {#greeks}
 
-Option Greeks (delta, gamma, vega, theta) from two paths: venue-provided real-time Greeks through the
-Rust/PyO3 `OptionGreeks` type and local Black-Scholes computation through `GreeksCalculator`. Local
-computation supports shock scenarios, beta weighting, and portfolio aggregation.
+Option greeks (delta, gamma, vega, theta) จากสองทาง คือ greeks แบบ real-time ที่ venue ให้มาผ่าน type
+`OptionGreeks` ของ Rust และการคำนวณ Black-Scholes ในเครื่องผ่าน `GreeksCalculator` การคำนวณในเครื่อง
+รองรับ shock scenario, beta weighting และการรวมระดับ portfolio
 
-## Custom Data
+## Custom Data {#custom-data}
 
-How the custom data system works across Python and Rust: registration, persistence,
-Arrow encoding, and runtime routing through actors and strategies.
+ระบบ custom data ทำงานอย่างไร: การลงทะเบียน การ persist การ encode แบบ Arrow และการ routing ขณะ runtime
+ผ่าน actor และ strategy
 
-## Order Book
+## Order Book {#order-book}
 
-The high-performance order book, own order tracking, filtered views for net liquidity, and binary market support.
+Order book ประสิทธิภาพสูง การติดตาม order ของตัวเอง มุมมองแบบกรองสำหรับ net liquidity และการรองรับ binary market
 
-## Execution
+## Execution {#execution}
 
-Trade execution and order management across multiple strategies and venues simultaneously (per
-instance), including component and message flow, venue-boundary policies, execution algorithms,
-and reconciliation.
+การ execute การเทรดและการจัดการ order ข้ามหลาย strategy และหลาย venue พร้อมกัน (ต่อ instance) รวมถึง
+การไหลของ component และ message, นโยบายที่ขอบเขตของ venue, execution algorithm และ reconciliation
 
-## Orders
+## Orders {#orders}
 
-Available order types, supported execution instructions, advanced order types, and emulated orders.
+ประเภท order ที่มี, execution instruction ที่รองรับ, ประเภท order ขั้นสูง และ emulated order
 
-## Positions
+## Positions {#positions}
 
-Position lifecycle, aggregation from order fills, PnL calculations, and position snapshotting
-for netting OMS configurations.
+วงจรชีวิตของ position การรวมจาก order fill การคำนวณ PnL และการทำ snapshot ของ position
+สำหรับการตั้งค่า OMS แบบ netting
 
-## Cache
+## Cache {#cache}
 
-The `Cache` is the central in-memory store for all trading-related data.
-Covers capabilities and best practices.
+`Cache` คือที่เก็บข้อมูลส่วนกลางใน memory สำหรับข้อมูลทั้งหมดที่เกี่ยวกับการเทรด
+ครอบคลุมความสามารถและแนวปฏิบัติที่ดี
 
-## Message Bus
+## Message Bus {#message-bus}
 
-The `MessageBus` enables decoupled messaging between components, supporting point-to-point,
-publish/subscribe, and request/response patterns.
+`MessageBus` ทำให้ component ส่ง message ถึงกันได้แบบไม่ผูกติดกัน รองรับรูปแบบ point-to-point,
+publish/subscribe และ request/response
 
-## Accounting
+## Accounting {#accounting}
 
-Account types (cash, margin, betting, and wallet), the `AccountBalance` and `MarginBalance` data model, and
-per-instrument versus account-wide margin scopes. The guide also covers the strategy query API, built-in
-margin models, and the adapter convention across live venues.
+ประเภท account (cash, margin, betting และ wallet), data model ของ `AccountBalance` และ `MarginBalance`
+และขอบเขต margin แบบต่อ instrument เทียบกับทั้ง account คู่มือนี้ยังครอบคลุม API สำหรับ query จาก strategy,
+margin model ที่มีมาในตัว และแนวปฏิบัติของ adapter สำหรับ venue แบบ live
 
-## Portfolio
+## Portfolio {#portfolio}
 
-The `Portfolio` tracks all positions across strategies and instruments, providing a unified view
-of holdings, risk exposure, and performance.
+`Portfolio` ติดตาม position ทั้งหมดข้าม strategy และ instrument ทำให้เห็นภาพรวมของการถือครอง
+ความเสี่ยง และผลการดำเนินงานในที่เดียว
 
-## Reports
+## Reports {#reports}
 
-Execution reports, portfolio analysis, PnL accounting, and backtest post-run analysis.
+Execution report การวิเคราะห์ portfolio การบัญชี PnL และการวิเคราะห์หลังรัน backtest
 
-## Logging
+## Logging {#logging}
 
-High-performance logging for both backtesting and live trading, implemented in Rust.
+ระบบ logging ประสิทธิภาพสูงสำหรับทั้ง backtest และ live trading ซึ่ง implement ด้วย Rust
 
-## Backtesting
+## Backtesting {#backtesting}
 
-Backtest APIs, data and venue setup, execution sequencing, fill simulation,
-accounts, funding, and margin configuration.
+Backtest API การตั้งค่าข้อมูลและ venue ลำดับการ execute การจำลอง fill
+account, funding และการตั้งค่า margin
 
-## Behavioral Models
+## Behavioral Models {#behavioral-models}
 
-[Behavioral Models](behavioral_models.md) explains how Rust and Python model implementations enter
-the runtime.
+[Behavioral Models](behavioral_models.md) อธิบายว่า model ที่ implement ขึ้นเข้าสู่ runtime ได้อย่างไร
 
-## Visualization
+## Visualization {#visualization}
 
-Interactive tearsheets for analyzing backtest results, including charts, themes, customization options, and
-custom visualizations through the extensible chart registry.
+Tearsheet แบบ interactive สำหรับวิเคราะห์ผล backtest รวมถึงกราฟ theme ตัวเลือกการปรับแต่ง และ
+visualization แบบกำหนดเองผ่าน chart registry ที่ขยายได้
 
-## Configuration
+## Configuration {#configuration}
 
-How config structs work across Python and Rust: default resolution, the `T` vs `Option<T>`
-convention, builder patterns, and common fields shared across adapters and engines.
+Config struct ทำงานอย่างไร: การกำหนดค่าเริ่มต้น แนวปฏิบัติ `T` เทียบกับ `Option<T>`
+รูปแบบ builder และ field ทั่วไปที่ใช้ร่วมกันระหว่าง adapter และ engine
 
-## Live Trading
+## Live Trading {#live-trading}
 
-Running the same strategy and execution-algorithm code in live markets while accounting for venue,
-transport, timing, persistence, external-activity, and reconciliation behavior.
+การรันโค้ด strategy และ execution algorithm ชุดเดียวกันในตลาดจริง โดยคำนึงถึงพฤติกรรมของ venue, transport,
+เวลา, การ persist, กิจกรรมจากภายนอก และ reconciliation
 
-## Adapters
+## Adapters {#adapters}
 
-Requirements and best practices for developing integration adapters for data providers and trading venues.
+ข้อกำหนดและแนวปฏิบัติที่ดีสำหรับพัฒนา adapter เพื่อ integrate กับผู้ให้บริการข้อมูลและ trading venue
 
-## Networking
+## Networking {#networking}
 
-Architecture, reliability policy, and performance characteristics for the shared HTTP, WebSocket,
-and raw TCP socket clients.
+สถาปัตยกรรม นโยบายด้านความน่าเชื่อถือ และคุณลักษณะด้านประสิทธิภาพของ client สำหรับ HTTP, WebSocket
+และ raw TCP socket ที่ใช้ร่วมกัน
 
-## Rust
+## Rust {#rust}
 
-Writing actors, strategies, and running backtests and live trading in pure Rust
-using the `crates/` implementation directly.
+การเขียน actor และ strategy รวมถึงการรัน backtest และ live trading ด้วย Rust ล้วน
+โดยใช้ implementation ใน `crates/` โดยตรง
 
-## Python
+## DST {#dst}
 
-Python application composition and user components running on the Rust core through PyO3,
-including ownership, async execution, and public API boundaries.
-
-## DST
-
-Deterministic simulation testing (DST): the contract for seed-replayable execution and the source-level seams
-that implement it. The guide also covers the pre-commit hook that enforces the contract and the known scope
-boundaries.
+Deterministic simulation testing (DST): ข้อตกลงสำหรับการ execute ที่ replay ได้ด้วย seed และจุดต่อในระดับ source
+ที่ implement ข้อตกลงนั้น คู่มือนี้ยังครอบคลุม pre-commit hook ที่บังคับใช้ข้อตกลงและขอบเขตที่ทราบอยู่แล้ว
 
 :::note
-If these guides and the API reference disagree, the API reference is correct.
+หากคู่มือเหล่านี้ขัดแย้งกับ API reference ให้ถือ API reference ([Rust API docs](https://nautilustrader.io/docs/core-latest/)) เป็นหลัก
 :::

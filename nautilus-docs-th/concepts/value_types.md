@@ -1,55 +1,29 @@
 # Value Types
 
-NautilusTrader provides specialized value types for representing core trading concepts:
-`Price`, `Quantity`, and `Money`. These types use fixed-point arithmetic internally
-for performant, deterministic calculations across different platforms
-and environments.
+NautilusTrader มี value type เฉพาะสำหรับแทนแนวคิดหลักในการเทรด ได้แก่
+`Price`, `Quantity` และ `Money` type เหล่านี้ใช้เลขคณิตแบบ fixed-point ภายใน
+เพื่อให้การคำนวณมีประสิทธิภาพและให้ผลลัพธ์ที่แน่นอน (deterministic) เหมือนกันในทุกแพลตฟอร์ม
+และทุก environment
 
-## Overview
+## ภาพรวม {#overview}
 
-| Type       | Purpose                                  | Signed | Currency |
-| ---------- | ---------------------------------------- | ------ | -------- |
-| `Quantity` | Trade sizes, order amounts, positions.   | No     | -        |
-| `Price`    | Market prices, quotes, price levels.     | Yes    | -        |
-| `Money`    | Monetary amounts, P&L, account balances. | Yes    | Yes      |
+| Type       | วัตถุประสงค์                                       | มีเครื่องหมาย | Currency |
+| ---------- | ----------------------------------------------- | ---------- | -------- |
+| `Quantity` | ขนาดของ trade, จำนวนของ order, position          | ไม่          | -        |
+| `Price`    | ราคาตลาด, quote, ระดับราคา                       | ใช่          | -        |
+| `Money`    | จำนวนเงิน, P&L, ยอดเงินคงเหลือใน account            | ใช่          | ใช่        |
 
-## Immutability
+## การดำเนินการทางคณิตศาสตร์ {#arithmetic-operations}
 
-In Python, all value types are **immutable**. Once a value is constructed, it cannot be changed.
-Operations do not mutate the original object.
+value type รองรับตัวดำเนินการทางคณิตศาสตร์มาตรฐาน type ของผลลัพธ์ขึ้นอยู่กับตัวดำเนินการ
+และ type ของ operand
 
-```python
-from nautilus_trader.model import Quantity
+### การดำเนินการแบบ binary ระหว่าง type เดียวกัน {#same-type-binary-operations}
 
-qty1 = Quantity(100, precision=0)
-qty2 = Quantity(50, precision=0)
+การบวกและการลบระหว่าง value type เดียวกันจะคืนค่าเป็น type นั้น ซึ่งคงความหมายทางโดเมนไว้
+(ราคาบวกราคาก็ยังเป็นราคา):
 
-# This creates a NEW Quantity; qty1 and qty2 are unchanged
-result = qty1 + qty2
-
-print(qty1)  # 100
-print(qty2)  # 50
-print(result)  # 150
-```
-
-This design provides several benefits:
-
-- **Thread safety**: Immutable values can be safely shared across threads without synchronization.
-- **Predictability**: Values never change unexpectedly, making debugging easier.
-- **Hashability**: Immutable types can be used as dictionary keys and in sets.
-
-## Arithmetic operations
-
-Value types support standard arithmetic operators (`+`, `-`, `*`, `/`, `%`, `//`)
-and unary operators (`-`, `+`, `abs`). The return type depends on the operator
-and the operand types.
-
-### Same-type binary operations
-
-Addition and subtraction of the same value type return that type, preserving
-domain meaning (a price plus a price is still a price):
-
-| Operation             | Result     |
+| การดำเนินการ          | ผลลัพธ์     |
 | --------------------- | ---------- |
 | `Quantity + Quantity` | `Quantity` |
 | `Quantity - Quantity` | `Quantity` |
@@ -58,280 +32,95 @@ domain meaning (a price plus a price is still a price):
 | `Money + Money`       | `Money`    |
 | `Money - Money`       | `Money`    |
 
-```python
-from nautilus_trader.model import Price
+การคูณ, การหาร, การหารปัดเศษลง (floor division) และการหาเศษ (modulo) ระหว่างค่าสองค่าที่เป็น type
+เดียวกันจะคืนค่าเป็น `Decimal`:
 
-price1 = Price(100.50, precision=2)
-price2 = Price(0.25, precision=2)
-
-result = price1 + price2  # Returns Price(100.75, precision=2)
-print(type(result))  # <class 'nautilus_trader.model.Price'>
-```
-
-Multiplication, division, floor division, and modulo between two values of the
-same type return `Decimal`:
-
-| Operation        | Result    |
+| การดำเนินการ     | ผลลัพธ์    |
 | ---------------- | --------- |
 | `Price * Price`  | `Decimal` |
 | `Price / Price`  | `Decimal` |
 | `Price // Price` | `Decimal` |
 | `Price % Price`  | `Decimal` |
 
-The same pattern applies to `Quantity` and `Money`.
+รูปแบบเดียวกันนี้ใช้กับ `Quantity` และ `Money` ด้วย
 
-These operations return `Decimal` because the result has different dimensional meaning:
+การดำเนินการเหล่านี้คืนค่าเป็น `Decimal` เพราะผลลัพธ์มีความหมายเชิงมิติ (dimension) ต่างออกไป:
 
-- Multiplying a price by a price produces "price squared", not a price.
-- Dividing a quantity by a quantity produces a dimensionless ratio, not a quantity.
+- การคูณราคากับราคาได้ "ราคายกกำลังสอง" ไม่ใช่ราคา
+- การหาร quantity ด้วย quantity ได้อัตราส่วนที่ไม่มีหน่วย ไม่ใช่ quantity
 
-Returning `Decimal` makes the unit change explicit and prevents misinterpretation of the result as a value
-with the original unit.
+การคืนค่าเป็น `Decimal` ทำให้การเปลี่ยนหน่วยชัดเจน และป้องกันการตีความผลลัพธ์ผิดว่าเป็นค่าที่มีหน่วยเดิม
 
-### Unary operations
+> หมายเหตุ: ต้นฉบับมีส่วนเรื่องตัวดำเนินการแบบ unary และการดำเนินการข้าม type ที่อธิบายตามกฎของ Python
+> จึงตัดออก
 
-Unary operators preserve the value type where the result is valid for that type:
+## การจัดการ precision {#precision-handling}
 
-| Operation  | `Price`   | `Quantity` | `Money`   |
-| ---------- | --------- | ---------- | --------- |
-| `-x` (neg) | `Price`   | `Decimal`  | `Money`   |
-| `+x` (pos) | `Price`   | `Quantity` | `Money`   |
-| `abs(x)`   | `Price`   | `Quantity` | `Money`   |
-| `int(x)`   | `int`     | `int`      | `int`     |
-| `float(x)` | `float`   | `float`    | `float`   |
-| `round(x)` | `Decimal` | `Decimal`  | `Decimal` |
+`Price` และ `Quantity` เก็บฟิลด์ `precision` แบบชัดเจนและเปลี่ยนแปลงไม่ได้ ซึ่งระบุจำนวนตำแหน่งทศนิยม
+`Money` ใช้ precision ของสกุลเงินสำหรับการปัดเศษเริ่มต้นและเป็น precision ขั้นต่ำในการแสดงผล ส่วน
+constructor แบบ exact ของมันสามารถเก็บจำนวนที่ละเอียดกว่านั้นได้โดยไม่ต้องเปลี่ยนสกุลเงิน type เหล่านี้ไม่มี
+precision แบบ "ไม่ระบุ"
 
-`Quantity.__neg__` returns `Decimal` rather than `Quantity` because `Quantity` is
-unsigned and cannot represent a negative value.
+### การแทนค่าแบบ fixed-point {#fixed-point-representation}
 
-```python
-from nautilus_trader.model import Currency, Money, Price, Quantity
+value type ใช้จำนวนเต็มที่ถูก scale แทนเลขทศนิยมแบบ floating-point โดย scale ส่วนกลางคือ 10^9 ในโหมดมาตรฐาน
+และ 10^16 ในโหมด high-precision ค่า DeFi ที่รองรับ precision สูงกว่านั้นจะใช้ precision ของตัวเองเป็น scale
+สำหรับ `Price` และ `Quantity` ค่า precision ที่ระบุจะควบคุมรูปแบบการแสดงผลและการ serialize
+`Money` แสดงผลอย่างน้อยตาม precision ของสกุลเงินและคงตัวเลขที่ละเอียดกว่าซึ่งเก็บไว้
 
-USD = Currency.from_str("USD")
+**Precision และ identity**: ราคาสองค่าที่มีค่าทศนิยมเท่ากันแต่ precision ต่างกันถือว่าเท่ากัน
+precision ควบคุมการแสดงผล ไม่ใช่ identity ฟิลด์ `precision` กำหนดรูปแบบของ string และจำนวน
+ตำแหน่งทศนิยมที่แสดง ส่วนความเท่ากันอิงจากค่าตัวเลขที่อยู่เบื้องหลัง
 
-price = Price(100.50, precision=2)
-print(-price)  # -100.50
-print(type(-price))  # <class 'nautilus_trader.model.Price'>
-
-money = Money(-50.00, USD)
-print(abs(money))  # 50.00 USD
-print(type(abs(money)))  # <class 'nautilus_trader.model.Money'>
-
-qty = Quantity(10, precision=0)
-print(+qty)  # 10
-print(type(+qty))  # <class 'nautilus_trader.model.Quantity'>
-```
-
-### Mixed-type operations
-
-When operating with other numeric types, the result type follows Python's
-[numeric tower](https://docs.python.org/3/library/numbers.html) conventions. Operations widen to the more
-general type. `float` operations return `float`, while `int` and `Decimal` operations return `Decimal` for
-precision preservation.
-
-This applies to all six binary operators (`+`, `-`, `*`, `/`, `//`, `%`) and works
-in both directions (`value op scalar` and `scalar op value`):
-
-| Left operand | Right operand | Result type |
-| ------------ | ------------- | ----------- |
-| Value type   | `int`         | `Decimal`   |
-| Value type   | `float`       | `float`     |
-| Value type   | `Decimal`     | `Decimal`   |
-| `int`        | Value type    | `Decimal`   |
-| `float`      | Value type    | `float`     |
-| `Decimal`    | Value type    | `Decimal`   |
-
-```python
-from decimal import Decimal
-
-from nautilus_trader.model import Quantity
-
-qty = Quantity(100, precision=0)
-
-# Quantity + int -> Decimal
-result1 = qty + 50
-print(type(result1))  # <class 'decimal.Decimal'>
-
-# Quantity + float -> float
-result2 = qty + 50.5
-print(type(result2))  # <class 'float'>
-
-# Quantity + Decimal -> Decimal
-result3 = qty + Decimal("50")
-print(type(result3))  # <class 'decimal.Decimal'>
-```
-
-## Precision handling
-
-`Price` and `Quantity` store an explicit, immutable `precision` field that indicates the number of decimal
-places. `Money` uses its currency's precision for default rounding and minimum display precision. Its exact
-constructors can retain finer amounts without changing the currency. The types have no "unspecified" precision.
-
-### Fixed-point representation
-
-Value types use scaled integers instead of floating-point numbers. The global scale is 10^9 in standard
-mode and 10^16 in high-precision mode. DeFi values with higher supported precision use that precision as
-their scale. For `Price` and `Quantity`, the explicit precision controls display formatting and serialization.
-`Money` displays at least its currency precision and retains finer stored digits.
-
-```python
-from nautilus_trader.model import Price
-
-p1 = Price(1.23, precision=2)  # displays as "1.23"
-p2 = Price(1.230, precision=3)  # displays as "1.230"
-
-p1 == p2  # True: same underlying value
-str(p1)  # "1.23"
-str(p2)  # "1.230"
-```
-
-**Precision and identity**: two prices with the same decimal value but different precisions are equal.
-Precision controls display, not identity. The `precision` field determines string formatting and how many
-decimal places are shown. Equality is based on the underlying numeric value.
-
-**Market data serialization**: when market data types (such as quotes, trades, and order book deltas) are
-written to Parquet or Arrow, file metadata stores their precision. This lets readers decode the values
-correctly. All market data values within a single file must share the same precision.
+**การ serialize market data**: เมื่อเขียนข้อมูลตลาด (เช่น quote, trade และ order book delta) ลง
+Parquet หรือ Arrow metadata ของไฟล์จะเก็บ precision ไว้ ทำให้ฝั่งที่อ่านสามารถ decode ค่าได้
+ถูกต้อง ค่า market data ทั้งหมดในไฟล์เดียวกันต้องมี precision เดียวกัน
 
 :::warning
-If a venue changes an instrument's tick size (and thus its precision), data files written before and after the
-change have different precision metadata. Do not consolidate them into a single file.
+หาก venue เปลี่ยน tick size ของ instrument (ซึ่งทำให้ precision เปลี่ยนไปด้วย) ไฟล์ข้อมูลที่เขียนก่อนและหลัง
+การเปลี่ยนแปลงจะมี metadata ของ precision ต่างกัน อย่ารวมไฟล์เหล่านั้นเป็นไฟล์เดียว
 :::
 
-For how instrument-level precision constrains valid prices and quantities, see the
-[Precision](instruments/index.md#precision) section of the Instruments guide.
+ดูว่า precision ระดับ instrument จำกัดราคาและ quantity ที่ใช้ได้อย่างไรในส่วน
+[Precision](instruments/index.md#precision) ของคู่มือ Instruments
 
-### Arithmetic precision
+### Precision ในการคำนวณ {#arithmetic-precision}
 
-When performing arithmetic between values with different precisions, the result
-uses the maximum precision of the operands.
+เมื่อคำนวณระหว่างค่าที่มี precision ต่างกัน ผลลัพธ์จะใช้ precision สูงสุดของ operand
 
-```python
-from nautilus_trader.model import Price
+## ข้อจำกัดเฉพาะของแต่ละ type {#type-specific-constraints}
 
-price1 = Price(100.5, precision=1)  # 1 decimal place
-price2 = Price(0.125, precision=3)  # 3 decimal places
+### Quantity {#quantity}
 
-result = price1 + price2
-print(result)  # 100.625
-print(result.precision)  # 3 (max of 1 and 3)
-```
+`Quantity` แทนจำนวนที่ไม่ติดลบ การพยายามสร้าง quantity ที่ติดลบ
+หรือลบ quantity ที่มากกว่าออกจาก quantity ที่น้อยกว่าจะทำให้เกิด error
 
-## Type-specific constraints
+### Money {#money}
 
-### Quantity
+ค่า `Money` มีสกุลเงินกำกับอยู่ การบวกและการลบระหว่างค่า `Money`
+ต้องใช้ **สกุลเงินเดียวกัน** มิฉะนั้นจะเกิด error
 
-`Quantity` represents non-negative amounts. Attempting to create a negative quantity
-or subtract a larger quantity from a smaller one raises an error:
+ใช้ `Money.from_decimal_exact` หรือ `Money.from_str_exact` เพื่อเก็บจำนวนที่ละเอียดกว่า precision ของสกุลเงิน
 
-```python
-from nautilus_trader.model import Quantity
+constructor แบบ exact จะปฏิเสธการสูญเสีย precision และจำนวนที่อยู่นอกช่วง USD รองรับทศนิยม 9 ตำแหน่งในโหมด
+มาตรฐาน และ 16 ตำแหน่งในโหมด high-precision สกุลเงิน DeFi จะใช้ scale ของสกุลเงินนั้นเมื่อสูงกว่า
+ส่วน constructor ปกติ, `Money.from_str` และ `Money.from_decimal` จะปัดเศษให้เท่ากับ precision ของสกุลเงิน
+การ serialize เป็น string จะคงตัวเลขที่ละเอียดกว่าซึ่งเก็บไว้ และการ deserialize จะคืนค่าเหล่านั้นโดยไม่ปัดตาม
+สกุลเงิน
 
-# This raises ValueError: Quantity cannot be negative
-qty = Quantity(-100, precision=0)
+## รูปแบบการใช้งานทั่วไป {#common-patterns}
 
-# This also raises ValueError
-qty1 = Quantity(50, precision=0)
-qty2 = Quantity(100, precision=0)
-result = qty1 - qty2  # Would be -50, which is invalid
-```
+### การแปลงเป็น type อื่น {#converting-to-other-types}
 
-### Money
+value type มี method สำหรับแปลงค่า เช่น `as_decimal()` (คง precision ไว้) และ `as_double()` (แปลงเป็น float)
 
-`Money` values include a currency. Addition and subtraction between `Money` values
-require **matching currencies**:
+การแปลงเป็น float รองรับ precision สูงสุด 16 สำหรับ precision 17 หรือ 18 จะเกิด error
+แทนที่จะปัดตัวเลขส่วนเกินทิ้ง การแปลงที่ precision 16 หรือต่ำกว่ายังอาจมีการปัดเศษได้ เพราะ float เก็บตัวเลข
+นัยสำคัญได้ประมาณ 16 หลัก ใช้ `as_decimal()` เพื่อหลีกเลี่ยงการแปลงผ่าน binary float การแปลงนี้ใช้ `Decimal`
+ของ Rust ซึ่งมี mantissa ขนาด 96 บิต จึงอาจสูญเสียตัวเลขหลังจุดทศนิยมได้เมื่อค่ามีตัวเลขนัยสำคัญมากเกินไป
+การ serialize เป็น string จะคงจำนวน `Money` ที่เก็บไว้ครบถ้วน
 
-```python
-from nautilus_trader.model import Currency, Money
+### การสร้างจาก string {#creating-from-strings}
 
-USD = Currency.from_str("USD")
-EUR = Currency.from_str("EUR")
-
-usd_amount = Money(100.00, USD)
-eur_amount = Money(50.00, EUR)
-
-# This works - same currency
-result = usd_amount + Money(25.00, USD)
-
-# This raises ValueError - currency mismatch
-result = usd_amount + eur_amount
-```
-
-Use `Money.from_decimal_exact` or `Money.from_str_exact` to preserve amounts finer than the currency precision:
-
-```python
-from decimal import Decimal
-
-from nautilus_trader.model import Currency, Money
-
-USD = Currency.from_str("USD")
-exact = Money.from_decimal_exact(Decimal("1.0001"), USD)
-
-assert str(exact) == "1.0001 USD"
-assert exact.currency.precision == 2
-assert Money.from_str("1.0001 USD") == Money.from_str("1.00 USD")
-```
-
-Exact constructors reject precision loss and out-of-range amounts. USD supports 9 decimal places in standard
-mode and 16 in high-precision mode. DeFi currencies use their currency scale when it is higher.
-`Money.from_decimal_exact` requires a `Decimal` and raises `TypeError` for other types. `Money(...)`,
-`Money.from_str`, and `Money.from_decimal` round to the currency precision.
-String serialization preserves stored finer digits; deserialization restores them without currency rounding.
-
-## Common patterns
-
-### Accumulating values
-
-Since value types are immutable, accumulate by reassigning:
-
-```python
-from nautilus_trader.model import Currency, Money
-
-USD = Currency.from_str("USD")
-
-total = Money(0.00, USD)
-amounts = [Money(100.00, USD), Money(50.00, USD), Money(25.00, USD)]
-
-for amount in amounts:
-    total = total + amount  # Reassign to new Money instance
-
-print(total)  # 175.00 USD
-```
-
-### Converting to other types
-
-Value types provide conversion methods:
-
-```python
-from nautilus_trader.model import Price
-
-price = Price(123.456, precision=3)
-
-# Convert to Decimal (preserves precision)
-decimal_value = price.as_decimal()
-
-# Convert to float
-float_value = price.as_double()
-
-# Convert to string
-string_value = str(price)  # "123.456"
-```
-
-Float conversion supports precision up to 16. `float()`, `as_double()`, and arithmetic with a
-`float` operand raise `ValueError` for precision 17 or 18 rather than round away the extra digits.
-Conversions at precision 16 or below can still round, since a float holds about 16 significant
-digits. Use `as_decimal()` to avoid binary-float conversion. The conversion uses Rust `Decimal`, whose
-96-bit mantissa can lose fractional digits when a value has too many significant digits. String
-serialization preserves the full stored `Money` amount.
-
-### Creating from strings
-
-Parse value types from string representations:
-
-```python
-from nautilus_trader.model import Money, Price, Quantity
-
-qty = Quantity.from_str("100.5")
-price = Price.from_str("99.95")
-money = Money.from_str("1000.00 USD")
-```
+value type สามารถ parse จากรูปแบบ string ได้ เช่น `"100.5"` สำหรับ quantity, `"99.95"` สำหรับราคา
+และ `"1000.00 USD"` สำหรับ money

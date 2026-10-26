@@ -1,32 +1,26 @@
 # OrderPendingCancel
 
-`OrderPendingCancel` records that the system has sent a `CancelOrder` request to the trading venue
-and awaits acknowledgement. The `ExecutionEngine` applies it to the order, updates the `Cache`,
-and publishes it on the `MessageBus`.
+`OrderPendingCancel` บันทึกว่าระบบได้ส่งคำขอ `CancelOrder` ไปยัง venue แล้วและกำลังรอการตอบรับ
+`ExecutionEngine` จะนำ event นี้ไปปรับใช้กับ order, อัปเดต `Cache` และ publish บน `MessageBus`
 
-Typical transition: `ACCEPTED` -> `PENDING_CANCEL`. Handler: `on_order_pending_cancel`.
+การเปลี่ยนสถานะโดยทั่วไป: `ACCEPTED` -> `PENDING_CANCEL` Handler: `on_order_pending_cancel`
 
-## Fields
+## ฟิลด์ {#fields}
 
-Beyond the [common Python order event fields](index.md#common-python-order-event-fields),
-`OrderPendingCancel` carries:
+นอกเหนือจาก[ฟิลด์ร่วมของ order event](index.md#common-python-order-event-fields)แล้ว
+`OrderPendingCancel` ยังมีฟิลด์ต่อไปนี้:
 
-| Field            | Python type              | Required/default | Description                                      |
-| ---------------- | ------------------------ | ---------------- | ------------------------------------------------ |
-| `venue_order_id` | `VenueOrderId` or `None` | `None`           | The venue-assigned order identifier, if known.   |
-| `account_id`     | `AccountId` or `None`    | Required         | The account associated with the order, if known. |
-| `reconciliation` | `bool`                   | Required         | If generated during reconciliation.              |
+| Field            | Required/default | คำอธิบาย                                       |
+| ---------------- | ---------------- | --------------------------------------------- |
+| `venue_order_id` | `None`           | identifier ของ order ที่ venue กำหนด (ถ้าทราบ)    |
+| `account_id`     | Required         | account ที่เกี่ยวข้องกับ order (ถ้าทราบ)           |
+| `reconciliation` | Required         | ถูกสร้างระหว่าง reconciliation หรือไม่             |
 
-## Example
+## ตัวอย่าง {#example}
 
-Reading the event in a strategy handler:
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-```python
-def on_order_pending_cancel(self, event: OrderPendingCancel) -> None:
-    self.log.info(f"Cancel pending for {event.client_order_id}")
-```
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-## Related guides
-
-- [Events](index.md) - Event categories, dispatch, and the common order event fields.
-- [Orders](../orders/) - Order types and the state machine.
+- [Events](index.md) - หมวดหมู่ของ event, การ dispatch และฟิลด์ร่วมของ order event
+- [Orders](../orders/) - ประเภทของ order และ state machine

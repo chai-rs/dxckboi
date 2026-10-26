@@ -1,304 +1,303 @@
 # Execution Policies
 
-NautilusTrader coordinates local state with trading venues across a distributed boundary. This
-page defines the policies that govern order commands, order events, persistence, and reconciliation,
-including their documented behavior and known limits. Use it when interpreting an order state,
-implementing an execution adapter, or designing live recovery procedures.
+NautilusTrader ประสาน state ภายในเครื่องกับ trading venue ข้ามขอบเขตแบบกระจาย (distributed boundary)
+หน้านี้กำหนด policy ที่ควบคุม order command, order event, persistence และ reconciliation
+รวมถึงพฤติกรรมที่ระบุไว้และข้อจำกัดที่ทราบ ใช้หน้านี้เมื่อต้องตีความ state ของ order,
+implement execution adapter หรือออกแบบขั้นตอนการกู้คืนระบบในการเทรดจริง
 
-For the component and routing model, see [Execution](index.md). For each order status and the primary state
-transitions, see [Orders](../orders/index.md#order-state-flow).
+สำหรับโมเดลของ component และการ routing ดู [Execution](index.md) สำหรับสถานะของ order แต่ละแบบและ
+การเปลี่ยนสถานะหลัก ดู [Orders](../orders/index.md#order-state-flow)
 
-## Policy summary
+## สรุป policy {#policy-summary}
 
-| Boundary                | Behavior                                                                                        | Limit                                                                                           |
-| ----------------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Order state             | Each applied event must satisfy the order state machine and identity checks.                    | A status alone does not identify whether venue evidence or reconciliation produced it.          |
-| Command outcome         | Adapters distinguish definitive local failures, definitive venue results, and unknown outcomes. | A transport result does not necessarily prove what the venue did.                               |
-| Command delivery        | The contract retries a state-changing command only when repeating the same request is safe.     | Not all adapters follow that contract, and delivery is not exactly once.                        |
-| Event application       | Order identity and transition checks reject invalid events. Fills reject a repeated `trade_id`. | No blanket exactly-once guarantee applies across all event types or across lost retained state. |
-| Persistence before send | The cache enqueues the order and resolved execution-client origin before calling the client.    | The built-in cache backends do not wait for durable storage before the client can send.         |
-| Bounded recovery        | Reconciliation recovers reported order state without applying unsupported fill economics.       | Partial history does not prove historical position economics, realized PnL, or average price.   |
-| Terminal policy         | Reconciliation may resolve missing or timed-out orders after configured retries.                | A policy resolution is not a venue-confirmed rejection or cancellation.                         |
+| ขอบเขต                    | พฤติกรรม                                                                                         | ข้อจำกัด                                                                                         |
+| ------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| Order state               | event ทุกตัวที่ถูกนำไปใช้ต้องผ่าน state machine ของ order และการตรวจสอบ identity                 | สถานะเพียงอย่างเดียวไม่ได้บอกว่าเกิดจากหลักฐานจาก venue หรือจาก reconciliation                    |
+| ผลลัพธ์ของ command         | adapter แยกแยะความล้มเหลวภายในที่ชัดเจน, ผลลัพธ์จาก venue ที่ชัดเจน และผลลัพธ์ที่ไม่ทราบ           | ผลลัพธ์ในระดับ transport ไม่ได้พิสูจน์เสมอไปว่า venue ทำอะไร                                    |
+| การส่ง command             | ตาม contract จะ retry command ที่เปลี่ยน state เฉพาะเมื่อการส่ง request เดิมซ้ำนั้นปลอดภัย         | ไม่ใช่ทุก adapter ที่ทำตาม contract นี้ และการส่งไม่ได้เป็นแบบ exactly once                       |
+| การนำ event ไปใช้          | การตรวจ identity ของ order และการเปลี่ยนสถานะจะปฏิเสธ event ที่ไม่ถูกต้อง fill จะปฏิเสธ `trade_id` ที่ซ้ำ | ไม่มีการรับประกัน exactly-once แบบครอบคลุมทุกประเภท event หรือเมื่อ state ที่เก็บไว้สูญหาย          |
+| Persistence ก่อนส่ง         | cache จะ enqueue order และ origin ของ execution client ที่ resolve แล้ว ก่อนเรียก client             | cache backend ในตัวไม่ได้รอให้เขียนลง storage ถาวรเสร็จก่อนที่ client จะส่งได้                     |
+| การกู้คืนแบบมีขอบเขต        | reconciliation กู้คืน state ของ order ที่ venue รายงาน โดยไม่นำตัวเลข fill ที่ไม่มีหลักฐานรองรับไปใช้ | ประวัติที่ไม่ครบไม่สามารถพิสูจน์ตัวเลขของ position ในอดีต, realized PnL หรือราคาเฉลี่ยได้          |
+| Terminal policy           | reconciliation อาจปิดสถานะ order ที่หายไปหรือ timeout หลังจาก retry ครบตามที่ตั้งค่าไว้             | การปิดสถานะโดย policy ไม่ใช่การ reject หรือ cancel ที่ venue ยืนยัน                               |
 
-## Order state
+## Order state {#order-state}
 
-Orders are event sourced. Each order starts with `OrderInitialized`, and `OrderCore::apply` validates the
-event against the order identity and the transition allowed from its present status. It rejects an invalid
-transition or a repeated fill `trade_id` before changing the order, then appends each accepted event to the
-order's event history.
+Order ใช้แนวทาง event sourcing order ทุกตัวเริ่มต้นด้วย `OrderInitialized` และ `OrderCore::apply` จะตรวจสอบ
+event กับ identity ของ order และการเปลี่ยนสถานะที่อนุญาตจากสถานะปัจจุบัน มันจะปฏิเสธการเปลี่ยนสถานะ
+ที่ไม่ถูกต้องหรือ fill ที่มี `trade_id` ซ้ำก่อนจะแก้ไข order จากนั้นจึงต่อ event ที่ยอมรับแต่ละตัวเข้าไปใน
+ประวัติ event ของ order
 
-The [order state flow](../orders/index.md#order-state-flow) shows the primary lifecycle. The model also
-accepts selected recovery and real-world edge cases, including fills received while a command is
-pending and late fills for canceled orders. Each event page under [Events](../events/) documents its
-fields and typical transition.
+[Order state flow](../orders/index.md#order-state-flow) แสดง lifecycle หลัก โมเดลนี้ยังรองรับ
+กรณีการกู้คืนและกรณีขอบ (edge case) ในโลกจริงบางกรณีด้วย เช่น fill ที่ได้รับระหว่างที่ command
+ยัง pending อยู่ และ fill ที่มาช้าสำหรับ order ที่ถูก cancel ไปแล้ว หน้า event แต่ละหน้าภายใต้
+[Events](../events/) อธิบาย field และการเปลี่ยนสถานะทั่วไปของ event นั้น
 
-### Ordering
+### ลำดับ {#ordering}
 
-Within one live node, the runner handles each selected message branch to completion before it
-selects another. This serializes kernel-side order mutation. The order appends each accepted event
-in application order and does not reorder its history by event timestamp.
+ภายใน live node หนึ่งตัว runner จะจัดการ message branch ที่เลือกแต่ละอันจนเสร็จก่อนจะเลือกอันถัดไป
+ทำให้การแก้ไข order ฝั่ง kernel เป็นแบบลำดับเดียว (serialized) order จะต่อ event ที่ยอมรับแต่ละตัว
+ตามลำดับที่นำไปใช้ และไม่เรียงประวัติใหม่ตาม timestamp ของ event
 
-When several channels are ready, the runner's priority determines which it handles next. Events from
-independent adapter tasks or venues can thus interleave, and event timestamps do not define a global FIFO
-order. See [Dispatch priority and overload behavior](../live.md#dispatch-priority-and-overload-behavior).
+เมื่อมีหลาย channel พร้อมพร้อมกัน priority ของ runner จะเป็นตัวกำหนดว่าจะจัดการอันไหนก่อน event
+จาก task ของ adapter หรือ venue ที่เป็นอิสระต่อกันจึงอาจสลับกันได้ และ timestamp ของ event ไม่ได้กำหนด
+ลำดับ FIFO แบบ global ดู [Dispatch priority and overload behavior](../live.md#dispatch-priority-and-overload-behavior)
 
-### Duplicate application
+### การนำ event ไปใช้ซ้ำ {#duplicate-application}
 
-NautilusTrader does not use `event_id` as a universal order-level deduplication key and does not guarantee
-exactly-once application for all order events. Its narrower protections are:
+NautilusTrader ไม่ได้ใช้ `event_id` เป็น key สำหรับตัดข้อมูลซ้ำในระดับ order แบบครอบจักรวาล และไม่รับประกัน
+การนำ event ไปใช้แบบ exactly-once สำหรับ order event ทุกตัว การป้องกันที่มีแคบกว่านั้น ได้แก่:
 
-- An order rejects a repeated fill at the latest recorded price for a `trade_id`. A repeated fill at a new
-  price restates that trade's average price without applying quantity.
-- The execution engine prevents the same `trade_id` from adding quantity to the target position again. It
-  routes a price restatement to the open position's average instead.
-- Fill voids use the original `trade_id` and reject duplicate, stale, conflicting, or excessive
-  cumulative corrections.
-- Other repeated lifecycle events must still pass the state transition. Some state-preserving
-  updates and repeated pending requests are valid events and can be appended again.
+- order จะปฏิเสธ fill ที่ซ้ำที่ราคาล่าสุดที่บันทึกไว้ของ `trade_id` นั้น fill ซ้ำที่ราคาใหม่จะปรับ
+  ราคาเฉลี่ยของ trade นั้นใหม่โดยไม่เพิ่ม quantity
+- execution engine ป้องกันไม่ให้ `trade_id` เดิมเพิ่ม quantity ให้ position เป้าหมายซ้ำอีก
+  แต่จะส่งการปรับราคาไปยังราคาเฉลี่ยของ position ที่เปิดอยู่แทน
+- การยกเลิก fill (fill void) ใช้ `trade_id` เดิม และจะปฏิเสธการแก้ไขที่ซ้ำ, เก่า, ขัดแย้งกัน
+  หรือรวมกันแล้วเกินจริง
+- lifecycle event อื่นที่ซ้ำยังต้องผ่านการเปลี่ยนสถานะตามปกติ update บางตัวที่ไม่เปลี่ยน state
+  และ request ที่ pending ซ้ำถือเป็น event ที่ถูกต้องและอาจถูกต่อเข้าไปอีกได้
 
-These checks depend on the order and position evidence retained in the cache. Restored state keeps
-its earlier trade IDs and event history available after restart. If that state and the required
-venue history are absent, NautilusTrader cannot infer exactly-once application from the missing
-evidence.
+การตรวจสอบเหล่านี้ขึ้นอยู่กับหลักฐานของ order และ position ที่เก็บไว้ใน cache state ที่กู้คืนมาจะยัง
+มี trade ID และประวัติ event เดิมให้ใช้หลัง restart หากไม่มีทั้ง state ดังกล่าวและประวัติจาก venue
+ที่จำเป็น NautilusTrader ก็ไม่สามารถอนุมานการนำไปใช้แบบ exactly-once จากหลักฐานที่ขาดหายได้
 
-Reports that describe one logical fill with different trade IDs stay distinct and are subject to the normal
-overfill and integrity checks.
+report ที่อธิบาย fill เชิงตรรกะเดียวกันแต่มี trade ID ต่างกันจะถูกถือว่าแยกกัน และต้องผ่านการตรวจ
+overfill และ integrity ตามปกติ
 
-The optional [event store](../event_sourcing.md) has a separate boundary. Its capture adapter
-deduplicates repeated dispatches of one message identity within a bounded recent window, and replay
-applies each stored sequence entry once. This does not make an uncommitted capture durable or make
-venue delivery exactly once.
+[Event store](../event_sourcing.md) ที่เป็นตัวเลือกเสริมมีขอบเขตแยกต่างหาก capture adapter ของมัน
+จะตัดการ dispatch ซ้ำของ message identity เดียวกันภายในช่วงเวลาล่าสุดที่จำกัด และการ replay
+จะนำแต่ละ sequence entry ที่เก็บไว้ไปใช้หนึ่งครั้ง แต่สิ่งนี้ไม่ได้ทำให้ capture ที่ยังไม่ commit
+กลายเป็นข้อมูลถาวร หรือทำให้การส่งจาก venue เป็นแบบ exactly once
 
-## Command outcomes
+## ผลลัพธ์ของ command {#command-outcomes}
 
-Execution commands resolve according to the evidence available:
+execution command จะได้ข้อสรุปตามหลักฐานที่มี:
 
-| Evidence                 | Meaning                                                         | Result                                                                                          |
-| ------------------------ | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Definitive local failure | Validation proves that the command was not sent.                | Denies a submit or rejects a modify or cancel when the failure is attributable to that command. |
-| Definitive venue result  | The matching engine or venue explicitly confirms the outcome.   | Applies the corresponding accepted, updated, canceled, or rejected event.                       |
-| Unknown live outcome     | The command may have reached the venue, but no result is known. | Keeps the command in flight for stream updates, polling, queries, or reconciliation.            |
+| หลักฐาน                    | ความหมาย                                                          | ผลลัพธ์                                                                                             |
+| ------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| ความล้มเหลวภายในที่ชัดเจน   | การ validate พิสูจน์ได้ว่า command ไม่ได้ถูกส่งออกไป               | deny การ submit หรือ reject การ modify/cancel เมื่อความล้มเหลวนั้นเกิดจาก command นั้นจริง            |
+| ผลลัพธ์จาก venue ที่ชัดเจน   | matching engine หรือ venue ยืนยันผลลัพธ์อย่างชัดแจ้ง               | นำ event accepted, updated, canceled หรือ rejected ที่ตรงกันไปใช้                                   |
+| ผลลัพธ์ live ที่ไม่ทราบ      | command อาจไปถึง venue แล้ว แต่ยังไม่ทราบผล                        | คง command ไว้ในสถานะ in flight เพื่อรอ stream update, polling, query หรือ reconciliation           |
 
-The failure event depends on the command and when the failure becomes definitive:
+event ที่บอกความล้มเหลวขึ้นอยู่กับ command และช่วงเวลาที่ความล้มเหลวนั้นชัดเจน:
 
-| Command                             | Event                 | Meaning                                                         |
-| ----------------------------------- | --------------------- | --------------------------------------------------------------- |
-| Submit or submit order list         | `OrderDenied`         | Local checks prevent submission. No `OrderSubmitted` event.     |
-| Submit or submit order list         | `OrderRejected`       | The submit entered execution and was later proven unsuccessful. |
-| Modify                              | `OrderModifyRejected` | The requested modification was proven unsuccessful.             |
-| Cancel, cancel-all, or batch cancel | `OrderCancelRejected` | The requested cancellation was proven unsuccessful.             |
+| Command                             | Event                 | ความหมาย                                                          |
+| ----------------------------------- | --------------------- | ----------------------------------------------------------------- |
+| Submit หรือ submit order list        | `OrderDenied`         | การตรวจภายในขัดขวางการ submit ไม่มี event `OrderSubmitted`         |
+| Submit หรือ submit order list        | `OrderRejected`       | การ submit เข้าสู่ execution แล้ว และภายหลังพิสูจน์ได้ว่าไม่สำเร็จ    |
+| Modify                              | `OrderModifyRejected` | พิสูจน์ได้ว่าการแก้ไขที่ร้องขอไม่สำเร็จ                             |
+| Cancel, cancel-all หรือ batch cancel | `OrderCancelRejected` | พิสูจน์ได้ว่าการ cancel ที่ร้องขอไม่สำเร็จ                          |
 
-A submit command is evaluated only against eligible orders. A cached order is ineligible once it has left
-`INITIALIZED` or `RELEASED`. It is also ineligible between dispatch to an execution client and application of
-that client's first status event by the `ExecutionEngine`.
+submit command จะถูกประเมินเฉพาะกับ order ที่มีสิทธิ์เท่านั้น order ใน cache จะหมดสิทธิ์เมื่อออกจาก
+`INITIALIZED` หรือ `RELEASED` ไปแล้ว และยังหมดสิทธิ์ในช่วงระหว่างที่ dispatch ไปยัง execution client
+จนถึงตอนที่ `ExecutionEngine` นำ status event แรกของ client นั้นไปใช้
 
-For an ineligible order:
+สำหรับ order ที่หมดสิทธิ์:
 
-- A repeated `SubmitOrder` is skipped.
-- A `SubmitOrderList` naming it is denied without reaching the client. `OrderDenied`
-  (`ORDER_LIST_DENIED`) applies only to the list's eligible members. The earlier submission keeps
-  its lifecycle, and its later client events apply normally.
+- `SubmitOrder` ที่ซ้ำจะถูกข้าม
+- `SubmitOrderList` ที่ระบุ order นั้นจะถูก deny โดยไม่ไปถึง client โดย `OrderDenied`
+  (`ORDER_LIST_DENIED`) จะใช้กับเฉพาะสมาชิกของ list ที่มีสิทธิ์เท่านั้น การ submit ครั้งก่อน
+  ยังคง lifecycle ของมันไว้ และ event จาก client ที่ตามมาจะถูกนำไปใช้ตามปกติ
 
-The **dispatch record is process-local**: a reset clears it, and it is absent after a restart. After restart,
-a still-`INITIALIZED` dispatched order is treated like any other unrouted order. This continues until the
-client's events or a venue cancel or expiry report resolve it.
+**บันทึกการ dispatch เป็นข้อมูลเฉพาะใน process**: การ reset จะล้างมัน และจะไม่มีอยู่หลัง restart
+หลัง restart order ที่ dispatch แล้วแต่ยังเป็น `INITIALIZED` จะถูกปฏิบัติเหมือน order อื่นที่ยังไม่ถูก route
+ไปจนกว่า event จาก client หรือ report การ cancel หรือหมดอายุจาก venue จะปิดสถานะมัน
 
-For modify or cancel preparation, NautilusTrader emits the matching rejection only when the
-failure is attributable to that command and proves it was not sent. Otherwise, it logs the failure
-without inventing an outcome.
+สำหรับการเตรียม modify หรือ cancel NautilusTrader จะ emit rejection ที่ตรงกันเฉพาะเมื่อความล้มเหลวนั้น
+เกิดจาก command นั้นจริงและพิสูจน์ได้ว่าไม่ได้ถูกส่งออกไป มิฉะนั้นจะ log ความล้มเหลวไว้โดยไม่สร้าง
+ผลลัพธ์ขึ้นมาเอง
 
-A successful batch response can still contain definitive per-order failures. A whole-request failure without
-per-order evidence does not prove that all child commands failed.
+response ของ batch ที่สำเร็จยังอาจมีความล้มเหลวรายออร์เดอร์ที่ชัดเจนอยู่ได้ ความล้มเหลวทั้ง request
+ที่ไม่มีหลักฐานรายออร์เดอร์ ไม่ได้พิสูจน์ว่า child command ทั้งหมดล้มเหลว
 
-:::warning[Unknown live outcomes]
-Transport errors, timeouts, disconnects, task cancellation, exhausted adapter request retries,
-missing acknowledgements, and parse failures after transmission usually leave the venue outcome
-unknown. HTTP status codes and rate limits are definitive only when venue-specific semantics prove
-that the command was not accepted.
+:::warning[ผลลัพธ์ live ที่ไม่ทราบ]
+transport error, timeout, การหลุดการเชื่อมต่อ, การ cancel task, การ retry request ของ adapter จนหมด,
+acknowledgement ที่หายไป และการ parse ล้มเหลวหลังจากส่งไปแล้ว โดยทั่วไปจะทำให้ไม่ทราบผลลัพธ์ที่ venue
+HTTP status code และ rate limit จะถือว่าชัดเจนก็ต่อเมื่อความหมายเฉพาะของ venue พิสูจน์ได้ว่า
+command ไม่ได้ถูกยอมรับ
 :::
 
-An **in-flight order** is awaiting resolution:
+**In-flight order** คือ order ที่กำลังรอข้อสรุป:
 
-- `SUBMITTED`: Initial submission awaiting acceptance or rejection.
-- `PENDING_UPDATE`: Modification awaiting confirmation.
-- `PENDING_CANCEL`: Cancellation awaiting confirmation.
+- `SUBMITTED`: การ submit ครั้งแรกที่รอการ accept หรือ reject
+- `PENDING_UPDATE`: การแก้ไขที่รอการยืนยัน
+- `PENDING_CANCEL`: การ cancel ที่รอการยืนยัน
 
-### Delivery and retry limits
+### ข้อจำกัดของการส่งและการ retry {#delivery-and-retry-limits}
 
-A request can reach a venue even when its response is lost. NautilusTrader does not guarantee
-exactly-once delivery for submit, modify, or cancel commands.
+request อาจไปถึง venue แล้วแม้ว่า response จะหายไป NautilusTrader ไม่รับประกันการส่งแบบ
+exactly-once สำหรับ command submit, modify หรือ cancel
 
-#### Safety test
+#### การทดสอบความปลอดภัย {#safety-test}
 
-An adapter retries a transient failure only when a repeat is safe. A repeat is safe when it:
+adapter จะ retry ความล้มเหลวชั่วคราว (transient failure) เฉพาะเมื่อการส่งซ้ำนั้นปลอดภัย การส่งซ้ำจะ
+ปลอดภัยเมื่อ:
 
-- Cannot apply a state change twice.
-- Cannot change an order the first attempt did not name.
-- Cannot report an earlier success as a rejection.
+- ไม่สามารถทำให้การเปลี่ยน state เกิดขึ้นสองครั้ง
+- ไม่สามารถเปลี่ยน order ที่ความพยายามครั้งแรกไม่ได้ระบุ
+- ไม่สามารถรายงานความสำเร็จก่อนหน้าว่าเป็น rejection
 
-A repeat that only mints an additional short-lived session token, and does not revoke an existing
-session or create a lasting credential, is safe.
+การส่งซ้ำที่เพียงแค่สร้าง session token อายุสั้นเพิ่มอีกหนึ่งตัว โดยไม่ revoke session ที่มีอยู่
+หรือสร้าง credential ถาวร ถือว่าปลอดภัย
 
-Only the venue protocol can make any other repeat safe, through stable request identity and
-duplicate detection, or through idempotent semantics for the same target. That guarantee must hold
-for the whole retry window, including after the targeted order fills or cancels, and until any
-venue deduplication clock expires.
+การส่งซ้ำแบบอื่นจะปลอดภัยได้ก็ต่อเมื่อ protocol ของ venue รองรับ ผ่าน request identity ที่คงที่และ
+การตรวจจับข้อมูลซ้ำ หรือผ่านความหมายแบบ idempotent สำหรับเป้าหมายเดียวกัน การรับประกันนี้ต้องคงอยู่
+ตลอดช่วง retry ทั้งหมด รวมถึงหลังจากที่ order เป้าหมาย fill หรือถูก cancel ไปแล้ว และจนกว่า
+นาฬิกาตัดข้อมูลซ้ำของ venue จะหมดอายุ
 
-| Request                                                                                                                                 | Repeat effect                                | Attempts                            |
-| --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- | ----------------------------------- |
-| Submit, or submit order list.                                                                                                           | Can place a second live order.               | Once, unless the safety test holds. |
-| Modify.                                                                                                                                 | Can apply a second modification.             | Once, unless the safety test holds. |
-| Cancel, or batch cancel by explicit ID.                                                                                                 | Second response can report a rejection.      | Once, unless the safety test holds. |
-| Cancel-all.                                                                                                                             | Can cancel an order placed between attempts. | Once, unless the safety test holds. |
-| Other state-changing request.                                                                                                           | Can apply that change twice.                 | Once, unless the safety test holds. |
-| Session-token request that only mints an unused short-lived token, does not revoke a session, and does not create a lasting credential. | Mints another unused token.                  | On a transient failure.             |
-| Read or other idempotent request.                                                                                                       | No venue state change.                       | On a transient failure.             |
+| Request                                                                                                              | ผลของการส่งซ้ำ                                   | จำนวนครั้งที่พยายาม                     |
+| -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------------------------- |
+| Submit หรือ submit order list                                                                                         | อาจวาง live order ตัวที่สอง                       | ครั้งเดียว เว้นแต่ผ่านการทดสอบความปลอดภัย |
+| Modify                                                                                                               | อาจแก้ไขซ้ำเป็นครั้งที่สอง                         | ครั้งเดียว เว้นแต่ผ่านการทดสอบความปลอดภัย |
+| Cancel หรือ batch cancel โดยระบุ ID ชัดเจน                                                                            | response ครั้งที่สองอาจรายงานว่าเป็น rejection     | ครั้งเดียว เว้นแต่ผ่านการทดสอบความปลอดภัย |
+| Cancel-all                                                                                                           | อาจ cancel order ที่ถูกวางระหว่างความพยายามแต่ละครั้ง | ครั้งเดียว เว้นแต่ผ่านการทดสอบความปลอดภัย |
+| request อื่นที่เปลี่ยน state                                                                                          | อาจทำให้การเปลี่ยนแปลงนั้นเกิดสองครั้ง              | ครั้งเดียว เว้นแต่ผ่านการทดสอบความปลอดภัย |
+| request ขอ session token ที่เพียงสร้าง token อายุสั้นที่ยังไม่ถูกใช้ ไม่ revoke session และไม่สร้าง credential ถาวร       | สร้าง token ที่ยังไม่ถูกใช้เพิ่มอีกตัว               | เมื่อเกิด transient failure             |
+| request อ่านข้อมูลหรือ request อื่นที่เป็น idempotent                                                                  | ไม่มีการเปลี่ยน state ที่ venue                    | เมื่อเกิด transient failure             |
 
-When the safety test does not hold, the adapter sends the request once. The outcome stays unknown
-until stream updates, queries, polling, or reconciliation resolve the same semantic command.
+เมื่อไม่ผ่านการทดสอบความปลอดภัย adapter จะส่ง request เพียงครั้งเดียว และผลลัพธ์จะยังไม่ทราบ
+จนกว่า stream update, query, polling หรือ reconciliation จะให้ข้อสรุปสำหรับ command เชิงความหมายเดียวกัน
 
-:::warning[Incomplete conformance]
-A transient failure can send some order commands twice, including on Bybit, OKX, and Kraken spot.
-That list is not a complete census. The
-[retry gate conformance](../../developer_guide/adapters.md#retry-gate-conformance) table records
-the checked HTTP gates.
+:::warning[การปฏิบัติตามยังไม่ครบถ้วน]
+transient failure อาจทำให้ order command บางตัวถูกส่งสองครั้ง รวมถึงบน Bybit, OKX และ Kraken spot
+รายการนี้ไม่ได้ครบถ้วนทั้งหมด ตาราง
+[retry gate conformance](../../developer_guide/adapters.md#retry-gate-conformance) บันทึก
+HTTP gate ที่ตรวจสอบแล้ว
 :::
 
-#### Outcome
+#### ผลลัพธ์ {#outcome}
 
-Whether a failure is safe to retry is separate from the venue outcome. A failure can be safe to retry while
-the earlier attempt stays ambiguous. Once an attempt may have reached the venue, a later failure stays
-ambiguous unless authoritative evidence resolves the same semantic command.
+การที่ความล้มเหลวหนึ่งปลอดภัยที่จะ retry หรือไม่นั้นเป็นคนละเรื่องกับผลลัพธ์ที่ venue ความล้มเหลวอาจ
+ปลอดภัยที่จะ retry ในขณะที่ความพยายามครั้งก่อนยังกำกวมอยู่ เมื่อความพยายามครั้งหนึ่งอาจไปถึง venue แล้ว
+ความล้มเหลวที่ตามมาก็จะยังกำกวม เว้นแต่จะมีหลักฐานที่เชื่อถือได้ให้ข้อสรุปสำหรับ command เชิงความหมายเดียวกัน
 
-## Persistence before transport
+## Persistence ก่อน transport {#persistence-before-transport}
 
-Creating a client order ID, publishing `OrderInitialized`, and sending `SubmitOrder` are in-process
-actions. They do not by themselves confirm durable storage.
+การสร้าง client order ID, การ publish `OrderInitialized` และการส่ง `SubmitOrder` เป็นการทำงานภายใน
+process สิ่งเหล่านี้ไม่ได้ยืนยันการเขียนลง storage ถาวรด้วยตัวเอง
 
-For a submission handled by the built-in execution engine:
+สำหรับการ submit ที่จัดการโดย execution engine ในตัว:
 
-1. The order exists in the cache with its `ClientOrderId` and `OrderInitialized` event before the
-   final execution-client call.
-1. The engine selects and validates the execution client.
-1. The cache enqueues the resolved order-to-client origin for persistence, then updates the
-   in-memory origin index.
-1. The engine calls the selected `ExecutionClient`.
-1. The cache backend processes its queued writes independently of venue transport and
-   acknowledgement.
+1. order อยู่ใน cache พร้อม `ClientOrderId` และ event `OrderInitialized` ก่อนการเรียก
+   execution client ครั้งสุดท้าย
+1. engine เลือกและตรวจสอบ execution client
+1. cache enqueue origin ของ order ไปยัง client ที่ resolve แล้วเพื่อ persist จากนั้นจึงอัปเดต
+   origin index ในหน่วยความจำ
+1. engine เรียก `ExecutionClient` ที่เลือกไว้
+1. cache backend ประมวลผลการเขียนที่อยู่ในคิวโดยไม่ขึ้นกับ transport และ acknowledgement ของ venue
 
-The enqueue steps fail before the client call when the cache backend cannot accept them. Successful
-enqueue does not mean the backing store has committed the order or origin. The built-in Redis and
-PostgreSQL cache backends process these writes asynchronously.
+ขั้นตอน enqueue จะล้มเหลวก่อนการเรียก client เมื่อ cache backend ไม่สามารถรับได้ การ enqueue
+สำเร็จไม่ได้หมายความว่า backing store ได้ commit order หรือ origin แล้ว cache backend Redis และ
+PostgreSQL ในตัวจะประมวลผลการเขียนเหล่านี้แบบ asynchronous
 
-The final step is only the call into the adapter's `ExecutionClient`. The adapter owns the later
-wire send and maps venue responses or stream updates to order events. Neither a successful client
-call nor an `OrderSubmitted` event proves venue acceptance.
+ขั้นตอนสุดท้ายเป็นเพียงการเรียกเข้าไปใน `ExecutionClient` ของ adapter เท่านั้น adapter เป็นผู้รับผิดชอบ
+การส่งข้อมูลจริงทางเครือข่ายในภายหลัง และแปลง response หรือ stream update จาก venue เป็น order event
+ทั้งการเรียก client ที่สำเร็จหรือ event `OrderSubmitted` ต่างก็ไม่ได้พิสูจน์ว่า venue ยอมรับแล้ว
 
-:::warning[Persistence gap]
-A process failure can thus occur after the venue receives an order but before the local order and origin
-become durable. Startup reconciliation can recover that order when the venue reports it. But incomplete venue
-history can leave the node without enough evidence to reconstruct the full execution history.
+:::warning[ช่องว่างของ persistence]
+process อาจล้มเหลวหลังจากที่ venue ได้รับ order แล้ว แต่ก่อนที่ order และ origin ภายในเครื่องจะ
+ถูกเขียนลง storage ถาวร startup reconciliation สามารถกู้คืน order นั้นได้เมื่อ venue รายงานมา
+แต่ประวัติจาก venue ที่ไม่ครบอาจทำให้ node ไม่มีหลักฐานพอที่จะสร้างประวัติ execution ทั้งหมดขึ้นใหม่
 :::
 
-The optional [event store](../event_sourcing.md) also captures asynchronously and does not gate message
-dispatch on durable commit. Live restart continues to use restored cache state plus venue
-reconciliation.
+[Event store](../event_sourcing.md) ที่เป็นตัวเลือกเสริมก็ capture แบบ asynchronous เช่นกัน และไม่ได้
+รอ commit ถาวรก่อน dispatch message การ restart ในการเทรดจริงยังคงใช้ state ที่กู้คืนจาก cache
+ร่วมกับ reconciliation จาก venue
 
-## Reconciliation authority
+## อำนาจของ reconciliation {#reconciliation-authority}
 
-The cached order event stream is the source of local derived order state. During live recovery,
-adapter reports provide the venue evidence used to align that state. Reconciliation applies the
-reports in order-status, fill, and position phases so position checks build on the reconciled order
-and fill state.
+order event stream ที่อยู่ใน cache เป็นแหล่งที่มาของ state ของ order ที่คำนวณภายในเครื่อง ระหว่างการกู้คืน
+ในการเทรดจริง report จาก adapter เป็นหลักฐานจาก venue ที่ใช้ปรับ state นั้นให้ตรงกัน reconciliation
+นำ report ไปใช้เป็นเฟส order-status, fill และ position ตามลำดับ เพื่อให้การตรวจ position อยู่บน
+state ของ order และ fill ที่ reconcile แล้ว
 
-Recovery means restoring available cached state, reconciling available venue reports, and holding the
-strategy-start barrier until startup reconciliation finishes. It does not prove that the venue returned
-complete history or that all unknown command outcomes were resolved.
+การกู้คืนหมายถึงการคืน state จาก cache เท่าที่มี, การ reconcile report จาก venue เท่าที่มี และการ
+กั้นไม่ให้ strategy เริ่มทำงานจนกว่า startup reconciliation จะเสร็จ มันไม่ได้พิสูจน์ว่า venue ส่ง
+ประวัติครบถ้วน หรือว่าผลลัพธ์ของ command ที่ไม่ทราบได้ข้อสรุปครบทั้งหมดแล้ว
 
-:::info[Position reports are market exposure]
-**An explicit position report is authoritative. During startup reconciliation,
-the engine either aligns to that report within reconciliation tolerances or fails closed.**
+:::info[Position report คือ market exposure]
+**Position report ที่ระบุชัดเจนถือเป็นข้อมูลที่เชื่อถือได้ ระหว่าง startup reconciliation
+engine จะปรับให้ตรงกับ report นั้นภายใน tolerance ของ reconciliation หรือไม่ก็ล้มเหลวแบบปิด (fail closed)**
 
-Authoritative position reports:
+Position report ที่เชื่อถือได้:
 
-- An explicit open report, including quantity and direction.
-- An explicit flat report.
+- report ที่ระบุว่าเปิดอยู่อย่างชัดเจน พร้อม quantity และทิศทาง
+- report ที่ระบุว่า flat อย่างชัดเจน
 
-Not evidence of a flat position:
+สิ่งที่ไม่ใช่หลักฐานว่า position เป็น flat:
 
-- A missing report.
-- A null quantity.
-- A venue that does not publish positions.
+- report ที่หายไป
+- quantity ที่เป็น null
+- venue ที่ไม่เผยแพร่ position
 
-The fill window does not decide whether the report is authoritative. Missing reports do
-not mean flat.
+ช่วงเวลาของ fill (fill window) ไม่ได้เป็นตัวตัดสินว่า report เชื่อถือได้หรือไม่ report ที่หายไป
+ไม่ได้แปลว่า flat
 
-By default, `generate_missing_orders` is enabled. The engine generates the
-orders and fills needed to align local state to the report. Disabling generation
-does not allow an unresolved report through startup.
+โดยค่าเริ่มต้น `generate_missing_orders` เปิดใช้งานอยู่ engine จะสร้าง order และ fill ที่จำเป็น
+เพื่อปรับ state ภายในให้ตรงกับ report การปิดการสร้างนี้ไม่ได้ทำให้ report ที่ยังไม่ได้ข้อสรุป
+ผ่าน startup ไปได้
 
-This guarantee covers reports included by the position-report and instrument
-filters, with reconciliation enabled. Unresolved reports prevent actors and
-strategies from starting.
+การรับประกันนี้ครอบคลุม report ที่ผ่าน filter ของ position report และ instrument โดยเปิดใช้
+reconciliation อยู่ report ที่ยังไม่ได้ข้อสรุปจะทำให้ actor และ strategy เริ่มทำงานไม่ได้
 :::
 
-Reports for orders absent from the cache can create external orders. Active claims assign an external order to
-a strategy. Unclaimed orders use the `EXTERNAL` strategy. See
-[External order creation](reconciliation.md#external-order-creation).
+report ของ order ที่ไม่มีอยู่ใน cache สามารถสร้างเป็น external order ได้ claim ที่ active อยู่จะกำหนด
+external order ให้กับ strategy ส่วน order ที่ไม่มีใคร claim จะใช้ strategy `EXTERNAL` ดู
+[External order creation](reconciliation.md#external-order-creation)
 
-External orders and fills still participate in position tracking and portfolio calculations when
-their evidence passes the same reconciliation rules. The bounded-history safeguards apply whether
-or not a strategy claims the activity.
+external order และ fill ยังคงมีส่วนในการติดตาม position และการคำนวณ portfolio เมื่อหลักฐานของมัน
+ผ่านกฎ reconciliation เดียวกัน มาตรการป้องกันเรื่องประวัติที่มีขอบเขตจะมีผลไม่ว่า strategy จะ claim
+กิจกรรมนั้นหรือไม่
 
-Startup reconciliation runs before trader components start. A startup failure stops the node from
-starting unless a documented compatibility path handles that specific condition.
+Startup reconciliation รันก่อนที่ component ของ trader จะเริ่มทำงาน หาก startup ล้มเหลว node
+จะไม่เริ่มทำงาน เว้นแต่จะมี compatibility path ที่ระบุไว้รองรับเงื่อนไขนั้นโดยเฉพาะ
 
-### Terminal reconciliation provenance
+### ที่มาของ terminal reconciliation {#terminal-reconciliation-provenance}
 
-The `reconciliation` field identifies an event generated through reconciliation. It does not by itself
-distinguish a venue status report from a local policy resolution. The local policy resolutions below apply
-when submission retention does not require the order to stay unresolved. Explicit venue status reports still
-reconcile retained orders:
+field `reconciliation` ระบุว่า event นั้นถูกสร้างผ่าน reconciliation แต่ตัวมันเองไม่ได้แยกแยะว่า
+มาจาก status report ของ venue หรือจากการตัดสินโดย policy ภายใน การตัดสินโดย policy ภายในด้านล่างนี้
+จะใช้เมื่อการเก็บรักษาการ submit (submission retention) ไม่ได้บังคับให้ order ค้างสถานะไว้ status report
+จาก venue ที่ระบุชัดเจนยังคง reconcile order ที่ถูกเก็บรักษาไว้ได้:
 
-| Evidence path                                                     | Prior status                        | Terminal event                  | Available event provenance                                                                                                        |
-| ----------------------------------------------------------------- | ----------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Explicit venue status report                                      | Any transition allowed by the model | `OrderRejected`/`OrderCanceled` | `reconciliation=true`. A rejection keeps the reported reason, or `UNKNOWN` when absent. A cancellation keeps any reported reason. |
-| In-flight retry exhaustion                                        | `SUBMITTED`                         | `OrderRejected`                 | `reconciliation=true`, reason `INFLIGHT_TIMEOUT`.                                                                                 |
-| In-flight retry exhaustion                                        | `PENDING_UPDATE`/`PENDING_CANCEL`   | `OrderCanceled`                 | `reconciliation=true`, `reason=None`.                                                                                             |
-| Full-history order stays missing after retries and targeted query | `SUBMITTED`/`ACCEPTED`              | `OrderRejected`                 | `reconciliation=true`, reason `NOT_FOUND_AT_VENUE`.                                                                               |
-| Full-history order stays missing after retries and targeted query | `PARTIALLY_FILLED`                  | `OrderCanceled`                 | `reconciliation=true`, `reason=None`.                                                                                             |
+| เส้นทางของหลักฐาน                                                    | สถานะก่อนหน้า                           | Terminal event                  | ที่มาของ event ที่มีให้                                                                                                               |
+| ------------------------------------------------------------------- | -------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| status report จาก venue ที่ระบุชัดเจน                                 | การเปลี่ยนสถานะใดก็ได้ที่โมเดลอนุญาต       | `OrderRejected`/`OrderCanceled` | `reconciliation=true` rejection เก็บเหตุผลที่รายงานมา หรือ `UNKNOWN` หากไม่มี ส่วน cancellation เก็บเหตุผลที่รายงานมาถ้ามี            |
+| retry ของ in-flight หมด                                              | `SUBMITTED`                            | `OrderRejected`                 | `reconciliation=true`, reason `INFLIGHT_TIMEOUT`                                                                                      |
+| retry ของ in-flight หมด                                              | `PENDING_UPDATE`/`PENDING_CANCEL`      | `OrderCanceled`                 | `reconciliation=true`, `reason=None`                                                                                                  |
+| order ที่มีประวัติเต็มยังหายไปหลัง retry และ query แบบเจาะจง             | `SUBMITTED`/`ACCEPTED`                 | `OrderRejected`                 | `reconciliation=true`, reason `NOT_FOUND_AT_VENUE`                                                                                    |
+| order ที่มีประวัติเต็มยังหายไปหลัง retry และ query แบบเจาะจง             | `PARTIALLY_FILLED`                     | `OrderCanceled`                 | `reconciliation=true`, `reason=None`                                                                                                  |
 
-The `submission_recovery_policy` setting defaults to `SubmissionRecoveryPolicy::ResolveLocally`. With
-`SubmissionRecoveryPolicy::RetainUnresolved`, orders that have never been accepted keep their unacknowledged
-state after recovery exhaustion, including a pending cancel or update. The Polymarket client requires this
-behavior regardless of the configured policy.
+ค่า `submission_recovery_policy` มีค่าเริ่มต้นเป็น `SubmissionRecoveryPolicy::ResolveLocally` เมื่อใช้
+`SubmissionRecoveryPolicy::RetainUnresolved` order ที่ไม่เคยถูก accept จะคง state ที่ยังไม่ได้รับ
+acknowledgement ไว้หลังจากการกู้คืนหมดความพยายาม รวมถึง cancel หรือ update ที่ pending อยู่
+Polymarket client ต้องใช้พฤติกรรมนี้เสมอไม่ว่าจะตั้ง policy ไว้อย่างไร
 
-For these retained orders, automatic per-order recovery queries stop, but later venue events and
-reports can still resolve the order. Already accepted orders continue to use the local resolution
-rules above.
+สำหรับ order ที่ถูกเก็บรักษาไว้เหล่านี้ query การกู้คืนอัตโนมัติราย order จะหยุดลง แต่ event และ
+report จาก venue ที่ตามมายังสามารถให้ข้อสรุปกับ order ได้ order ที่ถูก accept แล้วยังคงใช้กฎการตัดสิน
+ภายในด้านบน
 
-:::warning[Local terminal state is not venue confirmation]
-The first row is backed by an explicit venue status. The remaining rows restore a terminal local
-state after an operator-configured retry policy expires. They do not prove that the venue rejected
-the submit or canceled the working order.
+:::warning[Terminal state ภายในไม่ใช่การยืนยันจาก venue]
+แถวแรกมีสถานะจาก venue ที่ระบุชัดเจนรองรับ ส่วนแถวอื่นเป็นการคืน terminal state ภายในหลังจาก
+retry policy ที่ผู้ดูแลระบบตั้งไว้หมดอายุ มันไม่ได้พิสูจน์ว่า venue reject การ submit หรือ cancel
+working order นั้นจริง
 :::
 
-`OrderCanceled.reason` can carry a venue-reported cancellation reason, but the two synthetic
-reconciliation paths leave it unset. When no reason is present, the event alone cannot distinguish
-a venue-reported cancellation from those synthetic paths. Consumers that require that distinction
-must preserve the associated reconciliation inputs and operational logs. The optional event store
-captures raw venue reports when enabled, but no `OrderCanceled` field carries the policy reason.
+`OrderCanceled.reason` สามารถบรรจุเหตุผลการ cancel ที่ venue รายงานได้ แต่เส้นทาง reconciliation
+สังเคราะห์ทั้งสองจะไม่ใส่ค่านี้ เมื่อไม่มีเหตุผล ตัว event เพียงอย่างเดียวไม่สามารถแยกแยะระหว่าง
+การ cancel ที่ venue รายงานกับเส้นทางสังเคราะห์เหล่านั้นได้ ผู้ใช้ข้อมูลที่ต้องการแยกแยะเรื่องนี้
+ต้องเก็บรักษา input ของ reconciliation และ operational log ที่เกี่ยวข้องไว้ event store ที่เป็น
+ตัวเลือกเสริมจะ capture report ดิบจาก venue เมื่อเปิดใช้ แต่ไม่มี field ใดของ `OrderCanceled`
+ที่บรรจุเหตุผลจาก policy
 
-See [Runtime checks](reconciliation.md#runtime-checks) for query coordination, recent-order
-protection, and missing-order behavior.
+ดู [Runtime checks](reconciliation.md#runtime-checks) สำหรับการประสาน query, การป้องกัน order
+ล่าสุด และพฤติกรรมเมื่อ order หายไป
 
-## Related guides
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-- [Execution](index.md): Component roles, routing, OMS behavior, and risk checks.
-- [Execution algorithms](algorithms.md): TWAP, custom algorithms, and spawned orders.
-- [Orders](../orders/): Order types, statuses, and the primary state flow.
-- [Events](../events/): Event fields, dispatch, and order-to-position effects.
-- [Execution reconciliation](reconciliation.md): Startup recovery, continuous checks, and
-  reconciliation invariants.
-- [Live trading](../live.md): Node lifecycle, dispatch policy, metrics, and shutdown.
-- [Configure a live trading node](../../how_to/configure_live_trading.md): Live execution settings.
+- [Execution](index.md): บทบาทของ component, การ routing, พฤติกรรม OMS และการตรวจสอบความเสี่ยง
+- [Execution algorithms](algorithms.md): TWAP, algorithm ที่เขียนเอง และ order ที่ถูก spawn
+- [Orders](../orders/): ประเภท order, สถานะ และ state flow หลัก
+- [Events](../events/): field ของ event, การ dispatch และผลจาก order ไปสู่ position
+- [Execution reconciliation](reconciliation.md): การกู้คืนตอน startup, การตรวจสอบต่อเนื่อง และ
+  invariant ของ reconciliation
+- [Live trading](../live.md): lifecycle ของ node, dispatch policy, metric และการ shutdown
+- [ตั้งค่า live trading node](../../how_to/configure_live_trading.md): การตั้งค่า live execution

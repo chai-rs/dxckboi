@@ -1,141 +1,141 @@
 # Runtime Conformance Contract
 
-Use this reference to locate implementation boundaries and representative checks for selected
-[design principles](design_principles.md).
+ใช้เอกสารอ้างอิงนี้เพื่อหาขอบเขตของ implementation และการตรวจสอบตัวอย่างสำหรับ
+[design principle](design_principles.md) ที่เลือกไว้
 
-Each section records its source baseline separately. Source links resolve relative to this document's
-revision. A baseline identifies the revision used for that section's evidence unless labeled historical. Later
-behavior uses the linked source and tests at this document's revision. Neither establishes a guarantee about
-future changes.
+แต่ละ section บันทึก source baseline แยกกัน ลิงก์ไปยัง source จะ resolve ตาม revision ของเอกสารนี้
+baseline ระบุ revision ที่ใช้เป็นหลักฐานของ section นั้น เว้นแต่จะระบุว่าเป็นข้อมูลในอดีต (historical) พฤติกรรม
+ที่เกิดภายหลังให้ดูจาก source และ test ที่ลิงก์ไว้ ณ revision ของเอกสารนี้ ทั้งสองอย่างไม่ได้เป็นการรับประกัน
+สำหรับการเปลี่ยนแปลงในอนาคต
 
-The entries describe Rust source and test coverage. They do not certify every adapter, Python
-entry point, configuration, or failure mode. The named tests are source references, not a record
-of a test run.
+รายการต่าง ๆ อธิบาย source และ test coverage ของ Rust ไม่ได้รับรองทุก adapter, entry point,
+config หรือรูปแบบความล้มเหลว test ที่ระบุชื่อเป็นเพียงการอ้างอิง source ไม่ใช่บันทึก
+ผลการรัน test
 
-## Evidence and outcome provenance
+## ที่มาของหลักฐานและผลลัพธ์ {#evidence-and-outcome-provenance}
 
 Historical source baseline: [46f87cd1b7af576495418761bbf11db23e89124c](https://github.com/nautechsystems/nautilus_trader/commit/46f87cd1b7af576495418761bbf11db23e89124c).
-The submission-retention behavior below is covered by the linked source and tests at this document's revision.
+พฤติกรรม submission-retention ด้านล่างครอบคลุมโดย source และ test ที่ลิงก์ไว้ ณ revision ของเอกสารนี้
 
-The [execution policies](../concepts/execution/policies.md#terminal-reconciliation-provenance)
-distinguish venue evidence from local policy resolution. In the Rust live execution manager,
-`check_inflight_orders` handles configured retry exhaustion as follows:
+[Execution policy](../concepts/execution/policies.md#terminal-reconciliation-provenance)
+แยกหลักฐานจาก venue ออกจากการ resolve ด้วย policy ภายในเครื่อง ใน Rust live execution manager
+`check_inflight_orders` จัดการกรณีที่ retry ครบตามที่ตั้งค่าไว้ดังนี้:
 
-- **Submitted orders**: The manager generates a rejection with reason `INFLIGHT_TIMEOUT` when
-  submission retention does not apply.
-- **Pending updates and cancellations**: The manager generates `OrderCanceled` unless the order was
-  never accepted and requires retention.
+- **Order ที่ submit แล้ว**: manager สร้าง rejection ด้วยเหตุผล `INFLIGHT_TIMEOUT` เมื่อ
+  submission retention ไม่มีผล
+- **Update และ cancellation ที่ pending**: manager สร้าง `OrderCanceled` เว้นแต่ order นั้น
+  ไม่เคยถูก accept และต้อง retain ไว้
 
-These events carry `reconciliation=true`. The manager retains unacknowledged orders under
-`SubmissionRecoveryPolicy::RetainUnresolved` or when the order's client returns `true` from
-`retain_unresolved_submissions`.
+event เหล่านี้มี `reconciliation=true` manager จะ retain order ที่ยังไม่ได้รับการยืนยันภายใต้
+`SubmissionRecoveryPolicy::RetainUnresolved` หรือเมื่อ client ของ order return `true` จาก
+`retain_unresolved_submissions`
 
 - **Implementation**: [Execution manager](../../crates/live/src/execution/manager.rs),
-  `check_inflight_orders`, `register_submission_retention`, `submission_is_retained`, and
-  `resolve_missing_order`.
-- **Representative checks**: [Manager integration tests](../../crates/live/tests/integration/manager.rs),
+  `check_inflight_orders`, `register_submission_retention`, `submission_is_retained` และ
+  `resolve_missing_order`
+- **การตรวจสอบตัวอย่าง**: [Manager integration tests](../../crates/live/tests/integration/manager.rs),
   `test_inflight_order_generates_rejection_after_max_retries`,
   `test_retained_submission_survives_recovery_and_accepts_late_evidence`,
   `test_check_open_orders_submitted_missing_at_venue_obeys_recovery_policy`,
-  `test_inflight_pending_update_generates_canceled`, and
-  `test_inflight_pending_cancel_generates_canceled`.
-- **Limit**: Retry exhaustion does not establish a venue outcome. The reconciliation flag alone
-  does not distinguish a venue report from a local policy resolution, and `OrderCanceled` has no
-  reason field. Consumers need the associated inputs and logs to retain that distinction.
+  `test_inflight_pending_update_generates_canceled` และ
+  `test_inflight_pending_cancel_generates_canceled`
+- **ข้อจำกัด**: การ retry ครบไม่ได้ยืนยันผลลัพธ์ที่ venue flag reconciliation เพียงอย่างเดียว
+  ไม่ได้แยก report จาก venue ออกจากการ resolve ด้วย policy ภายในเครื่อง และ `OrderCanceled` ไม่มี
+  ฟิลด์ reason ผู้ใช้งานต้องอาศัย input และ log ที่เกี่ยวข้องเพื่อคงความแตกต่างนั้นไว้
 
-## Callback ordering and ownership
+## ลำดับและความเป็นเจ้าของของ callback {#callback-ordering-and-ownership}
 
 Source reviewed at: [16f2163a3cefd5ae212cbddda7dc5253f8fe0bbc](https://github.com/nautechsystems/nautilus_trader/commit/16f2163a3cefd5ae212cbddda7dc5253f8fe0bbc).
 
-The [callback dispatch contract](callback_dispatch.md) requires publication order across recipients and
-exclusive component access. Private Rust primitives reserve publication order and reject overlapping checked
-access to an allocation. Production callback delivery does not use these primitives. Backtests use the
-boundary drain and callback teardown. Live running loops use bounded drains before selecting another event,
-with yielding and stop checks between pending batches.
+[Callback dispatch contract](callback_dispatch.md) กำหนดให้มีลำดับการ publish ข้ามผู้รับ และ
+การเข้าถึง component แบบ exclusive primitive ภายในของ Rust จะสงวนลำดับการ publish และปฏิเสธการเข้าถึง
+allocation แบบ checked ที่ซ้อนทับกัน การส่ง callback ใน production ไม่ได้ใช้ primitive เหล่านี้ backtest ใช้
+boundary drain และ callback teardown ส่วน live running loop ใช้ drain แบบจำกัดขอบเขตก่อนเลือก event ถัดไป
+โดยมีการ yield และตรวจสอบการหยุดระหว่าง batch ที่ pending
 
-The runtime owns scheduling at a small set of explicit ownership boundaries. Startup and shutdown paths still
-need ownership and scheduling coverage before activation. This does not require a drain in each lifecycle or
-flush method.
+runtime เป็นเจ้าของการ scheduling ที่ขอบเขตความเป็นเจ้าของที่ระบุชัดเจนจำนวนไม่มาก เส้นทาง startup และ shutdown ยัง
+ต้องมี coverage ด้านความเป็นเจ้าของและการ scheduling ก่อน activation ซึ่งไม่ได้หมายความว่าต้องมี drain ในทุก lifecycle หรือ
+flush method
 
-- **Live startup**: After successful startup, the first running-loop drain is the existing delivery boundary.
-- **Live disposal**: Releases the retained runner after kernel disposal, then attempts callback cleanup.
-  External roots can still block clearing.
-- **Standalone lifecycle**: `start`/`stop` has no continuous queued callback delivery schedule and
-  retains its existing synchronous behavior.
+- **Live startup**: หลัง startup สำเร็จ drain ครั้งแรกของ running loop คือขอบเขตการส่งที่มีอยู่
+- **Live disposal**: ปล่อย runner ที่ retain ไว้หลังจาก dispose kernel แล้วจึงพยายาม cleanup callback
+  root ภายนอกยังสามารถขัดขวางการ clear ได้
+- **Standalone lifecycle**: `start`/`stop` ไม่มีกำหนดการส่ง callback ในคิวอย่างต่อเนื่อง และ
+  คงพฤติกรรมแบบ synchronous เดิมไว้
 
-The [live lifecycle contract](callback_dispatch.md#live-startup-and-standalone-lifecycle) restricts
-initial queued activation to Rust `run`/`run_with_mode` and Python `run`/`run_async`. Activation must
-reject queued delivery with standalone startup before admitting callbacks. That rejection is not implemented.
+[Live lifecycle contract](callback_dispatch.md#live-startup-and-standalone-lifecycle) จำกัดให้
+activation ของคิวครั้งแรกเกิดได้เฉพาะผ่าน `run`/`run_with_mode` ของ Rust เท่านั้น activation ต้อง
+ปฏิเสธการส่งแบบคิวเมื่อเป็น standalone startup ก่อนจะรับ callback ซึ่งการปฏิเสธนี้ยังไม่ได้ implement
 
 - **Implementation**:
 
   | Source                                                       | Symbols                                              |
   | ------------------------------------------------------------ | ---------------------------------------------------- |
-  | [Dispatch](../../crates/common/src/actor/dispatch.rs)        | `PublicationScope` and `drain`.                      |
-  | [Allocation access](../../crates/common/src/actor/access.rs) | `AllocationGuard`.                                   |
-  | [Live bounded drain](../../crates/live/src/dispatch.rs)      | `drain_callbacks` wrapping `actor::drain_callbacks`. |
-  | [Runner](../../crates/live/src/runner.rs)                    | `AsyncRunner::run`.                                  |
-  | [Live node](../../crates/live/src/node/mod.rs)               | `run_with_mode` and `dispose`.                       |
+  | [Dispatch](../../crates/common/src/actor/dispatch.rs)        | `PublicationScope` และ `drain`                       |
+  | [Allocation access](../../crates/common/src/actor/access.rs) | `AllocationGuard`                                    |
+  | [Live bounded drain](../../crates/live/src/dispatch.rs)      | `drain_callbacks` ที่ห่อ `actor::drain_callbacks`     |
+  | [Runner](../../crates/live/src/runner.rs)                    | `AsyncRunner::run`                                   |
+  | [Live node](../../crates/live/src/node/mod.rs)               | `run_with_mode` และ `dispose`                        |
 
-- **Representative checks**:
+- **การตรวจสอบตัวอย่าง**:
 
-  - `nested_publication_reserves_all_outer_recipients` in the dispatch module checks outer-recipient ordering
-    across a nested publication.
-  - `test_actor_and_component_views_share_access` in the access module checks exclusion across views.
-  - `test_runner_callback_failure_stops_before_next_command` in the runner module checks failure propagation
-    and retention of pending messages and the fatal latch.
-  - `test_runner_stop_preserves_messages_and_channel_only_scheduling` in the runner module checks ordered
-    reuse after stop without an added yield for channel-only work.
-  - `test_callback_failure_stops_later_live_events` in the live node module checks failure behavior. Failure
-    must stop later event dispatch and the trader, and preserve the latch until disposal.
-  - `test_dispose_releases_retained_callback_roots` in the live node module checks runner ownership release
-    and fatal latch cleanup. It also checks rejection while external roots exist, and disposal error
-    diagnostics.
-  - `test_dispose_releases_stop_generated_callback_roots` in the live node module checks that disposal
-    releases stop-generated rooted messages without delivering them.
-- **Limit**: These checks do not establish production callback ordering or ownership safety. Runtime
-  integration must end enclosing mutable borrows before draining and preserve native, Python, and
-  dynamic-backend lifecycle eligibility. Unchecked access stays outside the private allocation guards.
+  - `nested_publication_reserves_all_outer_recipients` ใน dispatch module ตรวจสอบลำดับของผู้รับชั้นนอก
+    ข้าม publication ที่ซ้อนกัน
+  - `test_actor_and_component_views_share_access` ใน access module ตรวจสอบการ exclusion ข้าม view
+  - `test_runner_callback_failure_stops_before_next_command` ใน runner module ตรวจสอบการส่งต่อความล้มเหลว
+    และการ retain message ที่ pending รวมถึง fatal latch
+  - `test_runner_stop_preserves_messages_and_channel_only_scheduling` ใน runner module ตรวจสอบการนำกลับมาใช้
+    ตามลำดับหลังหยุด โดยไม่เพิ่มการ yield สำหรับงานที่มีเฉพาะ channel
+  - `test_callback_failure_stops_later_live_events` ใน live node module ตรวจสอบพฤติกรรมเมื่อล้มเหลว ความล้มเหลว
+    ต้องหยุดการ dispatch event ที่ตามมาและหยุด trader และคง latch ไว้จนกว่าจะ dispose
+  - `test_dispose_releases_retained_callback_roots` ใน live node module ตรวจสอบการปล่อยความเป็นเจ้าของ runner
+    และการ cleanup fatal latch รวมถึงการปฏิเสธขณะที่ยังมี root ภายนอกอยู่ และ diagnostic
+    ของ error ตอน dispose
+  - `test_dispose_releases_stop_generated_callback_roots` ใน live node module ตรวจสอบว่าการ dispose
+    ปล่อย rooted message ที่เกิดจากการ stop โดยไม่ส่งมันออกไป
+- **ข้อจำกัด**: การตรวจสอบเหล่านี้ไม่ได้ยืนยันลำดับ callback หรือความปลอดภัยของความเป็นเจ้าของใน production การ
+  integrate กับ runtime ต้องจบ mutable borrow ที่ครอบอยู่ก่อน drain และคงคุณสมบัติด้าน lifecycle ของ
+  native และ dynamic backend ไว้ การเข้าถึงแบบ unchecked ยังอยู่นอก allocation guard ภายใน
 
-  Before activation, exact callback sequence tests through real native and Python components must establish
-  deterministic order. This requirement applies to the synchronous core and backtesting. Coverage must include
-  nested publication, fan-out, callback-generated commands, same-timestamp work, and continuation across
-  bounded passes. Final counts and balances alone do not prove ordering. See the [activation
-  requirements](callback_dispatch.md#activation-requirements).
+  ก่อน activation ต้องมี test ลำดับ callback ที่แน่นอนผ่าน component จริง เพื่อยืนยันลำดับที่
+  deterministic ข้อกำหนดนี้ใช้กับ synchronous core และ backtesting coverage ต้องครอบคลุม
+  publication ที่ซ้อนกัน, fan-out, command ที่สร้างจาก callback, งานใน timestamp เดียวกัน และการทำงานต่อเนื่องข้าม
+  pass ที่จำกัดขอบเขต จำนวนและยอดคงเหลือสุดท้ายเพียงอย่างเดียวไม่ได้พิสูจน์ลำดับ ดู [ข้อกำหนดของ
+  activation](callback_dispatch.md#activation-requirements)
 
-## Recovery
+## การกู้คืน {#recovery}
 
 Source baseline: [46f87cd1b7af576495418761bbf11db23e89124c](https://github.com/nautechsystems/nautilus_trader/commit/46f87cd1b7af576495418761bbf11db23e89124c).
 
-For a Rust live node with execution reconciliation enabled, startup performs reconciliation before starting
-trader components. A reconciliation error aborts startup. The startup integration test below supplies terminal
-order and fill reports through a test execution client. It checks the recovered quantity, price, trade
-identity, commission, position quantity, and terminal status.
+สำหรับ Rust live node ที่เปิด execution reconciliation ไว้ startup จะทำ reconciliation ก่อนเริ่ม
+component ของ trader หาก reconciliation error จะยกเลิก startup integration test ของ startup ด้านล่างส่ง report ของ
+order และ fill ที่อยู่ในสถานะสิ้นสุดผ่าน test execution client และตรวจสอบจำนวนที่กู้คืน ราคา identity ของ trade
+ค่า commission จำนวนของ position และสถานะสิ้นสุด
 
 - **Implementation**: [Live node](../../crates/live/src/node/mod.rs),
-  `perform_startup_reconciliation` and its callers.
-- **Representative check**: [Node integration tests](../../crates/live/tests/integration/node.rs),
-  `test_live_node_startup_recovers_terminal_fill_exactly`.
-- **Limit**: This check covers report-based startup recovery, not backing-store durability, supervisor
-  restart, or arbitrary panic recovery. Reconciliation can be disabled. Event-store replay also skips live
-  client connection and reconciliation. Venue completeness stays subject to the [reconciliation
-  policies](../concepts/execution/policies.md#reconciliation-authority).
+  `perform_startup_reconciliation` และผู้เรียกของมัน
+- **การตรวจสอบตัวอย่าง**: [Node integration tests](../../crates/live/tests/integration/node.rs),
+  `test_live_node_startup_recovers_terminal_fill_exactly`
+- **ข้อจำกัด**: การตรวจสอบนี้ครอบคลุมการกู้คืนตอน startup จาก report ไม่ใช่ความทนทานของ backing store, การ restart
+  โดย supervisor หรือการกู้คืนจาก panic ใด ๆ reconciliation สามารถปิดได้ การ replay จาก event store ก็ข้าม
+  การเชื่อมต่อ live client และ reconciliation ด้วย ความครบถ้วนของข้อมูลจาก venue ยังขึ้นกับ [reconciliation
+  policy](../concepts/execution/policies.md#reconciliation-authority)
 
-## Overload handling
+## การจัดการภาวะ overload {#overload-handling}
 
 Source reviewed at: [16f2163a3cefd5ae212cbddda7dc5253f8fe0bbc](https://github.com/nautechsystems/nautilus_trader/commit/16f2163a3cefd5ae212cbddda7dc5253f8fe0bbc).
 
-The [live runner](../concepts/live.md#dispatch-priority-and-overload-behavior) uses unbounded message
-channels. Polling priority does not impose producer backpressure or a queue-depth limit. The private
-callback dispatcher separately enforces retained-count, known-storage, and callback-chain limits.
+[Live runner](../concepts/live.md#dispatch-priority-and-overload-behavior) ใช้ message
+channel แบบไม่จำกัดขนาด ลำดับความสำคัญของการ poll ไม่ได้สร้าง backpressure ต่อ producer หรือจำกัดความลึกของคิว
+callback dispatcher ภายในบังคับใช้ขีดจำกัดของจำนวนที่ retain, storage ที่รู้จัก และ callback chain แยกต่างหาก
 
-- **Implementation**: [Runner](../../crates/live/src/runner.rs), `AsyncRunner::new` and `recv`.
-  [Dispatch](../../crates/common/src/actor/dispatch.rs): admission accounting and `drain`.
-- **Representative checks**: `test_recv_processes_system_event_before_command` in the runner
-  module checks priority for that channel pair. `event_count_limit_latches_after_exact_capacity`
-  and `progress_limit_persists_between_bounded_drains` in the dispatch module check private limits.
-- **Limit**: A polling-order test does not prove bounded latency or progress under sustained load.
-  Private callback limits do not bound live runner queues or total process memory. Production
-  callback activation and live lifecycle ownership coverage remain integration requirements despite
-  the implemented running-loop drains. Queue monitoring supplies operational signals without
-  automatically throttling feeds or stopping trading.
+- **Implementation**: [Runner](../../crates/live/src/runner.rs), `AsyncRunner::new` และ `recv`
+  [Dispatch](../../crates/common/src/actor/dispatch.rs): การนับ admission และ `drain`
+- **การตรวจสอบตัวอย่าง**: `test_recv_processes_system_event_before_command` ใน runner
+  module ตรวจสอบลำดับความสำคัญของ channel คู่นั้น `event_count_limit_latches_after_exact_capacity`
+  และ `progress_limit_persists_between_bounded_drains` ใน dispatch module ตรวจสอบขีดจำกัดภายใน
+- **ข้อจำกัด**: test ลำดับการ poll ไม่ได้พิสูจน์ว่า latency หรือความคืบหน้ามีขอบเขตภายใต้โหลดต่อเนื่อง
+  ขีดจำกัดของ callback ภายในไม่ได้จำกัดคิวของ live runner หรือหน่วยความจำทั้งหมดของ process coverage ของ
+  callback activation ใน production และความเป็นเจ้าของ live lifecycle ยังคงเป็นข้อกำหนดของ integration แม้จะ
+  implement drain ใน running loop แล้วก็ตาม การ monitor คิวให้สัญญาณด้าน operation โดยไม่
+  throttle feed หรือหยุดการเทรดโดยอัตโนมัติ

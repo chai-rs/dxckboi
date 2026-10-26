@@ -1,238 +1,230 @@
 # Shell Scripts
 
-This page defines when to create a shell script and how to name, write, invoke, and test it.
-Bash is the default. Use POSIX `sh` only when a supported caller cannot rely on Bash being
-installed.
+หน้านี้กำหนดว่าเมื่อใดควรสร้าง shell script และควรตั้งชื่อ, เขียน, เรียกใช้ และทดสอบอย่างไร
+ค่าเริ่มต้นคือ Bash ใช้ POSIX `sh` เฉพาะเมื่อ caller ที่รองรับไม่สามารถพึ่งพาว่ามี Bash ติดตั้งอยู่
 
-The policy applies to shell files throughout the repository, including `scripts/`, `scripts/ci/`,
-`.pre-commit-hooks/`, and component directories.
+policy นี้ใช้กับไฟล์ shell ทั่วทั้ง repository รวมถึง `scripts/`, `scripts/ci/`,
+`.pre-commit-hooks/` และ directory ของ component ต่าง ๆ
 
-## When to write a script
+## เมื่อใดควรเขียน script {#when-to-write-a-script}
 
-Before adding a script, search for an existing script, Make target, or installed tool that already
-provides the behavior. Add a script when it gives procedural logic one testable, linted source of
-truth.
+ก่อนเพิ่ม script ให้ค้นหาก่อนว่ามี script, Make target หรือ tool ที่ติดตั้งไว้ซึ่งทำงานนั้นได้อยู่แล้วหรือไม่
+เพิ่ม script เมื่อมันทำให้ logic เชิงขั้นตอนมีแหล่งความจริงเดียวที่ทดสอบได้และผ่าน lint
 
-| Location       | Owns                                                                 | Delegates                                              |
-| -------------- | -------------------------------------------------------------------- | ------------------------------------------------------ |
-| GitHub Actions | Events, permissions, matrices, runners, secrets, and hosted actions  | Multi-step shell behavior                              |
-| `Makefile`     | Discoverable tasks, dependencies, variables, and concurrency limits  | Non-trivial control flow                               |
-| Shell script   | Validation, reusable command sequences, retries, and transformations | Workflow orchestration and build dependency management |
+| ตำแหน่ง        | รับผิดชอบ                                                                 | มอบหมายต่อ                                               |
+| -------------- | ------------------------------------------------------------------------ | -------------------------------------------------------- |
+| GitHub Actions | event, permission, matrix, runner, secret และ hosted action              | พฤติกรรม shell ที่มีหลายขั้นตอน                           |
+| `Makefile`     | task ที่ค้นหาได้ง่าย, dependency, ตัวแปร และขีดจำกัดของ concurrency        | control flow ที่ซับซ้อน                                    |
+| Shell script   | การ validate, ลำดับคำสั่งที่ใช้ซ้ำได้, การ retry และการแปลงข้อมูล           | การ orchestrate workflow และการจัดการ build dependency   |
 
-Prefer a script when:
+ควรใช้ script เมื่อ:
 
-- A command sequence is used by more than one workflow, Make target, or developer task.
-- An inline GitHub Actions step contains branches, loops, retries, or failure handling worth
-  testing outside the workflow.
-- A Make recipe needs enough procedural logic that quoting, error propagation, or platform
-  behavior becomes hard to review.
-- A repeated maintenance or release task benefits from ShellCheck, `shfmt`, and focused tests.
+- ลำดับคำสั่งถูกใช้โดยมากกว่าหนึ่ง workflow, Make target หรือ task ของนักพัฒนา
+- step แบบ inline ใน GitHub Actions มี branch, loop, retry หรือการจัดการความล้มเหลวที่ควรทดสอบ
+  นอก workflow
+- recipe ของ Make ต้องการ logic เชิงขั้นตอนมากจนการ quote, การส่งต่อ error หรือพฤติกรรมของแต่ละ
+  platform ทำให้ review ได้ยาก
+- task ด้าน maintenance หรือ release ที่ทำซ้ำ ๆ ได้ประโยชน์จาก ShellCheck, `shfmt` และการทดสอบแบบเจาะจง
 
-Keep a command inline when it is short, used once, and clearer in its caller. Do not wrap one
-stable command only to add another file.
+ให้คงคำสั่งไว้แบบ inline เมื่อมันสั้น ใช้ครั้งเดียว และอ่านเข้าใจง่ายกว่าเมื่ออยู่ใน caller อย่าห่อคำสั่ง
+ที่เสถียรเพียงคำสั่งเดียวเพียงเพื่อให้มีไฟล์เพิ่มอีกไฟล์
 
-When extracting GitHub Actions logic, keep expressions such as `${{ github.ref }}`, permissions,
-secret selection, and runner selection in the workflow. Pass ordinary values to the script through
-arguments or environment variables. The script's exit status must remain the step's exit status.
+เมื่อแยก logic ออกจาก GitHub Actions ให้คง expression อย่าง `${{ github.ref }}`, permission,
+การเลือก secret และการเลือก runner ไว้ใน workflow ส่งค่าทั่วไปให้ script ผ่าน argument หรือ
+environment variable และ exit status ของ script ต้องเป็น exit status ของ step นั้น
 
-## Choose the shell and extension
+## เลือก shell และนามสกุลไฟล์ {#choose-the-shell-and-extension}
 
-The extension identifies the shell language, not whether the file is executable or sourceable.
+นามสกุลไฟล์บอกภาษา shell ไม่ได้บอกว่าไฟล์นั้น execute ได้หรือ source ได้
 
-| Extension | Interpreter | Use                                                                      |
-| --------- | ----------- | ------------------------------------------------------------------------ |
-| `.bash`   | Bash        | Default for new scripts and sourceable Bash files.                       |
-| `.sh`     | POSIX `sh`  | Only when a supported caller has a real requirement to run without Bash. |
+| นามสกุล | Interpreter | ใช้เมื่อ                                                                    |
+| ------- | ----------- | --------------------------------------------------------------------------- |
+| `.bash` | Bash        | ค่าเริ่มต้นสำหรับ script ใหม่และไฟล์ Bash ที่ source ได้                    |
+| `.sh`   | POSIX `sh`  | เฉพาะเมื่อ caller ที่รองรับมีความจำเป็นจริงที่ต้องรันโดยไม่มี Bash          |
 
-Use `#!/usr/bin/env bash` for `.bash` files and `#!/usr/bin/env sh` for `.sh` files. Keep the shebang,
-including when Make or GitHub Actions invokes the file through `bash` or `sh`. Tools and direct callers use it
-to identify the interpreter.
+ใช้ `#!/usr/bin/env bash` สำหรับไฟล์ `.bash` และ `#!/usr/bin/env sh` สำหรับไฟล์ `.sh` ให้คง shebang ไว้
+แม้ว่า Make หรือ GitHub Actions จะเรียกไฟล์ผ่าน `bash` หรือ `sh` ก็ตาม เพราะ tool และ caller ที่เรียกโดยตรง
+ใช้ shebang ในการระบุ interpreter
 
-Bash is preferred for normal development, Make, and CI scripts because the repository already
-depends on it and its features make non-trivial shell code clearer. These features include
-`pipefail`, `[[ ... ]]`, arrays, process substitution, and function-local variables.
+Bash เป็นตัวเลือกที่แนะนำสำหรับการพัฒนาทั่วไป, Make และ script ใน CI เพราะ repository พึ่งพา Bash อยู่แล้ว
+และฟีเจอร์ของมันทำให้โค้ด shell ที่ไม่เล็กน้อยอ่านง่ายขึ้น ฟีเจอร์เหล่านี้ได้แก่ `pipefail`, `[[ ... ]]`,
+array, process substitution และตัวแปรภายใน function
 
-Small bootstrap or wrapper scripts can have a supported interface that must avoid a Bash dependency. Use POSIX
-`sh` only for such scripts. Test the script under the target `/bin/sh`. Simple syntax alone does not prove
-POSIX compatibility.
+script เล็ก ๆ สำหรับ bootstrap หรือ wrapper อาจมี interface ที่รองรับซึ่งต้องหลีกเลี่ยงการพึ่งพา Bash
+ใช้ POSIX `sh` เฉพาะกับ script ลักษณะนี้เท่านั้น และทดสอบ script ภายใต้ `/bin/sh` เป้าหมาย syntax ที่เรียบง่าย
+เพียงอย่างเดียวไม่ได้พิสูจน์ความเข้ากันได้กับ POSIX
 
-Existing filenames predate this extension policy, so some `.sh` files contain Bash. Treat their
-shebangs as the source of truth. Do not rename an existing script only to change its extension.
-Apply the policy to new files and to scoped renames that already update every call site and document.
+ชื่อไฟล์ที่มีอยู่เดิมเกิดขึ้นก่อน policy เรื่องนามสกุลนี้ ไฟล์ `.sh` บางไฟล์จึงมีโค้ด Bash อยู่ ให้ถือ shebang
+ของไฟล์เหล่านั้นเป็นแหล่งความจริง อย่าเปลี่ยนชื่อ script ที่มีอยู่เพียงเพื่อเปลี่ยนนามสกุล ให้ใช้ policy นี้กับ
+ไฟล์ใหม่ และกับการเปลี่ยนชื่อในขอบเขตที่ได้อัปเดตทุกจุดที่เรียกใช้และทุกเอกสารแล้ว
 
-## Define the portability target
+## กำหนดเป้าหมายด้าน portability {#define-the-portability-target}
 
-A script must support every platform on which its callers run. Unless its purpose states a narrower
-target, write it for Linux, macOS, and Windows through Git Bash, MSYS2, or WSL.
+script ต้องรองรับทุก platform ที่ caller ของมันรันอยู่ หากจุดประสงค์ของ script ไม่ได้ระบุเป้าหมายที่แคบกว่า
+ให้เขียนสำหรับ Linux, macOS และ Windows ผ่าน Git Bash, MSYS2 หรือ WSL
 
-Use Bash 3.2 as the default language floor because it is available on supported macOS systems.
-Avoid Bash 4+ features unless every caller provisions a newer version. Common Bash 4+ features and
-portable alternatives include:
+ใช้ Bash 3.2 เป็นระดับภาษาขั้นต่ำโดยค่าเริ่มต้น เพราะมีอยู่บนระบบ macOS ที่รองรับ หลีกเลี่ยงฟีเจอร์ของ
+Bash 4+ เว้นแต่ทุก caller จะจัดเตรียมเวอร์ชันที่ใหม่กว่าไว้ ฟีเจอร์ Bash 4+ ที่พบบ่อยและทางเลือกที่ portable ได้แก่:
 
-| Feature                           | Bash version | Portable alternative               |
-| --------------------------------- | ------------ | ---------------------------------- |
-| Associative arrays (`declare -A`) | 4.0+         | Files, simple arrays, or functions |
-| `readarray` / `mapfile`           | 4.0+         | `while read` loops                 |
-| `${var,,}` / `${var^^}`           | 4.0+         | `tr` for case conversion           |
+| ฟีเจอร์                             | เวอร์ชัน Bash | ทางเลือกที่ portable                  |
+| ---------------------------------- | ------------ | ------------------------------------ |
+| Associative array (`declare -A`)   | 4.0+         | ไฟล์, array ธรรมดา หรือ function     |
+| `readarray` / `mapfile`            | 4.0+         | loop แบบ `while read`                |
+| `${var,,}` / `${var^^}`            | 4.0+         | `tr` สำหรับแปลงตัวพิมพ์เล็ก/ใหญ่      |
 
-A CI-only script may use a newer Bash version or platform-specific tool when every workflow caller
-guarantees that environment. Document the constraint near the code that depends on it. A path under
-`scripts/ci/` does not by itself make a script Linux-only because CI also uses macOS and Windows
-runners.
+script ที่ใช้เฉพาะใน CI อาจใช้ Bash เวอร์ชันใหม่กว่าหรือ tool เฉพาะ platform ได้ เมื่อทุก workflow ที่เรียกใช้
+รับประกัน environment นั้น ให้บันทึกข้อจำกัดไว้ใกล้กับโค้ดที่พึ่งพามัน path ภายใต้ `scripts/ci/` ไม่ได้ทำให้
+script เป็น Linux-only โดยอัตโนมัติ เพราะ CI ก็ใช้ runner ที่เป็น macOS และ Windows ด้วย
 
-### System utilities
+### System utility {#system-utilities}
 
-Prefer options supported by both GNU and BSD utilities. When no common form exists, detect the
-capability or operating system and implement both forms.
+ควรใช้ option ที่รองรับทั้ง utility ของ GNU และ BSD เมื่อไม่มีรูปแบบที่ใช้ร่วมกันได้ ให้ตรวจจับความสามารถ
+หรือระบบปฏิบัติการ แล้ว implement ทั้งสองรูปแบบ
 
-| Operation         | GNU form       | BSD or macOS form | Portable approach                                         |
-| ----------------- | -------------- | ----------------- | --------------------------------------------------------- |
-| In-place `sed`    | `sed -i`       | `sed -i ''`       | Use a backup suffix such as `sed -i.bak`, then remove it. |
-| File size         | `stat -c '%s'` | `stat -f '%z'`    | Try or select the supported form.                         |
-| SHA-256           | `sha256sum`    | `shasum -a 256`   | Detect the command and keep output handling equal.        |
-| Canonical path    | `readlink -f`  | No common form    | Avoid it or resolve from a known directory with `pwd`.    |
-| Extended matching | `grep -P`      | No common form    | Use `grep -E` when it expresses the same pattern.         |
-| Nanosecond time   | `date +%N`     | No common form    | Use an existing run ID or `$RANDOM` for cache busting.    |
+| การทำงาน            | รูปแบบ GNU      | รูปแบบ BSD หรือ macOS | แนวทางที่ portable                                              |
+| ------------------- | -------------- | -------------------- | -------------------------------------------------------------- |
+| `sed` แบบแก้ในไฟล์   | `sed -i`       | `sed -i ''`          | ใช้ backup suffix เช่น `sed -i.bak` แล้วลบไฟล์ backup ทิ้ง      |
+| ขนาดไฟล์            | `stat -c '%s'` | `stat -f '%z'`       | ลองหรือเลือกรูปแบบที่รองรับ                                    |
+| SHA-256             | `sha256sum`    | `shasum -a 256`      | ตรวจจับคำสั่ง และจัดการ output ให้เหมือนกัน                     |
+| Canonical path      | `readlink -f`  | ไม่มีรูปแบบร่วม       | หลีกเลี่ยง หรือ resolve จาก directory ที่ทราบด้วย `pwd`         |
+| Extended matching   | `grep -P`      | ไม่มีรูปแบบร่วม       | ใช้ `grep -E` เมื่อเขียน pattern เดียวกันได้                    |
+| เวลาระดับนาโนวินาที  | `date +%N`     | ไม่มีรูปแบบร่วม       | ใช้ run ID ที่มีอยู่หรือ `$RANDOM` สำหรับ cache busting          |
 
-Quote paths and expansions so spaces do not change argument boundaries. Do not assume filesystem
-paths are case-sensitive. Use repository-relative paths only after resolving the repository root
-from the script location, not from the caller's working directory.
+quote path และ expansion เพื่อไม่ให้ช่องว่างเปลี่ยนขอบเขตของ argument อย่าสมมติว่า path ของ filesystem
+แยกตัวพิมพ์เล็ก/ใหญ่ ใช้ path แบบ relative กับ repository ได้ก็ต่อเมื่อ resolve root ของ repository จาก
+ตำแหน่งของ script แล้วเท่านั้น ไม่ใช่จาก working directory ของ caller
 
-Use only commands installed by the documented development or runner setup. If an optional command is
-necessary, check for it with `command -v` and report how to install or replace it. The repository stores text
-with LF endings through `.gitattributes`. Do not add platform-specific line endings.
+ใช้เฉพาะคำสั่งที่ติดตั้งโดยขั้นตอน setup ของ development หรือ runner ที่มีเอกสารกำกับ หากจำเป็นต้องใช้คำสั่ง
+ที่เป็นตัวเลือกเสริม ให้ตรวจสอบด้วย `command -v` และแจ้งวิธีติดตั้งหรือทางเลือกทดแทน repository เก็บไฟล์
+text ด้วย line ending แบบ LF ผ่าน `.gitattributes` อย่าเพิ่ม line ending เฉพาะ platform
 
-## Place and name scripts
+## ตำแหน่งและการตั้งชื่อ script {#place-and-name-scripts}
 
-- Put general development and maintenance commands under `scripts/`.
-- Put workflow-specific build, test, publication, and verification commands under `scripts/ci/`.
-- Put repository checks invoked by pre-commit under `.pre-commit-hooks/`.
-- Keep component-specific scripts beside the component when moving them to `scripts/` would hide
-  their ownership.
+- วางคำสั่งสำหรับ development และ maintenance ทั่วไปไว้ใต้ `scripts/`
+- วางคำสั่ง build, test, publication และ verification ที่เฉพาะกับ workflow ไว้ใต้ `scripts/ci/`
+- วางการตรวจสอบ repository ที่ pre-commit เรียกใช้ไว้ใต้ `.pre-commit-hooks/`
+- เก็บ script ที่เฉพาะกับ component ไว้ข้าง ๆ component นั้น เมื่อการย้ายไปไว้ใน `scripts/` จะทำให้
+  มองไม่เห็นว่าใครเป็นเจ้าของ
 
-- Under `scripts/` and in component directories, use lowercase kebab-case. Name a regression script
-  `test-<script-name>.bash` or `test-<script-name>.sh` to keep the tested pair together.
-- Under `.pre-commit-hooks/`, use lowercase snake_case and match the existing `check_*` and
-  `test_check_*` name families.
+- ใต้ `scripts/` และใน directory ของ component ให้ใช้ kebab-case ตัวพิมพ์เล็ก ตั้งชื่อ regression script
+  เป็น `test-<script-name>.bash` หรือ `test-<script-name>.sh` เพื่อให้คู่ที่ถูกทดสอบอยู่ด้วยกัน
+- ใต้ `.pre-commit-hooks/` ให้ใช้ snake_case ตัวพิมพ์เล็ก และให้ตรงกับกลุ่มชื่อ `check_*` และ
+  `test_check_*` ที่มีอยู่
 
-Keep each script focused on one task, and extend an existing script when new logic shares the same
-responsibility.
+ให้แต่ละ script เน้นงานเดียว และขยาย script ที่มีอยู่เมื่อ logic ใหม่มีหน้าที่เดียวกัน
 
-## Structure scripts for reliable execution
+## จัดโครงสร้าง script ให้รันได้อย่างเชื่อถือได้ {#structure-scripts-for-reliable-execution}
 
-Standalone Bash scripts should start with:
+Bash script แบบ standalone ควรเริ่มต้นด้วย:
 
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
 ```
 
-Use `set -eu` in a standalone POSIX `sh` script. POSIX does not define `pipefail`, so check pipeline
-behavior explicitly when a failure must propagate. If a script cannot use these options, explain
-the specific control flow that makes an option unsafe.
+ใช้ `set -eu` ใน POSIX `sh` script แบบ standalone POSIX ไม่ได้กำหนด `pipefail` ไว้ ดังนั้นให้ตรวจสอบ
+พฤติกรรมของ pipeline เองเมื่อต้องการให้ความล้มเหลวส่งต่อออกมา หาก script ไม่สามารถใช้ option เหล่านี้ได้
+ให้อธิบาย control flow ที่ทำให้ option นั้นไม่ปลอดภัย
 
-Follow these requirements:
+ทำตามข้อกำหนดต่อไปนี้:
 
-- Validate required arguments and environment variables before changing state. Print concise usage
-  text and exit nonzero for invalid input.
-- Quote parameter expansions. Use Bash arrays for argument lists instead of building a command
-  string, and do not use `eval`.
-- Keep machine-readable output on standard output and diagnostics on standard error when callers
-  capture the result.
-- Do not end routine status output with a terminating period. Keep punctuation when the output is
-  a complete explanatory or diagnostic sentence.
-- Create temporary files with `mktemp`, register cleanup with `trap`, and constrain cleanup to the
-  exact paths created by the script.
-- Bound retries, report the final failure, and return a nonzero status when the requested operation
-  does not complete.
-- Do not print secrets or enable command tracing around credentials. Pass secrets through the
-  environment or the tool's supported secret input.
-- Use comments only for constraints or behavior that the commands do not make clear.
+- validate argument และ environment variable ที่จำเป็นก่อนเปลี่ยน state แสดงข้อความ usage
+  แบบกระชับ และ exit ด้วยค่าที่ไม่ใช่ศูนย์เมื่อ input ไม่ถูกต้อง
+- quote parameter expansion ใช้ Bash array สำหรับรายการ argument แทนการต่อ string เป็นคำสั่ง
+  และอย่าใช้ `eval`
+- ให้ output ที่เครื่องอ่านได้อยู่บน standard output และข้อความวินิจฉัยอยู่บน standard error
+  เมื่อ caller ดักจับผลลัพธ์
+- อย่าปิดท้าย output สถานะตามปกติด้วยจุด (period) ให้คงเครื่องหมายวรรคตอนไว้เมื่อ output เป็นประโยค
+  อธิบายหรือประโยควินิจฉัยที่สมบูรณ์
+- สร้างไฟล์ชั่วคราวด้วย `mktemp`, ลงทะเบียนการ cleanup ด้วย `trap` และจำกัดการ cleanup ไว้เฉพาะ
+  path ที่ script สร้างขึ้นเท่านั้น
+- จำกัดจำนวนการ retry, รายงานความล้มเหลวครั้งสุดท้าย และคืนสถานะที่ไม่ใช่ศูนย์เมื่องานที่ร้องขอ
+  ไม่เสร็จสมบูรณ์
+- อย่าพิมพ์ secret หรือเปิด command tracing รอบ ๆ credential ส่ง secret ผ่าน environment หรือช่องทาง
+  รับ secret ที่ tool รองรับ
+- ใช้ comment เฉพาะสำหรับข้อจำกัดหรือพฤติกรรมที่ตัวคำสั่งไม่ได้แสดงให้เห็นชัด
 
-Give a standalone script executable permissions when users or tools call it as `./path`. A sourceable file
-does not need executable permissions. Prefer executing a script in a child process. Source a file only when
-the caller must share its functions or shell state.
+ให้สิทธิ์ execute แก่ script แบบ standalone เมื่อผู้ใช้หรือ tool เรียกมันแบบ `./path` ไฟล์ที่ใช้ source
+ไม่จำเป็นต้องมีสิทธิ์ execute ควรรัน script ใน child process ให้ source ไฟล์เฉพาะเมื่อ caller ต้องใช้
+function หรือ shell state ร่วมกัน
 
-A sourceable Bash file must not call `exit` or change the caller's shell options. Return errors from
-functions and let the caller choose its error policy. Use `${BASH_SOURCE[0]}` instead of `$0` to
-resolve the source file's location.
+ไฟล์ Bash ที่ source ได้ต้องไม่เรียก `exit` หรือเปลี่ยน shell option ของ caller ให้คืน error จาก function
+และให้ caller เลือก error policy เอง ใช้ `${BASH_SOURCE[0]}` แทน `$0` เพื่อ resolve ตำแหน่งของไฟล์ที่ถูก source
 
-If a script needs several functions:
+หาก script ต้องมีหลาย function:
 
-1. Define `main` first.
-1. Place called functions below their callers.
-1. Invoke `main "$@"` after all definitions.
+1. นิยาม `main` ไว้ก่อน
+1. วาง function ที่ถูกเรียกไว้ใต้ caller ของมัน
+1. เรียก `main "$@"` หลังจากนิยามทั้งหมดแล้ว
 
-This keeps the task visible at the top while ensuring each function exists before execution starts.
+วิธีนี้ทำให้เห็นงานหลักอยู่ด้านบน ในขณะที่ยังรับประกันว่าทุก function มีอยู่ก่อนเริ่มรัน
 
-## Integrate with Make and GitHub Actions
+## การทำงานร่วมกับ Make และ GitHub Actions {#integrate-with-make-and-github-actions}
 
-Make targets should provide the stable, discoverable command that developers run. Keep target
-dependencies, build variables, and concurrency limits in the Makefile, then invoke the script with
-an explicit interpreter. For example, the `check-generated-drift` target delegates its procedural
-work to `scripts/ci/check-generated-drift.bash`.
+Make target ควรเป็นคำสั่งที่เสถียรและค้นหาได้ง่ายสำหรับนักพัฒนา ให้คง dependency ของ target,
+ตัวแปรของ build และขีดจำกัดของ concurrency ไว้ใน Makefile แล้วเรียก script ด้วย interpreter ที่ระบุชัดเจน
+ตัวอย่างเช่น target `check-generated-drift` มอบงานเชิงขั้นตอนให้ `scripts/ci/check-generated-drift.bash`
 
-GitHub Actions should provide workflow context through named environment variables and call the
-same script used locally where practical. The build workflow follows this boundary: it owns the
-Python matrix condition and `TARGET_DIR`, then invokes `scripts/ci/check-generated-drift.bash`.
+GitHub Actions ควรส่ง context ของ workflow ผ่าน environment variable ที่ตั้งชื่อไว้ และเรียก script เดียวกับ
+ที่ใช้ในเครื่องเมื่อทำได้ build workflow ทำตามขอบเขตนี้: workflow เป็นเจ้าของเงื่อนไขของ matrix และ
+`TARGET_DIR` แล้วจึงเรียก `scripts/ci/check-generated-drift.bash`
 
-If the script is also a local command, keep GitHub-specific output files at the workflow boundary. Examples
-include `$GITHUB_OUTPUT` and `$GITHUB_ENV`. A script dedicated to GitHub Actions may write them when that
-integration is its stated purpose.
+หาก script เป็นคำสั่งที่ใช้ในเครื่องด้วย ให้เก็บไฟล์ output เฉพาะของ GitHub ไว้ที่ขอบเขตของ workflow
+เช่น `$GITHUB_OUTPUT` และ `$GITHUB_ENV` script ที่ทำขึ้นเฉพาะสำหรับ GitHub Actions อาจเขียนไฟล์เหล่านี้ได้
+เมื่อการเชื่อมต่อนั้นเป็นจุดประสงค์ที่ระบุไว้ของมัน
 
-## Format and lint
+## Format และ lint {#format-and-lint}
 
-The pre-commit configuration formats shell files with `shfmt` using two-space indentation, indented
-case branches, consistent redirect spacing, and the Bash parser. ShellCheck then checks quoting,
-expansion, control flow, portability, and common command errors. The pinned hooks in
-`.pre-commit-config.yaml` are the source of truth for tool versions and options.
+การตั้งค่า pre-commit จะ format ไฟล์ shell ด้วย `shfmt` โดยใช้การย่อหน้าสองช่องว่าง, ย่อหน้า branch
+ของ case, ระยะห่างของ redirect ที่สม่ำเสมอ และ parser ของ Bash จากนั้น ShellCheck จะตรวจการ quote,
+expansion, control flow, portability และข้อผิดพลาดของคำสั่งที่พบบ่อย hook ที่ pin ไว้ใน
+`.pre-commit-config.yaml` เป็นแหล่งความจริงของเวอร์ชันและ option ของ tool
 
-Run both hooks against the exact changed scripts:
+รันทั้งสอง hook กับ script ที่เปลี่ยนแปลงจริง:
 
 ```bash
 prek run shfmt --files scripts/ci/test-wheel.bash
 prek run shellcheck --files scripts/ci/test-wheel.bash
 ```
 
-`shfmt` updates files in place. Review its changes before running ShellCheck. ShellCheck selects the
-language from the shebang, so a `.sh` file with `#!/usr/bin/env sh` receives POSIX checks even though
-the formatter uses the common Bash parser.
+`shfmt` จะแก้ไฟล์ในที่ ให้ review การเปลี่ยนแปลงของมันก่อนรัน ShellCheck ShellCheck เลือกภาษาจาก
+shebang ดังนั้นไฟล์ `.sh` ที่มี `#!/usr/bin/env sh` จะได้รับการตรวจแบบ POSIX แม้ว่า formatter จะใช้
+parser ของ Bash ร่วมกันก็ตาม
 
-Keep ShellCheck suppressions on the narrowest applicable line. If the code does not make the constraint clear,
-add a reason nearby. Do not disable a check for the whole repository to silence one script.
+ให้การ suppress ของ ShellCheck อยู่ในบรรทัดที่แคบที่สุดที่ใช้ได้ หากโค้ดไม่ได้แสดงข้อจำกัดให้เห็นชัด ให้เพิ่ม
+เหตุผลไว้ใกล้ ๆ อย่าปิดการตรวจทั้ง repository เพื่อให้ script ตัวเดียวเงียบ
 
-The repository also rejects executable files without shebangs, mixed line endings, trailing whitespace, and
-unresolved merge markers. These checks complement ShellCheck. They do not replace a runtime test.
+repository ยังปฏิเสธไฟล์ที่ execute ได้แต่ไม่มี shebang, line ending ที่ปนกัน, ช่องว่างท้ายบรรทัด และ
+merge marker ที่ยังไม่ได้ resolve การตรวจเหล่านี้เสริม ShellCheck แต่ไม่ได้แทนการทดสอบขณะรันจริง
 
-## Test behavior
+## ทดสอบพฤติกรรม {#test-behavior}
 
-Run the smallest test that exercises the changed branches and failure paths. Add a companion shell test for
-logic that can regress independently of a workflow. This includes parsing, multi-branch decisions, retries and
-cleanup, policy checks, and material external side effects.
+รันการทดสอบที่เล็กที่สุดที่ครอบคลุม branch และเส้นทางความล้มเหลวที่เปลี่ยนแปลง เพิ่ม shell test คู่กัน
+สำหรับ logic ที่อาจ regress ได้โดยไม่ขึ้นกับ workflow ซึ่งรวมถึงการ parse, การตัดสินใจหลาย branch,
+การ retry และ cleanup, การตรวจ policy และผลข้างเคียงภายนอกที่สำคัญ
 
-A domain-level suite may cover cooperating scripts. A thin wrapper does not need a one-to-one test
-when that suite invokes it and proves its behavior.
+suite ระดับ domain อาจครอบคลุม script ที่ทำงานร่วมกันได้ wrapper บาง ๆ ไม่จำเป็นต้องมี test แบบหนึ่งต่อหนึ่ง
+เมื่อ suite นั้นเรียกใช้และพิสูจน์พฤติกรรมของมันแล้ว
 
-Each companion test:
+test คู่กันแต่ละตัว:
 
-- Creates isolated state under `mktemp -d` and removes it on exit.
-- Supplies fake external commands through a temporary `PATH` instead of changing production code.
-- Uses distinct inputs and exact output, exit status, and side-effect assertions.
-- Covers success, invalid input, dependency failure, and cleanup when those paths exist.
-- Fails when a required test command is unavailable. A passing skip does not validate behavior.
-- Runs from `make test-scripts`, which is the script test inventory used by CI.
+- สร้าง state ที่แยกออกมาภายใต้ `mktemp -d` และลบทิ้งเมื่อ exit
+- ใส่คำสั่งภายนอกปลอมผ่าน `PATH` ชั่วคราว แทนการแก้โค้ด production
+- ใช้ input ที่แตกต่างกัน และ assert output, exit status และผลข้างเคียงแบบตรงตัว
+- ครอบคลุมกรณีสำเร็จ, input ไม่ถูกต้อง, dependency ล้มเหลว และ cleanup เมื่อมีเส้นทางเหล่านั้น
+- ล้มเหลวเมื่อไม่มีคำสั่งที่ test ต้องใช้ การ skip แล้วผ่านไม่ได้เป็นการ validate พฤติกรรม
+- รันจาก `make test-scripts` ซึ่งเป็นรายการ script test ที่ CI ใช้
 
-When a script has callers on multiple operating systems, exercise platform-sensitive changes on
-each caller's relevant CI matrix. A Linux test plus clean ShellCheck output does not prove macOS or
-Windows behavior.
+เมื่อ script มี caller บนหลายระบบปฏิบัติการ ให้ทดสอบการเปลี่ยนแปลงที่อ่อนไหวต่อ platform บน CI matrix
+ที่เกี่ยวข้องของ caller แต่ละตัว การทดสอบบน Linux บวกกับผล ShellCheck ที่สะอาดไม่ได้พิสูจน์พฤติกรรม
+บน macOS หรือ Windows
 
-## Review checklist
+## Checklist สำหรับ review {#review-checklist}
 
-- The behavior is not already available from a script, Make target, installed tool, or simple
-  native workflow feature.
-- GitHub Actions, Make, and the script own the right parts of the workflow.
-- The extension, shebang, executable mode, and documented portability target agree.
-- The script runs independently of the caller's working directory.
-- Arguments, failures, temporary files, retries, output, and secrets have explicit handling.
-- Focused behavior tests, `shfmt`, and ShellCheck pass for the final changed files.
-- Every call site, workflow path filter, and document uses the final filename.
+- พฤติกรรมนั้นยังไม่มีให้ใช้จาก script, Make target, tool ที่ติดตั้งไว้ หรือฟีเจอร์ native ง่าย ๆ ของ workflow
+- GitHub Actions, Make และ script รับผิดชอบส่วนที่ถูกต้องของ workflow
+- นามสกุลไฟล์, shebang, สิทธิ์ execute และเป้าหมาย portability ที่ระบุไว้สอดคล้องกัน
+- script รันได้โดยไม่ขึ้นกับ working directory ของ caller
+- argument, ความล้มเหลว, ไฟล์ชั่วคราว, การ retry, output และ secret มีการจัดการที่ชัดเจน
+- test พฤติกรรมแบบเจาะจง, `shfmt` และ ShellCheck ผ่านสำหรับไฟล์สุดท้ายที่เปลี่ยนแปลง
+- ทุกจุดที่เรียกใช้, path filter ของ workflow และเอกสารใช้ชื่อไฟล์สุดท้าย

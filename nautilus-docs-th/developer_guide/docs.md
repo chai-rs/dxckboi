@@ -1,77 +1,75 @@
 # Docs Style
 
-Use this guide for NautilusTrader documentation style and writing practices.
+ใช้คู่มือนี้สำหรับสไตล์และแนวปฏิบัติในการเขียนเอกสารของ NautilusTrader
 
-The [Markdown Style](markdown_style.md) guide is the shared baseline for Markdown syntax and
-formatting, and `.markdownlint.jsonc` enforces its mechanical subset. This guide covers what is
-specific to NautilusTrader documentation rather than repeating that baseline.
+คู่มือ [Markdown Style](markdown_style.md) เป็นมาตรฐานพื้นฐานร่วมกันสำหรับไวยากรณ์และการจัดรูปแบบ Markdown
+และ `.markdownlint.jsonc` บังคับใช้ส่วนที่ตรวจสอบได้แบบอัตโนมัติ คู่มือนี้ครอบคลุมเฉพาะสิ่งที่เป็นของเอกสาร
+NautilusTrader โดยไม่ทวนมาตรฐานพื้นฐานนั้นซ้ำ
 
-## General principles
+## หลักการทั่วไป {#general-principles}
 
-- Prefer simple structure and concise, readable prose.
-- Use consistent conventions, style, and patterns.
-- Write for users of varying technical backgrounds.
+- เลือกใช้โครงสร้างที่เรียบง่าย และเขียนให้กระชับอ่านง่าย
+- ใช้ convention, สไตล์ และรูปแบบที่สม่ำเสมอ
+- เขียนให้ผู้อ่านที่มีพื้นฐานทางเทคนิคต่างกันเข้าใจได้
 
-## Documentation types
+## ประเภทของเอกสาร {#documentation-types}
 
-Most pages should fit one of four types
-([Divio documentation system](https://docs.divio.com/documentation-system/)).
-Mixing types in a single page makes it harder to read and harder to maintain.
+หน้าส่วนใหญ่ควรจัดอยู่ในหนึ่งในสี่ประเภท
+([Divio documentation system](https://docs.divio.com/documentation-system/))
+การผสมหลายประเภทไว้ในหน้าเดียวทำให้อ่านยากและดูแลรักษายาก
 
-| Type             | Purpose                         | Section          |
+| ประเภท           | จุดประสงค์                        | Section          |
 | ---------------- | ------------------------------- | ---------------- |
-| **Tutorial**     | Teach by walking through a task | `tutorials/`     |
-| **How-to guide** | Solve a specific problem        | `how_to/`        |
-| **Explanation**  | Clarify design and architecture | `concepts/`      |
-| **Reference**    | Describe the machinery          | `api_reference/` |
+| **Tutorial**     | สอนโดยพาทำงานหนึ่งอย่างไปทีละขั้น     | `tutorials/`     |
+| **How-to guide** | แก้ปัญหาเฉพาะเรื่อง                 | `how_to/`        |
+| **Explanation**  | อธิบายการออกแบบและสถาปัตยกรรม      | `concepts/`      |
+| **Reference**    | อธิบายกลไกการทำงานโดยละเอียด        | `api_reference/` |
 
-Two sections are exceptions:
+มีสอง section ที่เป็นข้อยกเว้น:
 
-- `getting_started/` combines tutorial-style walkthroughs with setup instructions for onboarding.
-- `integrations/` pages combine reference (capabilities, symbology) with how-to content (setup,
-  configuration). Thus, each venue page is self-contained.
+- `getting_started/` รวม walkthrough แบบ tutorial เข้ากับขั้นตอนการติดตั้งสำหรับผู้เริ่มต้น
+- หน้าใน `integrations/` รวมเนื้อหาแบบ reference (ความสามารถ, symbology) เข้ากับเนื้อหาแบบ how-to
+  (การติดตั้ง, การตั้งค่า) ทำให้แต่ละหน้าของ venue สมบูรณ์ในตัวเอง
 
-Standalone how-to content that is not venue-specific belongs in `how_to/`.
+เนื้อหา how-to ที่แยกเดี่ยวและไม่ได้เฉพาะกับ venue ใดให้อยู่ใน `how_to/`
 
-### Choosing the right type
+### การเลือกประเภทที่เหมาะสม {#choosing-the-right-type}
 
-- **Does your page walk a newcomer through a learning experience?** Tutorial.
-- **Does it answer "How do I...?" for someone who already knows the system?** How-to guide.
-- **Does it explain why something works the way it does?** Explanation.
-- **Does it list classes, config fields, enums, or capabilities?** Reference.
+- **หน้านี้พาผู้มาใหม่ผ่านประสบการณ์การเรียนรู้หรือไม่?** Tutorial
+- **หน้านี้ตอบคำถาม "ทำ...อย่างไร?" ให้คนที่รู้จักระบบอยู่แล้วหรือไม่?** How-to guide
+- **หน้านี้อธิบายว่าทำไมสิ่งหนึ่งจึงทำงานแบบนั้นหรือไม่?** Explanation
+- **หน้านี้แสดงรายการ class, config field, enum หรือความสามารถหรือไม่?** Reference
 
-A tutorial says "do this, then this, then this." The author picks the path.
-A how-to guide says "here is how to achieve X." The reader already knows
-they want X. Keep these distinct:
+tutorial บอกว่า "ทำสิ่งนี้ แล้วสิ่งนี้ แล้วสิ่งนี้" ผู้เขียนเป็นคนเลือกเส้นทาง
+ส่วน how-to guide บอกว่า "นี่คือวิธีทำให้ได้ X" ผู้อ่านรู้อยู่แล้วว่าต้องการ X ให้แยกสองประเภทนี้ออกจากกัน:
 
-- Tutorials should not assume prior knowledge.
-- How-to guides should not teach background concepts.
+- tutorial ไม่ควรสมมติว่าผู้อ่านมีความรู้มาก่อน
+- how-to guide ไม่ควรสอนแนวคิดพื้นฐาน
 
-When one type needs to reference another, link to it instead of inlining. For
-example, a how-to guide that configures `LiveNodeConfig` should link to the
-API reference for field definitions rather than listing them again.
+เมื่อเอกสารประเภทหนึ่งต้องอ้างถึงอีกประเภทหนึ่ง ให้ใส่ link แทนการเขียนซ้ำในหน้า ตัวอย่างเช่น how-to guide
+ที่ตั้งค่า `LiveNodeConfig` ควร link ไปยัง API reference สำหรับนิยามของ field แทนที่จะแสดงรายการซ้ำอีกครั้ง
 
-## Language and tone
+## ภาษาและน้ำเสียง {#language-and-tone}
 
-- Use active voice when possible ("Configure the adapter" vs "The adapter should be configured").
-- Write in present tense for describing current functionality.
-- Use future tense only for planned features.
-- Avoid unnecessary jargon. Define technical terms on first use.
-- Be direct and concise. Avoid filler words like "basically", "simply", "just".
-- Use parallel structure in lists. Keep grammatical patterns consistent across items.
+- ใช้ประโยค active voice เมื่อทำได้ ("Configure the adapter" แทน "The adapter should be configured")
+- ใช้ present tense เมื่ออธิบายความสามารถที่มีอยู่ในปัจจุบัน
+- ใช้ future tense เฉพาะกับฟีเจอร์ที่วางแผนไว้
+- หลีกเลี่ยงศัพท์เฉพาะที่ไม่จำเป็น และนิยามศัพท์เทคนิคเมื่อใช้ครั้งแรก
+- เขียนตรงไปตรงมาและกระชับ หลีกเลี่ยงคำฟุ่มเฟือยอย่าง "basically", "simply", "just"
+- ใช้โครงสร้างคู่ขนานในรายการ รักษารูปแบบไวยากรณ์ให้สม่ำเสมอทุกข้อ
 
-## Markdown tables
+## ตาราง Markdown {#markdown-tables}
 
-Table syntax, pipe alignment, and delimiter padding follow the
-[Markdown Style](markdown_style.md#tables) guide.
+ไวยากรณ์ตาราง การจัดแนว pipe และการเว้นระยะของเส้นคั่นให้เป็นไปตามคู่มือ
+[Markdown Style](markdown_style.md#tables)
 
-### Notes and descriptions
+### Notes และคำอธิบาย {#notes-and-descriptions}
 
-- All notes and descriptions should have terminating periods.
-- Keep notes concise but informative.
-- Use sentence case (capitalize only the first letter and proper nouns).
+- notes และคำอธิบายทั้งหมดควรจบด้วยจุด
+- เขียน notes ให้กระชับแต่ได้ใจความ
+- ใช้ sentence case (ตัวพิมพ์ใหญ่เฉพาะอักษรแรกและคำนามเฉพาะ)
 
-### Example
+### ตัวอย่าง {#example}
 
 ```markdown
 | Order Type             | Spot | Margin | USDT Futures | Coin Futures | Notes                   |
@@ -81,122 +79,91 @@ Table syntax, pipe alignment, and delimiter padding follow the
 | `MARKET_IF_TOUCHED`    | -    | -      | ✓            | ✓            | Futures only.           |
 ```
 
-### Support indicators
+### สัญลักษณ์แสดงการรองรับ {#support-indicators}
 
-- Use `✓` for supported features.
-- Use `-` for unsupported features (not `✗` or other symbols).
-- When adding notes for unsupported features, emphasize with italics: `*Not supported*`.
-- Make unsupported notes specific when the reason matters: use `*Not supported by <venue>*`
-  for venue gaps, or `*Not currently implemented*` for adapter gaps.
-- Leave cells empty when no content is needed.
+- ใช้ `✓` สำหรับฟีเจอร์ที่รองรับ
+- ใช้ `-` สำหรับฟีเจอร์ที่ไม่รองรับ (ไม่ใช้ `✗` หรือสัญลักษณ์อื่น)
+- เมื่อเพิ่ม notes สำหรับฟีเจอร์ที่ไม่รองรับ ให้เน้นด้วยตัวเอียง: `*Not supported*`
+- เขียน notes ของสิ่งที่ไม่รองรับให้เจาะจงเมื่อเหตุผลมีความสำคัญ: ใช้ `*Not supported by <venue>*`
+  สำหรับสิ่งที่ venue ไม่มี หรือ `*Not currently implemented*` สำหรับสิ่งที่ adapter ยังไม่ได้ทำ
+- ปล่อย cell ว่างไว้เมื่อไม่มีเนื้อหาที่จำเป็น
 
-## Code references
+## การอ้างอิงโค้ด {#code-references}
 
-Inline code and fenced code blocks follow the [Markdown Style](markdown_style.md#code) guide.
+inline code และ fenced code block ให้เป็นไปตามคู่มือ [Markdown Style](markdown_style.md#code)
 
-When referencing code locations, use `file_path::function_name` or `file_path::ClassName` rather
-than line numbers, which become stale as code changes.
+เมื่ออ้างอิงตำแหน่งในโค้ด ให้ใช้ `file_path::function_name` หรือ `file_path::ClassName` แทนเลขบรรทัด
+ซึ่งจะล้าสมัยเมื่อโค้ดเปลี่ยน
 
-## Headings
+## Headings {#headings}
 
-Heading style, case, and hierarchy follow the [Markdown Style](markdown_style.md#headings) guide:
-title case for the page heading, sentence case below it.
+สไตล์ของ heading, ตัวพิมพ์ และลำดับชั้นให้เป็นไปตามคู่มือ [Markdown Style](markdown_style.md#headings):
+ใช้ title case สำหรับ heading ของหน้า และ sentence case สำหรับ heading ที่อยู่ใต้ลงไป
 
-NautilusTrader makes one exception for `index.md` pages: headings and navigation links that name
-individual documents use the target document's exact H1 title, including its capitalization.
-General section headings retain sentence case.
+NautilusTrader มีข้อยกเว้นหนึ่งข้อสำหรับหน้า `index.md`: heading และ link นำทางที่ระบุชื่อเอกสารแต่ละหน้า
+ให้ใช้ชื่อ H1 ของเอกสารปลายทางตรงตามต้นฉบับ รวมถึงตัวพิมพ์ใหญ่เล็ก ส่วน heading ของ section ทั่วไปยังคงใช้ sentence case
 
-Always capitalize proper nouns regardless of heading level (product names, technologies,
-companies, acronyms).
+ให้ขึ้นต้นคำนามเฉพาะด้วยตัวพิมพ์ใหญ่เสมอไม่ว่า heading จะอยู่ระดับใด (ชื่อผลิตภัณฑ์ เทคโนโลยี บริษัท ตัวย่อ)
 
-## Lists
+## Lists {#lists}
 
-List markers, ordering, and indentation follow the [Markdown Style](markdown_style.md#lists) guide.
+เครื่องหมายรายการ การเรียงลำดับ และการย่อหน้าให้เป็นไปตามคู่มือ [Markdown Style](markdown_style.md#lists)
 
-End list items with periods when they are complete sentences.
+จบรายการด้วยจุดเมื่อเป็นประโยคสมบูรณ์
 
-## Links and references
+## Links และการอ้างอิง {#links-and-references}
 
-Link text, link style, and images follow the
-[Markdown Style](markdown_style.md#links-and-images) guide.
+ข้อความของ link, สไตล์ของ link และรูปภาพให้เป็นไปตามคู่มือ
+[Markdown Style](markdown_style.md#links-and-images)
 
-Reference external documentation when appropriate.
+อ้างอิงเอกสารภายนอกเมื่อเหมาะสม
 
-## Technical terminology
+## คำศัพท์ทางเทคนิค {#technical-terminology}
 
-- Base capability matrices on the Nautilus domain model, not exchange-specific terminology.
-- Mention exchange-specific terms in parentheses or notes when necessary for clarity.
-- Use consistent terminology throughout the documentation.
+- สร้างตาราง capability โดยอิงตาม domain model ของ Nautilus ไม่ใช่ศัพท์เฉพาะของ exchange
+- กล่าวถึงศัพท์เฉพาะของ exchange ในวงเล็บหรือ notes เมื่อจำเป็นต่อความชัดเจน
+- ใช้คำศัพท์ให้สม่ำเสมอตลอดทั้งเอกสาร
 
-## Examples and code samples
+## ตัวอย่างและ code sample {#examples-and-code-samples}
 
-- Provide practical, working examples.
-- Include necessary imports and context.
-- Use realistic variable names and values.
-- Add comments to explain non-obvious parts of examples.
+- ให้ตัวอย่างที่ใช้งานได้จริงและรันได้
+- ใส่ import และบริบทที่จำเป็น
+- ใช้ชื่อตัวแปรและค่าที่สมจริง
+- เพิ่ม comment อธิบายส่วนที่ไม่ชัดเจนในตัวอย่าง
 
-## Admonitions
+## Admonitions {#admonitions}
 
-Use admonition blocks to highlight important information:
+ใช้ admonition block เพื่อเน้นข้อมูลสำคัญ:
 
-| Admonition   | Purpose                                                       |
+| Admonition   | จุดประสงค์                                                      |
 | ------------ | ------------------------------------------------------------- |
-| `:::note`    | Supplementary context that clarifies but is not essential.    |
-| `:::info`    | Important information the reader should be aware of.          |
-| `:::tip`     | Helpful suggestions or best practices.                        |
-| `:::warning` | Potential pitfalls or important caveats.                      |
-| `:::danger`  | Critical issues that could cause data loss or system failure. |
+| `:::note`    | บริบทเสริมที่ช่วยให้ชัดเจนขึ้นแต่ไม่ใช่สาระหลัก                         |
+| `:::info`    | ข้อมูลสำคัญที่ผู้อ่านควรรู้                                          |
+| `:::tip`     | คำแนะนำที่มีประโยชน์หรือ best practice                             |
+| `:::warning` | ข้อผิดพลาดที่อาจเกิดขึ้นหรือข้อควรระวังสำคัญ                             |
+| `:::danger`  | ปัญหาร้ายแรงที่อาจทำให้ข้อมูลสูญหายหรือระบบล้มเหลว                      |
 
-Avoid overusing admonitions. Too many diminish their impact.
+อย่าใช้ admonition มากเกินไป เพราะยิ่งมากยิ่งลดความสำคัญลง
 
-## MDX components
+## MDX components {#mdx-components}
 
-The docs site (fumadocs) provides built-in MDX components available in all `.md` files.
-No imports are needed.
+เว็บไซต์เอกสาร (fumadocs) มี MDX component ในตัวที่ใช้ได้ในทุกไฟล์ `.md` โดยไม่ต้อง import
 
-### Tabs
+### Tabs {#tabs}
 
-Use tabs for language-specific or variant content. List Rust before Python so Rust is the
-default (left-most) tab.
+ใช้ tabs สำหรับเนื้อหาที่แยกตามภาษาหรือตาม variant
 
-For code examples, add `tab="..."` to consecutive fenced code blocks:
+สำหรับตัวอย่างโค้ด ให้เพิ่ม `tab="..."` ให้กับ fenced code block ที่อยู่ติดกัน
 
-```markdown
-\`\`\`rust tab="Rust"
-let params = Params::from([("close_position", true.into())]);
-\`\`\`
+สำหรับตารางหรือเนื้อหาอื่น ให้ครอบแต่ละ variant ด้วย `<Tabs>` และ `<Tab>` ตาราง Fields ของ instrument ใช้วิธีนี้
+เพื่อให้แต่ละภาษาแสดง column ของ type เพียง column เดียว แทนการแสดง column ของแต่ละภาษาเคียงกัน
+เว้นบรรทัดว่างไว้ทั้งด้านบนและด้านล่างของเนื้อหาข้างใน เพื่อให้ Markdown render ได้
 
-\`\`\`python tab="Python"
-strategy.submit_order(order, params={"close_position": True})
-\`\`\`
-```
+> หมายเหตุ: ตัวอย่าง Tabs ในต้นฉบับใช้คู่ Rust/Python จึงตัดออก
 
-For tables or other content, wrap each variant in `<Tabs>` and `<Tab>`. The instrument Fields
-tables use this so each language shows a single type column instead of side-by-side Rust and
-Python columns. Leave a blank line above and below the inner content so the Markdown renders.
+### Steps {#steps}
 
-```markdown
-<Tabs items={["Rust", "Python"]}>
-<Tab value="Rust">
-
-| Field           | Type           | Required/default | Notes                   |
-| --------------- | -------------- | ---------------- | ----------------------- |
-| `instrument_id` | `InstrumentId` | Required         | Stored as `id` in Rust. |
-
-</Tab>
-<Tab value="Python">
-
-| Field           | Type           | Required/default | Notes |
-| --------------- | -------------- | ---------------- | ----- |
-| `instrument_id` | `InstrumentId` | Required         |       |
-
-</Tab>
-</Tabs>
-```
-
-### Steps
-
-Use `Steps` and `Step` for sequential procedures.
+ใช้ `Steps` และ `Step` สำหรับขั้นตอนที่ต้องทำตามลำดับ
 
 ```markdown
 <Steps>
@@ -209,9 +176,9 @@ Start the trading node.
 </Steps>
 ```
 
-### Accordions
+### Accordions {#accordions}
 
-Use `Accordions` and `Accordion` for collapsible content.
+ใช้ `Accordions` และ `Accordion` สำหรับเนื้อหาที่ยุบ/ขยายได้
 
 ```markdown
 <Accordions>
@@ -221,9 +188,9 @@ Content here.
 </Accordions>
 ```
 
-### Files
+### Files {#files}
 
-Use `Files`, `Folder`, and `File` for directory tree visualizations.
+ใช้ `Files`, `Folder` และ `File` สำหรับแสดงโครงสร้าง directory
 
 ```markdown
 <Files>
@@ -234,9 +201,9 @@ Use `Files`, `Folder`, and `File` for directory tree visualizations.
 </Files>
 ```
 
-### Cards
+### Cards {#cards}
 
-Use `Cards` and `Card` for linked content grids.
+ใช้ `Cards` และ `Card` สำหรับ grid ของเนื้อหาที่มี link
 
 ```markdown
 <Cards>
@@ -245,13 +212,13 @@ Use `Cards` and `Card` for linked content grids.
 </Cards>
 ```
 
-### TypeTable
+### TypeTable {#typetable}
 
-Use `TypeTable` for parameter or type documentation tables.
+ใช้ `TypeTable` สำหรับตารางเอกสารของ parameter หรือ type
 
-## API documentation
+## API documentation {#api-documentation}
 
-- Document parameters and return types clearly.
-- Include usage examples for complex APIs.
-- Explain any side effects or important behavior.
-- Keep parameter descriptions concise but complete.
+- อธิบาย parameter และ return type ให้ชัดเจน
+- ใส่ตัวอย่างการใช้งานสำหรับ API ที่ซับซ้อน
+- อธิบาย side effect หรือพฤติกรรมสำคัญ
+- เขียนคำอธิบาย parameter ให้กระชับแต่ครบถ้วน

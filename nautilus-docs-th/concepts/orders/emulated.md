@@ -1,186 +1,183 @@
 # Emulated orders
 
-Emulation lets you use order types even when your trading venue does not natively support them.
+Emulation ช่วยให้ใช้ order type บางประเภทได้ แม้ว่า trading venue จะไม่รองรับ order type นั้นโดยตรง
 
-The `OrderEmulator` monitors the market data selected by `emulation_trigger`. When the local order matches its
-release condition, the emulator transforms it into a `MARKET` or `LIMIT` order. It routes that order to the
-configured execution algorithm or the risk engine. For example, an emulated `STOP_LIMIT` becomes a
-`LIMIT` order after its stop price triggers.
+`OrderEmulator` จะเฝ้าดู market data ที่เลือกไว้ด้วย `emulation_trigger` เมื่อ order ภายในเครื่องตรงกับ
+เงื่อนไขการ release แล้ว emulator จะแปลงมันเป็น order แบบ `MARKET` หรือ `LIMIT` แล้ว route order นั้นไปยัง
+execution algorithm ที่ตั้งค่าไว้หรือ risk engine ตัวอย่างเช่น `STOP_LIMIT` ที่ถูก emulate จะกลายเป็น
+order `LIMIT` หลังจากที่ราคา stop ถูก trigger
 
-## Submitting an order for emulation
+## การ submit order เพื่อ emulate {#submitting-an-order-for-emulation}
 
-**Supported triggers**: set `emulation_trigger` on an order constructor or `OrderFactory` method.
-The local emulator accepts these values.
+**Trigger ที่รองรับ**: กำหนด `emulation_trigger` ใน constructor ของ order หรือ method ของ `OrderFactory`
+emulator ภายในเครื่องรับค่าต่อไปนี้
 
-| Trigger type | Market data used                                   |
-| ------------ | -------------------------------------------------- |
-| `DEFAULT`    | Quotes, with the same local behavior as `BID_ASK`. |
-| `BID_ASK`    | Best bid and ask quotes.                           |
-| `LAST_PRICE` | Trades.                                            |
+| Trigger type | Market data ที่ใช้                                    |
+| ------------ | ----------------------------------------------------- |
+| `DEFAULT`    | quote โดยมีพฤติกรรมภายในเครื่องเหมือนกับ `BID_ASK`   |
+| `BID_ASK`    | quote bid และ ask ที่ดีที่สุด                          |
+| `LAST_PRICE` | trade                                                 |
 
-Leave `emulation_trigger` as `None` to disable local emulation and submit through the normal
-pathway.
+ปล่อย `emulation_trigger` เป็น `None` เพื่อปิดการ emulate ภายในเครื่องและ submit ผ่านเส้นทางปกติ
 
-Other `TriggerType` values describe trigger methods that some venues support, but the local
-`OrderEmulator` does not accept them as `emulation_trigger` values.
+ค่า `TriggerType` อื่น ๆ อธิบายวิธีการ trigger ที่บาง venue รองรับ แต่ `OrderEmulator` ภายในเครื่อง
+ไม่รับค่าเหล่านั้นเป็น `emulation_trigger`
 
 :::warning
-The emulator cancels an order submitted with any other `emulation_trigger` value, and logs the
-unsupported trigger type as an error.
+emulator จะ cancel order ที่ submit มาด้วยค่า `emulation_trigger` อื่นนอกเหนือจากนี้ และ log
+trigger type ที่ไม่รองรับเป็น error
 :::
 
-**Trigger behavior**: emulation depends on the selected trigger type.
+**พฤติกรรมของ trigger**: การ emulate ขึ้นอยู่กับ trigger type ที่เลือก
 
-- For stop orders, the emulator compares the trigger price with the selected market data.
-- For trailing-stop orders, it updates the trailing trigger from that market data.
-- For emulated `LIMIT` orders, it compares the limit price with that market data and releases a
-  `MARKET` order when matched.
+- สำหรับ stop order emulator จะเปรียบเทียบราคา trigger กับ market data ที่เลือก
+- สำหรับ trailing-stop order จะอัปเดต trailing trigger จาก market data นั้น
+- สำหรับ order `LIMIT` ที่ถูก emulate จะเปรียบเทียบราคา limit กับ market data นั้น และ release
+  เป็น order `MARKET` เมื่อตรงเงื่อนไข
 
-**Cached data**: the emulator creates a matching core for a trigger instrument. The first order's
-`emulation_trigger` selects the cached market data used to seed that core.
+**ข้อมูลใน cache**: emulator สร้าง matching core สำหรับ trigger instrument แต่ละตัว
+`emulation_trigger` ของ order แรกจะเป็นตัวเลือกว่าจะใช้ market data ใดใน cache มาตั้งค่าเริ่มต้นให้ core นั้น
 
-- `DEFAULT` and `BID_ASK` use the latest cached quote's bid and ask.
-- `LAST_PRICE` uses the latest cached trade price.
+- `DEFAULT` และ `BID_ASK` ใช้ bid และ ask จาก quote ล่าสุดใน cache
+- `LAST_PRICE` ใช้ราคา trade ล่าสุดใน cache
 
-An eligible order that matches this data releases on submission **without an `OrderEmulated` event**. If the
-selected source has no cached data, the order stays emulated until matching market data arrives.
+order ที่มีสิทธิ์และตรงกับข้อมูลนี้จะถูก release ทันทีตอน submit **โดยไม่มี event `OrderEmulated`**
+หากแหล่งข้อมูลที่เลือกยังไม่มีข้อมูลใน cache order จะยังคงถูก emulate จนกว่าจะมี market data ที่ตรงกันเข้ามา
 
-## Technical details
+## รายละเอียดทางเทคนิค {#technical-details}
 
-The same `OrderEmulator` component manages supported emulated order types in all
-[environment contexts](../architecture.md#environment-contexts).
+component `OrderEmulator` ตัวเดียวกันจัดการ order type ที่รองรับการ emulate ในทุก
+[environment context](../architecture.md#environment-contexts)
 
 :::note
-NautilusTrader does not configure a fixed count limit for emulated orders. Available memory and the
-cost of market data processing provide practical limits.
+NautilusTrader ไม่ได้กำหนดจำนวนสูงสุดของ emulated order ไว้ตายตัว หน่วยความจำที่มีและต้นทุนของ
+การประมวลผล market data เป็นตัวจำกัดในทางปฏิบัติ
 :::
 
-## Lifecycle
+## Lifecycle {#lifecycle}
 
-**Lifecycle**: an emulated order progresses through these stages.
+**Lifecycle**: emulated order จะผ่านขั้นตอนต่อไปนี้
 
-1. A `Strategy` submits it through `submit_order`, which routes it to the `OrderEmulator`.
-1. The `OrderEmulator` checks for immediate release. If the order does not match, it holds and
-   monitors it locally.
-1. For a held order, a matching market update transforms it into a `MARKET` or `LIMIT` order and
-   releases it once the required prices are available.
-1. The emulator routes the released order to an `ExecutionAlgorithm` when `exec_algorithm_id` is
-   set, or to the `RiskEngine` otherwise.
+1. `Strategy` submit order ผ่าน `submit_order` ซึ่ง route order ไปยัง `OrderEmulator`
+1. `OrderEmulator` ตรวจว่าจะ release ทันทีได้หรือไม่ หาก order ไม่ตรงเงื่อนไข จะถือ order ไว้และ
+   เฝ้าดูภายในเครื่อง
+1. สำหรับ order ที่ถูกถือไว้ market update ที่ตรงเงื่อนไขจะแปลง order เป็น `MARKET` หรือ `LIMIT` และ
+   release เมื่อมีราคาที่จำเป็นครบ
+1. emulator จะ route order ที่ release แล้วไปยัง `ExecutionAlgorithm` เมื่อมีการตั้ง `exec_algorithm_id`
+   ไว้ หรือไปยัง `RiskEngine` ในกรณีอื่น
 
-:::warning[Risk checks apply at release]
-Initial submissions and modifications of held emulated orders bypass the `RiskEngine`. Held orders
-do not reserve account funds. Releases without an execution algorithm pass through the `RiskEngine`
-before reaching the `ExecutionEngine`. An execution algorithm's `submit_order` method also routes
-its submissions through the risk engine.
+:::warning[การตรวจสอบความเสี่ยงมีผลตอน release]
+การ submit ครั้งแรกและการแก้ไข emulated order ที่ถูกถือไว้จะข้าม `RiskEngine` order ที่ถูกถือไว้
+ไม่ได้กันเงินใน account ไว้ การ release ที่ไม่มี execution algorithm จะผ่าน `RiskEngine` ก่อนถึง
+`ExecutionEngine` method `submit_order` ของ execution algorithm ก็ route การ submit ผ่าน risk engine
+เช่นกัน
 
-Unless risk checks are bypassed, a failed check on a release without an execution algorithm moves
-that order to `DENIED`, without automatic retry. This includes protective stops: `HALTED` denies
-them, while `REDUCING` permits only eligible reduce-only submissions with an identified open position.
-See [Trading state](../execution/index.md#trading-state).
+หากไม่ได้ข้ามการตรวจสอบความเสี่ยง การตรวจที่ล้มเหลวสำหรับการ release ที่ไม่มี execution algorithm
+จะทำให้ order นั้นเป็น `DENIED` โดยไม่มีการ retry อัตโนมัติ รวมถึง protective stop ด้วย: `HALTED`
+จะ deny order เหล่านี้ ส่วน `REDUCING` จะอนุญาตเฉพาะการ submit แบบ reduce-only ที่มีสิทธิ์และระบุ
+position ที่เปิดอยู่ได้ ดู [Trading state](../execution/index.md#trading-state)
 
-Denial also invokes contingency handling, which can cancel locally managed OTO children or OCO/OUO
-siblings. A denied stop can therefore cancel its linked take-profit order.
+การ deny ยังเรียกการจัดการ contingency ด้วย ซึ่งอาจ cancel order ลูกแบบ OTO หรือ order พี่น้องแบบ
+OCO/OUO ที่จัดการภายในเครื่อง stop ที่ถูก deny จึงอาจ cancel take-profit order ที่ผูกกันอยู่ได้
 :::
 
 :::note
-A strategy can modify or cancel emulated orders, and a cancel-all request includes them.
+strategy สามารถแก้ไขหรือ cancel emulated order ได้ และ request แบบ cancel-all ก็รวม order เหล่านี้ด้วย
 :::
 
 :::info
-An emulated order keeps its client order ID when transformed, so cache queries continue to use the same ID.
+emulated order จะคง client order ID เดิมไว้เมื่อถูกแปลง ดังนั้น query ใน cache จึงใช้ ID เดิมต่อไปได้
 :::
 
-### Held emulated orders
+### Emulated order ที่ถูกถือไว้ {#held-emulated-orders}
 
-**While held**: the `OrderEmulator` takes these actions while it holds an order.
+**ระหว่างถือไว้**: `OrderEmulator` จะทำสิ่งต่อไปนี้ขณะที่ถือ order ไว้
 
-- It caches the original `SubmitOrder` command.
-- It processes the order in a local matching core.
-- It subscribes to the required quotes or trades if no matching subscription exists.
-- It accepts strategy modifications and market-driven updates until release or cancellation.
+- cache command `SubmitOrder` ต้นฉบับไว้
+- ประมวลผล order ใน matching core ภายในเครื่อง
+- subscribe quote หรือ trade ที่จำเป็น หากยังไม่มี subscription ที่ตรงกัน
+- รับการแก้ไขจาก strategy และการอัปเดตที่ขับเคลื่อนด้วยตลาดจนกว่าจะ release หรือ cancel
 
-### Released emulated orders
+### Emulated order ที่ release แล้ว {#released-emulated-orders}
 
-**Release sequence**: when market data matches an emulated order, release performs these actions
-in order.
+**ลำดับการ release**: เมื่อ market data ตรงกับ emulated order การ release จะทำสิ่งต่อไปนี้ตามลำดับ
 
-1. It transforms the order into a `MARKET` or `LIMIT` order through another `OrderInitialized` event. This
-   sets `emulation_trigger` to `None`, so components no longer treat the order as emulated.
-1. It updates the original `SubmitOrder` command to describe the transformed order.
-1. It applies and publishes `OrderReleased` before sending the command.
-1. It sends that command to the configured `ExecutionAlgorithm` or, otherwise, the `RiskEngine`.
-   Risk-approved submissions reach the `ExecutionEngine`, which routes an eligible order to an
-   `ExecutionClient`.
+1. แปลง order เป็น `MARKET` หรือ `LIMIT` ผ่าน event `OrderInitialized` อีกตัว ซึ่งตั้ง
+   `emulation_trigger` เป็น `None` ทำให้ component ต่าง ๆ ไม่ถือว่า order นี้ถูก emulate อีกต่อไป
+1. อัปเดต command `SubmitOrder` ต้นฉบับให้อธิบาย order ที่ถูกแปลงแล้ว
+1. นำ `OrderReleased` ไปใช้และ publish ก่อนส่ง command
+1. ส่ง command นั้นไปยัง `ExecutionAlgorithm` ที่ตั้งค่าไว้ หรือไปยัง `RiskEngine` ในกรณีอื่น
+   การ submit ที่ผ่านการตรวจความเสี่ยงจะไปถึง `ExecutionEngine` ซึ่งจะ route order ที่มีสิทธิ์ไปยัง
+   `ExecutionClient`
 
-## Order types that can be emulated
+## Order type ที่ emulate ได้ {#order-types-that-can-be-emulated}
 
-**Released type**: the released type depends on the original emulated order type.
+**Type หลัง release**: type ของ order หลัง release ขึ้นอยู่กับ type ของ emulated order ต้นฉบับ
 
-| Order type for emulation | Can emulate | Released type |
-| ------------------------ | ----------- | ------------- |
-| `MARKET`                 | -           | N/A           |
-| `MARKET_TO_LIMIT`        | -           | N/A           |
-| `LIMIT`                  | ✓           | `MARKET`      |
-| `STOP_MARKET`            | ✓           | `MARKET`      |
-| `STOP_LIMIT`             | ✓           | `LIMIT`       |
-| `MARKET_IF_TOUCHED`      | ✓           | `MARKET`      |
-| `LIMIT_IF_TOUCHED`       | ✓           | `LIMIT`       |
-| `TRAILING_STOP_MARKET`   | ✓           | `MARKET`      |
-| `TRAILING_STOP_LIMIT`    | ✓           | `LIMIT`       |
+| Order type ที่จะ emulate  | Emulate ได้ | Type หลัง release |
+| ------------------------ | ----------- | ----------------- |
+| `MARKET`                 | -           | N/A               |
+| `MARKET_TO_LIMIT`        | -           | N/A               |
+| `LIMIT`                  | ✓           | `MARKET`          |
+| `STOP_MARKET`            | ✓           | `MARKET`          |
+| `STOP_LIMIT`             | ✓           | `LIMIT`           |
+| `MARKET_IF_TOUCHED`      | ✓           | `MARKET`          |
+| `LIMIT_IF_TOUCHED`       | ✓           | `LIMIT`           |
+| `TRAILING_STOP_MARKET`   | ✓           | `MARKET`          |
+| `TRAILING_STOP_LIMIT`    | ✓           | `LIMIT`           |
 
-A `MARKET` release keeps the original time in force, except that `GTD` becomes `GTC` because market
-orders do not support `GTD`.
+การ release เป็น `MARKET` จะคง time in force เดิมไว้ ยกเว้น `GTD` จะกลายเป็น `GTC` เพราะ market order
+ไม่รองรับ `GTD`
 
 :::warning
-An emulated `TRAILING_STOP_LIMIT` submitted without a limit price gets one from the trailing
-calculation. If the order triggers before that calculation succeeds, the emulator logs a warning
-and keeps the order emulated. Once a market update lets the calculation produce a limit price,
-the next matching update releases the order.
+`TRAILING_STOP_LIMIT` ที่ถูก emulate และ submit โดยไม่มีราคา limit จะได้ราคา limit จากการคำนวณ trailing
+หาก order ถูก trigger ก่อนที่การคำนวณนั้นจะสำเร็จ emulator จะ log warning และคง order ไว้ในสถานะ
+emulate เมื่อ market update ทำให้การคำนวณได้ราคา limit แล้ว update ที่ตรงเงื่อนไขครั้งถัดไปจะ release order
 
-For example, the `LAST_OR_BID_ASK` trigger type needs a last trade price. A `BID_ASK` emulation trigger
-subscribes the emulator to quotes only. Thus, the order stays held until trade data reaches the cache (such as
-from a strategy's trade subscription).
+ตัวอย่างเช่น trigger type `LAST_OR_BID_ASK` ต้องใช้ราคา trade ล่าสุด แต่ emulation trigger แบบ `BID_ASK`
+ทำให้ emulator subscribe เฉพาะ quote ดังนั้น order จะยังถูกถือไว้จนกว่าข้อมูล trade จะเข้ามาใน cache
+(เช่น จาก trade subscription ของ strategy)
 :::
 
-## Querying
+## การ query {#querying}
 
-Use the cache or the order object to query emulation status.
+ใช้ cache หรือตัว order object เพื่อ query สถานะการ emulate
 
-### Through the cache
+### ผ่าน cache {#through-the-cache}
 
-**Cache methods**: the `Cache` provides these methods.
+**Method ของ cache**: `Cache` มี method ต่อไปนี้
 
-- `self.cache.orders_emulated(...)` returns all emulated orders that match its filters.
-- `self.cache.is_order_emulated(...)` checks one client order ID.
-- `self.cache.orders_emulated_count(...)` returns the number of matching emulated orders.
+- `orders_emulated(...)` คืน emulated order ทั้งหมดที่ตรงกับ filter
+- `is_order_emulated(...)` ตรวจสอบ client order ID หนึ่งตัว
+- `orders_emulated_count(...)` คืนจำนวน emulated order ที่ตรงกับ filter
 
-See the full [API reference](/docs/python-api-latest/cache.html) for additional details.
+ดูรายละเอียดเพิ่มเติมได้ที่ [Rust API reference](https://nautilustrader.io/docs/core-latest/)
 
-### Direct order queries
+### Query จาก order โดยตรง {#direct-order-queries}
 
-Use `order.is_emulated` to query an order object directly. A `False` value means the order was
-released or was never emulated.
+ใช้ `is_emulated` ของ order object เพื่อ query โดยตรง ค่า false หมายความว่า order ถูก release แล้ว
+หรือไม่เคยถูก emulate เลย
 
 :::warning
-Do not hold a local reference to an emulated order. The order object transforms
-when the emulated order is *released*. Use the `Cache` instead.
+อย่าถือ reference ภายในไปยัง emulated order เพราะ order object จะถูกแปลงเมื่อ emulated order
+ถูก *release* ให้ใช้ `Cache` แทน
 :::
 
-## Persistence and recovery
+## Persistence และการกู้คืน {#persistence-and-recovery}
 
-On startup, the `OrderEmulator` reactivates emulated orders that the configured cache database
-restored into the cache. This preserves their state across restarts.
+ตอน startup `OrderEmulator` จะเปิดใช้งาน emulated order ที่ cache database ที่ตั้งค่าไว้กู้คืนเข้ามาใน
+cache อีกครั้ง ทำให้ state ของ order เหล่านี้คงอยู่ข้ามการ restart
 
-## Best practices
+## แนวปฏิบัติที่ดี {#best-practices}
 
-**Best practices**: when working with emulated orders, follow these rules.
+**แนวปฏิบัติที่ดี**: เมื่อทำงานกับ emulated order ให้ทำตามกฎต่อไปนี้
 
-- Query the `Cache` instead of storing local order references.
-- Account for the order type changing on release.
-- Handle denials and rejections from the released order's execution path.
+- query จาก `Cache` แทนการเก็บ reference ของ order ไว้เอง
+- เผื่อกรณีที่ order type เปลี่ยนไปตอน release
+- จัดการ denial และ rejection จากเส้นทาง execution ของ order ที่ release แล้ว
 
-## Related guides
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-- [Orders](index.md) - Order concepts, execution instructions, and the order factory.
-- [Advanced orders](advanced.md) - Order lists, contingency types, and bracket orders.
-- [Strategies](../strategies.md) - Order management from strategies.
+- [Orders](index.md) - แนวคิดของ order, execution instruction และ order factory
+- [Advanced orders](advanced.md) - order list, ประเภท contingency และ bracket order
+- [Strategies](../strategies.md) - การจัดการ order จาก strategy

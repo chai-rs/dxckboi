@@ -1,59 +1,53 @@
 # OrderInitialized
 
-`OrderInitialized` is the seed event for a new order. It carries enough information to send the
-order over the wire and reconstruct it with the same properties. The execution pipeline stores the
-order in the `Cache` and publishes the event on the `MessageBus`.
+`OrderInitialized` คือ event ตั้งต้น (seed event) ของ order ใหม่ ซึ่งมีข้อมูลเพียงพอสำหรับส่ง order
+ออกไปทางเครือข่าย และสร้าง order ขึ้นมาใหม่ได้ด้วยคุณสมบัติเดิมทุกประการ execution pipeline จะเก็บ
+order ไว้ใน `Cache` และ publish event นี้บน `MessageBus`
 
-The event seeds both locally created orders and external orders materialized during reconciliation.
-Handler: `on_order_initialized`.
+event นี้ใช้เป็นจุดตั้งต้นทั้งของ order ที่สร้างขึ้นภายในระบบ และ order ภายนอกที่ถูกสร้างขึ้นระหว่าง
+reconciliation
+Handler: `on_order_initialized`
 
-## Fields
+## ฟิลด์ {#fields}
 
-Beyond the [common Python order event fields](index.md#common-python-order-event-fields),
-`OrderInitialized` carries:
+นอกเหนือจาก[ฟิลด์ร่วมของ order event](index.md#common-python-order-event-fields)แล้ว
+`OrderInitialized` ยังมีฟิลด์ต่อไปนี้:
 
-| Field                   | Python type                     | Required/default | Description                                         |
-| ----------------------- | ------------------------------- | ---------------- | --------------------------------------------------- |
-| `order_side`            | `OrderSide`                     | Required         | The order side.                                     |
-| `order_type`            | `OrderType`                     | Required         | The order type.                                     |
-| `quantity`              | `Quantity`                      | Required         | The order quantity.                                 |
-| `time_in_force`         | `TimeInForce`                   | Required         | The order time in force.                            |
-| `post_only`             | `bool`                          | Required         | If the order only provides liquidity.               |
-| `reduce_only`           | `bool`                          | Required         | If the order carries the reduce-only instruction.   |
-| `quote_quantity`        | `bool`                          | Required         | If quantity is denominated in the quote currency.   |
-| `reconciliation`        | `bool`                          | Required         | If the event was generated during reconciliation.   |
-| `price`                 | `Price` or `None`               | `None`           | The limit price.                                    |
-| `activation_price`      | `Price` or `None`               | `None`           | The activation price for a trailing-stop order.     |
-| `trigger_price`         | `Price` or `None`               | `None`           | The stop trigger price.                             |
-| `trigger_type`          | `TriggerType` or `None`         | `None`           | The trigger type.                                   |
-| `limit_offset`          | `Decimal` or `None`             | `None`           | The trailing offset for the limit price.            |
-| `trailing_offset`       | `Decimal` or `None`             | `None`           | The trailing offset for the trigger price.          |
-| `trailing_offset_type`  | `TrailingOffsetType` or `None`  | `None`           | The trailing offset type.                           |
-| `expire_time`           | `int` or `None`                 | `None`           | The UNIX expiration timestamp in nanoseconds.       |
-| `display_qty`           | `Quantity` or `None`            | `None`           | The quantity displayed on the public book.          |
-| `emulation_trigger`     | `TriggerType` or `None`         | `None`           | The market price trigger for local emulation.       |
-| `trigger_instrument_id` | `InstrumentId` or `None`        | `None`           | The instrument that supplies the emulation trigger. |
-| `contingency_type`      | `ContingencyType` or `None`     | `None`           | The order contingency type.                         |
-| `order_list_id`         | `OrderListId` or `None`         | `None`           | The associated order list ID.                       |
-| `linked_order_ids`      | `list[ClientOrderId]` or `None` | `None`           | The linked client order IDs.                        |
-| `parent_order_id`       | `ClientOrderId` or `None`       | `None`           | The parent client order ID.                         |
-| `exec_algorithm_id`     | `ExecAlgorithmId` or `None`     | `None`           | The execution algorithm ID.                         |
-| `exec_algorithm_params` | `dict[str, str]` or `None`      | `None`           | The execution algorithm parameters.                 |
-| `exec_spawn_id`         | `ClientOrderId` or `None`       | `None`           | The spawning primary client order ID.               |
-| `tags`                  | `list[str]` or `None`           | `None`           | Custom user tags.                                   |
+| Field                   | Required/default | คำอธิบาย                                             |
+| ----------------------- | ---------------- | --------------------------------------------------- |
+| `order_side`            | Required         | ฝั่งของ order (side)                                 |
+| `order_type`            | Required         | ประเภทของ order                                     |
+| `quantity`              | Required         | จำนวนของ order                                      |
+| `time_in_force`         | Required         | time in force ของ order                             |
+| `post_only`             | Required         | order นี้ให้ liquidity เท่านั้นหรือไม่                    |
+| `reduce_only`           | Required         | order นี้มีคำสั่ง reduce-only หรือไม่                   |
+| `quote_quantity`        | Required         | จำนวนระบุเป็นหน่วยของ quote currency หรือไม่            |
+| `reconciliation`        | Required         | event นี้ถูกสร้างระหว่าง reconciliation หรือไม่           |
+| `price`                 | `None`           | ราคา limit                                          |
+| `activation_price`      | `None`           | ราคา activation ของ trailing-stop order               |
+| `trigger_price`         | `None`           | ราคา trigger ของ stop                                |
+| `trigger_type`          | `None`           | ประเภทของ trigger                                    |
+| `limit_offset`          | `None`           | ระยะ trailing offset ของราคา limit                    |
+| `trailing_offset`       | `None`           | ระยะ trailing offset ของราคา trigger                  |
+| `trailing_offset_type`  | `None`           | ประเภทของ trailing offset                            |
+| `expire_time`           | `None`           | UNIX timestamp ที่หมดอายุ หน่วย nanosecond             |
+| `display_qty`           | `None`           | จำนวนที่แสดงบน order book สาธารณะ                      |
+| `emulation_trigger`     | `None`           | trigger จากราคาตลาดสำหรับการ emulate ภายในระบบ           |
+| `trigger_instrument_id` | `None`           | instrument ที่ใช้เป็นแหล่ง trigger ของการ emulate        |
+| `contingency_type`      | `None`           | ประเภท contingency ของ order                         |
+| `order_list_id`         | `None`           | ID ของ order list ที่เกี่ยวข้อง                         |
+| `linked_order_ids`      | `None`           | client order ID ที่เชื่อมโยงกัน                         |
+| `parent_order_id`       | `None`           | client order ID ของ order แม่                         |
+| `exec_algorithm_id`     | `None`           | ID ของ execution algorithm                          |
+| `exec_algorithm_params` | `None`           | พารามิเตอร์ของ execution algorithm                    |
+| `exec_spawn_id`         | `None`           | client order ID ของ primary order ที่ให้กำเนิด order นี้ |
+| `tags`                  | `None`           | tag ที่ผู้ใช้กำหนดเอง                                   |
 
-## Example
+## ตัวอย่าง {#example}
 
-Reading the event in a strategy handler:
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-```python
-def on_order_initialized(self, event: OrderInitialized) -> None:
-    self.log.info(
-        f"Initialized {event.order_type} {event.order_side} {event.quantity} {event.instrument_id}",
-    )
-```
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-## Related guides
-
-- [Events](index.md) - Event categories, dispatch, and the common order event fields.
-- [Orders](../orders/) - Order types and the state machine.
+- [Events](index.md) - หมวดหมู่ของ event, การ dispatch และฟิลด์ร่วมของ order event
+- [Orders](../orders/) - ประเภทของ order และ state machine

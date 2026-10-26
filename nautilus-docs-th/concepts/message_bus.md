@@ -1,395 +1,224 @@
 # Message Bus
 
-The `MessageBus` enables communication between system components through message passing.
-This design creates a loosely coupled architecture where components interact without
-direct dependencies.
+`MessageBus` ทำให้ component ต่าง ๆ ในระบบสื่อสารกันได้ผ่านการส่ง message การออกแบบนี้สร้างสถาปัตยกรรมแบบ
+loosely coupled ที่ component โต้ตอบกันได้โดยไม่ต้องพึ่งพากันโดยตรง
 
-The *messaging patterns* include:
+*รูปแบบการส่ง message* ประกอบด้วย:
 
 - Point-to-Point
 - Publish/Subscribe
 - Request/Response
 
-Messages exchanged through the `MessageBus` fall into three categories:
+message ที่แลกเปลี่ยนผ่าน `MessageBus` แบ่งออกเป็นสามประเภท:
 
 - Data
 - Events
 - Commands
 
-## Topic hierarchy
+## ลำดับชั้นของ topic {#topic-hierarchy}
 
-Nautilus keeps market data topics under the `data` root. Live data publications use the direct
-`data.<kind>...` topics, for example `data.book.deltas.XCME.ESZ24`.
+Nautilus เก็บ topic ของ market data ไว้ใต้ root `data` การ publish ข้อมูลแบบ live ใช้ topic `data.<kind>...` โดยตรง
+เช่น `data.book.deltas.XCME.ESZ24`
 
-When requested, replayed, or workflow-generated data flows over the message bus as topic-addressable data, the
-`DataEngine` publishes it under `data.pipeline.<kind>...`. For example, book deltas on the pipeline path use
-`data.pipeline.book.deltas.XCME.ESZ24`.
+เมื่อข้อมูลที่มาจากการ request, การ replay หรือที่ workflow สร้างขึ้นไหลผ่าน message bus ในรูปข้อมูลที่ระบุด้วย topic
+`DataEngine` จะ publish ไว้ใต้ `data.pipeline.<kind>...` เช่น book delta บนเส้นทาง pipeline ใช้
+`data.pipeline.book.deltas.XCME.ESZ24`
 
-Long requests, grouped requests, and aggregation chains can split, transform, and fan data back in before the
-parent request completes. These messages are still data messages, but they do not claim the same live ordering
-and timing semantics as normal real-time publications.
+request ที่ยาว, request แบบจัดกลุ่ม และ chain ของการ aggregate อาจแยก แปลง และรวมข้อมูลกลับเข้าด้วยกันก่อนที่
+request แม่จะเสร็จ message เหล่านี้ยังคงเป็น data message แต่ไม่ได้รับประกันลำดับและจังหวะเวลาแบบ live
+เหมือนการ publish แบบ real-time ทั่วไป
 
-Correlated request responses are delivered through response handlers keyed by correlation ID. The
-`data.response` topic is a capture channel for response publications, not the pipeline data path.
+response ของ request ที่มี correlation จะถูกส่งผ่าน response handler ที่ใช้ correlation ID เป็น key ส่วน topic
+`data.response` เป็นช่องทางสำหรับดักเก็บการ publish response ไม่ใช่เส้นทางข้อมูลของ pipeline
 
-## Message integrity
+## ความถูกต้องสมบูรณ์ของ message {#message-integrity}
 
-Once a message is created, **its fields must not be mutated**. This includes container fields such as
-`params` maps. Components can read a message and derive local state from it, but they must not
-rewrite the original.
+เมื่อสร้าง message แล้ว **ห้ามแก้ไขฟิลด์ใด ๆ ของมัน** รวมถึงฟิลด์ที่เป็น container เช่น map `params` ด้วย
+component อ่าน message และสร้าง state ภายในจาก message ได้ แต่ห้ามเขียนทับต้นฉบับ
 
-Immutable messages keep each consumer seeing the same input, preserve what was true at emission time, and
-remove a class of shared-state races. Replay, debugging, and audit all depend on messages remaining stable
-after dispatch.
+message ที่ immutable ทำให้ผู้รับทุกตัวเห็น input เดียวกัน คงสภาพสิ่งที่เป็นจริง ณ เวลาที่ emit และขจัด race
+ที่เกิดจาก shared state ไปได้ทั้งกลุ่ม การ replay, การ debug และการ audit ล้วนอาศัยการที่ message คงที่หลังการ dispatch
 
-Three ownership rules follow from this:
+จากหลักการนี้จึงได้กฎความเป็นเจ้าของสามข้อ:
 
-- Caller-supplied request options stay on the message.
-- Response metadata returned to the caller stays on the response.
-- Component workflow state (bounded date ranges, grouping state, replay cursors, counters,
-  processing flags) stays in component-owned context keyed by message or request ID.
+- option ของ request ที่ผู้เรียกส่งมาจะอยู่บน message
+- metadata ของ response ที่คืนให้ผู้เรียกจะอยู่บน response
+- state ของ workflow ใน component (ช่วงวันที่ที่มีขอบเขต, state ของการจัดกลุ่ม, cursor ของการ replay, ตัวนับ,
+  flag ของการประมวลผล) จะอยู่ใน context ที่ component เป็นเจ้าของ โดยใช้ ID ของ message หรือ request เป็น key
 
-When a component needs a derived message, it creates a new one with the required values instead of
-rewriting the original.
+เมื่อ component ต้องการ message ที่ดัดแปลงแล้ว ให้สร้าง message ใหม่ด้วยค่าที่ต้องการแทนการเขียนทับต้นฉบับ
 
-## Data and signal publishing
+## การ publish data และ signal {#data-and-signal-publishing}
 
-While the `MessageBus` is a lower-level component that users typically interact with indirectly,
-`DataActor`, `Strategy`, and `ExecutionAlgorithm` provide typed methods built on top of it:
+แม้ `MessageBus` จะเป็น component ระดับล่างที่ผู้ใช้มักโต้ตอบด้วยทางอ้อม แต่ `DataActor`, `Strategy` และ
+`ExecutionAlgorithm` มีเมธอดแบบมี type ที่สร้างอยู่บน message bus ได้แก่ `publish_data` และ `publish_signal`
+ซึ่งใช้ publish custom data และ signal ได้โดยไม่ต้องเข้าถึง message bus โดยตรง
 
-```python
-def publish_data(self, data_type: DataType, data: CustomData) -> None:
-def publish_signal(self, name: str, value, ts_event: int = 0) -> None:
-```
+## รูปแบบการส่ง message {#messaging-styles}
 
-These methods publish custom data and signals without exposing the raw message bus to Python.
+NautilusTrader เป็น framework แบบ **event-driven** ที่ component สื่อสารกันด้วยการส่งและรับ message
+การเข้าใจรูปแบบการส่ง message แต่ละแบบช่วยในการสร้างระบบเทรด
 
-## Python topic messaging
+ส่วนนี้อธิบายรูปแบบการส่ง message หลักใน NautilusTrader:
 
-Registered Python `DataActor`, `Strategy`, and `ExecutionAlgorithm` components publish arbitrary
-Python objects through `publish_message(topic, message)`. Use
-`subscribe_topic(topic, handler, priority=0)` and `unsubscribe_topic(topic, handler)` to manage
-callbacks on the same runtime bus.
-These methods do not construct, replace, or dispose the bus, and do not expose `self.msgbus`.
+| **รูปแบบการส่ง message**                | **วัตถุประสงค์**                         | **เหมาะกับ**                                           |
+| :------------------------------------ | :----------------------------------- | :---------------------------------------------------- |
+| **Custom data publish/subscribe**     | แลกเปลี่ยนข้อมูลการเทรดแบบมีโครงสร้าง      | metric การเทรด, indicator, ข้อมูลที่ต้อง persist          |
+| **Signal publish/subscribe**          | การแจ้งเตือนแบบเบา                     | alert, flag และการอัปเดตสถานะแบบง่าย                   |
+| **Rust MessageBus publish/subscribe** | การสื่อสารผ่าน topic ระดับล่างแบบมี type   | component ของ runtime แบบ native                        |
 
-Subscribe from a component callback such as `on_start`:
+แต่ละแนวทางมีจุดประสงค์ต่างกัน ใช้ส่วนนี้ประกอบการตัดสินใจว่าจะใช้รูปแบบใด
 
-```python
-from nautilus_trader.common import DataActor
+### Rust MessageBus publish/subscribe ไปยัง topic {#rust-messagebus-publishsubscribe-to-topics}
 
+#### แนวคิด {#concept}
 
-class RiskObserver(DataActor):
-    def on_start(self) -> None:
-        self.subscribe_topic("app.risk.*", self.on_risk, priority=10)
+`MessageBus` เป็นศูนย์กลางของ message ทั้งหมดใน NautilusTrader component ของ Rust สามารถ publish message
+แบบมี type ไปยัง topic ที่ตั้งชื่อไว้ และ subscribe handler กับ topic เหล่านั้นได้
 
-    def on_risk(self, message: object) -> None:
-        self.log.info(f"Risk update: {message}")
-```
+#### ประโยชน์และกรณีการใช้งาน {#benefits-and-use-cases}
 
-From another registered component, publish on a matching topic:
+การเข้าถึง message bus โดยตรงเหมาะกับ component แบบ native ที่ต้องการ:
 
-```python
-self.publish_message("app.risk.limit", {"instrument": "BTCUSDT", "limit": 3})
-```
+- **การสื่อสารข้าม component** ภายในระบบ
+- **ความยืดหยุ่น** ในการกำหนด topic และ payload แบบมี type
+- **การแยกขาด (decoupling)** ระหว่างผู้ publish และผู้ subscribe ที่ไม่จำเป็นต้องรู้จักกัน
+- **การกระจายแบบทั่วถึง** ที่ผู้ subscribe หลายรายรับ message ได้
+- การทำงานกับ event ที่ไม่เข้ากับโมเดลของ data actor
+- สถานการณ์ขั้นสูงที่ต้องควบคุมการส่ง message ได้ทั้งหมด
 
-Publication requires a non-empty concrete topic without wildcards. Subscription patterns accept
-`*` for zero or more characters and `?` for exactly one character. Wildcards can cross dots, so
-`app.risk.*` also matches `app.risk.limit.eu`.
+#### ข้อควรพิจารณา {#considerations}
 
-Handlers receive the original object without copying, string conversion, or serialization. Follow
-[message integrity](#message-integrity): treat published objects as immutable. Use application-owned topics
-such as `app.risk.limit`. System data and event topics carry their own payload types.
+- ต้องติดตามชื่อ topic เอง (พิมพ์ผิดอาจทำให้พลาด message)
+- ต้องกำหนด handler เอง
 
-These callbacks receive objects published through `publish_message`, not typed market data or signals. Use the
-corresponding typed subscription methods for those payloads. Patterns that also match signals or custom data
-log an error for each incompatible payload instead of invoking the Python callback.
+### Custom data publish/subscribe {#custom-data-publishsubscribe}
 
-Python object publication does not send the object to external message-bus storage or transport.
+#### แนวคิด {#concept-1}
 
-Delivery is **synchronous**. Nested publication finishes before the publishing callback continues. Higher
-subscription priorities run first. Equal priority does not imply subscription insertion order. Use distinct
-priorities when callback order matters, including reproducible backtests.
+custom data ใช้แลกเปลี่ยนค่าแบบมีโครงสร้างระหว่าง data actor และ strategy ค่า `CustomData` บรรจุ `DataType`,
+payload, timestamp ของ event และ timestamp ตอน initialize ไว้สำหรับการ routing และการเรียงลำดับ event
 
-A handler exception is logged, and delivery continues to the remaining handlers. This delivery model does not
-make it safe to re-enter a component that is already executing in the publishing call stack.
+#### ประโยชน์และกรณีการใช้งาน {#benefits-and-use-cases-1}
 
-Subscriptions belong to the subscribing component:
+แนวทาง Data publish/subscribe เหมาะเมื่อต้องการ:
 
-- Repeating the same pattern and callable is a no-op, including attempts to change its priority.
-  Unsubscribe first to change priority.
-- Python-defined bound methods match by receiver and function, so repeated `self.on_risk` lookups identify
-  the same handler. Other callables, including bound built-in methods, match by object identity.
-  Keep a reference to these other callables for later unsubscription.
-  Neither equality nor representation methods run.
-- Unsubscription removes only the exact pattern and callable owned by that component. An absent subscription
-  is a no-op. Other components' subscriptions stay independent.
-- A callback already selected for a publication can still run if it is unsubscribed during that
-  publication.
+- **แลกเปลี่ยนข้อมูลการเทรดแบบมีโครงสร้าง** เช่น market data, indicator, metric แบบกำหนดเอง หรือ option greeks
+- **timestamp ของ event** (`ts_event`, `ts_init`) สำหรับเรียงลำดับ input ระหว่าง backtest การ publish เองไม่ได้
+  เรียงลำดับ message
+- **การ persist และ serialize ข้อมูล** ผ่าน custom data class ที่ลงทะเบียนไว้ ซึ่งทำงานร่วมกับระบบ data catalog ของ NautilusTrader
+- **การแลกเปลี่ยนข้อมูลการเทรดแบบมาตรฐาน** ระหว่าง component ของระบบ
 
-Stopping keeps subscriptions, and raw topic callbacks can run while a component is stopped. Resuming keeps
-those subscriptions. Successful reset and disposal release the component's subscriptions and retained
-callables. Successful reset requires subscribing again. A failed disposal keeps subscriptions until retirement
-cleanup succeeds. Fault cleanup also releases subscriptions.
+#### ข้อควรพิจารณา {#considerations-1}
 
-These methods raise `RuntimeError` before runtime registration, after successful disposal, from a foreign
-thread, or while releasing subscriptions. They also raise `RuntimeError` when the registered bus is
-unavailable or replaced. Invalid topics and patterns raise `ValueError`. A non-callable handler raises
-`TypeError`. Priority must be an integer in `[0, 4294967295]`. Values outside this range raise
-`OverflowError`.
+- payload ต้องมี `ts_event` และ `ts_init`
+- การ persist ต้องลงทะเบียน custom data class ที่ serialize ได้
 
-## Messaging styles
+ดู[Custom data](custom_data.md) สำหรับการลงทะเบียนและการ persist
 
-NautilusTrader is an **event-driven** framework where components communicate by sending and receiving messages.
-Understanding the different messaging styles helps when building trading systems.
+### Signal publish/subscribe {#signal-publishsubscribe}
 
-This guide explains the four primary messaging patterns available in NautilusTrader:
+#### แนวคิด {#concept-2}
 
-| **Messaging style**                                            | **Purpose**                          | **Best for**                                          |
-| :------------------------------------------------------------- | :----------------------------------- | :---------------------------------------------------- |
-| **Custom data publish/subscribe**                              | Structured trading data exchange     | Trading metrics, indicators, data needing persistence |
-| **Signal publish/subscribe**                                   | Lightweight notifications            | Simple alerts, flags, and status updates              |
-| [**Python object publish/subscribe**](#python-topic-messaging) | In-process Python object exchange    | Application topics shared by Python components        |
-| **Rust MessageBus publish/subscribe**                          | Low-level, typed topic communication | Native runtime components                             |
+**Signal** เป็นวิธีแบบเบาในการ publish และ subscribe การแจ้งเตือนแบบง่ายภายใน actor framework
+นี่เป็นวิธีส่ง message ที่ง่ายที่สุด ไม่ต้องนิยาม class แบบกำหนดเอง
 
-Each approach serves different purposes. Use this guide to decide which pattern to use.
+#### ประโยชน์และกรณีการใช้งาน {#benefits-and-use-cases-2}
 
-### Rust MessageBus publish/subscribe to topics
+แนวทาง Signal เหมาะเมื่อต้องการ:
 
-#### Concept
+- **การแจ้งเตือน/alert แบบง่ายและเบา** เช่น "RiskThresholdExceeded" หรือ "TrendUp"
+- **การส่ง message แบบรวดเร็วทันที** โดยไม่ต้องนิยาม class แบบกำหนดเอง
+- **การกระจาย alert หรือ flag** เป็นค่า primitive แบบง่าย
+- **การเชื่อมต่อผ่าน API** ด้วยเมธอด (`publish_signal`, `subscribe_signal`)
+- **การสื่อสารกับผู้ subscribe หลายราย** ที่ทุกรายได้รับ signal เมื่อมีการ publish
+- **overhead ในการ setup น้อย** ไม่ต้องนิยาม class
 
-The `MessageBus` is the central hub for all messages in NautilusTrader. Rust components can publish
-typed messages to named topics and subscribe handlers to those topics. This low-level interface is
-not part of the Python actor or strategy surface.
+#### ข้อควรพิจารณา {#considerations-2}
 
-#### Benefits and use cases
+- signal แต่ละตัวบรรจุค่าเดียว ค่าจะถูกแปลงเป็น string ตอน publish ดังนั้น handler จะได้รับ `signal.value`
+  เป็น string เสมอ โครงสร้างข้อมูลที่ซับซ้อนจะไม่ถูกเก็บรักษาไว้
+- แยกแยะ signal แต่ละตัวใน handler `on_signal` ด้วย `signal.name`
 
-Direct message-bus access is for native components that need:
-
-- **Cross-component communication** within the system.
-- **Flexibility** to define typed topics and payloads.
-- **Decoupling** between publishers and subscribers who do not need to know about each other.
-- **Global reach** where messages can be received by multiple subscribers.
-- Working with events that do not fit the data actor model.
-- Advanced scenarios requiring full control over messaging.
-
-#### Considerations
-
-- You must track topic names manually (typos could result in missed messages).
-- You must define handlers manually.
-
-### Custom data publish/subscribe
-
-#### Concept
-
-Custom data exchanges structured values between data actors and strategies. A `CustomData` value
-carries a `DataType`, payload, event timestamp, and initialization timestamp for routing and event
-ordering.
-
-#### Benefits and use cases
-
-The Data publish/subscribe approach works well when you need:
-
-- **Exchange of structured trading data** like market data, indicators, custom metrics, or option greeks.
-- **Event timestamps** (`ts_event`, `ts_init`) for ordering inputs during backtests. Publication itself does
-  not sort messages.
-- **Data persistence and serialization** through registered custom data classes, integrating with NautilusTrader's data catalog system.
-- **Standardized trading data exchange** between system components.
-
-#### Considerations
-
-- The payload must expose `ts_event` and `ts_init`.
-- Persistence requires registering a serializable custom data class.
-
-#### Quick overview code
-
-```python
-from dataclasses import dataclass
-
-from nautilus_trader.model import CustomData
-from nautilus_trader.model import DataType
-
-
-@dataclass
-class GreeksData:
-    delta: float
-    gamma: float
-    ts_event: int
-    ts_init: int
-
-
-data_type = DataType("GreeksData")
-data = CustomData(
-    data_type,
-    GreeksData(
-        delta=0.75,
-        gamma=0.1,
-        ts_event=1_630_000_000_000_000_000,
-        ts_init=1_630_000_000_000_000_000,
-    ),
-)
-self.publish_data(data_type, data)
-
-self.subscribe_data(data_type)
-
-
-def on_data(self, data: CustomData) -> None:
-    if data.data_type == data_type:
-        greeks = data.data
-        self.log.info(f"Delta: {greeks.delta}, Gamma: {greeks.gamma}")
-```
-
-See [Custom data](custom_data.md) for registration and persistence.
-
-### Signal publish/subscribe
-
-#### Concept
-
-**Signals** are a lightweight way to publish and subscribe to simple notifications within the actor framework.
-This is the simplest messaging approach, requiring no custom class definitions.
-
-#### Benefits and use cases
-
-The Signal messaging approach works well when you need:
-
-- **Simple, lightweight notifications/alerts** like "RiskThresholdExceeded" or "TrendUp".
-- **Quick, on-the-fly messaging** without defining custom classes.
-- **Broadcasting alerts or flags** as simple primitive values.
-- **API integration** through the methods (`publish_signal`, `subscribe_signal`).
-- **Multiple subscriber communication** where all subscribers receive signals when published.
-- **Minimal setup overhead** with no class definitions required.
-
-#### Considerations
-
-- Each signal carries a single value. The value is converted to a string on publish, so handlers always
-  receive `signal.value` as a `str`. Complex data structures are not preserved.
-- Differentiate between signals in the `on_signal` handler with `signal.name`.
-
-:::warning Signal callback reentry
-Signal publication can synchronously reenter an active actor, directly or through another subscriber,
-causing undefined behavior in Rust and Python-authored actors. **Releasing cache borrows does not make
-actor reentry safe.** Avoid publication cycles that invoke an actor before its current callback returns.
+:::warning การ reentry ของ signal callback
+การ publish signal อาจ reenter actor ที่กำลังทำงานอยู่แบบ synchronous ไม่ว่าจะโดยตรงหรือผ่านผู้ subscribe รายอื่น
+ซึ่งทำให้เกิด undefined behavior ใน actor **การปล่อย borrow ของ cache ไม่ได้ทำให้การ reentry ของ actor
+ปลอดภัย** หลีกเลี่ยงวงจรการ publish ที่เรียก actor ก่อนที่ callback ปัจจุบันของมันจะ return
 :::
 
-#### Quick overview code
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python สำหรับ custom data และ signal จึงตัดออก
 
-```python
-# Define signal constants for better organization (optional but recommended)
-import types
+### สรุปและแนวทางการตัดสินใจ {#summary-and-decision-guide}
 
-from nautilus_trader.common import LogColor
-from nautilus_trader.core.datetime import unix_nanos_to_dt
+#### แนวทางการตัดสินใจ: ควรเลือกรูปแบบใด? {#decision-guide-which-style-to-choose}
 
-signals = types.SimpleNamespace()
-signals.NEW_HIGHEST_PRICE = "NewHighestPriceReached"
-signals.NEW_LOWEST_PRICE = "NewLowestPriceReached"
-
-# Subscribe from a DataActor or Strategy
-self.subscribe_signal(signals.NEW_HIGHEST_PRICE)
-self.subscribe_signal(signals.NEW_LOWEST_PRICE)
-
-# Publish from a DataActor or Strategy
-self.publish_signal(
-    name=signals.NEW_HIGHEST_PRICE,
-    value=signals.NEW_HIGHEST_PRICE,  # value can be the same as name for simplicity
-    ts_event=bar.ts_event,  # timestamp from triggering event
-)
-
-
-# Handler (fixed callback name)
-def on_signal(self, signal):
-    match signal.name:
-        case signals.NEW_HIGHEST_PRICE:
-            self.log.info(
-                f"New highest price was reached. | "
-                f"Signal value: {signal.value} | "
-                f"Signal time: {unix_nanos_to_dt(signal.ts_event)}",
-                color=LogColor.GREEN,
-            )
-        case signals.NEW_LOWEST_PRICE:
-            self.log.info(
-                f"New lowest price was reached. | "
-                f"Signal value: {signal.value} | "
-                f"Signal time: {unix_nanos_to_dt(signal.ts_event)}",
-                color=LogColor.RED,
-            )
-```
-
-### Summary and decision guide
-
-#### Decision guide: Which style to choose?
-
-| **Use case**                           | **Recommended approach**            | **Setup required**                        |
+| **กรณีการใช้งาน**                         | **แนวทางที่แนะนำ**                     | **สิ่งที่ต้อง setup**                         |
 | :------------------------------------- | :---------------------------------- | :---------------------------------------- |
-| Native system-level communication      | Rust `MessageBus` publish/subscribe | Typed topic and handler                   |
-| Structured Python component data       | `DataActor` custom data methods     | `DataType`, `CustomData`, and `on_data()` |
-| Arbitrary in-process Python objects    | Component topic methods             | Application topic and callable            |
-| Simple Python alerts and notifications | `DataActor` signal methods          | Signal name and `on_signal()`             |
+| การสื่อสารระดับระบบแบบ native            | Rust `MessageBus` publish/subscribe | topic และ handler แบบมี type               |
+| ข้อมูลแบบมีโครงสร้างระหว่าง component      | เมธอด custom data ของ `DataActor`   | `DataType`, `CustomData` และ `on_data()`  |
+| alert และการแจ้งเตือนแบบง่าย               | เมธอด signal ของ `DataActor`        | ชื่อ signal และ `on_signal()`              |
 
-## External egress and ingress
+## External egress และ ingress {#external-egress-and-ingress}
 
-The `MessageBus` can write serialized messages to external streams. This section describes the
-external egress and ingress sides of the external bus. Rust-native live nodes use injected
-`MessageBusExternalEgress` and `MessageBusExternalIngress` surfaces, so the core node does not
-depend on Redis, a broker, shared-memory implementation, or socket protocol.
+`MessageBus` สามารถเขียน message ที่ serialize แล้วไปยัง stream ภายนอกได้ ส่วนนี้อธิบายฝั่ง egress (ขาออก)
+และ ingress (ขาเข้า) ของ bus ภายนอก live node แบบ Rust-native ใช้ `MessageBusExternalEgress` และ
+`MessageBusExternalIngress` ที่ inject เข้ามา ทำให้ core node ไม่ต้องพึ่งพา Redis, broker, implementation ของ
+shared memory หรือ protocol ของ socket
 
 :::info
-Redis is the built-in external backing for serializable messages. The minimum supported Redis
-version is 6.2, required for the `MINID` stream trimming used by autotrim.
+Redis เป็น backing ภายนอกในตัวสำหรับ message ที่ serialize ได้ Redis เวอร์ชันต่ำสุดที่รองรับคือ 6.2
+ซึ่งจำเป็นสำหรับการ trim stream ด้วย `MINID` ที่ autotrim ใช้
 :::
 
-When external egress is configured, outgoing publish messages are first dispatched to in-process
-subscribers, then serialized into the existing `BusMessage` wire record:
+เมื่อตั้งค่า external egress แล้ว message ขาออกที่ publish จะถูก dispatch ไปยังผู้ subscribe ภายใน process ก่อน
+จากนั้นจึง serialize เป็น wire record `BusMessage` ที่มีอยู่:
 
-- `topic`: the exact message bus topic used by the internal publish call, for example
-  `data.quotes.BINANCE.BTCUSDT` or `events.order.S-001`.
-- `type`: the canonical payload type name, for example `QuoteTick` or `OrderEventAny`.
-- `payload_kind`: present with the value `typed` for native data requests, replies,
-  control, execution, and reconciliation payloads whose fixed type names could also identify custom payloads.
-- `encoding`: the payload encoding selected from the message bus encoding policy.
-- `payload`: serialized bytes encoded with the selected encoding.
+- `topic`: topic ของ message bus ตรงตามที่การเรียก publish ภายในใช้ เช่น
+  `data.quotes.BINANCE.BTCUSDT` หรือ `events.order.S-001`
+- `type`: ชื่อ type มาตรฐานของ payload เช่น `QuoteTick` หรือ `OrderEventAny`
+- `payload_kind`: มีค่า `typed` สำหรับ payload แบบ native ของ data request, reply, control, execution และ
+  reconciliation ซึ่งชื่อ type ตายตัวของมันอาจซ้ำกับ custom payload ได้
+- `encoding`: encoding ของ payload ที่เลือกตามนโยบาย encoding ของ message bus
+- `payload`: byte ที่ serialize แล้วด้วย encoding ที่เลือก
 
-An external producer that writes directly to a Redis stream must follow these rules:
+producer ภายนอกที่เขียนลง Redis stream โดยตรงต้องปฏิบัติตามกฎเหล่านี้:
 
-- Include `topic`, `type`, and `payload`. The `topic` must be a valid publish topic and cannot contain `*` or
-  `?`.
-- The `encoding` field is optional and defaults to JSON when omitted.
-- The receiving node skips entries without `type` because it cannot select a payload decoder.
-- Set `payload_kind` to `typed` for a fixed typed payload. Without this discriminator, the receiving node
-  treats the same type name as custom data.
+- ใส่ `topic`, `type` และ `payload` โดย `topic` ต้องเป็น publish topic ที่ถูกต้อง และห้ามมี `*` หรือ `?`
+- ฟิลด์ `encoding` ไม่บังคับ และเป็น JSON โดยค่าเริ่มต้นเมื่อไม่ระบุ
+- node ที่รับจะข้าม entry ที่ไม่มี `type` เพราะเลือก decoder ของ payload ไม่ได้
+- ตั้ง `payload_kind` เป็น `typed` สำหรับ payload แบบ typed ที่ตายตัว หากไม่มีตัวแยกแยะนี้ node ที่รับจะถือว่า
+  ชื่อ type เดียวกันเป็น custom data
 
-External egress receives that record as `publish(BusMessage)`. This outbound call must not block the
-node's bus thread. Bounded egress implementations drop on a full queue instead of applying
-back-pressure to the trading loop. Closing the message bus closes the configured egress.
+external egress รับ record นั้นผ่าน `publish(BusMessage)` การเรียกขาออกนี้ต้องไม่ block thread ของ bus ใน node
+implementation ของ egress ที่มีขอบเขตจะ drop message เมื่อ queue เต็ม แทนที่จะสร้าง back-pressure ให้ trading loop
+การปิด message bus จะปิด egress ที่ตั้งค่าไว้ด้วย
 
-Inbound external streams are exposed through the separate Rust `MessageBusExternalIngress` trait.
-Ingress yields the same `BusMessage { topic, payload_type, encoding, payload, source }` shape.
-`republish_external_message` decodes supported inbound messages and republishes them internally
-without forwarding the message back out. Normal internal republishing requires the inbound payload
-type to be registered for streaming and skips unregistered types without decoding.
-Inbound `AccountState` messages go through Portfolio's account endpoint rather than directly to the
-inbound topic. Portfolio must be registered; it updates the cache before publishing accepted states
-on `events.account.{account_id}`. Rejected account updates are not published.
+stream ขาเข้าจากภายนอกเปิดเผยผ่าน trait `MessageBusExternalIngress` ของ Rust ที่แยกต่างหาก ingress ให้
+`BusMessage { topic, payload_type, encoding, payload, source }` ในรูปแบบเดียวกัน
+`republish_external_message` จะ decode message ขาเข้าที่รองรับ และ republish ภายในโดยไม่ส่ง message กลับออกไปอีก
+การ republish ภายในตามปกติต้องให้ type ของ payload ขาเข้าลงทะเบียนสำหรับ streaming ไว้ และจะข้าม type ที่ไม่ได้
+ลงทะเบียนโดยไม่ decode message `AccountState` ขาเข้าจะผ่าน endpoint ของ account ใน Portfolio แทนที่จะไปยัง topic
+ขาเข้าโดยตรง Portfolio ต้องลงทะเบียนไว้ โดยจะอัปเดต cache ก่อน publish state ที่ยอมรับแล้วบน
+`events.account.{account_id}` การอัปเดต account ที่ถูกปฏิเสธจะไม่ถูก publish
 
-A Rust ingress implementation can attach optional `BusMessageSource` provenance: the publisher ID,
-process instance ID, stream, and sequence. Rust `msgbus::current_external_source()` exposes it while
-handlers and processors run synchronously, including for messages they publish internally. Nested
-external dispatch restores the previous source when it returns. Python processors do not receive
-provenance. The built-in Redis backing does not attach it.
+implementation ของ ingress ใน Rust สามารถแนบข้อมูลที่มา `BusMessageSource` (ไม่บังคับ) ได้ ได้แก่ publisher ID,
+process instance ID, stream และ sequence `msgbus::current_external_source()` ของ Rust จะเปิดเผยข้อมูลนี้ในขณะที่
+handler และ processor ทำงานแบบ synchronous รวมถึงสำหรับ message ที่พวกมัน publish ภายในด้วย การ dispatch จาก
+ภายนอกแบบซ้อนจะคืนค่า source ก่อนหน้าเมื่อ return backing Redis ในตัวไม่ได้แนบข้อมูลนี้
 
-`LiveNode::add_stream_processor` in Rust and `LiveNode.add_stream_processor` in Python register
-callbacks for typed JSON or MessagePack payloads. Processors run in registration order before the
-internal streaming registration check, so they receive supported typed messages even when internal
-republishing is disabled. Python processors receive a mapping with an added `payload_type` field. A
-processor error stops later processors and skips internal republishing for that message.
+`LiveNode::add_stream_processor` ใช้ลงทะเบียน callback สำหรับ payload แบบ typed ที่เป็น JSON หรือ MessagePack
+processor ทำงานตามลำดับการลงทะเบียนก่อนการตรวจสอบการลงทะเบียน streaming ภายใน จึงได้รับ message แบบ typed
+ที่รองรับแม้การ republish ภายในจะถูกปิดไว้ error ใน processor จะหยุด processor ตัวถัดไปและข้ามการ republish ภายใน
+สำหรับ message นั้น
 
-During data-client connection, the node republishes native data replies registered for streaming
-that have pending correlation handlers before normal dispatch. These replies bypass processors and can
-overtake buffered messages. Other external messages wait in a FIFO buffer capped at the ingress channel
-capacity. If the buffer fills, startup stops draining ingress, so a needed reply behind that traffic can
-stall connection until `timeout_connection` expires.
+ระหว่างการเชื่อมต่อ data client node จะ republish data reply แบบ native ที่ลงทะเบียนสำหรับ streaming และมี
+correlation handler รออยู่ก่อนการ dispatch ปกติ reply เหล่านี้ข้าม processor และอาจแซง message ที่ buffer ไว้ได้
+message ภายนอกอื่น ๆ จะรอใน FIFO buffer ที่จำกัดขนาดเท่ากับความจุของ channel ขาเข้า หาก buffer เต็ม การ startup
+จะหยุดดึง ingress ดังนั้น reply ที่ต้องการซึ่งอยู่หลัง traffic นั้นอาจทำให้การเชื่อมต่อค้างจนกว่า `timeout_connection`
+จะหมดเวลา
 
-For JSON and MessagePack custom data, egress writes and ingress expects an envelope in the Redis
-`payload` field, not the bare custom object. The canonical JSON envelope is:
+สำหรับ custom data แบบ JSON และ MessagePack นั้น egress จะเขียน และ ingress จะคาดหวัง envelope ในฟิลด์ `payload`
+ของ Redis ไม่ใช่ custom object เปล่า ๆ envelope แบบ JSON มาตรฐานคือ:
 
 ```json
 {
@@ -409,62 +238,49 @@ For JSON and MessagePack custom data, egress writes and ingress expects an envel
 }
 ```
 
-The envelope requires `type` and `payload`. `data_type` is optional on ingress and defaults to the message
-type with no metadata or identifier.
+envelope ต้องมี `type` และ `payload` ส่วน `data_type` ไม่บังคับสำหรับ ingress และมีค่าเริ่มต้นเป็น type ของ message
+โดยไม่มี metadata หรือ identifier
 
-- **Canonical output**: `data_type.type_name` uses the same custom type name, `metadata` is an object that may
-  be empty, and `identifier` is present only when assigned.
-- **Type matching**: the envelope `type` must match the Redis stream `type`.
-- **Payload**: the envelope `payload` is the bare object passed to the registered class's `from_json(...)`
-  method.
+- **ผลลัพธ์มาตรฐาน**: `data_type.type_name` ใช้ชื่อ custom type เดียวกัน `metadata` เป็น object ที่อาจว่างได้ และ
+  `identifier` จะมีเฉพาะเมื่อมีการกำหนดค่า
+- **การจับคู่ type**: `type` ของ envelope ต้องตรงกับ `type` ของ Redis stream
+- **Payload**: `payload` ของ envelope คือ object เปล่าที่ส่งต่อให้เมธอด `from_json(...)` ของ class ที่ลงทะเบียนไว้
 
-MessagePack uses the same map fields encoded as MessagePack bytes.
+MessagePack ใช้ฟิลด์ของ map ชุดเดียวกันที่ encode เป็น byte แบบ MessagePack
 
-For Python custom data, register the class before starting the node:
+ดูข้อกำหนดของ class ได้ที่ [Custom data](custom_data.md#registration-architecture)
 
-```python
-from nautilus_trader.model import register_custom_data_class
+สำหรับ Redis นั้น message bus จะส่ง message ผ่าน channel แบบ Multiple-Producer Single-Consumer (MPSC) ไปยัง
+Rust task ที่แยกต่างหาก task นั้นจะเขียน message ลง Redis stream
 
-register_custom_data_class(MyData)
-```
+การย้าย I/O ไปไว้ใน task แยกช่วยให้ thread ที่ publish ไม่ถูก block
 
-The external-client subscription registers the payload type for streaming, while
-`register_custom_data_class(...)` installs the process-wide JSON decoder. Both registrations are
-required. See [Custom data](custom_data.md#registration-architecture) for the class requirements.
+เมื่อใช้ MessagePack หรือ JSON external egress แบบ Rust-native จะส่งต่อการ publish แบบ typed ที่ serialize ได้:
 
-For Redis, the message bus sends messages through a Multiple-Producer Single-Consumer (MPSC) channel to a
-separate Rust task. That task writes the message to Redis streams.
+- instrument, quote, trade, bar, book delta และ snapshot แบบความลึกแปรผัน
+- การอัปเดต mark/index/funding และ option greeks (`OptionGreeks`)
+- account state, portfolio snapshot, order event, position event และ custom data
+- เมื่อเปิด feature `defi`: DeFi block, pool, การอัปเดต liquidity, fee collect และ flash event
 
-Offloading I/O to a separate task keeps the publishing thread unblocked.
+snapshot ของ order book แบบเต็มที่แยกเดี่ยว, record `GreeksData`, slice ของ option chain และ DeFi pool swap จะไม่ถูก
+ส่งต่อ เพราะ type เหล่านั้นไม่ได้ implement การ serialize ของ Serde
 
-With MessagePack or JSON, Rust-native external egress forwards serializable typed publications:
+เมื่อ `external_streams` ไม่ว่าง egress แบบ JSON หรือ MessagePack จะส่งต่อ subscription command, trading command,
+data request และ reply และ execution mass-status request ด้วย รวมถึง order status report, fill report,
+position status report และ execution mass-status report payload เหล่านี้จะอยู่ภายในเมื่อไม่ได้ตั้งค่า external stream
 
-- Instruments, quotes, trades, bars, book deltas, and variable-depth snapshots.
-- Mark/index/funding updates and option greeks (`OptionGreeks`).
-- Account state, portfolio snapshots, order events, position events, and custom data.
-- With the `defi` feature, DeFi blocks, pools, liquidity updates, fee collects, and flash events.
+โค้ดของ application publish request และ reply แบบ native ด้วย `msgbus::publish_any` ของ Rust
+`DataEngine` ไม่ส่งต่อ request สำหรับ external client และ `send_response` จะอยู่ภายใน
+หากต้องการ route reply ขาเข้าไปยัง callback ของ request ที่รออยู่ ให้ลงทะเบียน `BusPayloadType::DataResponse`
+สำหรับ streaming และ subscribe topic handler ที่เรียก `msgbus::send_response` ซึ่งจะทำให้ request เสร็จสมบูรณ์
+สำหรับ reply ระหว่างทางหรือ reply สุดท้ายที่ไม่มี payload ให้ลงทะเบียน `BusPayloadType::DataResponseEnvelope`
+และเรียก `msgbus::send_response_envelope` จาก topic handler
 
-Standalone full order book snapshots, `GreeksData` records, option chain slices, and DeFi pool swaps are not
-forwarded because those types do not implement Serde serialization.
+reply แบบ native ใช้รูปแบบ response แบบ JSON/MessagePack ร่วมกันที่ใช้ชนิดของ response เป็น key
+reply ของ book จะเก็บ order, metadata และ state ของ L1 batch ที่ยังไม่เสร็จของแต่ละฝั่งไว้ทั้งหมด encoding ของมัน
+ไม่ขึ้นกับ feature `sbe` encoding ที่ไม่รองรับสำหรับ request และ reply แบบ native จะคืน error
 
-When `external_streams` is non-empty, JSON or MessagePack egress also forwards subscription
-commands, trading commands, data requests and replies, and execution mass-status requests. It also forwards
-order status reports, fill reports, position status reports, and execution mass-status reports. These payloads
-stay local when no external streams are configured.
-
-Application code publishes native requests and replies with Rust `msgbus::publish_any`.
-The `DataEngine` does not forward requests for external clients, and `send_response` stays local.
-To route inbound replies to pending request callbacks, register `BusPayloadType::DataResponse`
-for streaming and subscribe a topic handler that calls `msgbus::send_response`. This completes the request.
-For intermediate or payload-free terminal replies, register `BusPayloadType::DataResponseEnvelope`
-and call `msgbus::send_response_envelope` from the topic handler.
-
-Native replies use the shared JSON/MessagePack response representation keyed by response kind.
-Book replies preserve all orders, metadata, and each side's unfinished L1 batch state. Their encoding
-is independent of the `sbe` feature. Python processors receive that serialized shape with an added
-`payload_type` field. Unsupported encodings for native requests and replies return an error.
-
-With SBE, Rust-native external egress forwards only these built-in market data payloads with schema codecs:
+เมื่อใช้ SBE external egress แบบ Rust-native จะส่งต่อเฉพาะ payload ของ market data ในตัวที่มี schema codec ต่อไปนี้:
 
 - Quotes
 - Trades
@@ -476,13 +292,13 @@ With SBE, Rust-native external egress forwards only these built-in market data p
 - Funding rate updates
 - Option greeks
 
-Other payload types are dropped with a debug log when SBE is selected.
+payload type อื่น ๆ จะถูก drop พร้อม log ระดับ debug เมื่อเลือก SBE
 
-## Configuration
+## การตั้งค่า {#configuration}
 
-The message bus external backing technology uses a behavior config plus a technology-owned backing
-config. `MessageBusConfig` controls message bus behavior. `RedisMessageBusConfig` owns Redis
-connection settings and implements `MessageBusBackingFactory`.
+เทคโนโลยี backing ภายนอกของ message bus ใช้ config ด้านพฤติกรรม ร่วมกับ backing config ที่เทคโนโลยีนั้นเป็นเจ้าของ
+`MessageBusConfig` ควบคุมพฤติกรรมของ message bus ส่วน `RedisMessageBusConfig` เป็นเจ้าของการตั้งค่าการเชื่อมต่อ
+Redis และ implement `MessageBusBackingFactory`
 
 ```rust
 use nautilus_common::{
@@ -509,156 +325,143 @@ let redis_config = RedisMessageBusConfig::default();
 let backing = redis_config.create(trader_id, instance_id, config.clone())?;
 ```
 
-Existing Rust callers can continue using `RedisMessageBusFactory::new(redis_config)`, which
-delegates to the config implementation.
+โค้ด Rust เดิมยังใช้ `RedisMessageBusFactory::new(redis_config)` ต่อได้ ซึ่งจะส่งต่อไปยัง implementation ของ config
 
-### Backing config
+### Backing config {#backing-config}
 
-A `RedisMessageBusConfig` is required when using the built-in Redis backing. For a default Redis
-setup on the local loopback you can pass `RedisMessageBusConfig::default()`.
+ต้องมี `RedisMessageBusConfig` เมื่อใช้ backing Redis ในตัว สำหรับการตั้งค่า Redis แบบค่าเริ่มต้นบน local loopback
+สามารถส่ง `RedisMessageBusConfig::default()` ได้
 
-Redis selection is explicit in the Rust type. The config does not use a user-facing selector such
-as `type = "redis"` or `backing_type = "redis"`.
+การเลือก Redis ระบุอย่างชัดเจนผ่าน type ของ Rust config ไม่ได้ใช้ตัวเลือกที่ผู้ใช้กำหนดเอง เช่น `type = "redis"`
+หรือ `backing_type = "redis"`
 
-Rust-native callers that inject `MessageBusExternalEgress` with
-`LiveNodeBuilder::with_external_msgbus_egress` pass concrete connection details when they construct
-that egress surface. The core message bus does not require a `RedisMessageBusConfig` for injected
-egress.
+ผู้เรียกแบบ Rust-native ที่ inject `MessageBusExternalEgress` ด้วย `LiveNodeBuilder::with_external_msgbus_egress`
+จะส่งรายละเอียดการเชื่อมต่อจริงตอนสร้าง egress นั้นเอง core message bus ไม่ต้องใช้ `RedisMessageBusConfig`
+สำหรับ egress ที่ inject เข้ามา
 
-The Rust live runtime accepts `external_streams` in `MessageBusConfig` and consumes inbound `BusMessage`s when
-callers inject a `MessageBusExternalIngress` with `LiveNodeBuilder::with_external_ingress`. The config names
-the external stream keys. The injected ingress is the concrete runtime source.
+live runtime ของ Rust รับ `external_streams` ใน `MessageBusConfig` และรับ `BusMessage` ขาเข้าเมื่อผู้เรียก inject
+`MessageBusExternalIngress` ด้วย `LiveNodeBuilder::with_external_ingress` config ระบุชื่อ key ของ stream ภายนอก
+ส่วน ingress ที่ inject เข้ามาคือแหล่งข้อมูลจริงขณะ runtime
 
-Rust callers can install `RedisMessageBusConfig` with `LiveNodeBuilder::with_external_msgbus_factory`.
-Building fails when a factory is combined with separately injected egress or ingress. A factory always
-installs egress and creates ingress only when `external_streams` is non-empty.
-
-Python exposes the same builder method. Its only supported built-in backing config is `RedisMessageBusConfig`.
-The existing `RedisMessageBusFactory` wrapper stays supported. Python does not accept arbitrary factory classes.
+ผู้เรียกฝั่ง Rust ติดตั้ง `RedisMessageBusConfig` ได้ด้วย `LiveNodeBuilder::with_external_msgbus_factory`
+การ build จะล้มเหลวเมื่อใช้ factory ร่วมกับ egress หรือ ingress ที่ inject แยกต่างหาก factory จะติดตั้ง egress เสมอ
+และสร้าง ingress เฉพาะเมื่อ `external_streams` ไม่ว่าง
 
 :::warning
-The built-in Redis ingress starts each configured stream at the current timestamp, so entries that already
-exist when the node starts are not replayed. After startup it advances the last-seen ID for each stream and
-preserves those IDs across connection retries. Use cache recovery or the event store when durable pre-start
-replay is required. `external_streams` provides live forwarding, not a consumer-group backlog.
+ingress Redis ในตัวจะเริ่มอ่าน stream ที่ตั้งค่าไว้แต่ละตัวจาก timestamp ปัจจุบัน ดังนั้น entry ที่มีอยู่แล้วตอน node
+เริ่มทำงานจะไม่ถูก replay หลัง startup จะเลื่อน ID ล่าสุดที่เห็นของแต่ละ stream และเก็บ ID เหล่านั้นไว้ข้ามการลอง
+เชื่อมต่อใหม่ ใช้ cache recovery หรือ event store เมื่อต้องการ replay ข้อมูลก่อนเริ่มทำงานแบบคงทน
+`external_streams` ให้การส่งต่อแบบ live ไม่ใช่ backlog ของ consumer group
 :::
 
-### Encoding
+### Encoding {#encoding}
 
-Rust-native external message bus egress supports these encoding names:
+external message bus egress แบบ Rust-native รองรับชื่อ encoding เหล่านี้:
 
 - JSON (`json`)
 - MessagePack (`msgpack`)
-- SBE (`sbe`, with the Rust `sbe` feature)
+- SBE (`sbe` เมื่อเปิด feature `sbe` ของ Rust)
 
-To use SBE for market data and MessagePack for all other payloads, set `encoding = "msgpack"` and
-`encoding_market_data = "sbe"`, as in the example above.
-Use `encoding_market_data` to override the encoding for market data payloads backed by the external
-bus binary codecs. Use `encoding_builtin` to override account state, portfolio snapshot, order
-event, and position event payloads. Custom and unmapped payload types always use `encoding`.
+หากต้องการใช้ SBE สำหรับ market data และ MessagePack สำหรับ payload อื่นทั้งหมด ให้ตั้ง `encoding = "msgpack"` และ
+`encoding_market_data = "sbe"` ตามตัวอย่างด้านบน
+ใช้ `encoding_market_data` เพื่อ override encoding ของ payload market data ที่มี binary codec ของ bus ภายนอกรองรับ
+ใช้ `encoding_builtin` เพื่อ override payload ของ account state, portfolio snapshot, order event และ position event
+payload แบบ custom และ type ที่ไม่ได้ map ไว้จะใช้ `encoding` เสมอ
 
-`MessageBusConfig::validate` requires the default `encoding` to support custom payloads: JSON or
-MessagePack. Category overrides must be supported by each published payload type in that category.
-SBE requires the `sbe` feature and supports only `encoding_market_data`;
-`encoding_builtin = "sbe"` fails validation.
+`MessageBusConfig::validate` กำหนดให้ `encoding` เริ่มต้นต้องรองรับ custom payload คือ JSON หรือ MessagePack
+encoding ที่ override รายหมวดต้องรองรับโดยทุก payload type ที่ publish ในหมวดนั้น SBE ต้องใช้ feature `sbe` และรองรับ
+เฉพาะ `encoding_market_data` เท่านั้น `encoding_builtin = "sbe"` จะไม่ผ่านการ validate
 
-The Redis cache payload path supports MessagePack and JSON only. SBE is a market data encoding for
-Rust-native external message bus egress. Selecting SBE for a Redis cache payload returns an error.
+เส้นทาง payload ของ Redis cache รองรับเฉพาะ MessagePack และ JSON SBE เป็น encoding สำหรับ market data ของ
+external message bus egress แบบ Rust-native การเลือก SBE สำหรับ payload ของ Redis cache จะคืน error
 
 :::tip
-The `json` encoding is used by default for human readability and interoperability.
-Use `msgpack` when payload size and serialization performance are a primary concern.
+encoding `json` ถูกใช้เป็นค่าเริ่มต้นเพื่อให้คนอ่านได้และทำงานร่วมกับระบบอื่นได้ง่าย
+ใช้ `msgpack` เมื่อขนาด payload และประสิทธิภาพการ serialize เป็นเรื่องสำคัญอันดับแรก
 :::
 
-### Timestamp formatting
+### รูปแบบของ timestamp {#timestamp-formatting}
 
-By default timestamps are formatted as UNIX epoch nanosecond integers. Alternatively you can
-configure ISO 8601 string formatting by setting `timestamps_as_iso8601` to `true`.
+โดยค่าเริ่มต้น timestamp จะอยู่ในรูปจำนวนเต็มนาโนวินาทีนับจาก UNIX epoch หรือตั้งค่าให้เป็น string แบบ ISO 8601
+ได้โดยตั้ง `timestamps_as_iso8601` เป็น `true`
 
-### Message stream keys
+### Key ของ message stream {#message-stream-keys}
 
-Message stream keys identify individual trader nodes and organize messages within streams. The `trader-`
-prefix, trader ID, and instance ID segments are optional and controlled by the options below. The streams
-prefix is always included. With each segment enabled, a trader key has the following structure:
+key ของ message stream ใช้ระบุ trader node แต่ละตัวและจัดระเบียบ message ภายใน stream ส่วน prefix `trader-`,
+trader ID และ instance ID เป็นแบบไม่บังคับและควบคุมด้วย option ด้านล่าง ส่วน streams prefix จะมีเสมอ เมื่อเปิดทุกส่วน
+key ของ trader จะมีโครงสร้างดังนี้:
 
 ```
 trader-{trader_id}:{instance_id}:{streams_prefix}
 ```
 
-With the default options (`use_trader_prefix` and `use_trader_id` enabled, `use_instance_id`
-disabled) the base stream key is `trader-{trader_id}:{streams_prefix}`.
+เมื่อใช้ option ค่าเริ่มต้น (เปิด `use_trader_prefix` และ `use_trader_id`, ปิด `use_instance_id`) key ของ stream
+หลักคือ `trader-{trader_id}:{streams_prefix}`
 
-These options control Redis stream keys. They do not rewrite the `topic` passed to an injected
-`MessageBusExternalEgress`. That topic stays the internal message bus publish topic. When `stream_per_topic`
-is `True`, Redis egress appends the topic to the stream key. When it is `False`, Redis stores all messages on
-the base stream key and keeps the topic as a message field.
+option เหล่านี้ควบคุม key ของ Redis stream ไม่ได้เขียนทับ `topic` ที่ส่งให้ `MessageBusExternalEgress` ที่ inject
+เข้ามา topic นั้นยังคงเป็น publish topic ภายในของ message bus เมื่อ `stream_per_topic` เป็น `true` egress ของ Redis
+จะต่อ topic ท้าย key ของ stream เมื่อเป็น `false` Redis จะเก็บ message ทั้งหมดไว้บน key ของ stream หลัก และเก็บ topic
+ไว้เป็นฟิลด์ของ message
 
-The following options are available for configuring message stream keys:
+option สำหรับตั้งค่า key ของ message stream มีดังนี้:
 
-#### Trader prefix
+#### Trader prefix {#trader-prefix}
 
-If the key should begin with the `trader-` prefix.
+กำหนดว่า key ควรขึ้นต้นด้วย prefix `trader-` หรือไม่
 
-#### Trader ID
+#### Trader ID {#trader-id}
 
-If the key should include the trader ID for the node.
+กำหนดว่า key ควรมี trader ID ของ node หรือไม่
 
-#### Instance ID
+#### Instance ID {#instance-id}
 
-Each trader node receives a unique UUIDv4 instance ID, which distinguishes individual traders when messages
-are distributed across multiple streams. Set `use_instance_id=True` to include it in the trader key and
-identify traders across streams in a multi-node trading system.
+trader node แต่ละตัวได้รับ instance ID แบบ UUIDv4 ที่ไม่ซ้ำกัน ซึ่งใช้แยกแยะ trader แต่ละตัวเมื่อ message กระจายอยู่
+ในหลาย stream ตั้ง `use_instance_id` เป็น `true` เพื่อใส่ไว้ใน key ของ trader และระบุ trader ข้าม stream ในระบบเทรด
+แบบหลาย node
 
-#### Streams prefix
+#### Streams prefix {#streams-prefix}
 
-The `streams_prefix` string groups all streams for a single trader instance or organizes messages for multiple
-instances. Set the other prefixes to false. Then pass a string to the `streams_prefix` configuration option.
+string `streams_prefix` ใช้จัดกลุ่ม stream ทั้งหมดของ trader instance เดียว หรือจัดระเบียบ message ของหลาย instance
+ให้ตั้ง prefix อื่นเป็น false แล้วส่ง string ให้ option `streams_prefix`
 
-#### Stream per topic
+#### Stream per topic {#stream-per-topic}
 
-Set `stream_per_topic=True` to write a separate stream for each topic. This suits Redis backings, which do not
-support wildcard topics when listening to streams. Set it to `False` to write all messages to the same stream.
-
-:::info
-Redis does not support wildcard stream topics. For better compatibility with Redis, it is recommended to set this option to False.
-:::
-
-### Types filtering
-
-If a message-bus backing is configured and enabled, published messages are serialized and written to a stream.
-You can exclude selected message types from external publication to prevent stream flooding (such as from
-high-frequency quotes).
-
-For external publication filtering, pass a list of payload type names to the message-bus configuration's
-`types_filter` parameter. Listed types are excluded from external publication. A name shared by a custom
-payload and a fixed typed payload excludes both.
-
-```python
-from nautilus_trader.config import MessageBusConfig
-
-# Create a MessageBusConfig instance with types filtering
-message_bus = MessageBusConfig(types_filter=["QuoteTick", "TradeTick"])
-```
-
-### Stream auto-trimming
-
-Use `autotrim_mins` to set a lookback window in minutes. Use `autotrim_maxlen` to set an approximate maximum
-number of entries for each Redis stream. You can configure either policy or both. When both are set, the
-message bus removes entries that exceed either the time window or the entry-count threshold.
-
-Redis applies `autotrim_maxlen` with approximate trimming for better write performance, so a stream
-may contain slightly more entries than the configured threshold.
+ตั้ง `stream_per_topic` เป็น `true` เพื่อเขียน stream แยกสำหรับแต่ละ topic เหมาะกับ backing แบบ Redis ซึ่งไม่รองรับ
+wildcard topic เมื่อ listen stream ตั้งเป็น `false` เพื่อเขียน message ทั้งหมดลง stream เดียวกัน
 
 :::info
-The Redis implementation trims each stream at most once per minute, so entries can stay up to roughly a minute
-longer than the `autotrim_mins` window.
+Redis ไม่รองรับ wildcard ใน topic ของ stream เพื่อให้เข้ากับ Redis ได้ดีขึ้น แนะนำให้ตั้ง option นี้เป็น false
 :::
 
-## External streams
+### การกรอง type {#types-filtering}
 
-The message bus within a `LiveNode` (node) is referred to as the "internal message bus".
-A producer node is one which publishes messages onto an external stream (see [external egress and ingress](#external-egress-and-ingress)).
-The consumer node listens to external streams to receive and publish deserialized message payloads on its internal message bus.
+หากตั้งค่าและเปิดใช้ backing ของ message bus ไว้ message ที่ publish จะถูก serialize และเขียนลง stream
+คุณสามารถยกเว้น message type ที่เลือกไว้จากการ publish ภายนอก เพื่อป้องกันไม่ให้ stream ล้น (เช่นจาก quote
+ความถี่สูง)
+
+สำหรับการกรองการ publish ภายนอก ให้ส่ง list ของชื่อ payload type ให้พารามิเตอร์ `types_filter` ของ config
+message bus type ที่อยู่ใน list จะไม่ถูก publish ภายนอก ชื่อที่ custom payload และ payload แบบ typed ที่ตายตัวใช้ร่วมกัน
+จะถูกยกเว้นทั้งคู่ ดูตัวอย่าง `types_filter` ได้ใน config ของ Rust ในส่วน[การตั้งค่า](#configuration)ด้านบน
+
+### การ trim stream อัตโนมัติ {#stream-auto-trimming}
+
+ใช้ `autotrim_mins` เพื่อกำหนดช่วงเวลาย้อนหลังเป็นนาที ใช้ `autotrim_maxlen` เพื่อกำหนดจำนวน entry สูงสุดโดยประมาณ
+ของแต่ละ Redis stream ตั้งค่านโยบายใดนโยบายหนึ่งหรือทั้งสองก็ได้ เมื่อตั้งทั้งสอง message bus จะลบ entry ที่เกิน
+ช่วงเวลาหรือเกินเกณฑ์จำนวน entry อย่างใดอย่างหนึ่ง
+
+Redis ใช้ `autotrim_maxlen` ด้วยการ trim แบบประมาณเพื่อประสิทธิภาพการเขียนที่ดีขึ้น ดังนั้น stream อาจมี entry
+มากกว่าเกณฑ์ที่ตั้งไว้เล็กน้อย
+
+:::info
+implementation ของ Redis จะ trim แต่ละ stream ไม่เกินนาทีละครั้ง ดังนั้น entry อาจอยู่นานกว่าช่วง `autotrim_mins`
+ได้ราวหนึ่งนาที
+:::
+
+## External stream {#external-streams}
+
+message bus ภายใน `LiveNode` (node) เรียกว่า "internal message bus"
+producer node คือ node ที่ publish message ลงบน stream ภายนอก (ดู[external egress และ ingress](#external-egress-and-ingress))
+consumer node จะ listen stream ภายนอกเพื่อรับ payload ของ message ที่ deserialize แล้วและ publish ลงบน internal message bus ของตัวเอง
 
 ```mermaid
 flowchart TB
@@ -673,24 +476,23 @@ flowchart TB
 ```
 
 :::info
-Set `LiveDataEngineConfig.external_clients` to the list of `client_id`s representing external streaming
-clients. The `DataEngine` filters out subscription commands for these clients because external streaming
-supplies their subscription data.
+ตั้ง `LiveDataEngineConfig.external_clients` เป็น list ของ `client_id` ที่แทน client ของ streaming ภายนอก
+`DataEngine` จะกรอง subscription command สำหรับ client เหล่านี้ออก เพราะ streaming ภายนอกเป็นผู้ส่งข้อมูลที่ subscribe ให้
 
-When the Rust `DataEngine` skips an external-client subscription, it registers the corresponding streaming
-payload type for inbound republishing on the message bus.
+เมื่อ `DataEngine` ของ Rust ข้าม subscription ของ external client จะลงทะเบียน payload type ของ streaming ที่ตรงกัน
+สำหรับการ republish ขาเข้าบน message bus
 :::
 
-### Example configuration
+### ตัวอย่างการตั้งค่า {#example-configuration}
 
-In this streaming example, a producer node publishes Binance data externally. A downstream consumer node
-publishes these data messages onto its internal message bus.
+ในตัวอย่าง streaming นี้ producer node จะ publish ข้อมูล Binance ออกภายนอก และ consumer node ปลายทางจะ publish
+data message เหล่านี้ลงบน internal message bus ของตัวเอง
 
-#### Producer node
+#### Producer node {#producer-node}
 
-The producer node's `MessageBus` publishes to a `"binance"` stream. The settings `use_trader_id`,
-`use_trader_prefix`, and `use_instance_id` are all `false`. This gives the stream a simple, predictable key
-that consumer nodes can register for.
+`MessageBus` ของ producer node จะ publish ไปยัง stream `"binance"` โดยตั้ง `use_trader_id`, `use_trader_prefix`
+และ `use_instance_id` เป็น `false` ทั้งหมด ทำให้ stream มี key ที่เรียบง่ายและคาดเดาได้ ซึ่ง consumer node
+ลงทะเบียนรับได้
 
 ```rust
 let message_bus = MessageBusConfig {
@@ -716,13 +518,12 @@ let mut node = LiveNode::builder(trader_id, Environment::Live)?
 node.run().await?;
 ```
 
-#### Consumer node
+#### Consumer node {#consumer-node}
 
-We configure the `MessageBus` of the consumer node to receive messages from the same `"binance"`
-stream. A `RedisMessageBusConfig` creates ingress from `external_streams`, and `LiveNode::run`
-publishes the received messages onto the node's internal message bus. We declare the client ID
-`"BINANCE_EXT"` as an external client so the `DataEngine` does not attempt to send data commands to
-this client ID.
+ตั้งค่า `MessageBus` ของ consumer node ให้รับ message จาก stream `"binance"` เดียวกัน `RedisMessageBusConfig`
+จะสร้าง ingress จาก `external_streams` และ `LiveNode::run` จะ publish message ที่ได้รับลงบน internal message bus
+ของ node เราประกาศ client ID `"BINANCE_EXT"` เป็น external client เพื่อไม่ให้ `DataEngine` พยายามส่ง data command
+ไปยัง client ID นี้
 
 ```rust
 let data_engine = LiveDataEngineConfig {
@@ -749,7 +550,7 @@ let mut node = LiveNode::builder(trader_id, Environment::Live)?
 node.run().await?;
 ```
 
-## Related guides
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-- [Actors](actors.md) - Actors use the message bus for event handling.
-- [Architecture](architecture.md) - Message bus role in system architecture.
+- [Actors](actors.md) - actor ใช้ message bus ในการจัดการ event
+- [Architecture](architecture.md) - บทบาทของ message bus ในสถาปัตยกรรมของระบบ

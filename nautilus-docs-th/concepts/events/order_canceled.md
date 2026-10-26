@@ -1,41 +1,32 @@
 # OrderCanceled
 
-`OrderCanceled` records an order reaching the terminal `CANCELED` state. The execution pipeline
-applies it to the order, updates the `Cache`, and publishes it on the `MessageBus`. It can come from
-a trading venue, simulated matching engine, local order emulator, or reconciliation. Reconciliation
-can create it from a venue report or from a local timeout or missing-order policy.
+`OrderCanceled` บันทึกว่า order เข้าสู่สถานะ terminal `CANCELED` แล้ว execution pipeline จะนำ event
+นี้ไปใช้กับ order อัปเดต `Cache` และ publish บน `MessageBus` โดย event อาจมาจาก trading venue,
+simulated matching engine, local order emulator หรือ reconciliation ซึ่ง reconciliation สามารถสร้าง event
+นี้จาก report ของ venue หรือจาก policy ภายในเรื่อง timeout หรือ order ที่หายไป
 
-Typical transitions: `PENDING_CANCEL`/`ACCEPTED` -> `CANCELED`. External and recovery paths also
-allow `INITIALIZED`, `EMULATED`, `RELEASED`, `SUBMITTED`, `PENDING_UPDATE`, `TRIGGERED`, or
-`PARTIALLY_FILLED` -> `CANCELED`. Handler: `on_order_canceled`.
+Transition ทั่วไป: `PENDING_CANCEL`/`ACCEPTED` -> `CANCELED` ส่วนเส้นทางจากภายนอกและเส้นทางกู้คืน
+ยังอนุญาต `INITIALIZED`, `EMULATED`, `RELEASED`, `SUBMITTED`, `PENDING_UPDATE`, `TRIGGERED` หรือ
+`PARTIALLY_FILLED` -> `CANCELED` ด้วย Handler: `on_order_canceled`
 
-A re-close can append `CANCELED` while the order is already canceled when a late fill arrived after
-its earlier cancellation.
+การปิดซ้ำ (re-close) สามารถเพิ่ม `CANCELED` ต่อท้ายได้ขณะที่ order ถูกยกเลิกไปแล้ว ในกรณีที่มี fill
+มาถึงช้าหลังการยกเลิกครั้งก่อน
 
-## Fields
+## ฟิลด์ {#fields}
 
-Beyond the [common Python order event fields](index.md#common-python-order-event-fields),
-`OrderCanceled` carries:
+นอกจาก[ฟิลด์ร่วมของ order event](index.md#common-python-order-event-fields) แล้ว `OrderCanceled`
+ยังมีฟิลด์:
 
-| Field            | Python type              | Required/default | Description                                                                    |
-| ---------------- | ------------------------ | ---------------- | ------------------------------------------------------------------------------ |
-| `venue_order_id` | `VenueOrderId` or `None` | `None`           | The venue-assigned order identifier, if known.                                 |
-| `account_id`     | `AccountId` or `None`    | `None`           | The account associated with the order, if known.                               |
-| `reason`         | `str` or `None`          | `None`           | The cancellation reason supplied by the venue.                                 |
-| `reconciliation` | `bool`                   | Required         | If reconciliation generated the event. This does not imply venue confirmation. |
+| ฟิลด์             | จำเป็น/ค่าเริ่มต้น  | คำอธิบาย                                                                  |
+| ---------------- | ---------------- | ------------------------------------------------------------------------ |
+| `venue_order_id` | `None`           | ตัวระบุ order ที่ venue กำหนด หากทราบ                                        |
+| `account_id`     | `None`           | account ที่เกี่ยวข้องกับ order หากทราบ                                       |
+| `reason`         | `None`           | เหตุผลการยกเลิกที่ venue ให้มา                                               |
+| `reconciliation` | Required         | event ถูกสร้างโดย reconciliation หรือไม่ ซึ่งไม่ได้หมายความว่า venue ยืนยันแล้ว      |
 
-## Example
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-Reading the event in a strategy handler:
-
-```python
-def on_order_canceled(self, event: OrderCanceled) -> None:
-    self.log.info(f"Order {event.client_order_id} canceled")
-```
-
-## Related guides
-
-- [Events](index.md) - Event categories, dispatch, and the common order event fields.
-- [Orders](../orders/) - Order types and the state machine.
-- [Execution policies](../execution/policies.md#terminal-reconciliation-provenance) - Venue
-  evidence and synthetic terminal policies.
+- [Events](index.md) - หมวดหมู่ของ event, การ dispatch และฟิลด์ร่วมของ order event
+- [Orders](../orders/) - ชนิดของ order และ state machine
+- [Execution policies](../execution/policies.md#terminal-reconciliation-provenance) - หลักฐานจาก venue
+  และ policy สถานะ terminal แบบสังเคราะห์

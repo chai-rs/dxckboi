@@ -1,14 +1,14 @@
-# Backtest Data and Venues
+# ข้อมูลและ venue สำหรับ backtest
 
-## Data
+## ข้อมูล {#data}
 
-Historical data advances the backtest clock, updates simulated market state, and drives strategy
-callbacks. The venue's `book_type` determines which data can update the matching book, so the
-configuration must match the available data.
+ข้อมูลย้อนหลังเป็นตัวเดินนาฬิกาของ backtest, อัปเดตสถานะตลาดจำลอง และขับเคลื่อน callback ของ strategy
+`book_type` ของ venue เป็นตัวกำหนดว่าข้อมูลประเภทใดบ้างที่อัปเดต book ที่ใช้ matching ได้ ดังนั้น config
+จึงต้องสอดคล้องกับข้อมูลที่มีอยู่
 
-Order book data exposes more execution detail than quotes, trades, or bars. But even a recorded book cannot
-show how a simulated order would have changed the market. NautilusTrader supports the following data in
-descending order of detail:
+ข้อมูล order book ให้รายละเอียดด้าน execution มากกว่า quote, trade หรือ bar แต่แม้จะเป็น book ที่บันทึกไว้
+ก็ไม่สามารถบอกได้ว่า order จำลองจะเปลี่ยนแปลงตลาดอย่างไร NautilusTrader รองรับข้อมูลต่อไปนี้
+เรียงจากละเอียดมากไปน้อย:
 
 ```mermaid
 flowchart LR
@@ -27,67 +27,64 @@ flowchart LR
     style B fill:#6d9a7d,color:#fff
 ```
 
-More granular data exposes more of the recorded queue and depth, while less granular data requires
-more simulation assumptions.
+ข้อมูลที่ละเอียดกว่าจะเผยให้เห็นคิวและความลึกที่บันทึกไว้ได้มากกว่า ส่วนข้อมูลที่ละเอียดน้อยกว่าต้องอาศัย
+สมมติฐานในการจำลองมากขึ้น
 
-- **L3 order book data (market-by-order)**: Individual orders at each recorded price level.
-- **L2 order book data (market-by-price)**: Aggregate size at each recorded price level.
-- **L1 quote ticks (market-by-price)**: Best bid and ask prices and sizes.
-- **Trade ticks**: Recorded executions.
-- **Bars**: Aggregated price and volume over fixed intervals.
+- **ข้อมูล L3 order book (market-by-order)**: order แต่ละตัวในทุกระดับราคาที่บันทึกไว้
+- **ข้อมูล L2 order book (market-by-price)**: ขนาดรวมในแต่ละระดับราคาที่บันทึกไว้
+- **L1 quote tick (market-by-price)**: ราคาและขนาดของ best bid และ best ask
+- **Trade tick**: การ execute ที่บันทึกไว้
+- **Bar**: ราคาและ volume ที่ aggregate ในช่วงเวลาคงที่
 
-### Choosing data: cost vs. accuracy
+### การเลือกข้อมูล: ต้นทุนเทียบกับความแม่นยำ {#choosing-data-cost-vs-accuracy}
 
-Bar data can be sufficient for early strategy development and is often cheaper and easier to get than tick or
-order book data. It cannot establish intrabar price order, spread, depth, or queue position, so
-execution-sensitive strategies need more granular validation.
+ข้อมูล bar อาจเพียงพอสำหรับการพัฒนา strategy ในช่วงแรก และมักหาได้ง่ายและถูกกว่าข้อมูล tick หรือ
+order book แต่ bar ไม่สามารถบอกลำดับราคาภายใน bar, spread, ความลึก หรือตำแหน่งในคิวได้ strategy
+ที่อ่อนไหวต่อ execution จึงต้องตรวจสอบด้วยข้อมูลที่ละเอียดกว่า
 
 :::tip
-Start with bars to test the core signal when appropriate. Move to quotes, trades, or depth data
-before relying on results that depend on spread, exact intrabar order, tight exits, or queue
-position.
+เริ่มด้วย bar เพื่อทดสอบ signal หลักเมื่อเหมาะสม แล้วจึงเปลี่ยนไปใช้ข้อมูล quote, trade หรือ depth
+ก่อนจะเชื่อถือผลลัพธ์ที่ขึ้นกับ spread, ลำดับราคาภายใน bar ที่แน่นอน, การออกจาก position ที่แคบ หรือ
+ตำแหน่งในคิว
 :::
 
-## Venues
+## Venue {#venues}
 
-When initializing a backtest venue, specify its internal order `book_type` for execution processing:
+เมื่อ initialize venue สำหรับ backtest ให้ระบุ `book_type` ของ order book ภายในที่ใช้ประมวลผล execution:
 
-- `L1_MBP`: Level 1 market-by-price (default). Only the top level of the order book is maintained.
-- `L2_MBP`: Level 2 market-by-price. Order book depth is maintained, with a single order aggregated
-  per price level.
-- `L3_MBO`: Level 3 market-by-order. Order book depth is maintained, with all individual orders
-  tracked as provided by the data.
+- `L1_MBP`: Level 1 market-by-price (ค่าเริ่มต้น) เก็บเฉพาะระดับบนสุดของ order book
+- `L2_MBP`: Level 2 market-by-price เก็บความลึกของ order book โดยรวม order เป็นหนึ่งตัวต่อหนึ่งระดับราคา
+- `L3_MBO`: Level 3 market-by-order เก็บความลึกของ order book โดยติดตาม order ทุกตัวตามที่ข้อมูลให้มา
 
-The `book_type` determines which data updates book state and drives matching. For data that does
-not apply to the selected book:
+`book_type` เป็นตัวกำหนดว่าข้อมูลใดจะอัปเดตสถานะ book และขับเคลื่อนการ matching สำหรับข้อมูลที่ไม่เกี่ยวกับ
+book ที่เลือก:
 
-- The matching engine ignores it for book and price updates.
-- The outer backtest clock still advances.
-- Strategies still receive subscribed data through the data engine.
+- Matching engine จะไม่นำไปใช้อัปเดต book และราคา
+- นาฬิกาชั้นนอกของ backtest ยังคงเดินต่อ
+- Strategy ยังคงได้รับข้อมูลที่ subscribe ไว้ผ่าน data engine
 
-Precision validation depends on the matching path. For example, a bar ignored by an L2 or L3 venue
-returns before executable-bar precision checks.
+การตรวจสอบ precision ขึ้นกับเส้นทางของการ matching เช่น bar ที่ถูก venue แบบ L2 หรือ L3 ละเลย
+จะ return ก่อนถึงขั้นตรวจสอบ precision ของ bar ที่ใช้ execute
 
 | Data type         | L1_MBP            | L2_MBP            | L3_MBO            |
 | ----------------- | ----------------- | ----------------- | ----------------- |
-| `QuoteTick`       | Updates book      | *Ignored*         | *Ignored*         |
-| `TradeTick`       | Triggers matching | Triggers matching | Triggers matching |
-| `Bar`             | Updates book      | *Ignored*         | *Ignored*         |
-| `OrderBookDelta`  | *Ignored*         | Updates book      | Updates book      |
-| `OrderBookDeltas` | *Ignored*         | Updates book      | Updates book      |
-| `OrderBookDepth`  | Updates book      | Updates book      | Updates book      |
+| `QuoteTick`       | อัปเดต book        | *ละเลย*           | *ละเลย*           |
+| `TradeTick`       | Trigger matching  | Trigger matching  | Trigger matching  |
+| `Bar`             | อัปเดต book        | *ละเลย*           | *ละเลย*           |
+| `OrderBookDelta`  | *ละเลย*           | อัปเดต book        | อัปเดต book        |
+| `OrderBookDeltas` | *ละเลย*           | อัปเดต book        | อัปเดต book        |
+| `OrderBookDepth`  | อัปเดต book        | อัปเดต book        | อัปเดต book        |
 
-The data's granularity must match the order `book_type`. Nautilus **cannot generate higher granularity
-data** (L2 or L3) from lower-level data such as quotes, trades, or bars.
+ความละเอียดของข้อมูลต้องตรงกับ `book_type` ของ order Nautilus **ไม่สามารถสร้างข้อมูลที่ละเอียดกว่า**
+(L2 หรือ L3) จากข้อมูลระดับต่ำกว่า เช่น quote, trade หรือ bar ได้
 
-:::warning[L2 and L3 book data]
-If you specify `L2_MBP` or `L3_MBO` as the venue's `book_type`, quotes and bars will not update the
-book. Ensure you provide order book delta data, otherwise orders may appear as though they are never
-filled.
+:::warning[ข้อมูล book แบบ L2 และ L3]
+หากระบุ `L2_MBP` หรือ `L3_MBO` เป็น `book_type` ของ venue, quote และ bar จะไม่อัปเดต book
+ต้องป้อนข้อมูล order book delta ให้ด้วย มิฉะนั้น order อาจดูเหมือนไม่เคยถูก fill เลย
 :::
 
-:::warning[L1 ignores order book deltas]
-When using `L1_MBP` (the default), order book deltas are ignored by the matching engine. If you
-subscribe to order book deltas, set the venue `book_type` to `L2_MBP` or `L3_MBO`. This also applies
-to sandbox execution, where the matching engine uses the same `book_type` configuration.
+:::warning[L1 ละเลย order book delta]
+เมื่อใช้ `L1_MBP` (ค่าเริ่มต้น) matching engine จะละเลย order book delta หาก subscribe order book delta
+ให้ตั้ง `book_type` ของ venue เป็น `L2_MBP` หรือ `L3_MBO` เรื่องนี้ใช้กับ sandbox execution ด้วย
+เนื่องจาก matching engine ที่นั่นใช้ config `book_type` แบบเดียวกัน
 :::

@@ -1,238 +1,184 @@
-# Fill Prices and Matching
+# ราคา fill และการ matching
 
-The backtest matching engine treats recorded order book and trade data as **immutable**: simulated
-fills do not edit the historical book. This preserves the replayed market while requiring explicit
-assumptions about whether the same displayed liquidity can fill more than one simulated order.
+matching engine ของ backtest ถือว่าข้อมูล order book และ trade ที่บันทึกไว้เป็นข้อมูล **immutable** (แก้ไขไม่ได้):
+fill จำลองจะไม่แก้ไข book ในอดีต วิธีนี้ทำให้ตลาดที่ replay ยังคงเหมือนต้นฉบับ แต่ก็ต้องกำหนดสมมติฐานให้ชัดเจนว่า
+liquidity ที่แสดงอยู่ชุดเดียวกันสามารถ fill order จำลองได้มากกว่าหนึ่ง order หรือไม่
 
-The engine provides two controls for those assumptions:
+engine มีตัวควบคุมสองตัวสำหรับสมมติฐานเหล่านี้:
 
-- `liquidity_consumption=True` tracks displayed size consumed at each price level.
-- A fixed fill-model `random_seed` makes that model's probabilistic decisions repeatable.
-  It does not configure randomness or execution ordering outside that model.
+- `liquidity_consumption=True` ติดตามขนาดที่แสดงซึ่งถูกใช้ไปแล้วในแต่ละระดับราคา
+- การกำหนด `random_seed` ของ fill model แบบคงที่ทำให้การตัดสินใจเชิงความน่าจะเป็นของ model นั้นทำซ้ำได้
+  โดยไม่ได้กำหนดความสุ่มหรือลำดับการ execute นอกเหนือจาก model นั้น
 
-## Fill price determination
+## การกำหนดราคา fill {#fill-price-determination}
 
-Fill prices depend on order type, liquidity side, book type, and the market state that caused the
-match.
+ราคา fill ขึ้นอยู่กับประเภท order, liquidity side, ประเภท book และสภาวะตลาดที่ทำให้เกิดการ match
 
-### L2 and L3 books
+### Book แบบ L2 และ L3 {#l2-and-l3-books}
 
-With depth data, market-style orders walk crossed book levels. A limit-style order receives crossed
-book prices while acting as a taker and uses its limit price when acting as a maker.
+เมื่อมีข้อมูล depth order แบบ market จะไล่กินระดับราคาใน book ที่ cross กัน order แบบ limit จะได้ราคาจาก book
+ที่ cross เมื่อทำหน้าที่เป็น taker และใช้ราคา limit ของตัวเองเมื่อทำหน้าที่เป็น maker
 
-| Order type             | Fill behavior                                                 |
+| ประเภท order            | พฤติกรรมการ fill                                                |
 | ---------------------- | ------------------------------------------------------------- |
-| `MARKET`               | Walks crossed book levels as a taker.                         |
-| `MARKET_TO_LIMIT`      | Fills the first executable level, then rests at that price.   |
-| `LIMIT`                | Uses crossed levels as a taker or the limit price as a maker. |
-| `STOP_MARKET`          | Walks crossed levels after triggering.                        |
-| `STOP_LIMIT`           | Uses the limit-style rule after triggering.                   |
-| `MARKET_IF_TOUCHED`    | Walks crossed levels after triggering.                        |
-| `LIMIT_IF_TOUCHED`     | Uses the limit-style rule after triggering.                   |
-| `TRAILING_STOP_MARKET` | Walks crossed levels after activation and triggering.         |
-| `TRAILING_STOP_LIMIT`  | Uses the limit-style rule after activation and triggering.    |
+| `MARKET`               | ไล่กินระดับราคาที่ cross ในฐานะ taker                              |
+| `MARKET_TO_LIMIT`      | fill ระดับแรกที่ execute ได้ แล้วพักส่วนที่เหลือไว้ที่ราคานั้น               |
+| `LIMIT`                | ใช้ระดับที่ cross เมื่อเป็น taker หรือใช้ราคา limit เมื่อเป็น maker        |
+| `STOP_MARKET`          | ไล่กินระดับที่ cross หลังถูก trigger                                 |
+| `STOP_LIMIT`           | ใช้กฎแบบ limit หลังถูก trigger                                     |
+| `MARKET_IF_TOUCHED`    | ไล่กินระดับที่ cross หลังถูก trigger                                 |
+| `LIMIT_IF_TOUCHED`     | ใช้กฎแบบ limit หลังถูก trigger                                     |
+| `TRAILING_STOP_MARKET` | ไล่กินระดับที่ cross หลัง activate และถูก trigger                     |
+| `TRAILING_STOP_LIMIT`  | ใช้กฎแบบ limit หลัง activate และถูก trigger                         |
 
-A depth order can fill partially when the available crossed size is smaller than its remaining
-quantity.
+order ที่ใช้ depth อาจ fill เพียงบางส่วนได้ เมื่อขนาดที่ cross อยู่น้อยกว่าปริมาณที่เหลือของ order
 
-### L1 books
+### Book แบบ L1 {#l1-books}
 
-With an L1 book, the recorded market exposes only the best bid and ask:
+เมื่อใช้ book แบบ L1 ตลาดที่บันทึกไว้จะมีเพียง bid และ ask ที่ดีที่สุด:
 
-| Order class                                                              | Fill behavior                                                                   |
+| กลุ่ม order                                                               | พฤติกรรมการ fill                                                                   |
 | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
-| `MARKET`, `MARKET_IF_TOUCHED`, `STOP_MARKET`, and `TRAILING_STOP_MARKET` | Use the market or trigger-price rule, then fill any residual one tick worse.    |
-| `MARKET_TO_LIMIT`                                                        | Uses the best opposite quote, then rests the remainder at the first fill price. |
-| Limit-style taker                                                        | Uses the best crossed quote, bounded by the limit price.                        |
-| Limit-style maker                                                        | Uses the limit price when matched by a trade or market move.                    |
+| `MARKET`, `MARKET_IF_TOUCHED`, `STOP_MARKET` และ `TRAILING_STOP_MARKET`  | ใช้กฎราคาตลาดหรือราคา trigger แล้ว fill ส่วนที่เหลือที่ราคาแย่ลงหนึ่ง tick              |
+| `MARKET_TO_LIMIT`                                                        | ใช้ quote ฝั่งตรงข้ามที่ดีที่สุด แล้วพักส่วนที่เหลือไว้ที่ราคา fill แรก                      |
+| Limit-style taker                                                        | ใช้ quote ที่ cross ที่ดีที่สุด โดยไม่เกินราคา limit                                  |
+| Limit-style maker                                                        | ใช้ราคา limit เมื่อถูก match จาก trade หรือการเคลื่อนของตลาด                         |
 
-After eligible market-style orders exhaust displayed L1 size, the engine fills the residual one
-tick worse unless that price would:
+หลังจาก order แบบ market ที่เข้าเงื่อนไขใช้ขนาด L1 ที่แสดงอยู่หมดแล้ว engine จะ fill ส่วนที่เหลือที่ราคาแย่ลงหนึ่ง tick
+เว้นแต่ราคานั้นจะ:
 
-- Cross the configured price-protection boundary.
-- Cross the instrument's `min_price` or `max_price`.
-- Reach a zero or negative price where the instrument does not allow one.
+- ข้ามขอบเขต price protection ที่ตั้งไว้
+- ข้าม `min_price` หรือ `max_price` ของ instrument
+- เป็นศูนย์หรือติดลบ ในกรณีที่ instrument ไม่อนุญาต
 
-This **deterministic residual rule** is separate from probabilistic fill-model slippage.
+**กฎส่วนที่เหลือแบบ deterministic** นี้แยกจาก slippage เชิงความน่าจะเป็นของ fill model
 
-Trade-driven matching has one additional rule. If a trade provides fill evidence at a price absent from the
-book, the engine fills at the order's limit price. It caps that fill's quantity at the trade size. See
-[trade-based execution](trade-execution.md#trade-driven-matching).
+การ matching ที่ขับเคลื่อนด้วย trade มีกฎเพิ่มอีกหนึ่งข้อ หาก trade เป็นหลักฐานการ fill ที่ราคาซึ่งไม่มีอยู่ใน book
+engine จะ fill ที่ราคา limit ของ order และจำกัดปริมาณของ fill นั้นไม่ให้เกินขนาดของ trade ดู
+[การ execute จาก trade](trade-execution.md#trade-driven-matching)
 
-Fill models can change prices or provide a synthetic depth book. See
-[fill models](fill-models.md).
+fill model สามารถเปลี่ยนราคาหรือสร้าง depth book สังเคราะห์ได้ ดู [fill models](fill-models.md)
 
-### Triggered market-order fills with bars
+### การ fill ของ market order ที่ถูก trigger เมื่อใช้ bar {#triggered-market-order-fills-with-bars}
 
-Bar execution distinguishes a gap from an intrabar move for `STOP_MARKET`, `MARKET_IF_TOUCHED`, and
-`TRAILING_STOP_MARKET` orders.
+การ execute ด้วย bar จะแยกแยะระหว่าง gap กับการเคลื่อนไหวภายใน bar สำหรับ order แบบ `STOP_MARKET`,
+`MARKET_IF_TOUCHED` และ `TRAILING_STOP_MARKET`
 
-If the bar opens beyond the trigger, the order fills at the simulated market price. For example, a
-SELL stop at 100 can fill at 90 when the next bar opens at 90.
+หาก bar เปิดเลยราคา trigger ไปแล้ว order จะ fill ที่ราคาตลาดจำลอง ตัวอย่างเช่น SELL stop ที่ 100
+อาจ fill ที่ 90 เมื่อ bar ถัดไปเปิดที่ 90
 
-If the bar opens before the trigger and a later high, low, or close moves through it, the engine
-uses the trigger price. For example:
+หาก bar เปิดก่อนถึงราคา trigger แล้ว high, low หรือ close ภายหลังเคลื่อนผ่านราคานั้น engine จะใช้ราคา trigger
+ตัวอย่างเช่น:
 
-1. A SELL stop has a trigger at 100.
-1. The bar opens at 102.
-1. The low reaches 98.
-1. The order fills at 100.
+1. SELL stop มีราคา trigger ที่ 100
+1. bar เปิดที่ 102
+1. low ลงไปถึง 98
+1. order fill ที่ 100
 
-This rule assumes a continuous move through the trigger. Use quote, trade, or order book data when
-the strategy requires more precise gap and path behavior.
+กฎนี้สมมติว่าราคาเคลื่อนผ่าน trigger อย่างต่อเนื่อง หาก strategy ต้องการพฤติกรรมของ gap และเส้นทางราคาที่แม่นยำกว่านี้
+ให้ใช้ข้อมูล quote, trade หรือ order book
 
-## Price protection
+## Price protection {#price-protection}
 
-**Price protection** limits how far `MARKET` and `STOP_MARKET` orders can walk the book. Configure the
-offset as a number of instrument price increments:
+**Price protection** จำกัดว่า order แบบ `MARKET` และ `STOP_MARKET` จะไล่กิน book ไปได้ไกลแค่ไหน
+กำหนด offset เป็นจำนวน price increment ของ instrument ผ่าน option `price_protection_points` ใน config ของ backtest venue
 
-```python
-from decimal import Decimal
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง config แบบ Python จึงตัดออก
 
-from nautilus_trader.config import BacktestVenueConfig
-from nautilus_trader.execution import MakerTakerFeeModel
-from nautilus_trader.model import AccountType
-from nautilus_trader.model import BookType
-from nautilus_trader.model import OmsType
-
-venue = BacktestVenueConfig(
-    name="SIM",
-    oms_type=OmsType.NETTING,
-    account_type=AccountType.MARGIN,
-    book_type=BookType.L2_MBP,
-    starting_balances=["100_000 USDT"],
-    price_protection_points=100,
-    fee_model=MakerTakerFeeModel(
-        maker_rate=Decimal("0"),
-        taker_rate=Decimal("0"),
-    ),
-)
-```
-
-The engine calculates the boundary at fill time:
+engine คำนวณขอบเขต ณ เวลาที่ fill:
 
 - BUY: `ask + (points * price_increment)`
 - SELL: `bid - (points * price_increment)`
 
-For an instrument with a 0.01 price increment, 100 points allow a BUY to fill at most 1.00 above the current
-ask. Levels beyond the boundary are excluded, so the order can stay partially filled.
+สำหรับ instrument ที่มี price increment 0.01 ค่า 100 points ทำให้ BUY fill ได้สูงสุดไม่เกิน 1.00 เหนือ ask ปัจจุบัน
+ระดับราคาที่เกินขอบเขตจะถูกตัดออก ดังนั้น order อาจค้างอยู่ในสถานะ fill บางส่วน
 
-- A market order gets its boundary when processed.
-- A stop-market order gets its boundary when triggered, using the bid or ask at that time.
+- market order ได้ขอบเขตเมื่อถูกประมวลผล
+- stop-market order ได้ขอบเขตเมื่อถูก trigger โดยใช้ bid หรือ ask ณ เวลานั้น
 
-Set `price_protection_points=0` to disable protection.
+ตั้ง `price_protection_points=0` เพื่อปิด protection
 
-## Order book immutability
+## Order book immutability {#order-book-immutability}
 
-A simulated fill never decrements the historical book. By default, each matching iteration can use
-the full recorded size:
+fill จำลองจะไม่ลดขนาดใน book ในอดีต โดยค่าเริ่มต้น การ matching แต่ละรอบสามารถใช้ขนาดที่บันทึกไว้ได้เต็มจำนวน
+หากต้องการติดตามการใช้ liquidity ให้เปิด option `liquidity_consumption` ใน config ของ backtest venue
 
-```python
-from decimal import Decimal
+เมื่อตั้ง `liquidity_consumption=True` engine จะบันทึกขนาดเดิมและขนาดที่ถูกใช้ไปของแต่ละระดับราคา
+ขนาดที่ใช้ได้คือ `original_size - consumed` เมื่อมี book update ใหม่ที่ระดับนั้น ข้อมูลที่บันทึกจะถูก reset
+เป็นขนาดที่แสดงใหม่
 
-from nautilus_trader.config import BacktestVenueConfig
-from nautilus_trader.execution import MakerTakerFeeModel
-from nautilus_trader.model import AccountType
-from nautilus_trader.model import BookType
-from nautilus_trader.model import OmsType
+### Passive fill บน L1 {#l1-passive-fills}
 
-venue = BacktestVenueConfig(
-    name="SIM",
-    oms_type=OmsType.NETTING,
-    account_type=AccountType.CASH,
-    book_type=BookType.L1_MBP,
-    starting_balances=["100_000 USD"],
-    liquidity_consumption=True,
-    fee_model=MakerTakerFeeModel(
-        maker_rate=Decimal("0"),
-        taker_rate=Decimal("0"),
-    ),
-)
-```
+เมื่อตลาด L1 เคลื่อนผ่าน passive limit:
 
-With `liquidity_consumption=True`, the engine records the original and consumed size for each price
-level. Available size is `original_size - consumed`. A fresh book update at that level resets the
-record to the new displayed size.
-
-### L1 passive fills
-
-When an L1 market moves through a passive limit:
-
-| `liquidity_consumption` | Remaining-quantity behavior                                           |
+| `liquidity_consumption` | พฤติกรรมของปริมาณที่เหลือ                                               |
 | ----------------------- | --------------------------------------------------------------------- |
-| `False`                 | Fill the complete remaining order at its limit price.                 |
-| `True`                  | Fill only the unconsumed displayed size and leave the remainder open. |
+| `False`                 | fill order ที่เหลือทั้งหมดที่ราคา limit                                    |
+| `True`                  | fill เฉพาะขนาดที่แสดงซึ่งยังไม่ถูกใช้ และปล่อยส่วนที่เหลือเปิดไว้               |
 
-For example:
+ตัวอย่างเช่น:
 
-1. The ask is 100.10 for 50 units.
-1. A BUY LIMIT for 1,000 units rests at 100.05.
-1. The next ask is 100.00 for 30 units.
-1. With consumption enabled, 30 units fill and 970 stay open.
-1. Later updates can provide more fresh size.
+1. ask อยู่ที่ 100.10 จำนวน 50 หน่วย
+1. BUY LIMIT จำนวน 1,000 หน่วยพักอยู่ที่ 100.05
+1. ask ถัดไปคือ 100.00 จำนวน 30 หน่วย
+1. เมื่อเปิด consumption จะ fill 30 หน่วยและเหลือเปิดอยู่ 970 หน่วย
+1. update ในภายหลังอาจให้ขนาดใหม่เพิ่มเติมได้
 
-### Trade consumption
+### Trade consumption {#trade-consumption}
 
-A trade can provide executable size at a price absent from the current book. With consumption enabled,
-trade-driven fills share that size instead of letting each order consume the full trade.
+trade อาจให้ขนาดที่ execute ได้ที่ราคาซึ่งไม่มีใน book ปัจจุบัน เมื่อเปิด consumption fill ที่ขับเคลื่อนด้วย trade
+จะแบ่งใช้ขนาดนั้นร่วมกัน แทนที่จะให้แต่ละ order ใช้ trade ได้เต็มจำนวน
 
-For L2 and L3 books, the triggering trade may already have consumed displayed depth. The engine
-accounts for that volume before triggered orders use the remaining level. It skips this adjustment
-when a newer book update already reflects the trade.
+สำหรับ book แบบ L2 และ L3 trade ที่เป็นตัว trigger อาจใช้ depth ที่แสดงอยู่ไปแล้ว engine จะหัก volume นั้นออก
+ก่อนให้ order ที่ถูก trigger ใช้ระดับราคาที่เหลือ และจะข้ามการปรับนี้เมื่อมี book update ที่ใหม่กว่าซึ่งสะท้อน trade
+นั้นอยู่แล้ว
 
-Synthetic books returned by a fill model do not use per-level consumption tracking. The model must
-represent its own liquidity assumptions.
+book สังเคราะห์ที่ fill model คืนมาไม่ใช้การติดตาม consumption รายระดับราคา model ต้องแทนสมมติฐานเรื่อง
+liquidity ของตัวเองเอง
 
-### Limitations
+### ข้อจำกัด {#limitations}
 
-Consumption tracking estimates **available size**, not **order priority**. Set `queue_position=True` with
-book and trade data for displayed-queue tracking, or use `prob_fill_on_limit` for a probabilistic
-approximation.
+การติดตาม consumption เป็นการประมาณ **ขนาดที่ใช้ได้** ไม่ใช่ **ลำดับความสำคัญของ order** ตั้ง `queue_position=True`
+พร้อมข้อมูล book และ trade เพื่อติดตามคิวที่แสดงอยู่ หรือใช้ `prob_fill_on_limit` เพื่อประมาณแบบความน่าจะเป็น
 
-Trade-driven fills are also opportunistic: a print proves that liquidity existed momentarily, not that it
-stayed available after the recorded trade.
+fill ที่ขับเคลื่อนด้วย trade ยังเป็นแบบฉวยโอกาสด้วย: trade print พิสูจน์ได้เพียงว่ามี liquidity อยู่ชั่วขณะ
+ไม่ได้พิสูจน์ว่า liquidity นั้นยังคงอยู่หลังจาก trade ที่บันทึกไว้
 
-## Precision requirements
+## ข้อกำหนดเรื่อง precision {#precision-requirements}
 
-When the instrument's configured precision does not exceed the build's `FIXED_PRECISION`, the
-matching engine accepts lower or equal precision on new orders and order updates. For example,
-quantity `1` is valid for size precision 3, and price `100` is valid for price precision 2.
+เมื่อ precision ที่กำหนดของ instrument ไม่เกิน `FIXED_PRECISION` ของ build matching engine จะยอมรับ precision
+ที่ต่ำกว่าหรือเท่ากันใน order ใหม่และการอัปเดต order ตัวอย่างเช่น quantity `1` ใช้ได้กับ size precision 3
+และ price `100` ใช้ได้กับ price precision 2
 
-For these instruments, higher precision is rejected even when the extra decimals are zeros:
-`1.0000` is invalid for size precision 3.
+สำหรับ instrument เหล่านี้ precision ที่สูงกว่าจะถูก reject แม้ทศนิยมส่วนเกินจะเป็นศูนย์ก็ตาม:
+`1.0000` ใช้ไม่ได้กับ size precision 3
 
-Fractional fills and quantity reductions keep exact values. A quantity `1` order partially filled for `0.500`
-reports `0.500` filled and `0.500` remaining.
+fill แบบเศษส่วนและการลดปริมาณจะคงค่าที่แน่นอนไว้ order ที่มี quantity `1` ซึ่ง fill บางส่วน `0.500`
+จะรายงานว่า fill แล้ว `0.500` และเหลือ `0.500`
 
-DeFi builds can use instrument precisions above `FIXED_PRECISION`. For those instruments, the
-validated order fields listed below require **exact precision**: both precision 17 and precision 0
-are rejected when the instrument requires 18. The listed market-data fields must match the
-instrument's configured `price_precision` and `size_precision` exactly.
+build สำหรับ DeFi ใช้ precision ของ instrument ที่สูงกว่า `FIXED_PRECISION` ได้ สำหรับ instrument เหล่านี้
+field ของ order ที่ถูกตรวจสอบตามรายการด้านล่างต้องมี **precision ตรงพอดี**: ทั้ง precision 17 และ precision 0
+จะถูก reject เมื่อ instrument ต้องการ 18 ส่วน field ของ market data ที่ระบุไว้ต้องตรงกับ `price_precision`
+และ `size_precision` ที่กำหนดไว้ของ instrument พอดี
 
-The outcome of invalid precision depends on where it enters the matching engine:
+ผลของ precision ที่ไม่ถูกต้องขึ้นอยู่กับว่าเข้ามาที่ matching engine ทางใด:
 
-| Input            | Validated fields                                     | Invalid precision outcome                                    |
+| Input            | Field ที่ตรวจสอบ                                       | ผลเมื่อ precision ไม่ถูกต้อง                                      |
 | ---------------- | ---------------------------------------------------- | ------------------------------------------------------------ |
-| `QuoteTick`      | Bid and ask prices and sizes                         | Log a warning and skip the tick.                             |
-| `TradeTick`      | Price and size                                       | Log a warning and skip the tick.                             |
-| Executable `Bar` | Open, high, low, close, and volume                   | Log a warning and skip the bar.                              |
-| New order        | Quantity, display quantity, price, and trigger price | Reject the order.                                            |
-| Order update     | Quantity, price, and trigger price                   | Reject the modification.                                     |
-| Generated fill   | Fill price and quantity                              | Normalize when compatible. Otherwise warn and skip the fill. |
+| `QuoteTick`      | ราคาและขนาดของ bid และ ask                              | log warning แล้วข้าม tick นั้น                                   |
+| `TradeTick`      | ราคาและขนาด                                           | log warning แล้วข้าม tick นั้น                                   |
+| `Bar` ที่ execute ได้ | open, high, low, close และ volume                     | log warning แล้วข้าม bar นั้น                                    |
+| order ใหม่         | quantity, display quantity, price และ trigger price   | reject order                                                 |
+| การอัปเดต order    | quantity, price และ trigger price                     | reject การแก้ไข                                               |
+| fill ที่สร้างขึ้น      | ราคาและปริมาณของ fill                                   | normalize เมื่อเข้ากันได้ มิฉะนั้น warn แล้วข้าม fill นั้น              |
 
-The engine logs an error after **20 consecutive market-data precision mismatches**. With
-`shutdown_on_error=True`, that error can request a normal backtest shutdown. A valid quote, trade,
-or executable bar resets the consecutive-mismatch count.
+engine จะ log error หลังจาก **precision ของ market data ไม่ตรงติดต่อกัน 20 ครั้ง** เมื่อตั้ง
+`shutdown_on_error=True` error นั้นสามารถร้องขอให้ปิด backtest ตามปกติได้ quote, trade หรือ bar ที่ execute ได้
+ซึ่งถูกต้องจะ reset ตัวนับการไม่ตรงติดต่อกัน
 
-**Bar volume**: `Bar.volume` must use the instrument's quantity units and size precision. Convert
-provider-specific quote-volume fields before creating the bar.
+**Bar volume**: `Bar.volume` ต้องใช้หน่วยปริมาณและ size precision ของ instrument ให้แปลง field quote-volume
+เฉพาะของผู้ให้บริการข้อมูลก่อนสร้าง bar
 
-Use the instrument factories to construct compatible values:
+ใช้ factory method ของ instrument (`make_price` และ `make_qty`) เพื่อสร้างค่าที่เข้ากันได้
 
-```python
-price = instrument.make_price(raw_price)
-quantity = instrument.make_qty(raw_quantity)
-```
-
-Also verify that the instrument definition matches the data source and that custom loaders preserve
-the source precision.
+นอกจากนี้ให้ตรวจสอบว่านิยาม instrument ตรงกับแหล่งข้อมูล และ loader ที่เขียนเองยังคง precision ของแหล่งข้อมูลไว้

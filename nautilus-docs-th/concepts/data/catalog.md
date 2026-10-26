@@ -1,102 +1,69 @@
-# Data Catalog
+# Data catalog
 
-The data catalog stores NautilusTrader data in [Parquet](https://parquet.apache.org) files for
-backtesting, live trading, and research.
+Data catalog จัดเก็บข้อมูลของ NautilusTrader ในไฟล์ [Parquet](https://parquet.apache.org) เพื่อใช้ใน backtest,
+live trading และงานวิจัย
 
-## Overview and architecture
+## ภาพรวมและสถาปัตยกรรม {#overview-and-architecture}
 
-`ParquetDataCatalog` is the Python interface to the Rust catalog and DataFusion query engine.
-The Rust model and persistence crates define the Arrow schemas for built-in data. Registered custom
-data supplies its schema and encode/decode handlers at runtime.
+`ParquetDataCatalog` ทำงานบน catalog ที่เขียนด้วย Rust และ query engine ของ DataFusion crate ด้าน model และ
+persistence ของ Rust เป็นตัวกำหนด Arrow schema ของข้อมูลที่มีมาให้ ส่วน custom data ที่ลงทะเบียนไว้จะส่ง schema และ
+handler สำหรับ encode/decode ของตัวเองเข้ามาตอน runtime
 
-Instant timestamps use `Timestamp(Nanosecond, Some("UTC"))`. Durations stay integers. Arrow readers and
-Nautilus queries preserve the nanoseconds and UTC annotation. SQL readers that map these columns to
-microsecond-precision `TIMESTAMPTZ` can truncate sub-microsecond values.
+Timestamp แบบจุดเวลาใช้ `Timestamp(Nanosecond, Some("UTC"))` ส่วน duration ยังคงเป็นจำนวนเต็ม Arrow reader และ
+query ของ Nautilus จะคงความละเอียดระดับ nanosecond และ annotation UTC ไว้ SQL reader ที่ map column เหล่านี้เป็น
+`TIMESTAMPTZ` ความละเอียดระดับ microsecond อาจตัดค่าที่ละเอียดกว่า microsecond ทิ้ง
 
-Parquet provides compressed columnar storage and cross-language access. The catalog stores these
-files under one root without requiring a separate database service. A local path or object-store
-URI selects the storage backend.
+Parquet ให้การจัดเก็บแบบ columnar ที่บีบอัดได้และเข้าถึงได้จากหลายภาษา catalog เก็บไฟล์เหล่านี้ไว้ใต้ root เดียว
+โดยไม่ต้องมี database service แยกต่างหาก path แบบ local หรือ URI ของ object store เป็นตัวเลือก storage backend
 
-## Initializing
+## การ initialize {#initializing}
 
-Pass a local path or URI as the first constructor argument:
+ส่ง path แบบ local หรือ URI เป็น argument แรกของ constructor
 
-```python
-from pathlib import Path
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-from nautilus_trader.persistence import ParquetDataCatalog
+## Filesystem protocol และ storage option {#filesystem-protocols-and-storage-options}
 
+Catalog รองรับ storage protocol ตามที่ object-store backend ฝั่ง Rust รองรับ
 
-CATALOG_PATH = Path.cwd() / "catalog"
-catalog = ParquetDataCatalog(str(CATALOG_PATH))
-```
+### Filesystem protocol ที่รองรับ {#supported-filesystem-protocols}
 
-## Filesystem protocols and storage options
-
-The catalog accepts the storage protocols supported by its Rust object-store backend.
-
-### Supported filesystem protocols
-
-| Storage              | URI schemes        | Common option keys                                                        |
+| Storage              | URI scheme         | Option key ที่ใช้บ่อย                                                       |
 | -------------------- | ------------------ | ------------------------------------------------------------------------- |
-| Local filesystem     | Plain path, `file` | None.                                                                     |
+| Local filesystem     | Path ธรรมดา, `file` | ไม่มี                                                                      |
 | Amazon S3            | `s3`               | `region`, `access_key_id`, `secret_access_key`, `endpoint_url`.           |
 | Google Cloud Storage | `gs`, `gcs`        | `service_account_path`, `service_account_key`, `application_credentials`. |
 | Azure Blob Storage   | `az`, `abfs`       | `account_name`, `account_key`, `sas_token`.                               |
-| HTTP or WebDAV       | `http`, `https`    | `timeout`, `connect_timeout`, `proxy_url`.                                |
+| HTTP หรือ WebDAV      | `http`, `https`    | `timeout`, `connect_timeout`, `proxy_url`.                                |
 
-Option keys are `object_store` configuration keys for the URI scheme:
+Option key คือ configuration key ของ `object_store` สำหรับ URI scheme นั้น:
 
-- S3, GCS, and Azure keys also take a prefixed form, such as `aws_region`,
-  `google_application_credentials`, or `azure_storage_sas_token`.
-- Client options such as `timeout` apply to each remote scheme. Set `allow_http` to `true` to connect over
-  plain `http://`.
-- S3 also accepts the legacy `key` and `secret` names.
-- An unknown key fails with an error that names it.
+- Key ของ S3, GCS และ Azure ใช้แบบมี prefix ได้ด้วย เช่น `aws_region`, `google_application_credentials` หรือ
+  `azure_storage_sas_token`
+- Client option เช่น `timeout` ใช้กับทุก scheme แบบ remote ตั้ง `allow_http` เป็น `true` เพื่อเชื่อมต่อผ่าน `http://` ธรรมดา
+- S3 รองรับชื่อแบบเก่า `key` และ `secret` ด้วย
+- Key ที่ไม่รู้จักจะล้มเหลวพร้อม error ที่ระบุชื่อ key นั้น
 
-Pass credentials and other backend settings through `storage_options`:
+ส่ง credential และค่าตั้งอื่น ๆ ของ backend ผ่าน `storage_options`
 
-```python
-catalog = ParquetDataCatalog(
-    "s3://my-bucket/nautilus-data/",
-    storage_options={
-        "access_key_id": "your-key",
-        "secret_access_key": "your-secret",
-        "region": "us-east-1",
-    },
-)
+หลังส่วนของ bucket, container หรือ host แล้ว base path ของ URI แบบ remote ต้องไม่มีช่องว่างหรืออักขระที่ไม่ใช่ ASCII
+และต้องไม่มีอักขระที่ path ของ object-store จะ encode เช่น `~`, `%`, `#`, `?`, `^` หรือ `|` catalog จะปฏิเสธ URI
+ลักษณะนี้ตอนเปิด พร้อม error ที่ระบุ URI นั้น
 
-azure_catalog = ParquetDataCatalog(
-    "abfs://container@account.dfs.core.windows.net/nautilus-data/",
-    storage_options={"account_key": "your-account-key"},
-)
-```
+## การบีบอัดและ row group {#compression-and-row-groups}
 
-After the bucket, container, or host, the base path of a remote URI must not contain spaces or non-ASCII
-characters. It must also exclude characters that object-store paths encode, such as `~`, `%`, `#`, `?`, `^`,
-or `|`. The catalog rejects such a URI when it opens, with an error that names it.
+`DataCatalogConfig` กำหนดวิธีที่ catalog ที่ตั้งค่าไว้อ่านและเขียนไฟล์ข้อมูล:
 
-## Compression and row groups
-
-`DataCatalogConfig` sets how a configured catalog reads and writes data files:
-
-| Field                | Controls                                    | Default          |
+| Field                | ควบคุม                                       | ค่าเริ่มต้น        |
 | -------------------- | ------------------------------------------- | ---------------- |
-| `batch_size`         | Rows per batch the catalog reads and writes | 10,000           |
-| `compression`        | Codec name for written data files           | `zstd` (level 1) |
-| `max_row_group_size` | Maximum rows per written row group          | 131,072          |
+| `batch_size`         | จำนวน row ต่อ batch ที่ catalog อ่านและเขียน    | 10,000           |
+| `compression`        | ชื่อ codec สำหรับไฟล์ข้อมูลที่เขียน              | `zstd` (level 1) |
+| `max_row_group_size` | จำนวน row สูงสุดต่อ row group ที่เขียน           | 131,072          |
 
-```python
-from nautilus_trader.config import DataCatalogConfig
+`ParquetDataCatalog` รับค่า `batch_size` และ `max_row_group_size` แบบเดียวกัน แต่เลือก `compression` ด้วยรหัสตัวเลข
+ส่วน `DataCatalogConfig` รับชื่อด้านล่างโดยไม่สนตัวพิมพ์เล็กใหญ่:
 
-
-catalog = DataCatalogConfig(path="./catalog", compression="snappy", max_row_group_size=65_536)
-```
-
-`ParquetDataCatalog` takes the same `batch_size` and `max_row_group_size` settings, but selects
-`compression` by numeric code. `DataCatalogConfig` accepts the names below, ignoring case:
-
-| Codec        | `DataCatalogConfig` name | `ParquetDataCatalog` code |
+| Codec        | ชื่อใน `DataCatalogConfig` | รหัสใน `ParquetDataCatalog` |
 | ------------ | ------------------------ | ------------------------- |
 | Uncompressed | `uncompressed`           | `0`                       |
 | Snappy       | `snappy`                 | `1`                       |
@@ -105,38 +72,22 @@ catalog = DataCatalogConfig(path="./catalog", compression="snappy", max_row_grou
 | LZ4          | `lz4`, `lz4_raw`         | `5`                       |
 | zstd         | `zstd`                   | `6`                       |
 
-Construction fails for any other compression name and for a zero `batch_size` or `max_row_group_size`.
-`params` carries only options for an external catalog backend. The Parquet catalog rejects any `params` key.
+การสร้างจะล้มเหลวหากใช้ชื่อ compression อื่น หรือตั้ง `batch_size` หรือ `max_row_group_size` เป็นศูนย์
+`params` ใช้ส่ง option สำหรับ catalog backend ภายนอกเท่านั้น Parquet catalog จะปฏิเสธ key ใด ๆ ใน `params`
 
 :::info
-`lz4` and `lz4_raw` name the same codec: the catalog writes Parquet `LZ4_RAW`. The Parquet format deprecates
-the older Hadoop-framed `LZ4` codec, so the catalog never writes it. Compression code `5` writes `LZ4_RAW`
-even though Parquet numbers `LZ4_RAW` as `7`. Files written earlier with the Hadoop-framed codec stay
-readable.
+`lz4` และ `lz4_raw` หมายถึง codec เดียวกัน: catalog เขียนเป็น Parquet `LZ4_RAW` รูปแบบ Parquet เลิกสนับสนุน
+codec `LZ4` แบบเก่าที่มี Hadoop framing แล้ว catalog จึงไม่เขียนแบบนั้นเลย รหัส compression `5` เขียนเป็น `LZ4_RAW`
+แม้ว่า Parquet จะกำหนดหมายเลขของ `LZ4_RAW` เป็น `7` ไฟล์ที่เคยเขียนด้วย codec แบบ Hadoop framing ยังคงอ่านได้
 
-LZO is not supported because the Parquet writer cannot produce it, so the name `lzo` and code `3`
-fail at construction.
+ไม่รองรับ LZO เพราะ Parquet writer สร้างไม่ได้ ชื่อ `lzo` และรหัส `3` จึงล้มเหลวตอนสร้าง
 :::
 
-## Writing data
+## การเขียนข้อมูล {#writing-data}
 
-Use the writer for the concrete data type. Instrument definitions and custom data have separate
-writers.
+ใช้ writer ที่ตรงกับประเภทข้อมูลจริง instrument definition และ custom data มี writer แยกต่างหาก
 
-```python
-catalog.write_instruments([instrument])
-catalog.write_quote_ticks(quote_ticks)
-
-catalog.write_trade_ticks(
-    trade_ticks,
-    start=1704067200000000000,
-    end=1704153600000000000,
-)
-
-catalog.write_bars(bars, skip_disjoint_check=True)
-```
-
-The built-in market-data writers are:
+Writer สำหรับ market data ที่มีมาให้ได้แก่:
 
 - `write_quote_ticks`
 - `write_trade_ticks`
@@ -147,21 +98,20 @@ The built-in market-data writers are:
 - `write_index_price_updates`
 - `write_option_greeks`
 
-Each writer accepts optional `start` and `end` overrides as UNIX nanoseconds. The data in one call
-must have one identity, such as one instrument ID or bar type, and must be ordered by `ts_init`.
+Writer แต่ละตัวรับ `start` และ `end` แบบ optional เพื่อ override เป็น UNIX nanosecond ข้อมูลในการเรียกครั้งเดียวต้องมี
+identity เดียว เช่น instrument ID หรือ bar type เดียว และต้องเรียงตาม `ts_init`
 
-Typed, instrument, and custom-data writes on one instance serialize their native file changes.
-Do not overlap queries, record writes, or [catalog operations](#catalog-operations) with other calls
-on that instance. A concurrent call can raise `RuntimeError` if either call needs exclusive access.
+การเขียนข้อมูลแบบ typed, instrument และ custom data บน instance เดียวกันจะ serialize การเปลี่ยนแปลงไฟล์ระดับ native
+อย่าให้ query, การเขียน record หรือ [catalog operation](#catalog-operations) ทับซ้อนกับการเรียกอื่นบน instance เดียวกัน
+การเรียกพร้อมกันอาจเกิด error หากการเรียกตัวใดตัวหนึ่งต้องการสิทธิ์เข้าถึงแบบ exclusive
 
-## File naming and data organization
+## การตั้งชื่อไฟล์และการจัดระเบียบข้อมูล {#file-naming-and-data-organization}
 
-The catalog names files from their timestamp range with the pattern
-`{start_timestamp}_{end_timestamp}.parquet`. It converts each ISO 8601 timestamp to a filename-safe
-form by replacing `:` and `.` with `-`.
+Catalog ตั้งชื่อไฟล์ตามช่วง timestamp ด้วยรูปแบบ `{start_timestamp}_{end_timestamp}.parquet` โดยแปลง timestamp
+ISO 8601 แต่ละตัวให้ปลอดภัยสำหรับชื่อไฟล์ด้วยการแทน `:` และ `.` ด้วย `-`
 
-Built-in data is organized in directories by data type and identifier. For instrument IDs and bar
-types, the catalog removes `/` and replaces `^` with `_` when creating the URI-safe directory name:
+ข้อมูลที่มีมาให้จะจัดเป็น directory ตามประเภทข้อมูลและ identifier สำหรับ instrument ID และ bar type catalog จะลบ `/`
+และแทน `^` ด้วย `_` เมื่อสร้างชื่อ directory ที่ปลอดภัยสำหรับ URI:
 
 ```text
 catalog/
@@ -174,415 +124,217 @@ catalog/
 │           └── 2024-01-01T00-00-00-000000000Z_2024-01-01T23-59-59-999999999Z.parquet
 ```
 
-Custom data uses `data/custom/<type_name>/` with optional identifier path segments.
+Custom data ใช้ `data/custom/<type_name>/` โดยอาจมี path segment ของ identifier ต่อท้าย
 
-Instruments use one directory per concrete instrument class, such as `data/currency_pair/` or
-`data/equity/`, rather than a shared `instruments` directory.
+Instrument ใช้ directory หนึ่งอันต่อ instrument class จริง เช่น `data/currency_pair/` หรือ `data/equity/`
+แทนที่จะใช้ directory `instruments` ร่วมกัน
 
-Catalog queries, and thus backtests, read **only these canonical directories**. Queries do not read legacy
-layouts such as `data/trade_tick/`, `data/quote_tick/`, and the Python-written `data/custom_<snake_case>/`.
+Query ของ catalog และ backtest จึงอ่าน **เฉพาะ directory มาตรฐานเหล่านี้** query จะไม่อ่าน layout แบบเก่า เช่น
+`data/trade_tick/`, `data/quote_tick/` และ `data/custom_<snake_case>/`
 
-To upgrade a catalog that still uses a legacy layout, convert it with
-[nautilus catalog migrate-parquet](../../how_to/migrate_parquet_catalog.md).
+หากต้องการอัปเกรด catalog ที่ยังใช้ layout แบบเก่า ให้แปลงด้วย
+[nautilus catalog migrate-parquet](../../how_to/migrate_parquet_catalog.md)
 
-:::warning[Overlapping writes]
-By default, overlapping writes raise an `OSError` to maintain data integrity.
-Set `skip_disjoint_check=True` only when the overlap is intentional.
+:::warning[การเขียนที่ทับซ้อนกัน]
+โดยค่าเริ่มต้น การเขียนที่ช่วงเวลาทับซ้อนกันจะเกิด error เพื่อรักษาความถูกต้องของข้อมูล
+ตั้ง `skip_disjoint_check=True` เฉพาะเมื่อตั้งใจให้ทับซ้อนเท่านั้น
 :::
 
-## Reading data
+## การอ่านข้อมูล {#reading-data}
 
-Use a typed query when the expected return type is known. `start` and `end` are UNIX nanoseconds:
+ใช้ typed query เมื่อทราบประเภทผลลัพธ์ที่ต้องการ (เช่น `query_quote_ticks`, `query_trade_ticks`) โดย `start` และ `end`
+เป็น UNIX nanosecond
 
-```python
-quotes = catalog.query_quote_ticks(
-    identifiers=["EUR/USD.SIM"],
-    start=1704067200000000000,
-    end=1704153600000000000,
-)
+เมื่อเปิด feature `streaming` ให้ลงทะเบียน catalog ผ่าน `LiveNodeConfig.catalogs` ด้วยรายการ `DataCatalogConfig`
+historical request จะอ่านช่วงเวลาที่มีอยู่ใน catalog และขอช่วงที่ขาดจาก data client
 
-trades = catalog.query_trade_ticks(
-    identifiers=["BTC/USD.BINANCE"],
-    start=1704067200000000000,
-    end=1704153600000000000,
-)
-```
+Request ของ quote และ trade ที่ระบุ `params["schema"]` อย่างชัดเจนจะข้ามการอ่านจาก catalog และการเขียนกลับ
+เพราะ schema ต้นทางอาจเปลี่ยนการ sampling หรือ trade ID แต่ key ของ catalog ไม่ได้แยกแยะส่วนนี้
 
-With the `streaming` feature enabled, register catalogs through `LiveNodeConfig.catalogs` using
-`DataCatalogConfig` entries. Historical requests read available catalog intervals and request missing
-intervals from the data client.
+ตั้ง `params={"update_catalog": True}` เพื่อเขียน response ที่สำเร็จจากต้นทางกลับลงใน catalog และใช้ `"catalog_name"`
+เพื่อเลือก catalog ที่ลงทะเบียนไว้อย่างชัดเจน
 
-Quote and trade requests with an explicit `params["schema"]` bypass catalog reads and write-back.
-Source schemas can change sampling or trade IDs, but catalog keys do not distinguish them.
+การเขียนกลับต้องใช้ client ที่รายงานการเสร็จสิ้นอย่างชัดเจน เช่น Databento client อื่นจะคืนข้อมูลโดยไม่อัปเดต catalog
+และ log เหตุผลที่ข้ามการเขียนกลับ
 
-Set `params={"update_catalog": True}` to write successful source responses back to the catalog.
-Use `"catalog_name"` to select a registered catalog explicitly.
+การเขียนกลับใช้กฎความครอบคลุมเหล่านี้:
 
-Write-back requires a client that reports completion explicitly, such as Databento or a Python adapter.
-Other clients return data without updating the catalog and log why write-back is skipped.
+- Response ที่ล้มเหลวและที่เป็นระหว่างทางจะข้ามการเขียนกลับ request ที่ถูกแบ่งเป็นหลาย envelope จากต้นทางก็ข้ามเช่นกัน
+  รวมถึง request book delta แบบ parent-symbol ที่คืน payload หลายชุด
+- Request ที่มีการจำกัดจำนวน record จะข้ามการเขียนกลับ เพราะจำนวน row ที่ decode ได้ไม่สามารถพิสูจน์ได้ว่าต้นทางใช้
+  limit นั้นหมดหรือไม่
+- Batch ที่มี instrument หรือ bar type นอกเหนือจาก request จะข้ามการเขียนกลับ เพราะไม่ทราบช่วงความครอบคลุมจากต้นทาง
+- Response ว่างที่สำเร็จสามารถขยายความครอบคลุมแบบ known-empty ได้ เมื่อมีขอบเขตทั้งสองด้านและ backend รองรับ
 
-Write-back applies these coverage rules:
+ความล้มเหลวในการเขียน catalog จะถูก log ไว้และไม่ทำให้ข้อมูลที่คืนมาถูกทิ้ง
 
-- Failed and intermediate responses skip write-back. Requests split across multiple source envelopes
-  also skip write-back, including parent-symbol book-delta requests that return multiple payloads.
-- Requests with a record limit skip write-back. Decoded row counts cannot prove whether the source
-  exhausted that limit.
-- Batches with instruments or bar types outside the request skip write-back because their source
-  coverage intervals are unknown.
-- Successful empty responses can extend known-empty coverage when both bounds are available and the
-  backend supports it.
+## `BacktestDataConfig`: ข้อมูลสำหรับ backtest {#backtestdataconfig-backtest-data}
 
-Catalog write failures are logged and do not discard the returned data.
+`BacktestDataConfig` กำหนดข้อมูลใน catalog ที่ `BacktestNode` จะโหลดสำหรับหนึ่ง run
 
-## `BacktestDataConfig`: backtest data
+### พารามิเตอร์หลัก {#core-parameters}
 
-`BacktestDataConfig` defines the catalog data that a `BacktestNode` loads for one run.
+- `data_type` เป็นค่า `NautilusDataType`: `QuoteTick`, `TradeTick`, `Bar`, `OrderBookDelta`, `OrderBookDepth`,
+  `MarkPriceUpdate`, `IndexPriceUpdate`, `FundingRateUpdate`, `InstrumentStatus`, `OptionGreeks`, `InstrumentClose`
+  หรือ `Instrument` โดย `Instrument` จะโหลดทุก instrument class ที่ catalog มีสำหรับ identifier ที่เลือก
+- `catalog_path` ระบุ root ของ catalog
+- ต้องระบุ `instrument_id`, `instrument_ids` หรือ `bar_types` อย่างใดอย่างหนึ่ง
+- `start_time` และ `end_time` เป็นขอบเขตเวลาแบบ UNIX nanosecond (optional)
+- `filter_expr` เป็น predicate แบบ DataFusion SQL (optional)
+- `catalog_fs_protocol` ใช้เป็น prefix ของ `catalog_path` สำหรับ remote storage
+- `catalog_fs_rust_storage_options` ส่ง option ให้ backend ฝั่ง Rust หากไม่ได้ตั้งค่า `BacktestNode` จะ fallback ไปใช้
+  `catalog_fs_storage_options`
+- สำหรับ bar, `bar_spec` จะรวมกับ instrument ID เพื่อเลือก bar type แบบ `EXTERNAL` ส่วน `bar_types` ที่ระบุอย่างชัดเจน
+  สามารถเลือก bar แบบ internal, external หรือ composite ได้ ตัวอย่างเช่น instrument `AAPL.NASDAQ` กับ bar spec แบบ
+  5-MINUTE-LAST จะเลือก `AAPL.NASDAQ-5-MINUTE-LAST-EXTERNAL`
+- `optimize_file_loading` จะลงทะเบียนทั้ง directory เมื่อทำได้
+- `batch_deltas` (ค่าเริ่มต้น `True`) จะ replay ข้อมูล `OrderBookDelta` เป็น batch `OrderBookDeltas` ที่ปิดด้วย `F_LAST`
+  ดู [order book delta replay](../backtesting/apis-and-runs.md#order-book-delta-replay)
 
-### Core parameters
+### Cloud storage และการกรอง {#cloud-storage-and-filtering}
 
-- `data_type` is a `NautilusDataType` value: `QuoteTick`, `TradeTick`, `Bar`, `OrderBookDelta`,
-  `OrderBookDepth`, `MarkPriceUpdate`, `IndexPriceUpdate`, `FundingRateUpdate`, `InstrumentStatus`,
-  `OptionGreeks`, `InstrumentClose`, or `Instrument`. `Instrument` loads each instrument class the catalog
-  holds for the selected identifiers.
-- `catalog_path` identifies the catalog root.
-- One of `instrument_id`, `instrument_ids`, or `bar_types` is required.
-- `start_time` and `end_time` are optional UNIX nanosecond bounds.
-- `filter_expr` is an optional DataFusion SQL predicate.
-- `catalog_fs_protocol` prefixes `catalog_path` for remote storage.
-- `catalog_fs_rust_storage_options` supplies the Rust backend options. If it is unset,
-  `BacktestNode` falls back to `catalog_fs_storage_options`.
-- For bars, `bar_spec` combines with the instrument ID to select an `EXTERNAL` bar type. Explicit
-  `bar_types` can select internal, external, or composite bars.
-- `optimize_file_loading` registers whole directories when possible.
-- `batch_deltas` (default `True`) replays `OrderBookDelta` data as `OrderBookDeltas` batches closed
-  by `F_LAST`. See [order book delta replay](../backtesting/apis-and-runs.md#order-book-delta-replay).
+สำหรับ catalog บน cloud ให้ใช้ `catalog_fs_protocol` (เช่น `s3`) ร่วมกับ `catalog_fs_rust_storage_options` เพื่อส่ง credential
+และใช้ `filter_expr` (เช่น `ts_init >= 1704067200000000000`) เพื่อกรองข้อมูล
 
-### Basic usage examples
+### การใช้ร่วมกับ BacktestRunConfig {#integration-with-backtestrunconfig}
 
-```python
-from nautilus_trader.config import BacktestDataConfig
-from nautilus_trader.model import BarAggregation
-from nautilus_trader.model import BarSpecification
-from nautilus_trader.model import InstrumentId
-from nautilus_trader.model import NautilusDataType
-from nautilus_trader.model import PriceType
+ส่ง data config เหล่านี้ให้ `BacktestRunConfig` ผ่าน field `data` ร่วมกับ config ของ venue และขอบเขตเวลา `start`/`end`
+ของ run
 
-quote_data = BacktestDataConfig(
-    data_type=NautilusDataType.QuoteTick,
-    catalog_path="/path/to/catalog",
-    instrument_id=InstrumentId.from_str("EUR/USD.SIM"),
-    start_time=1704067200000000000,
-    end_time=1704153600000000000,
-)
+### ขั้นตอนการโหลดข้อมูล {#data-loading-process}
 
-trade_data = BacktestDataConfig(
-    data_type=NautilusDataType.TradeTick,
-    catalog_path="/path/to/catalog",
-    instrument_ids=[
-        InstrumentId.from_str("BTC/USD.BINANCE"),
-        InstrumentId.from_str("ETH/USD.BINANCE"),
-    ],
-)
+เมื่อ backtest ทำงาน `BacktestNode` จะประมวลผล `BacktestDataConfig` แต่ละตัวดังนี้:
 
-bar_data = BacktestDataConfig(
-    data_type=NautilusDataType.Bar,
-    catalog_path="/path/to/catalog",
-    instrument_id=InstrumentId.from_str("AAPL.NASDAQ"),
-    bar_spec=BarSpecification(5, BarAggregation.MINUTE, PriceType.LAST),
-)
-```
+1. สร้าง `ParquetDataCatalog` จาก configuration
+1. โหลด instrument definition ที่จำเป็นระหว่างสร้าง engine
+1. สร้างและรัน DataFusion query จาก field ใน configuration
+1. เรียงข้อมูลที่ merge แล้วตาม `ts_init` และเพิ่มเข้าไปใน backtest engine
 
-This bar config selects `AAPL.NASDAQ-5-MINUTE-LAST-EXTERNAL`.
+## การเข้าถึง catalog โดยตรง {#direct-catalog-access}
 
-### Cloud storage and filtering
+- ใช้ `ParquetDataCatalog` เพื่อ query หรือเขียน catalog โดยตรง
+- ใช้ `BacktestDataConfig` เมื่อต้องการให้ `BacktestNode` โหลดข้อมูลจาก catalog สำหรับ run
+- ใช้ `LiveNodeConfig.catalogs` เพื่อลงทะเบียน catalog สำหรับ historical request ซึ่งไม่ได้ preload ข้อมูลแบบที่
+  `BacktestDataConfig` ทำ ส่วน field `streaming` ที่แยกต่างหากใช้กำหนดการเขียน Feather เท่านั้น
 
-```python
-book_data = BacktestDataConfig(
-    data_type=NautilusDataType.OrderBookDelta,
-    catalog_path="my-bucket/nautilus-data",
-    catalog_fs_protocol="s3",
-    catalog_fs_rust_storage_options={
-        "access_key_id": "your-access-key",
-        "secret_access_key": "your-secret-key",
-        "region": "us-east-1",
-    },
-    instrument_id=InstrumentId.from_str("BTC/USD.COINBASE"),
-    filter_expr="ts_init >= 1704067200000000000",
-)
-```
+## การ query และการกรอง {#querying-and-filtering}
 
-### Integration with BacktestRunConfig
+`query` แบบ generic เลือกกลุ่มข้อมูลผ่าน `NautilusDataType` ซึ่ง map ไปยัง directory ของ catalog เช่น `quotes`,
+`trades` หรือ `bars` ใช้เมื่อต้องการควบคุม `files` หรือ `optimize_file_loading`
 
-Pass the data configurations to `BacktestRunConfig`:
+Query method ทั้งหมดนี้ใช้ขอบเขตเวลาแบบ UNIX nanosecond และรับ `where_clause` แบบ DataFusion SQL:
 
-```python
-from decimal import Decimal
+- `query` เป็น interface แบบ generic
+- Typed method เช่น `query_quote_ticks`, `query_trade_ticks` และ `query_bars` คืนค่าเป็น model type จริง
+- `query_custom_data` resolve custom decoder ผ่าน registry ตอน runtime
 
-from nautilus_trader.config import BacktestDataConfig
-from nautilus_trader.config import BacktestRunConfig
-from nautilus_trader.config import BacktestVenueConfig
-from nautilus_trader.execution import MakerTakerFeeModel
-from nautilus_trader.model import AccountType
-from nautilus_trader.model import BookType
-from nautilus_trader.model import InstrumentId
-from nautilus_trader.model import NautilusDataType
-from nautilus_trader.model import OmsType
+:::warning[ฐานข้อมูล time zone ไม่ตรงกัน]
+เมื่อใช้ `Cargo.lock` ปัจจุบัน ฟังก์ชันด้านเวลาของ DataFusion SQL จะ resolve time zone แบบมีชื่อด้วยฐานข้อมูลของ
+`chrono-tz` 0.10.4 ที่เป็น transitive dependency (IANA 2025b) ส่วนการทำงานด้าน time zone ในแกน Rust ใช้ Jiff 0.2.38
+พร้อมฐานข้อมูล IANA 2026e ที่ bundle มา ผลลัพธ์ของ zone อาจต่างกันเมื่อกฎของ zone เปลี่ยน หรือข้อมูลย้อนหลังถูกแก้ไข
+หลัง 2025b จนกว่า DataFusion จะ migrate
 
-data_configs = [
-    BacktestDataConfig(
-        data_type=NautilusDataType.QuoteTick,
-        catalog_path="/path/to/catalog",
-        instrument_id=InstrumentId.from_str("EUR/USD.SIM"),
-    ),
-]
-
-run_config = BacktestRunConfig(
-    venues=[
-        BacktestVenueConfig(
-            name="SIM",
-            oms_type=OmsType.HEDGING,
-            account_type=AccountType.MARGIN,
-            book_type=BookType.L1_MBP,
-            starting_balances=["1_000_000 USD"],
-            fee_model=MakerTakerFeeModel(
-                maker_rate=Decimal("0"),
-                taker_rate=Decimal("0"),
-            ),
-        ),
-    ],
-    data=data_configs,
-    start=1704067200000000000,
-    end=1704153600000000000,
-)
-```
-
-### Data loading process
-
-When a backtest runs, the `BacktestNode` processes each `BacktestDataConfig`:
-
-1. Create a `ParquetDataCatalog` from the configuration.
-1. Load the required instrument definitions while building the engine.
-1. Build and run a DataFusion query from the configuration fields.
-1. Sort merged data by `ts_init` and add it to the backtest engine.
-
-## Direct catalog access
-
-- Use `ParquetDataCatalog` to query or write a catalog directly.
-- Use `BacktestDataConfig` when a `BacktestNode` should load catalog data for a run.
-- Use `LiveNodeConfig.catalogs` to register catalogs for historical requests. This does not preload
-  data as `BacktestDataConfig` does. The separate `streaming` field configures Feather writing only.
-
-## Querying and filtering
-
-The generic `query` selects a data family through `NautilusDataType`, which maps to catalog
-directories such as `quotes`, `trades`, or `bars`. Use it when you need the `files` or
-`optimize_file_loading` controls:
-
-```python
-catalog.query(
-    data_type=NautilusDataType.QuoteTick,
-    identifiers=["EUR/USD.SIM"],
-    start=1704067200000000000,
-    end=1704153600000000000,
-    where_clause="ts_event <= ts_init",
-    files=None,
-)
-```
-
-All of these query methods use UNIX nanosecond time bounds and accept a DataFusion SQL
-`where_clause`:
-
-- `query` provides the generic interface.
-- Typed methods such as `query_quote_ticks`, `query_trade_ticks`, and `query_bars` return the
-  concrete model type.
-- `query_custom_data` resolves custom decoders through the runtime registry.
-
-:::warning[Time-zone database mismatch]
-With the current `Cargo.lock`, DataFusion SQL temporal functions resolve named time zones with the
-transitive `chrono-tz` 0.10.4 database (IANA 2025b). Rust core time-zone operations use Jiff 0.2.38
-with its bundled IANA 2026e database. Zone results can differ when zone rules change or historical
-data is corrected after 2025b until DataFusion migrates.
-
-If RustSec files unmaintained advisories for `chrono` or `chrono-tz`, maintain matching documented
-ignores in `.cargo/audit.toml` and `deny.toml` until DataFusion migrates.
+หาก RustSec ออก advisory ประเภท unmaintained สำหรับ `chrono` หรือ `chrono-tz` ให้คงรายการ ignore ที่มีเอกสารกำกับ
+ให้ตรงกันใน `.cargo/audit.toml` และ `deny.toml` จนกว่า DataFusion จะ migrate
 :::
 
-## Catalog operations
+## Catalog operation {#catalog-operations}
 
-Catalog operations rename, consolidate, or delete data files. Their type selectors are:
+Catalog operation ใช้เปลี่ยนชื่อ, รวม หรือลบไฟล์ข้อมูล โดยมีตัวเลือกประเภทดังนี้:
 
-- `NautilusDataType`: Selects a data family. `NautilusDataType.Instrument` covers each instrument class.
-- `NautilusRecordType`: Selects a record family.
-- `NautilusInstrumentType`: Targets one instrument class.
+- `NautilusDataType`: เลือกกลุ่มข้อมูล `NautilusDataType.Instrument` ครอบคลุมทุก instrument class
+- `NautilusRecordType`: เลือกกลุ่ม record
+- `NautilusInstrumentType`: เจาะจง instrument class เดียว
 
-`delete_data_range(...)` takes a `NautilusDataType` alone, because only data families support
-ranged deletes.
+`delete_data_range(...)` รับเฉพาะ `NautilusDataType` เพราะมีแต่กลุ่มข้อมูลเท่านั้นที่รองรับการลบเป็นช่วง
 
-### Reset file names
+### Reset ชื่อไฟล์ {#reset-file-names}
 
-Reset Parquet file names to match their content timestamps so filename-based filtering stays accurate.
-`reset_all_file_names()` processes the entire catalog. `reset_data_file_names(...)` targets a data path.
+Reset ชื่อไฟล์ Parquet ให้ตรงกับ timestamp ของเนื้อหา เพื่อให้การกรองตามชื่อไฟล์ยังแม่นยำ `reset_all_file_names()`
+ประมวลผลทั้ง catalog ส่วน `reset_data_file_names(...)` เจาะจง data path
 
-For data types partitioned by instrument:
+สำหรับประเภทข้อมูลที่แบ่ง partition ตาม instrument:
 
-- Supply an instrument ID to target that instrument's directory.
-- Without an ID, the operation recursively reads the type directory and renames each file within its own
-  instrument directory. It checks each directory's intervals before it renames any file.
+- ระบุ instrument ID เพื่อเจาะจง directory ของ instrument นั้น
+- หากไม่ระบุ ID การทำงานจะอ่าน directory ของประเภทนั้นแบบ recursive และเปลี่ยนชื่อแต่ละไฟล์ภายใน directory ของ
+  instrument ของมันเอง โดยตรวจสอบช่วงเวลาของแต่ละ directory ก่อนเปลี่ยนชื่อไฟล์ใด ๆ
 
-```python
-catalog.reset_all_file_names()
-catalog.reset_data_file_names(NautilusDataType.QuoteTick, "EUR/USD.SIM")
-catalog.reset_data_file_names(NautilusDataType.TradeTick, "BTC/USD.BINANCE")
-```
+### กู้คืนจากชื่อไฟล์ที่ทับซ้อนกัน {#recover-from-overlapping-file-names}
 
-### Recover from overlapping file names
+ชื่อไฟล์ที่ทับซ้อนกันจะบล็อกการเขียนลงใน directory ที่ได้รับผลกระทบ การขยายความครอบคลุมที่ถูกปฏิเสธจะไม่เปลี่ยนชื่อไฟล์เลย
+ดังนั้นการทับซ้อนจึงบ่งชี้ว่าเกิดจากการเปลี่ยนชื่อครั้งก่อน, การย้ายไฟล์ด้วยมือ หรือ writer ที่ทำงานพร้อมกัน
 
-Overlapping file names block writes to the affected directory. A rejected coverage extension never
-renames files, so overlap points to an earlier rename, a manual move, or a concurrent writer.
+เมื่อเนื้อหาของไฟล์ยังไม่ทับซ้อนกัน ให้กู้คืน directory ด้วยการ reset ชื่อไฟล์:
 
-When the file contents are still disjoint, recover the directory with a filename reset:
+1. หยุด writer ทุกตัวที่เขียนลง catalog
+1. สำรอง directory ที่ได้รับผลกระทบ การ reset จะเปลี่ยนชื่อไฟล์ทีละไฟล์ ความล้มเหลวด้าน I/O กลางทางอาจทำให้บางไฟล์
+   ถูกเปลี่ยนชื่อไปแล้ว บน object store ที่เปลี่ยนชื่อด้วยการ copy แล้วลบ ความล้มเหลวอาจทำให้ไฟล์มีอยู่ทั้งสองชื่อ
+1. รัน `reset_data_file_names(...)` กับ path ที่ได้รับผลกระทบ สำหรับ custom data type ให้ใช้ `reset_all_file_names()`
+   แทน ซึ่งครอบคลุมทุก leaf directory รวมถึง layout แบบ custom
+1. หากการ reset รายงานว่ามีไฟล์อื่นใช้ชื่อใหม่นั้นอยู่ ให้เปลี่ยนชื่อไฟล์นั้นเป็นชื่อช่วงเวลาที่ยังไม่มีใครใช้และอยู่นอกช่วงข้อมูล
+   แล้วรัน reset อีกครั้ง ทำซ้ำจนกว่าจะสำเร็จ
+1. ยืนยันว่าไฟล์ที่เปลี่ยนชื่อแต่ละไฟล์ตรงกับช่วงของเนื้อหา จากนั้นเขียนข้อมูลช่วงเวลาถัดไปที่ไม่ทับซ้อน เพื่อยืนยันว่า
+   directory รับการเขียนได้อีกครั้ง
 
-1. Stop all writers to the catalog.
-1. Back up the affected directory. The reset renames files one at a time, so an I/O failure
-   partway through can leave some files renamed. On object stores that rename by copying then
-   deleting, a failure can also leave a file under both names.
-1. Run `reset_data_file_names(...)` for the affected path. For custom data types, use `reset_all_file_names()`
-   instead, which covers each leaf directory including custom layouts.
-1. If the reset reports that another file holds a new name, rename that file. Use an unused interval name
-   outside the data range. Then run the reset again. Repeat until it succeeds.
-1. Confirm each renamed file matches its content range, then write a later disjoint interval to
-   confirm the directory accepts writes again.
+การ reset ประมวลผลทีละ directory ก่อนเปลี่ยนชื่อไฟล์ใดใน directory หนึ่ง จะอ่านช่วง `ts_init` ของทุกไฟล์ก่อน และจะล้มเหลว
+เมื่อช่วงของเนื้อหาทับซ้อนกัน หรือเมื่อชื่อใหม่ของไฟล์หนึ่งเป็นชื่อปัจจุบันของอีกไฟล์ เมื่อล้มเหลวจะไม่เปลี่ยนชื่อไฟล์ใดใน
+directory นั้นเลย ส่วน directory ที่ reset ไปก่อนหน้า directory ที่ล้มเหลวจะคงชื่อใหม่ไว้
 
-The reset processes one directory at a time. Before renaming any file in a directory, it reads each file's
-`ts_init` range. It fails when content ranges overlap or when a file's new name is the current name of another
-file. On failure, it leaves each file name in that directory unchanged. Directories reset before the failing
-one keep their new names.
+ใช้การ reset ชื่อไฟล์เฉพาะกรณีที่เสียหายแค่ชื่อไฟล์เท่านั้น เมื่อเนื้อหาของไฟล์ทับซ้อนกัน การ reset ชื่อไฟล์ไม่สามารถ
+กระทบยอดข้อมูลได้และจะล้มเหลว ให้สร้างช่วงที่ได้รับผลกระทบขึ้นใหม่จากต้นทางผ่านกระบวนการที่ตรวจสอบแยกต่างหาก
 
-Use filename reset only for filename-only damage. When file contents overlap, a filename reset cannot
-reconcile the data, so the reset fails. Rebuild the affected range from source through a separately validated
-process.
+### รวม catalog {#consolidate-catalog}
 
-### Consolidate catalog
+รวมไฟล์ Parquet ขนาดเล็กเข้าด้วยกันเพื่อลดจำนวนไฟล์และ overhead ของ query เมื่อไม่ระบุขอบเขต `consolidate_catalog()`
+จะประมวลผลทุก leaf data directory ใน catalog ส่วน `consolidate_data(...)` ทำงานกับ directory เดียว ระบุ instrument ID
+สำหรับประเภทข้อมูลที่แบ่ง partition ตาม instrument โดยรับขอบเขต `start`/`end` และ option `ensure_contiguous_files` ได้
 
-Combine small Parquet files to reduce file count and query overhead. With no bounds, `consolidate_catalog()`
-processes each leaf data directory in the catalog. `consolidate_data(...)` operates on one directory. Supply
-an instrument ID for data types partitioned by instrument.
+### รวม catalog ตามช่วงเวลา {#consolidate-catalog-by-period}
 
-```python
-catalog.consolidate_catalog()
+แบ่งไฟล์ข้อมูลเป็นช่วงเวลาคงที่ ทั้ง duration และขอบเขตเวลาใช้หน่วย nanosecond ทั้งสอง method
+(`consolidate_catalog_by_period` และ `consolidate_data_by_period`) รับขอบเขตแบบ optional และ `period_nanos`
+ระบุ identifier ให้กับ method ราย data type สำหรับข้อมูลที่แบ่ง partition ตาม instrument
 
-catalog.consolidate_catalog(
-    start=1704067200000000000,
-    end=1704153600000000000,
-    ensure_contiguous_files=True,
-)
+- **Method ระดับทั้ง catalog**: ประมวลผล quote, trade, order book delta, order book depth, bar, index price, mark price,
+  instrument close และ custom type ที่ลงทะเบียนไว้ ประเภทอื่นจะ log warning และข้ามไป
+- **Method ราย data type**: ปฏิเสธตัวเลือกแบบ instrument และ record ซึ่งไม่มีการเขียนใหม่ตามช่วงเวลา ให้ใช้
+  `consolidate_data(...)` สำหรับกรณีเหล่านั้น
 
-catalog.consolidate_data(
-    NautilusDataType.QuoteTick,
-    identifier="EUR/USD.SIM",
-    start=1704067200000000000,
-    end=1706745600000000000,
-)
-```
+### ลบช่วงข้อมูล {#delete-data-range}
 
-### Consolidate catalog by period
+ลบข้อมูลภายในช่วงเวลา โดยอาจจำกัดเฉพาะ data type และ instrument เดียว ระบุ instrument ID สำหรับข้อมูลที่แบ่ง partition
+ตาม instrument ขอบเขตเวลาทำงานดังนี้:
 
-Split data files into fixed periods. Durations and time bounds use nanoseconds. Both methods accept
-optional bounds. Supply an identifier to the data-type method for data partitioned by instrument.
+- ไม่ระบุ `start` จะขยายช่วงไปถึงจุดเริ่มต้น
+- ไม่ระบุ `end` จะขยายช่วงไปถึงจุดสิ้นสุด
+- สำหรับ `delete_data_range(...)` การไม่ระบุทั้งสองขอบเขตจะลบข้อมูลที่ตรงเงื่อนไขทั้งหมด
 
-- **Catalog-wide method**: Processes quotes, trades, order book deltas, order book depths, bars,
-  index prices, mark prices, instrument closes, and registered custom types. It logs a warning
-  and skips other types.
-- **Data-type method**: Rejects instrument and record selectors, which have no period-typed rewrite. Use
-  `consolidate_data(...)` for those.
+`delete_data_range(...)` รองรับ quote, trade, bar, order book delta, order book depth และ custom type ที่ลงทะเบียนไว้
+ส่ง `NautilusDataType.OrderBookDepth` สำหรับ order book depth และ `NautilusDataType.Custom("MarketTickPython")`
+สำหรับ custom data type
 
-```python
-DAY_NS = 86_400_000_000_000
-HOUR_NS = 3_600_000_000_000
+- `delete_catalog_range(...)` จะทำงานต่อไปหลังเจอ directory ที่ไม่รองรับ โดย log warning และไม่แตะต้องข้อมูลในนั้น
+- ใช้ `delete_data_range(...)` เพื่อยืนยันว่าประเภทที่ขอรองรับจริง `NautilusDataType.Instrument` จะถูกปฏิเสธ เพราะ
+  instrument definition ไม่รองรับการลบเป็นช่วง
 
-catalog.consolidate_catalog_by_period(period_nanos=DAY_NS)
-
-catalog.consolidate_catalog_by_period(
-    period_nanos=HOUR_NS,
-    start=1704067200000000000,
-    end=1704153600000000000,
-)
-
-catalog.consolidate_data_by_period(
-    data_type=NautilusDataType.QuoteTick,
-    identifier="EUR/USD.SIM",
-    period_nanos=HOUR_NS,
-)
-
-catalog.consolidate_data_by_period(
-    data_type=NautilusDataType.TradeTick,
-    identifier="EUR/USD.SIM",
-    period_nanos=HOUR_NS,
-    start=1704067200000000000,
-    end=1706745600000000000,
-)
-```
-
-### Delete data range
-
-Delete data within a time range, optionally limited to one data type and instrument. Supply an
-instrument ID for data partitioned by instrument. The time bounds work as follows:
-
-- Omitting `start` extends the range to the beginning.
-- Omitting `end` extends the range to the end.
-- For `delete_data_range(...)`, omitting both bounds removes all matching data.
-
-`delete_data_range(...)` supports quotes, trades, bars, order book deltas, order book depth, and
-registered custom types. Pass `NautilusDataType.OrderBookDepth` for order book depth and
-`NautilusDataType.Custom("MarketTickPython")` for a custom data type.
-
-- `delete_catalog_range(...)` continues after unsupported directories, logs a warning, and leaves
-  their data unchanged.
-- Use `delete_data_range(...)` to confirm that the requested type is supported.
-  `NautilusDataType.Instrument` is rejected because instrument definitions do not support ranged
-  deletion.
-
-```python
-catalog.delete_catalog_range(
-    start=1704067200000000000,
-    end=1704153600000000000,
-)
-
-catalog.delete_catalog_range(end=1704067200000000000)
-
-catalog.delete_data_range(
-    data_type=NautilusDataType.QuoteTick,
-    identifier="BTC/USD.BINANCE",
-)
-
-catalog.delete_data_range(
-    data_type=NautilusDataType.TradeTick,
-    identifier="EUR/USD.SIM",
-    start=1704067200000000000,
-    end=1706745600000000000,
-)
-```
-
-:::danger[Permanent data removal]
-Delete operations cannot be undone. The catalog splits partially overlapping files to preserve data
-outside the range.
+:::danger[ลบข้อมูลถาวร]
+การลบไม่สามารถย้อนกลับได้ catalog จะแบ่งไฟล์ที่ทับซ้อนบางส่วนเพื่อรักษาข้อมูลที่อยู่นอกช่วงไว้
 :::
 
-## Feather streaming and conversion
+## Feather streaming และการแปลง {#feather-streaming-and-conversion}
 
-The runtime can stage records in local Feather files and promote them into a catalog with
-`StreamingConfig(writer_path=..., catalog=DataCatalogConfig(...))`. Staged records become available
-to catalog queries **after promotion succeeds**. A staging flush and a catalog commit are separate
-steps.
+Runtime สามารถพัก record ไว้ในไฟล์ Feather แบบ local แล้ว promote เข้า catalog ได้ด้วย
+`StreamingConfig(writer_path=..., catalog=DataCatalogConfig(...))` record ที่พักไว้จะ query จาก catalog ได้
+**หลังจาก promote สำเร็จแล้ว** การ flush ข้อมูลที่พักไว้กับการ commit ลง catalog เป็นคนละขั้นตอนกัน
 
-Streaming defaults to promotion on close, no interval-based promotion, and retention of committed
-Feather sources. With a positive `promotion_interval_ms`:
+ค่าเริ่มต้นของ streaming คือ promote ตอนปิด, ไม่มีการ promote ตามช่วงเวลา และเก็บไฟล์ Feather ต้นทางที่ commit แล้วไว้
+เมื่อตั้ง `promotion_interval_ms` เป็นค่าบวก:
 
-- Live streaming uses wall-clock scheduling.
-- Backtest streaming checks the supplied clock during writes and flushes.
+- Live streaming ใช้การตั้งเวลาตาม wall-clock
+- Backtest streaming จะตรวจสอบ clock ที่ส่งเข้ามาระหว่างการเขียนและการ flush
 
-See [stream data into a Parquet catalog](../../how_to/stream_parquet_catalog.md) for defaults,
-configuration, query visibility, and recovery.
+ดู [stream data into a Parquet catalog](../../how_to/stream_parquet_catalog.md) สำหรับค่าเริ่มต้น, configuration,
+การมองเห็นข้อมูลใน query และการกู้คืน
 
-`StreamingFeatherWriter` stays available for direct staging. Its completed sessions can be converted manually
-with `ParquetDataCatalog.convert_stream_to_data()`.
+`StreamingFeatherWriter` ยังใช้พักข้อมูลโดยตรงได้ และ session ที่เสร็จแล้วสามารถแปลงด้วยมือได้ด้วย
+`ParquetDataCatalog.convert_stream_to_data()`

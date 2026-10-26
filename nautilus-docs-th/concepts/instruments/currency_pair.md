@@ -1,56 +1,56 @@
 # Currency Pair
 
-`CurrencyPair` represents a spot or cash market quoted as `BASE/QUOTE`. The base
-currency is the asset being bought or sold, and the quote currency prices one unit of
-the base. Nautilus uses this type for fiat FX pairs and crypto spot pairs.
+`CurrencyPair` แทนตลาด spot หรือตลาดเงินสด (cash market) ที่ quote ในรูป `BASE/QUOTE` โดย base
+currency คือสินทรัพย์ที่ซื้อหรือขาย และ quote currency คือสกุลเงินที่ใช้ตั้งราคาของ base หนึ่งหน่วย
+Nautilus ใช้ type นี้กับทั้งคู่เงิน FX แบบ fiat และคู่ crypto spot
 
-Examples include `EUR/USD.SIM`, `BTCUSDT.BINANCE`, and `ETH/USD.KRAKEN`.
+ตัวอย่างเช่น `EUR/USD.SIM`, `BTCUSDT.BINANCE` และ `ETH/USD.KRAKEN`
 
-## Fields
+## ฟิลด์ {#fields}
 
-| Field             | Rust type          | Python type        | Required/default | Notes                                    |
-| ----------------- | ------------------ | ------------------ | ---------------- | ---------------------------------------- |
-| `instrument_id`   | `InstrumentId`     | `InstrumentId`     | Required         | Stored as `id` in Rust.                  |
-| `raw_symbol`      | `Symbol`           | `Symbol`           | Required         | Native venue symbol.                     |
-| `base_currency`   | `Currency`         | `Currency`         | Required         | Asset bought or sold.                    |
-| `quote_currency`  | `Currency`         | `Currency`         | Required         | Currency used to price the base asset.   |
-| `price_precision` | `u8`               | `int`              | Required         | Decimal places allowed for prices.       |
-| `size_precision`  | `u8`               | `int`              | Required         | Decimal places allowed for order sizes.  |
-| `price_increment` | `Price`            | `Price`            | Required         | Smallest valid price step.               |
-| `size_increment`  | `Quantity`         | `Quantity`         | Required         | Smallest valid size step.                |
-| `ts_event`        | `UnixNanos`        | `int`              | Required         | Event timestamp in nanoseconds.          |
-| `ts_init`         | `UnixNanos`        | `int`              | Required         | Initialization timestamp in nanoseconds. |
-| `multiplier`      | `Quantity`         | `Quantity`         | `1`              | Contract multiplier.                     |
-| `lot_size`        | `Option<Quantity>` | `Quantity \| None` | `None`           | Rounded lot or board size.               |
-| `max_quantity`    | `Option<Quantity>` | `Quantity \| None` | `None`           | Maximum order quantity.                  |
-| `min_quantity`    | `Option<Quantity>` | `Quantity \| None` | `None`           | Minimum order quantity.                  |
-| `max_notional`    | `Option<Money>`    | `Money \| None`    | `None`           | Maximum order notional value.            |
-| `min_notional`    | `Option<Money>`    | `Money \| None`    | `None`           | Minimum order notional value.            |
-| `max_price`       | `Option<Price>`    | `Price \| None`    | `None`           | Maximum valid quote or order price.      |
-| `min_price`       | `Option<Price>`    | `Price \| None`    | `None`           | Minimum valid quote or order price.      |
-| `margin_init`     | `Option<Decimal>`  | `Decimal \| None`  | `0`              | Initial margin rate.                     |
-| `margin_maint`    | `Option<Decimal>`  | `Decimal \| None`  | `0`              | Maintenance margin rate.                 |
-| `tick_scheme`     | `Option<Ustr>`     | `str \| None`      | `None`           | Registered variable tick scheme name.    |
-| `info`            | `Option<Params>`   | `dict \| None`     | `None`           | Adapter metadata.                        |
+| Field             | Rust type          | Required/default | Notes                                       |
+| ----------------- | ------------------ | ---------------- | ------------------------------------------- |
+| `instrument_id`   | `InstrumentId`     | Required         | ใน Rust เก็บไว้ในชื่อ `id`                   |
+| `raw_symbol`      | `Symbol`           | Required         | symbol ดั้งเดิมของ venue                     |
+| `base_currency`   | `Currency`         | Required         | สินทรัพย์ที่ซื้อหรือขาย                      |
+| `quote_currency`  | `Currency`         | Required         | สกุลเงินที่ใช้ตั้งราคาสินทรัพย์ base          |
+| `price_precision` | `u8`               | Required         | จำนวนตำแหน่งทศนิยมที่อนุญาตสำหรับราคา        |
+| `size_precision`  | `u8`               | Required         | จำนวนตำแหน่งทศนิยมที่อนุญาตสำหรับขนาด order  |
+| `price_increment` | `Price`            | Required         | ขั้นราคาที่เล็กที่สุดที่ใช้ได้               |
+| `size_increment`  | `Quantity`         | Required         | ขั้นขนาดที่เล็กที่สุดที่ใช้ได้               |
+| `ts_event`        | `UnixNanos`        | Required         | timestamp ของ event หน่วยนาโนวินาที          |
+| `ts_init`         | `UnixNanos`        | Required         | timestamp ตอน initialize หน่วยนาโนวินาที     |
+| `multiplier`      | `Quantity`         | `1`              | ตัวคูณของสัญญา (contract multiplier)        |
+| `lot_size`        | `Option<Quantity>` | `None`           | ขนาด lot หรือ board ที่ปัดแล้ว               |
+| `max_quantity`    | `Option<Quantity>` | `None`           | ปริมาณ order สูงสุด                          |
+| `min_quantity`    | `Option<Quantity>` | `None`           | ปริมาณ order ต่ำสุด                          |
+| `max_notional`    | `Option<Money>`    | `None`           | มูลค่า notional ของ order สูงสุด             |
+| `min_notional`    | `Option<Money>`    | `None`           | มูลค่า notional ของ order ต่ำสุด             |
+| `max_price`       | `Option<Price>`    | `None`           | ราคา quote หรือ order สูงสุดที่ใช้ได้        |
+| `min_price`       | `Option<Price>`    | `None`           | ราคา quote หรือ order ต่ำสุดที่ใช้ได้        |
+| `margin_init`     | `Option<Decimal>`  | `0`              | อัตรา initial margin                        |
+| `margin_maint`    | `Option<Decimal>`  | `0`              | อัตรา maintenance margin                    |
+| `tick_scheme`     | `Option<Ustr>`     | `None`           | ชื่อ variable tick scheme ที่ลงทะเบียนไว้     |
+| `info`            | `Option<Params>`   | `None`           | metadata จาก adapter                        |
 
-**Note**: Python constructors use `instrument_id`. Rust stores the same value as `id`.
+**หมายเหตุ**: ใน Rust ค่า `instrument_id` ถูกเก็บไว้ในชื่อ `id`
 
-## Behavior
+## พฤติกรรม {#behavior}
 
-- `CurrencyPair` has instrument class `Spot`.
-- Its asset class is `Cryptocurrency` when either currency has crypto type. If neither currency has crypto
-  type, it is `FX`.
-- It has no expiration, strike price, option kind, or derivative underlying field.
-- It is never inverse. The settlement currency and cost currency are the quote currency.
-- Use this type for both fiat FX pairs and crypto spot pairs.
+- `CurrencyPair` มี instrument class เป็น `Spot`
+- asset class เป็น `Cryptocurrency` เมื่อสกุลเงินใดสกุลหนึ่งเป็นประเภท crypto หากไม่มีสกุลใดเป็นประเภท crypto
+  จะเป็น `FX`
+- ไม่มีฟิลด์วันหมดอายุ, strike price, ชนิด option หรือ underlying ของ derivative
+- ไม่เป็น inverse เลย settlement currency และ cost currency คือ quote currency
+- ใช้ type นี้ได้ทั้งกับคู่เงิน FX แบบ fiat และคู่ crypto spot
 
 :::note
-Use the specific derivative type for dated futures, swaps, and options. This keeps cost
-currency, settlement currency, expiration, and notional calculations aligned with the venue,
-including when the symbol looks like a pair.
+ให้ใช้ type ของ derivative ที่ตรงกับสินค้าสำหรับ futures ที่มีวันหมดอายุ, swap และ option เพื่อให้ cost
+currency, settlement currency, วันหมดอายุ และการคำนวณ notional สอดคล้องกับ venue
+แม้ symbol จะดูเหมือนคู่เงินก็ตาม
 :::
 
-## Example
+## ตัวอย่าง {#example}
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -82,53 +82,19 @@ let btcusdt = CurrencyPair::builder()
     .unwrap();
 ```
 
-```python tab="Python"
-from decimal import Decimal
+## Adapters {#adapters}
 
-from nautilus_trader.model import Currency
-from nautilus_trader.model import CurrencyPair
-from nautilus_trader.model import InstrumentId
-from nautilus_trader.model import Money
-from nautilus_trader.model import Price
-from nautilus_trader.model import Quantity
-from nautilus_trader.model import Symbol
+**Adapter ที่สร้างหรือใช้ instrument แบบ `CurrencyPair` ได้แก่**:
 
-BTC = Currency.from_str("BTC")
-USDT = Currency.from_str("USDT")
+- [Binance](../../integrations/binance.md) สำหรับตลาด spot
+- [Kraken](../../integrations/kraken.md) สำหรับตลาด spot
+- [OKX](../../integrations/okx.md) สำหรับตลาด spot
+- [Tardis](../../integrations/tardis.md) สำหรับ metadata ของ spot
+- [Interactive Brokers](../../integrations/interactive_brokers.md) สำหรับสัญญา FX แบบ cash
+- [Hyperliquid](../../integrations/hyperliquid.md) สำหรับสินทรัพย์ spot
 
-btcusdt = CurrencyPair(
-    instrument_id=InstrumentId.from_str("BTCUSDT.BINANCE"),
-    raw_symbol=Symbol("BTCUSDT"),
-    base_currency=BTC,
-    quote_currency=USDT,
-    price_precision=2,
-    size_precision=6,
-    price_increment=Price.from_str("0.01"),
-    size_increment=Quantity.from_str("0.000001"),
-    ts_event=0,
-    ts_init=0,
-    min_quantity=Quantity.from_str("0.000001"),
-    min_notional=Money(10.00, USDT),
-    max_price=Price.from_str("1000000.00"),
-    min_price=Price.from_str("0.01"),
-    margin_init=Decimal("0.001"),
-    margin_maint=Decimal("0.001"),
-)
-```
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-## Adapters
-
-**Adapters that create or consume `CurrencyPair` instruments include**:
-
-- [Binance](../../integrations/binance.md) for spot markets.
-- [Kraken](../../integrations/kraken.md) for spot markets.
-- [OKX](../../integrations/okx.md) for spot markets.
-- [Tardis](../../integrations/tardis.md) for spot metadata.
-- [Interactive Brokers](../../integrations/interactive_brokers.md) for FX cash contracts.
-- [Hyperliquid](../../integrations/hyperliquid.md) for spot assets.
-
-## Related guides
-
-- [Data](../data/) explains market data that references instruments.
-- [Execution](../execution/) explains order checks that use instrument precision.
-- [Value types](../value_types.md) explains `Price`, `Quantity`, and `Money`.
+- [Data](../data/) อธิบาย market data ที่อ้างอิงถึง instrument
+- [Execution](../execution/) อธิบายการตรวจสอบ order ที่ใช้ precision ของ instrument
+- [Value types](../value_types.md) อธิบาย `Price`, `Quantity` และ `Money`

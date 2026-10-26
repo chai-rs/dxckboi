@@ -1,49 +1,48 @@
 # Commodity
 
-`Commodity` represents a spot commodity market such as gold, silver, oil, or another
-physical asset quoted in a currency. It models a spot market, not a dated futures
-contract.
+`Commodity` แทนตลาด spot ของ commodity เช่น ทองคำ เงิน น้ำมัน หรือสินทรัพย์จริงอื่น ๆ ที่ quote ราคาเป็นสกุลเงิน
+เป็นโมเดลของตลาด spot ไม่ใช่สัญญา futures ที่มีวันครบกำหนด
 
-Examples include `XAUUSD.IDEALPRO` and venue-specific commodity cash symbols.
+ตัวอย่างเช่น `XAUUSD.IDEALPRO` และ symbol commodity แบบ cash เฉพาะของแต่ละ venue
 
-## Fields
+## Fields {#fields}
 
-| Field             | Rust type          | Python type        | Required/default | Notes                                    |
-| ----------------- | ------------------ | ------------------ | ---------------- | ---------------------------------------- |
-| `instrument_id`   | `InstrumentId`     | `InstrumentId`     | Required         | Stored as `id` in Rust.                  |
-| `raw_symbol`      | `Symbol`           | `Symbol`           | Required         | Native venue symbol.                     |
-| `asset_class`     | `AssetClass`       | `AssetClass`       | Required         | Commodity asset classification.          |
-| `quote_currency`  | `Currency`         | `Currency`         | Required         | Currency used to price the commodity.    |
-| `price_precision` | `u8`               | `int`              | Required         | Decimal places allowed for prices.       |
-| `size_precision`  | `u8`               | `int`              | Required         | Decimal places allowed for order sizes.  |
-| `price_increment` | `Price`            | `Price`            | Required         | Smallest valid price step.               |
-| `size_increment`  | `Quantity`         | `Quantity`         | Required         | Smallest valid size step.                |
-| `ts_event`        | `UnixNanos`        | `int`              | Required         | Event timestamp in nanoseconds.          |
-| `ts_init`         | `UnixNanos`        | `int`              | Required         | Initialization timestamp in nanoseconds. |
-| `lot_size`        | `Option<Quantity>` | `Quantity \| None` | `None`           | Rounded lot or board size.               |
-| `max_quantity`    | `Option<Quantity>` | `Quantity \| None` | `None`           | Maximum order quantity.                  |
-| `min_quantity`    | `Option<Quantity>` | `Quantity \| None` | `None`           | Minimum order quantity.                  |
-| `max_notional`    | `Option<Money>`    | `Money \| None`    | `None`           | Maximum order notional value.            |
-| `min_notional`    | `Option<Money>`    | `Money \| None`    | `None`           | Minimum order notional value.            |
-| `max_price`       | `Option<Price>`    | `Price \| None`    | `None`           | Maximum valid quote or order price.      |
-| `min_price`       | `Option<Price>`    | `Price \| None`    | `None`           | Minimum valid quote or order price.      |
-| `margin_init`     | `Option<Decimal>`  | `Decimal \| None`  | `0`              | Initial margin rate.                     |
-| `margin_maint`    | `Option<Decimal>`  | `Decimal \| None`  | `0`              | Maintenance margin rate.                 |
-| `tick_scheme`     | `Option<Ustr>`     | `str \| None`      | `None`           | Registered variable tick scheme name.    |
-| `info`            | `Option<Params>`   | `dict \| None`     | `None`           | Adapter metadata.                        |
+| Field | Rust type | Required/default | หมายเหตุ |
+| --- | --- | --- | --- |
+| `instrument_id` | `InstrumentId` | Required | ใน Rust เก็บไว้ใน field `id` |
+| `raw_symbol` | `Symbol` | Required | symbol ดั้งเดิมของ venue |
+| `asset_class` | `AssetClass` | Required | การจัดประเภท asset แบบ commodity |
+| `quote_currency` | `Currency` | Required | สกุลเงินที่ใช้กำหนดราคา commodity |
+| `price_precision` | `u8` | Required | จำนวนทศนิยมที่อนุญาตสำหรับราคา |
+| `size_precision` | `u8` | Required | จำนวนทศนิยมที่อนุญาตสำหรับขนาด order |
+| `price_increment` | `Price` | Required | ขั้นราคาที่เล็กที่สุดที่ใช้ได้ |
+| `size_increment` | `Quantity` | Required | ขั้นขนาดที่เล็กที่สุดที่ใช้ได้ |
+| `ts_event` | `UnixNanos` | Required | timestamp ของ event หน่วยนาโนวินาที |
+| `ts_init` | `UnixNanos` | Required | timestamp ตอน initialize หน่วยนาโนวินาที |
+| `lot_size` | `Option<Quantity>` | `None` | ขนาด lot หรือ board lot |
+| `max_quantity` | `Option<Quantity>` | `None` | ปริมาณ order สูงสุด |
+| `min_quantity` | `Option<Quantity>` | `None` | ปริมาณ order ต่ำสุด |
+| `max_notional` | `Option<Money>` | `None` | มูลค่า notional ของ order สูงสุด |
+| `min_notional` | `Option<Money>` | `None` | มูลค่า notional ของ order ต่ำสุด |
+| `max_price` | `Option<Price>` | `None` | ราคา quote หรือ order สูงสุดที่ใช้ได้ |
+| `min_price` | `Option<Price>` | `None` | ราคา quote หรือ order ต่ำสุดที่ใช้ได้ |
+| `margin_init` | `Option<Decimal>` | `0` | อัตรา initial margin |
+| `margin_maint` | `Option<Decimal>` | `0` | อัตรา maintenance margin |
+| `tick_scheme` | `Option<Ustr>` | `None` | ชื่อ tick scheme แบบแปรผันที่ลงทะเบียนไว้ |
+| `info` | `Option<Params>` | `None` | metadata จาก adapter |
 
-**Note**: Python constructors use `instrument_id`. Rust stores the same value as `id`.
+**หมายเหตุ**: builder ใช้ชื่อ `instrument_id` แต่ Rust เก็บค่าเดียวกันนี้ไว้ใน field `id`
 
-## Behavior
+## พฤติกรรม {#behavior}
 
-- `Commodity` has instrument class `Spot`.
-- It allows negative prices: spot markets such as electricity or oil can trade below zero. The `RiskEngine`
-  accepts negative prices on both order submission and modification.
-- It is never inverse, and its cost currency is the quote currency.
-- It has no activation timestamp, expiry, strike, option kind, or settlement currency field.
-- Use `FuturesContract` for dated exchange-traded commodity futures.
+- `Commodity` มี instrument class เป็น `Spot`
+- อนุญาตให้ราคาติดลบได้ เพราะตลาด spot บางตลาด เช่น ไฟฟ้าหรือน้ำมัน ซื้อขายต่ำกว่าศูนย์ได้ `RiskEngine`
+  ยอมรับราคาติดลบทั้งตอนส่งและแก้ไข order
+- ไม่เป็น inverse เลย และ cost currency คือ quote currency
+- ไม่มี field สำหรับ activation timestamp, expiry, strike, option kind หรือ settlement currency
+- ใช้ `FuturesContract` สำหรับสัญญา commodity futures ที่ซื้อขายในตลาดและมีวันครบกำหนด
 
-## Example
+## ตัวอย่าง {#example}
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -70,36 +69,12 @@ let gold = Commodity::builder()
     .unwrap();
 ```
 
-```python tab="Python"
-from nautilus_trader.model import AssetClass
-from nautilus_trader.model import Commodity
-from nautilus_trader.model import Currency
-from nautilus_trader.model import InstrumentId
-from nautilus_trader.model import Price
-from nautilus_trader.model import Quantity
-from nautilus_trader.model import Symbol
+## Adapters {#adapters}
 
-gold = Commodity(
-    instrument_id=InstrumentId.from_str("GOLD.COMEX"),
-    raw_symbol=Symbol("GOLD"),
-    asset_class=AssetClass.COMMODITY,
-    quote_currency=Currency.from_str("USD"),
-    price_precision=2,
-    price_increment=Price.from_str("0.01"),
-    size_precision=0,
-    size_increment=Quantity.from_int(1),
-    ts_event=0,
-    ts_init=0,
-    lot_size=Quantity.from_int(1),
-)
-```
+adapter [Interactive Brokers](../../integrations/interactive_brokers.md) สร้างหรือใช้งาน instrument แบบ
+`Commodity` สำหรับสัญญา spot commodity และโลหะ
 
-## Adapters
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-The [Interactive Brokers](../../integrations/interactive_brokers.md) adapter creates or consumes
-`Commodity` instruments for spot commodity and metal contracts.
-
-## Related guides
-
-- [Futures Contract](futures_contract.md) covers dated futures on commodity underlyings.
-- [Data](../data/) explains market data that references instruments.
+- [Futures Contract](futures_contract.md) อธิบาย futures ที่มีวันครบกำหนดซึ่งอ้างอิง commodity
+- [Data](../data/) อธิบาย market data ที่อ้างอิงถึง instrument

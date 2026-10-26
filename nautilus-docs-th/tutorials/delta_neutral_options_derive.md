@@ -1,42 +1,38 @@
-# Delta-Neutral Options Strategy (Derive)
+# Options strategy แบบ delta-neutral (Derive)
 
 :::note
-This **Rust-only** tutorial runs the live delta-neutral
-short-volatility strategy on Derive using the Rust `LiveNode`.
+tutorial นี้เป็นแบบ **Rust เท่านั้น** โดยรัน strategy แบบ short volatility ที่เป็น delta-neutral แบบ live บน Derive
+ด้วย `LiveNode` ของ Rust
 :::
 
-This tutorial runs the shared `DeltaNeutralVol` strategy with the Derive adapter. The shipped example
-discovers ETH options and selects an out-of-the-money call and put. It subscribes to venue-provided Greeks and
-delta-hedges with `ETH-PERP.DERIVE`.
+tutorial นี้รัน strategy `DeltaNeutralVol` ที่ใช้ร่วมกันกับ Derive adapter ตัวอย่างที่ให้มาจะค้นหา ETH option
+แล้วเลือก call และ put ที่ out-of-the-money จากนั้น subscribe Greeks ที่ venue ให้มา และทำ delta hedge ด้วย
+`ETH-PERP.DERIVE`
 
-The Derive runner starts in hedge-only mode. It sets `enter_strangle: false`, so it does not place the initial
-option entry orders. Hedging is on by default (`HEDGE_ENABLED = true`). Reconciliation still loads existing
-positions. When portfolio delta exceeds the configured threshold, the strategy can submit market hedge orders
-on the perpetual.
+runner ของ Derive เริ่มต้นในโหมด hedge อย่างเดียว โดยตั้ง `enter_strangle: false` จึงไม่ส่ง order สำหรับเข้า
+option ครั้งแรก การ hedge เปิดอยู่โดย default (`HEDGE_ENABLED = true`) reconciliation ยังคงโหลด position
+ที่มีอยู่ เมื่อ portfolio delta เกิน threshold ที่ตั้งไว้ strategy อาจส่ง market hedge order บน perpetual
 
-The runner reads its settings from constants at the top of the example file, not from environment variables.
-For a smoke test without hedge orders, set `HEDGE_ENABLED` to `false` and rebuild. The strategy still loads
-instruments, reconciles the account, and subscribes to Greeks. For an entry-order smoke test, set
-`ENTER_STRANGLE` to `true`. The runner then submits Derive-premium option orders instead of IV-priced option
-orders.
+runner อ่านการตั้งค่าจากค่าคงที่ที่ด้านบนของไฟล์ตัวอย่าง ไม่ได้อ่านจาก environment variable ถ้าต้องการ smoke test
+โดยไม่มี hedge order ให้ตั้ง `HEDGE_ENABLED` เป็น `false` แล้ว build ใหม่ strategy จะยังคงโหลด instrument,
+reconcile account และ subscribe Greeks สำหรับ smoke test ที่ส่ง entry order ให้ตั้ง `ENTER_STRANGLE` เป็น
+`true` แล้ว runner จะส่ง option order ที่ตั้งราคาตาม premium ของ Derive แทน option order ที่ตั้งราคาตาม IV
 
 :::warning
-This strategy can trade real money on mainnet. Setting `enter_strangle: false` only disables the
-initial strangle entry orders. If the selected option legs or the hedge instrument already have open
-positions, the strategy can submit hedge orders.
+strategy นี้เทรดด้วยเงินจริงบน mainnet ได้ การตั้ง `enter_strangle: false` ปิดเฉพาะ entry order ของ strangle
+ครั้งแรกเท่านั้น ถ้า option leg ที่เลือกหรือ hedge instrument มี open position อยู่แล้ว strategy อาจส่ง hedge order ได้
 :::
 
-## Prerequisites
+## สิ่งที่ต้องมี {#prerequisites}
 
-- Completion of the [Derive integration guide](../integrations/derive.md), including wallet,
-  subaccount, session-key, and funding setup.
-- A Derive testnet or mainnet subaccount with sufficient USDC collateral for the hedge orders you plan
-  to allow.
-- A working Rust toolchain and a built NautilusTrader workspace.
-- Credential environment variables for the Derive environment the example targets. The execution
-  client reads them when the config leaves the credential fields unset.
+- ทำตาม[คู่มือ integration ของ Derive](../integrations/derive.md) จนเสร็จ รวมถึงการตั้งค่า wallet, subaccount,
+  session key และการเติมเงิน
+- subaccount ของ Derive บน testnet หรือ mainnet ที่มี USDC collateral เพียงพอสำหรับ hedge order ที่ตั้งใจจะอนุญาต
+- Rust toolchain ที่ใช้งานได้ และ workspace ของ NautilusTrader ที่ build แล้ว
+- environment variable ของ credential สำหรับ environment ของ Derive ที่ตัวอย่างใช้ execution client จะอ่าน
+  ค่าเหล่านี้เมื่อ config ไม่ได้ตั้งฟิลด์ credential ไว้
 
-For testnet:
+สำหรับ testnet:
 
 ```bash
 export DERIVE_TESTNET_WALLET_ADDRESS="0x..."
@@ -44,7 +40,7 @@ export DERIVE_TESTNET_SESSION_PRIVATE_KEY="0x..."
 export DERIVE_TESTNET_SUBACCOUNT_ID="12345"
 ```
 
-For mainnet:
+สำหรับ mainnet:
 
 ```bash
 export DERIVE_WALLET_ADDRESS="0x..."
@@ -52,25 +48,24 @@ export DERIVE_SESSION_PRIVATE_KEY="0x..."
 export DERIVE_SUBACCOUNT_ID="12345"
 ```
 
-The example targets testnet through the `DERIVE_ENVIRONMENT` constant
-(`DeriveEnvironment::Testnet`) in `node_delta_neutral.rs`. It does not read the network from the
-environment. Edit the constant to `DeriveEnvironment::Mainnet` and rebuild only for real-funds runs.
+ตัวอย่างนี้ใช้ testnet ผ่านค่าคงที่ `DERIVE_ENVIRONMENT` (`DeriveEnvironment::Testnet`) ใน
+`node_delta_neutral.rs` และไม่ได้อ่าน network จาก environment ให้แก้ค่าคงที่เป็น `DeriveEnvironment::Mainnet`
+แล้ว build ใหม่ เฉพาะเมื่อต้องการรันด้วยเงินจริง
 
-## Strategy overview
+## ภาพรวมของ strategy {#strategy-overview}
 
-The `DeltaNeutralVol` strategy lives in the trading crate's examples module. The Derive runner uses
-it in five stages:
+strategy `DeltaNeutralVol` อยู่ใน module examples ของ trading crate runner ของ Derive ใช้ strategy นี้ใน
+ห้าขั้นตอน:
 
-1. **Instrument load**: configures the Derive data client with `currencies: ["ETH"]`, so the adapter
-   loads ETH perps and options into the cache.
-1. **Strike selection**: filters the cache to live ETH options, selects the nearest expiry, then
-   chooses OTM call and put strikes by percentile rank.
-1. **Greeks tracking**: subscribes to `OptionGreeks` for both legs. Derive Greeks come from the
-   shared `ticker_slim` feed and the `option_pricing` payload.
-1. **Rehedging**: calculates portfolio delta and submits a Derive market order on `ETH-PERP.DERIVE`
-   when the threshold is breached.
-1. **Position tracking**: tracks call, put, and hedge positions through fills. Reconciliation
-   loads existing positions before the strategy starts.
+1. **โหลด instrument**: ตั้งค่า data client ของ Derive ด้วย `currencies: ["ETH"]` เพื่อให้ adapter โหลด ETH perp
+   และ option ลงใน cache
+1. **เลือก strike**: กรอง cache ให้เหลือเฉพาะ ETH option ที่ยังไม่หมดอายุ เลือก expiry ที่ใกล้ที่สุด แล้วเลือก strike
+   ของ call และ put ที่เป็น OTM ตามอันดับ percentile
+1. **ติดตาม Greeks**: subscribe `OptionGreeks` ของทั้งสอง leg โดย Greeks ของ Derive มาจาก feed `ticker_slim`
+   ที่ใช้ร่วมกัน และ payload `option_pricing`
+1. **Rehedge**: คำนวณ portfolio delta และส่ง market order ของ Derive บน `ETH-PERP.DERIVE` เมื่อเกิน threshold
+1. **ติดตาม position**: ติดตาม position ของ call, put และ hedge ผ่าน fill reconciliation จะโหลด position ที่มีอยู่
+   ก่อนที่ strategy จะเริ่ม
 
 ```mermaid
 flowchart LR
@@ -97,9 +92,9 @@ flowchart LR
     C -->|yes| M --> H
 ```
 
-### Portfolio delta
+### Portfolio delta {#portfolio-delta}
 
-The strategy calculates net exposure as:
+strategy คำนวณ exposure สุทธิดังนี้:
 
 ```text
 portfolio_delta = call_delta * call_position
@@ -107,15 +102,14 @@ portfolio_delta = call_delta * call_position
                 + hedge_position
 ```
 
-A short strangle starts close to delta-neutral when the call and put deltas offset. As the
-underlying moves, net delta drifts and the strategy hedges with the perpetual to bring the portfolio
-back toward zero.
+short strangle จะเริ่มต้นใกล้ delta-neutral เมื่อ delta ของ call และ put หักล้างกัน เมื่อสินทรัพย์อ้างอิงเคลื่อนไหว
+delta สุทธิจะเบี่ยงออกไป และ strategy จะ hedge ด้วย perpetual เพื่อดึง portfolio กลับเข้าใกล้ศูนย์
 
-## Configuration
+## การตั้งค่า {#configuration}
 
-The example runner at `crates/adapters/derive/examples/node_delta_neutral.rs` sets its configuration through
-constants at the top of the file. To change the run, edit these constants and rebuild the example. The `cargo
-run` command rebuilds the example after an edit.
+runner ตัวอย่างที่ `crates/adapters/derive/examples/node_delta_neutral.rs` ตั้งค่าผ่านค่าคงที่ที่ด้านบนของไฟล์
+ถ้าต้องการเปลี่ยนการรัน ให้แก้ค่าคงที่เหล่านี้แล้ว build ตัวอย่างใหม่ คำสั่ง `cargo run` จะ build ตัวอย่างใหม่ให้
+หลังแก้ไข
 
 ```rust
 const DERIVE_ENVIRONMENT: DeriveEnvironment = DeriveEnvironment::Testnet;
@@ -139,7 +133,7 @@ const MAX_FEE_PER_CONTRACT: &str = "1000";
 const MARKET_ORDER_SLIPPAGE_BPS: u32 = 50;
 ```
 
-The runner builds the strategy config from these constants:
+runner สร้าง config ของ strategy จากค่าคงที่เหล่านี้:
 
 ```rust
 // Disable rehedging by pushing the threshold beyond any reachable delta.
@@ -170,35 +164,34 @@ if let Some(expiry) = EXPIRY_FILTER {
 let strategy = DeltaNeutralVol::new(strategy_config);
 ```
 
-`HEDGE_ENABLED` has no matching strategy field. Setting it to `false` raises
-`rehedge_delta_threshold` to `1.0e12`, so the strategy never submits hedge orders.
+`HEDGE_ENABLED` ไม่มีฟิลด์ของ strategy ที่ตรงกัน การตั้งเป็น `false` จะเพิ่ม `rehedge_delta_threshold` เป็น
+`1.0e12` ทำให้ strategy ไม่ส่ง hedge order เลย
 
-Parameters:
+พารามิเตอร์:
 
-| Parameter                    | Default    | Derive runner | Description                                   |
+| Parameter                    | Default    | Derive runner | คำอธิบาย                                      |
 | ---------------------------- | ---------- | ------------- | --------------------------------------------- |
-| `option_family`              | required   | `"ETH"`       | Underlying filter for instrument discovery.   |
-| `hedge_instrument_id`        | required   | `ETH-PERP`    | Perpetual used for delta hedging.             |
-| `client_id`                  | required   | `"DERIVE"`    | Data and execution client identifier.         |
-| `target_call_delta`          | `0.20`     | `0.20`        | Target call delta for strike selection.       |
-| `target_put_delta`           | `-0.20`    | `-0.20`       | Target put delta for strike selection.        |
-| `contracts`                  | `1`        | `1`           | Contracts per option leg.                     |
-| `rehedge_delta_threshold`    | `0.5`      | `0.5`         | Portfolio delta that triggers a hedge.        |
-| `rehedge_interval_secs`      | `30`       | `30`          | Periodic rehedge timer interval.              |
-| `expiry_filter`              | `None`     | unset         | Optional expiry substring filter.             |
-| `enter_strangle`             | `true`     | `false`       | Place entry orders when premium data arrives. |
-| `entry_premium_offset_ticks` | `None`     | `1`           | Ticks above option ask for sell entry.        |
-| `entry_iv_offset`            | `0.0`      | `0.0`         | Used only when premium mode is disabled.      |
-| `iv_param_key`               | `"px_vol"` | unused        | IV parameter key for IV-priced venues.        |
+| `option_family`              | required   | `"ETH"`       | ตัวกรองสินทรัพย์อ้างอิงสำหรับค้นหา instrument  |
+| `hedge_instrument_id`        | required   | `ETH-PERP`    | perpetual ที่ใช้ทำ delta hedge                 |
+| `client_id`                  | required   | `"DERIVE"`    | identifier ของ data client และ execution client |
+| `target_call_delta`          | `0.20`     | `0.20`        | delta เป้าหมายของ call สำหรับเลือก strike      |
+| `target_put_delta`           | `-0.20`    | `-0.20`       | delta เป้าหมายของ put สำหรับเลือก strike       |
+| `contracts`                  | `1`        | `1`           | จำนวนสัญญาต่อ option leg                       |
+| `rehedge_delta_threshold`    | `0.5`      | `0.5`         | portfolio delta ที่ทำให้เกิดการ hedge          |
+| `rehedge_interval_secs`      | `30`       | `30`          | ช่วงเวลาของ timer สำหรับ rehedge เป็นระยะ      |
+| `expiry_filter`              | `None`     | unset         | ตัวกรอง expiry แบบ substring (ไม่บังคับ)       |
+| `enter_strangle`             | `true`     | `false`       | ส่ง entry order เมื่อได้รับข้อมูล premium      |
+| `entry_premium_offset_ticks` | `None`     | `1`           | จำนวน tick เหนือ option ask สำหรับการเข้าฝั่ง sell |
+| `entry_iv_offset`            | `0.0`      | `0.0`         | ใช้เฉพาะเมื่อปิดโหมด premium                   |
+| `iv_param_key`               | `"px_vol"` | unused        | key ของพารามิเตอร์ IV สำหรับ venue ที่ตั้งราคาตาม IV |
 
-Derive signs explicit premium limit prices. The runner enables the strategy's premium-entry mode with
-`entry_premium_offset_ticks=1`. Entry orders use a live option ask when available. When the quote side is
-empty, they use Derive IV fields instead. Bybit and OKX use the shared IV-parameter path.
+Derive sign ราคา limit ของ premium อย่างชัดเจน runner เปิดโหมด premium-entry ของ strategy ด้วย
+`entry_premium_offset_ticks=1` entry order จะใช้ option ask แบบ live เมื่อมี เมื่อฝั่ง quote ว่าง จะใช้ฟิลด์ IV ของ
+Derive แทน ส่วน Bybit และ OKX ใช้เส้นทาง IV-parameter ที่ใช้ร่วมกัน
 
-## Node setup
+## การตั้งค่า node {#node-setup}
 
-The Derive runner uses the live environment and selects testnet or mainnet from the
-`DERIVE_ENVIRONMENT` constant:
+runner ของ Derive ใช้ live environment และเลือก testnet หรือ mainnet จากค่าคงที่ `DERIVE_ENVIRONMENT`:
 
 ```rust
 let environment = Environment::Live;
@@ -208,8 +201,8 @@ let account_id = AccountId::from(ACCOUNT_ID);
 let client_id = *DERIVE_CLIENT_ID;
 ```
 
-The data client bulk-loads ETH instruments. This is important because the strategy selects option
-legs from the cache during `on_start`.
+data client จะโหลด ETH instrument แบบเป็นชุด ซึ่งสำคัญเพราะ strategy เลือก option leg จาก cache ระหว่าง
+`on_start`
 
 ```rust
 let data_config = DeriveDataClientConfig {
@@ -219,8 +212,8 @@ let data_config = DeriveDataClientConfig {
 };
 ```
 
-When the config fields are unset, the execution client reads wallet, session key, and subaccount values from
-Derive environment variables. The example sets a fee cap and the market-order slippage bound.
+เมื่อไม่ได้ตั้งฟิลด์ใน config execution client จะอ่านค่า wallet, session key และ subaccount จาก environment
+variable ของ Derive ตัวอย่างนี้ตั้งเพดานค่าธรรมเนียมและขอบเขต slippage ของ market order ไว้
 
 ```rust
 let exec_config = DeriveExecutionClientConfig {
@@ -232,8 +225,7 @@ let exec_config = DeriveExecutionClientConfig {
 };
 ```
 
-The node enables reconciliation to load open orders, positions, balances, and reports before the strategy
-starts:
+node เปิด reconciliation เพื่อโหลด open order, position, balance และ report ก่อนที่ strategy จะเริ่ม:
 
 ```rust
 let mut node = LiveNode::builder(trader_id, environment)?
@@ -248,76 +240,72 @@ node.add_strategy(strategy)?;
 node.run().await?;
 ```
 
-## How the strategy works
+## การทำงานของ strategy {#how-the-strategy-works}
 
-### Strike selection
+### การเลือก strike {#strike-selection}
 
-On start the strategy queries the cache for all option instruments matching `option_family`. For
-Derive, the example uses `ETH`, so matching instruments have symbols such as
-`ETH-20260626-3000-C.DERIVE`.
+ตอนเริ่มต้น strategy จะ query cache หา option instrument ทั้งหมดที่ตรงกับ `option_family` สำหรับ Derive
+ตัวอย่างนี้ใช้ `ETH` ดังนั้น instrument ที่ตรงกันจะมี symbol เช่น `ETH-20260626-3000-C.DERIVE`
 
-It removes expired options and applies `expiry_filter` if set. When no filter is set, it uses the nearest
-expiry. It sorts calls and puts by strike:
+strategy จะตัด option ที่หมดอายุแล้วออก และใช้ `expiry_filter` ถ้าตั้งไว้ ถ้าไม่ได้ตั้งตัวกรอง จะใช้ expiry ที่ใกล้ที่สุด
+แล้วเรียง call และ put ตาม strike:
 
-- **Call**: index = `(1.0 - target_call_delta) * count`. With the default `0.20`, this selects
-  around the 80th percentile strike.
-- **Put**: index = `abs(target_put_delta) * count`. With the default `-0.20`, this selects around
-  the 20th percentile strike.
+- **Call**: index = `(1.0 - target_call_delta) * count` เมื่อใช้ค่า default `0.20` จะได้ strike ราว
+  percentile ที่ 80
+- **Put**: index = `abs(target_put_delta) * count` เมื่อใช้ค่า default `-0.20` จะได้ strike ราว
+  percentile ที่ 20
 
-This is a strike-ordering heuristic. A production strategy can subscribe to Greeks for the full
-chain first and then select by actual delta.
+นี่เป็น heuristic ที่อิงลำดับของ strike strategy สำหรับ production อาจ subscribe Greeks ของทั้ง chain ก่อน
+แล้วจึงเลือกตาม delta จริง
 
-### Greeks and shared ticker feeds
+### Greeks และ ticker feed ที่ใช้ร่วมกัน {#greeks-and-shared-ticker-feeds}
 
-Derive publishes option pricing fields on the same `ticker_slim` channel used for quotes. The
-adapter derives `OptionGreeks` from `option_pricing`, so the strategy only needs to subscribe to the
-two selected option legs:
+Derive publish ฟิลด์ราคาของ option บน channel `ticker_slim` เดียวกับที่ใช้ส่ง quote adapter สร้าง `OptionGreeks`
+จาก `option_pricing` ดังนั้น strategy จึงต้อง subscribe เพียงสอง option leg ที่เลือกไว้:
 
 ```rust
 self.subscribe_option_greeks(call_id, Some(client_id), None);
 self.subscribe_option_greeks(put_id, Some(client_id), None);
 ```
 
-The adapter keeps a reference count for the underlying ticker subscription. For the same instrument, these
-data types can share a single WebSocket channel:
+adapter เก็บ reference count ของ ticker subscription ที่อยู่ข้างใต้ สำหรับ instrument เดียวกัน ข้อมูลชนิดต่อไปนี้
+ใช้ WebSocket channel เดียวร่วมกันได้:
 
-- Quotes.
-- Mark prices.
-- Index prices.
-- Funding rates.
-- Option Greeks.
+- Quote
+- Mark price
+- Index price
+- Funding rate
+- Option Greeks
 
-### Rehedging on Derive
+### การ rehedge บน Derive {#rehedging-on-derive}
 
-The Derive execution adapter sends market orders as signed orders with a slippage-bound limit price. Before it
-signs the order, the adapter refreshes the ticker snapshot for the hedge instrument. It writes the worst
-acceptable price into the EIP-712 payload. The default `market_order_slippage_bps` is `50`.
+execution adapter ของ Derive ส่ง market order เป็น signed order ที่มีราคา limit ซึ่งจำกัดด้วย slippage ก่อน sign
+order adapter จะ refresh ticker snapshot ของ hedge instrument แล้วเขียนราคาที่แย่ที่สุดที่ยอมรับได้ลงใน payload
+แบบ EIP-712 ค่า default ของ `market_order_slippage_bps` คือ `50`
 
-The strategy submits a hedge when both selected option legs have emitted Greeks and:
+strategy จะส่ง hedge เมื่อ option leg ทั้งสองที่เลือกส่ง Greeks ออกมาแล้ว และ:
 
 ```text
 abs(portfolio_delta) > rehedge_delta_threshold
 ```
 
-A positive portfolio delta triggers a SELL on `ETH-PERP.DERIVE`; a negative portfolio delta triggers
-a BUY. A `hedge_pending` flag blocks duplicate submissions while an order is in flight.
+portfolio delta ที่เป็นบวกจะทำให้เกิด SELL บน `ETH-PERP.DERIVE` ส่วน portfolio delta ที่เป็นลบจะทำให้เกิด BUY
+flag `hedge_pending` ป้องกันการส่งซ้ำระหว่างที่ order ยังอยู่ระหว่างดำเนินการ
 
-### Position tracking
+### การติดตาม position {#position-tracking}
 
-The strategy tracks positions through `on_order_filled`. It does not poll positions on every update.
-Reconciliation loads existing positions at startup. Subsequent fills update the in-memory call, put, and hedge
-counters.
+strategy ติดตาม position ผ่าน `on_order_filled` และไม่ poll position ทุกครั้งที่มีอัปเดต reconciliation จะโหลด
+position ที่มีอยู่ตอนเริ่มต้น จากนั้น fill ที่ตามมาจะอัปเดตตัวนับ call, put และ hedge ใน memory
 
-### Shutdown
+### การปิดระบบ {#shutdown}
 
-On stop, the strategy cancels open orders for the selected option legs and the hedge instrument. It
-unsubscribes from data feeds and leaves positions open. To close the strangle and hedge, use manual action or
-a separate exit strategy.
+ตอน stop strategy จะ cancel open order ของ option leg ที่เลือกและ hedge instrument แล้ว unsubscribe จาก data
+feed และปล่อย position ไว้ตามเดิม ถ้าต้องการปิด strangle และ hedge ให้ทำเองหรือใช้ exit strategy แยกต่างหาก
 
-## What the run produces
+## ผลลัพธ์จากการรัน {#what-the-run-produces}
 
-On testnet with `enter_strangle: false`, the strategy should discover the selected legs, subscribe
-to Greeks, and place no entry orders. The selected symbols depend on the live Derive chain:
+บน testnet ที่ตั้ง `enter_strangle: false` strategy ควรค้นพบ leg ที่เลือก subscribe Greeks และไม่ส่ง entry order
+symbol ที่เลือกได้จะขึ้นกับ chain ของ Derive ขณะนั้น:
 
 ```text
 Selected call: ETH-<expiry>-<strike>-C.DERIVE (strike=<strike>)
@@ -326,118 +314,85 @@ Strangle: 1 contracts per leg, hedge on ETH-PERP.DERIVE
 Strangle entry disabled: hedging externally-held positions only.
 ```
 
-If no existing positions are present, the run should remain data-only after startup. If the account
-already holds positions in the selected legs or hedge instrument, the periodic rehedge timer can
-submit hedge orders.
+ถ้าไม่มี position อยู่ก่อน การรันควรเป็นแบบรับข้อมูลอย่างเดียวหลังเริ่มต้น ถ้า account ถือ position ใน leg ที่เลือกหรือ
+hedge instrument อยู่แล้ว timer สำหรับ rehedge เป็นระยะอาจส่ง hedge order
 
-The panels below use the same selected-strike mechanics as the Derive runner. They parse selected
-strikes from the smoke-test log when available and otherwise fall back to illustrative ETH strikes.
+กราฟด้านล่างใช้กลไกการเลือก strike เดียวกับ runner ของ Derive โดย parse strike ที่เลือกจาก log ของ smoke test
+เมื่อมี และถ้าไม่มีจะใช้ strike ของ ETH แบบสมมติเพื่อประกอบคำอธิบาย
 
 ![Derive short strangle payoff at expiry](./assets/delta_neutral_options_derive/panel_a_strangle_payoff.png)
 
-**Figure 1.** *Pnl at expiry of the short ETH put plus short ETH call combination, assuming a fixed USDC
-premium and zero discount. The flat top is the credit-only zone between strikes. Loss increases linearly past
-either strike.*
+**รูปที่ 1** *PnL ตอนหมดอายุของการ short ETH put รวมกับ short ETH call โดยสมมติ premium เป็น USDC คงที่และ
+ไม่มี discount ส่วนบนที่แบนคือช่วงที่ได้เฉพาะ credit ระหว่าง strike ทั้งสอง ผลขาดทุนเพิ่มขึ้นแบบเส้นตรงเมื่อเลย strike
+ใด strike หนึ่งไป*
 
 ![Derive portfolio delta drift around entry](./assets/delta_neutral_options_derive/panel_b_delta_drift.png)
 
-**Figure 2.** *Illustrative short call and short put deltas around entry, with the resulting portfolio delta
-before hedging.*
+**รูปที่ 2** *delta ของ short call และ short put แบบสมมติรอบจุดเข้า พร้อม portfolio delta ที่ได้ก่อนการ hedge*
 
 ![Derive synthetic delta drift with rehedge](./assets/delta_neutral_options_derive/panel_c_hedge_threshold.png)
 
-**Figure 3.** *Synthetic Brownian delta drift over 150 seconds with
-`rehedge_delta_threshold=0.5`. Crosses show where the strategy would submit a hedge order when
-hedging is enabled.*
+**รูปที่ 3** *การเบี่ยงของ delta แบบ Brownian สังเคราะห์ตลอด 150 วินาที ด้วย `rehedge_delta_threshold=0.5`
+กากบาทแสดงจุดที่ strategy จะส่ง hedge order เมื่อเปิดการ hedge*
 
 ![Derive strike selection on the IV smile](./assets/delta_neutral_options_derive/panel_d_strike_picker.png)
 
-**Figure 4.** *The strike-selection heuristic against an illustrative IV smile. The call strike
-sits near the `(1 - target_call_delta)` percentile and the put near `abs(target_put_delta)`.*
+**รูปที่ 4** *heuristic การเลือก strike เทียบกับ IV smile แบบสมมติ strike ของ call อยู่ใกล้ percentile
+`(1 - target_call_delta)` และ strike ของ put อยู่ใกล้ `abs(target_put_delta)`*
 
-### Regenerate the panels
 
-The log comes from the live runner, which connects to Derive with your credentials. Before the run, edit
-`node_delta_neutral.rs`:
+## ข้อพิจารณาด้านความเสี่ยง {#risk-considerations}
 
-1. Set `DERIVE_ENVIRONMENT` to `DeriveEnvironment::Mainnet`.
-1. Set `HEDGE_ENABLED` to `false`.
-1. Keep `ENTER_STRANGLE` at `false`.
-1. Export the mainnet credentials.
+- **ความเสี่ยงด้าน gamma**: short strangle มี gamma เป็นลบ การเคลื่อนไหวขนาดใหญ่ของ ETH อาจเพิ่ม delta exposure
+  เร็วกว่าที่ timer ของ rehedge จะตอบสนองทัน
+- **ความเสี่ยงด้าน slippage**: market order ของ Derive จะ sign ราคา limit ที่จำกัดด้วย slippage ก่อนส่ง ขอบเขตที่แคบ
+  อาจทำให้ hedge ที่มีประโยชน์ถูกปฏิเสธ ขอบเขตที่กว้างอาจได้ fill ที่แย่กว่าที่คาด
+- **ความเสี่ยงด้านราคาเข้า**: การเข้าบน Derive ใช้ option ask แบบ live บวก offset เป็น tick เมื่อฝั่ง quote ว่าง จะ
+  คำนวณ premium จากฟิลด์ IV ของ Derive offset ที่เล็กหรือติดลบอาจข้าม book และถูก fill ทันที
+- **ความเสี่ยงด้าน collateral**: Derive จะปฏิเสธ order เมื่อ subaccount มี initial margin เหลือไม่พอ ก่อนเปิด live
+  hedging ให้ตรวจสอบ `private/get_subaccount` หรือ snapshot ของ account จาก adapter
+- **ความเสี่ยงด้าน lifecycle**: การหยุด strategy จะหยุดการ hedge ด้วย position จะยังเปิดอยู่และไม่มีการ hedge
+  จนกว่าจะมีการจัดการจากที่อื่น
 
-With both `HEDGE_ENABLED` and `ENTER_STRANGLE` set to `false`, the run submits no orders.
-After the run, restore the constants.
+## การรันตัวอย่าง {#running-the-example}
 
-After building NautilusTrader from source, run these commands from the repository root:
-
-```bash
-make sync
-
-timeout 45 cargo run --example derive-delta-neutral --package nautilus-derive --features examples \
-    > /tmp/derive_dn.log 2>&1
-
-export DN_LOG=/tmp/derive_dn.log
-uv run --project python --no-sync \
-    python docs/tutorials/assets/delta_neutral_options_derive/render_panels.py
-```
-
-The renderer only uses the log to pick strikes. The plots remain illustrative because the no-order
-smoke configuration disables entry and hedge submissions.
-
-## Risk considerations
-
-- **Gamma risk**: a short strangle has negative gamma. Large ETH moves can increase delta exposure
-  faster than the rehedge timer responds.
-- **Slippage risk**: Derive market orders sign a slippage-bound limit price before submission.
-  Tight bounds can reject useful hedges. Loose bounds can fill worse than expected.
-- **Entry-price risk**: Derive entry uses live option asks plus a tick offset.
-  When the quote side is empty, it calculates a premium from Derive IV fields. A small or negative offset can cross the book
-  and fill immediately.
-- **Collateral risk**: Derive rejects orders when the subaccount lacks initial-margin headroom.
-  Before you enable live hedging, check `private/get_subaccount` or the adapter account snapshot.
-- **Lifecycle risk**: stopping the strategy stops hedging. Positions remain open and unhedged until
-  they are managed elsewhere.
-
-## Running the example
-
-With the shipped constants, the example targets Derive testnet with strangle entry disabled and hedging
-enabled. If the subaccount holds positions in the selected legs or hedge instrument, portfolio delta can
-exceed the threshold. The strategy then submits hedge orders on `ETH-PERP.DERIVE`.
+ด้วยค่าคงที่ที่ให้มา ตัวอย่างจะใช้ Derive testnet โดยปิดการเข้า strangle และเปิดการ hedge ถ้า subaccount ถือ
+position ใน leg ที่เลือกหรือ hedge instrument อยู่ portfolio delta อาจเกิน threshold แล้ว strategy จะส่ง hedge
+order บน `ETH-PERP.DERIVE`
 
 ```bash
 cargo run --example derive-delta-neutral --package nautilus-derive --features examples
 ```
 
-Stop with Ctrl+C. The strategy cancels open orders and unsubscribes before shutdown, but it does not
-close positions.
+หยุดด้วย Ctrl+C strategy จะ cancel open order และ unsubscribe ก่อนปิดระบบ แต่ไม่ปิด position
 
-For a smoke test that loads the venue and account without submitting orders, set `HEDGE_ENABLED` to
-`false` and keep `ENTER_STRANGLE` at `false`. To run it on mainnet, also set `DERIVE_ENVIRONMENT` to
-`DeriveEnvironment::Mainnet`. Then run:
+สำหรับ smoke test ที่โหลด venue และ account โดยไม่ส่ง order ให้ตั้ง `HEDGE_ENABLED` เป็น `false` และคง
+`ENTER_STRANGLE` ไว้ที่ `false` ถ้าจะรันบน mainnet ให้ตั้ง `DERIVE_ENVIRONMENT` เป็น
+`DeriveEnvironment::Mainnet` ด้วย แล้วรัน:
 
 ```bash
 timeout 45 cargo run --example derive-delta-neutral --package nautilus-derive --features examples
 ```
 
-For a smoke test that submits Derive-premium option entry orders, set `ENTER_STRANGLE` to `true`
-(`ENTRY_PREMIUM_OFFSET_TICKS` is already `1`). The orders go to the network `DERIVE_ENVIRONMENT`
-selects, and hedging stays on unless `HEDGE_ENABLED` is `false`. Then run:
+สำหรับ smoke test ที่ส่ง option entry order ตาม premium ของ Derive ให้ตั้ง `ENTER_STRANGLE` เป็น `true`
+(`ENTRY_PREMIUM_OFFSET_TICKS` เป็น `1` อยู่แล้ว) order จะไปยัง network ที่ `DERIVE_ENVIRONMENT` เลือก และการ
+hedge ยังเปิดอยู่ เว้นแต่ `HEDGE_ENABLED` เป็น `false` แล้วรัน:
 
 ```bash
 timeout --signal=INT 45 cargo run --example derive-delta-neutral --package nautilus-derive \
     --features examples
 ```
 
-## Complete source
+## ซอร์สโค้ดฉบับเต็ม {#complete-source}
 
-- Example runner: `crates/adapters/derive/examples/node_delta_neutral.rs`
-- Strategy implementation: `crates/trading/src/examples/strategies/delta_neutral_vol/`
-- Strategy README: `crates/trading/src/examples/strategies/delta_neutral_vol/README.md`
+- runner ตัวอย่าง: `crates/adapters/derive/examples/node_delta_neutral.rs`
+- implementation ของ strategy: `crates/trading/src/examples/strategies/delta_neutral_vol/`
+- README ของ strategy: `crates/trading/src/examples/strategies/delta_neutral_vol/README.md`
 
-## See also
+## ดูเพิ่มเติม {#see-also}
 
-- [Derive integration](../integrations/derive.md): environment setup, symbology, capabilities, and
-  execution semantics.
-- [Options](../concepts/options.md): option instrument types and data architecture.
-- [Delta-neutral options strategy on Bybit](delta_neutral_options_bybit.md): the same shared
-  strategy with Bybit-specific IV entry parameters.
+- [Derive integration](../integrations/derive.md): การตั้งค่า environment, symbology, ความสามารถ และความหมาย
+  ของ execution
+- [Options](../concepts/options.md): ประเภทของ option instrument และสถาปัตยกรรมของข้อมูล
+- [Options strategy แบบ delta-neutral บน Bybit](delta_neutral_options_bybit.md): strategy ที่ใช้ร่วมกันตัวเดียวกัน
+  พร้อมพารามิเตอร์การเข้าตาม IV เฉพาะของ Bybit

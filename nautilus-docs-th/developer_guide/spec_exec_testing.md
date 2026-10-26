@@ -1,67 +1,32 @@
 # Execution Testing Spec
 
-Use this test matrix to validate adapter execution functionality with the Rust `ExecTester` strategy. Python
-exposes it as a built-in strategy configured through `nautilus_trader.testkit.ExecTesterConfig`. Rust code
-imports it from `nautilus_testkit::testers`. Cases use prefixed IDs (for example, TC-E01) and are grouped by
-functionality.
+ใช้ test matrix นี้เพื่อ validate ความสามารถด้าน execution ของ adapter ด้วย strategy `ExecTester` ของ Rust
+โค้ด Rust import มันจาก `nautilus_testkit::testers` แต่ละ case ใช้ ID ที่มี prefix (เช่น TC-E01) และจัดกลุ่มตามฟังก์ชัน
 
-**Each adapter must pass the subset of tests matching its supported capabilities.**
+**adapter แต่ละตัวต้องผ่านชุด test ย่อยที่ตรงกับความสามารถที่ตนรองรับ**
 
-Tests progress from simple (single market order) to complex (brackets,
-modification chains, rejection handling). An adapter that passes groups 1-5 is
-considered baseline compliant. Data connectivity should be verified first using
-the [Data Testing Spec](spec_data_testing.md).
+test ไล่จากง่าย (market order เดียว) ไปซับซ้อน (bracket, การแก้ไขต่อเนื่อง, การจัดการ rejection) adapter ที่ผ่านกลุ่ม 1-5
+ถือว่าผ่านเกณฑ์พื้นฐาน (baseline compliant) ควรตรวจการเชื่อมต่อข้อมูลก่อนด้วย
+[Data Testing Spec](spec_data_testing.md)
 
-Document adapter-specific behavior (how a venue simulates market orders,
-handles TIF options, etc.) in the adapter's own guide, not here. Each adapter
-guide should include a capability matrix showing which order types, time-in-force
-options, actions, and flags it supports.
+ให้บันทึกพฤติกรรมเฉพาะของ adapter (venue จำลอง market order อย่างไร จัดการตัวเลือก TIF อย่างไร ฯลฯ) ไว้ในคู่มือของ
+adapter นั้นเอง ไม่ใช่ที่นี่ คู่มือของแต่ละ adapter ควรมี capability matrix ที่แสดงว่ารองรับ order type, ตัวเลือก
+time-in-force, action และ flag ใดบ้าง
 
-## Prerequisites
+## สิ่งที่ต้องมีก่อน {#prerequisites}
 
-Before running execution tests:
+ก่อนรัน execution test:
 
-- Demo/testnet account with valid API credentials (preferred, not required).
-- Account funded with sufficient margin for the test instrument and quantities.
-- Target instrument available and loadable via the instrument provider.
-- Environment variables set: `{VENUE}_API_KEY`, `{VENUE}_API_SECRET` (or sandbox variants).
-- If the venue offers a demo/testnet mode, use credentials created for that environment. Demo and production
-  API keys are typically separate and not interchangeable. Using the wrong credentials produces authentication
-  errors (e.g. HTTP 401).
-- Risk engine bypassed (`LiveRiskEngineConfig(bypass=True)`) to avoid interference.
-- Reconciliation enabled to verify state consistency.
+- account แบบ demo/testnet ที่มี API credential ถูกต้อง (แนะนำ แต่ไม่บังคับ)
+- account มีเงินพอสำหรับ margin ของ instrument และ quantity ที่ใช้ทดสอบ
+- instrument เป้าหมายมีอยู่และโหลดผ่าน instrument provider ได้
+- ตั้ง environment variable แล้ว: `{VENUE}_API_KEY`, `{VENUE}_API_SECRET` (หรือตัวแปรแบบ sandbox)
+- ถ้า venue มีโหมด demo/testnet ให้ใช้ credential ที่สร้างสำหรับ environment นั้น API key ของ demo และ production
+  มักแยกกันและใช้แทนกันไม่ได้ การใช้ credential ผิดจะทำให้เกิด authentication error (เช่น HTTP 401)
+- bypass risk engine (`LiveRiskEngineConfig(bypass=True)`) เพื่อไม่ให้รบกวน
+- เปิด reconciliation เพื่อตรวจความสอดคล้องของ state
 
-**Python node setup**:
-
-Use `nautilus_trader.live.LiveNode`. Call `LiveNode.builder(...)` when you need to
-register adapter client factories before the node is built.
-
-```python
-from nautilus_trader.common import Environment
-from nautilus_trader.config import LiveExecutionEngineConfig
-from nautilus_trader.config import LiveRiskEngineConfig
-from nautilus_trader.live import LiveNode
-from nautilus_trader.model import TraderId
-from nautilus_trader.testkit import ExecTesterConfig
-
-node = (
-    LiveNode.builder("TESTER-001", TraderId("TESTER-001"), Environment.SANDBOX)
-    .with_risk_engine_config(LiveRiskEngineConfig(bypass=True))
-    .with_exec_engine_config(LiveExecutionEngineConfig(reconciliation=True))
-    .add_exec_client(None, adapter_exec_client_factory, exec_client_config)
-    .build()
-)
-
-tester_config = ExecTesterConfig(
-    instrument_id=instrument_id,
-    client_id=client_id,
-    order_qty=order_qty,
-)
-node.add_builtin_strategy("ExecTester", tester_config)
-# Register remaining components, then start or run
-```
-
-**Rust node setup** (reference: `crates/adapters/{adapter}/examples/node_exec_tester.rs`):
+**การตั้งค่า node ด้วย Rust** (อ้างอิง: `crates/adapters/{adapter}/examples/node_exec_tester.rs`):
 
 ```rust
 use nautilus_testkit::testers::{ExecTester, ExecTesterConfig};
@@ -81,45 +46,30 @@ node.add_strategy(tester)?;
 node.run().await?;
 ```
 
-## Timestamp scale
+## สเกลของ timestamp {#timestamp-scale}
 
-Nautilus stores `ts_event` and `ts_init` as Unix nanoseconds (`UnixNanos`). Every
-execution message must use that scale: order events, fills, account state, and
-reconciliation reports (`OrderStatusReport`, `FillReport`, `PositionStatusReport`,
-`ExecutionMassStatus`).
+Nautilus เก็บ `ts_event` และ `ts_init` เป็น Unix nanoseconds (`UnixNanos`) ทุก execution message ต้องใช้สเกลนี้:
+order event, fill, account state และ reconciliation report (`OrderStatusReport`, `FillReport`,
+`PositionStatusReport`, `ExecutionMassStatus`)
 
-- A value below `10^16` is not a plausible Unix-nanosecond timestamp (`10^16` ns is about
-  116 days after 1970-01-01) and usually means the adapter left the venue scale unconverted.
-- Second-precision venue times that were converted correctly end in `000000000` and still
-  pass: that is coarse precision, not a scale error.
-- Live stream `ts_event` should be near wall-clock time for the session. Reconciliation
-  reports may be older and still valid if the scale is nanoseconds.
-- `ts_init` is the local clock when Nautilus created the object. Small `ts_event` >
-  `ts_init` skew is possible when the venue clock is ahead.
+- ค่าที่ต่ำกว่า `10^16` ไม่น่าจะเป็น timestamp แบบ Unix nanosecond (`10^16` ns คือประมาณ 116 วันหลัง 1970-01-01)
+  และมักหมายความว่า adapter ไม่ได้แปลงสเกลจาก venue
+- เวลาจาก venue ที่มีความละเอียดระดับวินาทีซึ่งแปลงถูกต้องจะลงท้ายด้วย `000000000` และยังผ่าน: นั่นคือความละเอียดหยาบ
+  ไม่ใช่ความผิดพลาดของสเกล
+- `ts_event` ของ live stream ควรใกล้กับเวลานาฬิกาจริงของ session ส่วน reconciliation report อาจเก่ากว่านั้นและยังถูกต้อง
+  ถ้าสเกลเป็นนาโนวินาที
+- `ts_init` คือ clock ในเครื่องตอนที่ Nautilus สร้าง object อาจมี skew เล็กน้อยที่ `ts_event` > `ts_init` ได้เมื่อ
+  clock ของ venue เดินเร็วกว่า
 
-`ExecTester` warns when received market-data or order-event timestamps fail the scale
-check. Inspect report timestamps on the reports themselves. Treat a scale warning or leftover
-seconds, milliseconds, or microseconds on any execution message as a failure.
+`ExecTester` จะ warn เมื่อ timestamp ของ market data หรือ order event ที่ได้รับไม่ผ่านการตรวจสเกล ส่วน timestamp
+ของ report ให้ตรวจจากตัว report เอง ให้ถือว่า warning เรื่องสเกล หรือมีหน่วยวินาที มิลลิวินาที หรือไมโครวินาทีหลงเหลือใน
+execution message ใด ๆ เป็นการไม่ผ่าน
 
-## Basic smoke test
+## Smoke test พื้นฐาน {#basic-smoke-test}
 
-A quick sanity check that can run at any time, for example after adapter changes or between
-development iterations. The tester opens a position with a market order on start, places a
-buy and sell post-only limit order, waits 30 seconds, then stops (cancelling open orders and
-closing the position).
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.001"),
-    open_position_on_start_qty=Decimal("0.001"),
-    enable_limit_buys=True,
-    enable_limit_sells=True,
-    use_post_only=True,
-)
-```
+การตรวจสอบเบื้องต้นแบบเร็วที่รันได้ทุกเมื่อ เช่น หลังแก้ adapter หรือระหว่างรอบการพัฒนา tester จะเปิด position ด้วย
+market order ตอนเริ่ม วาง limit order แบบ post-only ทั้งฝั่ง buy และ sell รอ 30 วินาที แล้วหยุด (cancel order ที่เปิดอยู่และ
+ปิด position)
 
 **Rust config**:
 
@@ -139,64 +89,51 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-**Expected behavior**:
+**พฤติกรรมที่คาดหวัง**:
 
-1. On start: market order fills, opening a position.
-2. Two limit orders placed at `tob_offset_ticks` away from best bid/ask (default 500 ticks).
-3. Strategy idles for 30 seconds. Check logs for errors, rejected orders, or disconnections.
-4. On stop: open limit orders cancelled, position closed with a market order.
+1. ตอนเริ่ม: market order ถูก fill และเปิด position
+2. วาง limit order สองตัวห่างจาก best bid/ask เป็น `tob_offset_ticks` (default 500 tick)
+3. strategy ว่างอยู่ 30 วินาที ตรวจ log ว่ามี error, order ที่ถูก reject หรือการหลุดการเชื่อมต่อหรือไม่
+4. ตอนหยุด: limit order ที่เปิดอยู่ถูก cancel และ position ถูกปิดด้วย market order
 
-**Pass criteria**: No errors in logs, position opened and closed cleanly, and limit orders
-acknowledged by the venue.
-
----
-
-Each group below begins with a summary table, followed by detailed test cards.
-Test IDs use spaced numbering to allow insertion without renumbering.
+**เกณฑ์ผ่าน**: ไม่มี error ใน log, position เปิดและปิดได้เรียบร้อย และ venue ยืนยันรับ limit order
 
 ---
 
-## Group 1: Market orders
+แต่ละกลุ่มด้านล่างเริ่มด้วยตารางสรุป ตามด้วย test card แบบละเอียด ID ของ test เว้นช่วงตัวเลขไว้เพื่อให้แทรกเพิ่มได้โดยไม่ต้อง
+เรียงเลขใหม่
 
-Test market order submission and fills. Market orders should execute immediately.
+---
 
-| TC     | Name                          | Description                                         | Skip when          |
-| ------ | ----------------------------- | --------------------------------------------------- | ------------------ |
-| TC-E01 | Market BUY - submit and fill  | Open long position via market buy.                  | No market orders.  |
-| TC-E02 | Market SELL - submit and fill | Open short position via market sell.                | No market orders.  |
-| TC-E03 | Market order with IOC TIF     | Market order explicitly using IOC time in force.    | No IOC.            |
-| TC-E04 | Market order with FOK TIF     | Market order explicitly using FOK time in force.    | No FOK.            |
-| TC-E05 | Market order with quote qty   | Market order using quote currency quantity.         | No quote quantity. |
-| TC-E06 | Close position via market     | Close an open position with a market order on stop. | No market orders.  |
+## กลุ่ม 1: Market order {#group-1-market-orders}
 
-### TC-E01: Market BUY - submit and fill
+ทดสอบการ submit และการ fill ของ market order market order ควร execute ทันที
 
-| Field              | Value                                                                                                            |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, instrument loaded, market data flowing, no open position.                                     |
-| **Action**         | ExecTester opens a long position via `open_position_on_start_qty`.                                               |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` -> `OrderFilled`.                                      |
-| **Pass criteria**  | Position opened with side=LONG, quantity matches config, fill price within market range, `AccountState` updated. |
-| **Skip when**      | Adapter does not support market orders.                                                                          |
+| TC | ชื่อ | คำอธิบาย | ข้ามเมื่อ |
+| --- | --- | --- | --- |
+| TC-E01 | Market BUY - submit และ fill | เปิด long position ด้วย market buy | ไม่มี market order |
+| TC-E02 | Market SELL - submit และ fill | เปิด short position ด้วย market sell | ไม่มี market order |
+| TC-E03 | Market order แบบ IOC TIF | market order ที่ระบุ time in force เป็น IOC ชัดเจน | ไม่มี IOC |
+| TC-E04 | Market order แบบ FOK TIF | market order ที่ระบุ time in force เป็น FOK ชัดเจน | ไม่มี FOK |
+| TC-E05 | Market order แบบ quote qty | market order ที่ใช้ quantity เป็น quote currency | ไม่มี quote quantity |
+| TC-E06 | ปิด position ด้วย market | ปิด position ที่เปิดอยู่ด้วย market order ตอนหยุด | ไม่มี market order |
 
-**Considerations**:
+### TC-E01: Market BUY - submit และ fill {#tc-e01-market-buy---submit-and-fill}
 
-- Some adapters simulate market orders as aggressive limit IOC orders (check adapter guide).
-- The event sequence from the strategy's perspective should be identical regardless of the venue mechanism.
-- Fill price should be within the recent bid/ask spread.
-- Partial fills are valid. Verify the cumulative filled quantity matches the order quantity.
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด instrument แล้ว, market data ไหลเข้า, ไม่มี position เปิดอยู่ |
+| **การกระทำ** | ExecTester เปิด long position ผ่าน `open_position_on_start_qty` |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` -> `OrderFilled` |
+| **เกณฑ์ผ่าน** | position เปิดด้วย side=LONG, quantity ตรงกับ config, ราคา fill อยู่ในช่วงตลาด, `AccountState` ถูกอัปเดต |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ market order |
 
-**Python config**:
+**ข้อควรพิจารณา**:
 
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    open_position_on_start_qty=Decimal("0.01"),
-    enable_limit_buys=False,
-    enable_limit_sells=False,
-)
-```
+- บาง adapter จำลอง market order เป็น limit IOC แบบ aggressive (ดูคู่มือ adapter)
+- ลำดับ event จากมุมมองของ strategy ควรเหมือนกันไม่ว่ากลไกของ venue จะเป็นแบบใด
+- ราคา fill ควรอยู่ภายใน bid/ask spread ล่าสุด
+- partial fill ถือว่าใช้ได้ ให้ตรวจว่า filled quantity สะสมตรงกับ order quantity
 
 **Rust config**:
 
@@ -215,27 +152,15 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E02: Market SELL - submit and fill
+### TC-E02: Market SELL - submit และ fill {#tc-e02-market-sell---submit-and-fill}
 
-| Field              | Value                                                                                     |
-| ------------------ | ----------------------------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, instrument loaded, market data flowing, no open position.              |
-| **Action**         | ExecTester opens a short position via negative `open_position_on_start_qty`.              |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` -> `OrderFilled`.               |
-| **Pass criteria**  | Position opened with side=SHORT, quantity matches config, fill price within market range. |
-| **Skip when**      | Adapter does not support market orders or short selling.                                  |
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    open_position_on_start_qty=Decimal("-0.01"),
-    enable_limit_buys=False,
-    enable_limit_sells=False,
-)
-```
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด instrument แล้ว, market data ไหลเข้า, ไม่มี position เปิดอยู่ |
+| **การกระทำ** | ExecTester เปิด short position ผ่าน `open_position_on_start_qty` ที่เป็นค่าติดลบ |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` -> `OrderFilled` |
+| **เกณฑ์ผ่าน** | position เปิดด้วย side=SHORT, quantity ตรงกับ config, ราคา fill อยู่ในช่วงตลาด |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ market order หรือ short selling |
 
 **Rust config**:
 
@@ -254,33 +179,20 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E03: Market order with IOC TIF
+### TC-E03: Market order แบบ IOC TIF {#tc-e03-market-order-with-ioc-tif}
 
-| Field              | Value                                                                       |
-| ------------------ | --------------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, instrument loaded, market data flowing.                  |
-| **Action**         | Open position with `open_position_time_in_force=IOC`.                       |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` -> `OrderFilled`. |
-| **Pass criteria**  | Same as TC-E01. The IOC TIF is explicitly set on the order.                 |
-| **Skip when**      | No IOC support.                                                             |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด instrument แล้ว, market data ไหลเข้า |
+| **การกระทำ** | เปิด position ด้วย `open_position_time_in_force=IOC` |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` -> `OrderFilled` |
+| **เกณฑ์ผ่าน** | เหมือน TC-E01 โดย order ระบุ IOC TIF อย่างชัดเจน |
+| **ข้ามเมื่อ** | ไม่รองรับ IOC |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- Some adapters simulate market orders as aggressive limit IOC. An unfilled simulated
-  market maps to `OrderCanceled`, not `OrderRejected`.
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    open_position_on_start_qty=Decimal("0.01"),
-    open_position_time_in_force=TimeInForce.IOC,
-    enable_limit_buys=False,
-    enable_limit_sells=False,
-)
-```
+- บาง adapter จำลอง market order เป็น limit IOC แบบ aggressive market แบบจำลองที่ไม่ถูก fill จะถูก map เป็น
+  `OrderCanceled` ไม่ใช่ `OrderRejected`
 
 **Rust config**:
 
@@ -300,33 +212,20 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E04: Market order with FOK TIF
+### TC-E04: Market order แบบ FOK TIF {#tc-e04-market-order-with-fok-tif}
 
-| Field              | Value                                                                       |
-| ------------------ | --------------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, instrument loaded, market data flowing.                  |
-| **Action**         | Open position with `open_position_time_in_force=FOK`.                       |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` -> `OrderFilled`. |
-| **Pass criteria**  | Same as TC-E01. The FOK TIF is explicitly set on the order.                 |
-| **Skip when**      | No FOK support.                                                             |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด instrument แล้ว, market data ไหลเข้า |
+| **การกระทำ** | เปิด position ด้วย `open_position_time_in_force=FOK` |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` -> `OrderFilled` |
+| **เกณฑ์ผ่าน** | เหมือน TC-E01 โดย order ระบุ FOK TIF อย่างชัดเจน |
+| **ข้ามเมื่อ** | ไม่รองรับ FOK |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- FOK requires the entire quantity to be fillable immediately or the order is canceled.
-- Use small test quantities so book depth is sufficient for a complete fill.
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    open_position_on_start_qty=Decimal("0.01"),
-    open_position_time_in_force=TimeInForce.FOK,
-    enable_limit_buys=False,
-    enable_limit_sells=False,
-)
-```
+- FOK ต้อง fill ได้ทั้ง quantity ทันที มิฉะนั้น order จะถูก cancel
+- ใช้ quantity ทดสอบขนาดเล็ก เพื่อให้ความลึกของ book พอสำหรับการ fill ทั้งหมด
 
 **Rust config**:
 
@@ -346,28 +245,15 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E05: Market order with quote quantity
+### TC-E05: Market order แบบ quote quantity {#tc-e05-market-order-with-quote-quantity}
 
-| Field              | Value                                                                            |
-| ------------------ | -------------------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, instrument loaded, adapter supports quote quantity.           |
-| **Action**         | Open position with `use_quote_quantity=True`, quantity in quote currency.        |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` -> `OrderFilled`.      |
-| **Pass criteria**  | Order submitted with quote currency quantity. Fill quantity is in base currency. |
-| **Skip when**      | Adapter does not support quote quantity orders.                                  |
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("100.0"),  # Quote currency amount
-    open_position_on_start_qty=Decimal("100.0"),
-    use_quote_quantity=True,
-    enable_limit_buys=False,
-    enable_limit_sells=False,
-)
-```
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด instrument แล้ว, adapter รองรับ quote quantity |
+| **การกระทำ** | เปิด position ด้วย `use_quote_quantity=True` โดย quantity เป็นหน่วย quote currency |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` -> `OrderFilled` |
+| **เกณฑ์ผ่าน** | order ถูก submit ด้วย quantity เป็น quote currency และ fill quantity เป็นหน่วย base currency |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ order แบบ quote quantity |
 
 **Rust config**:
 
@@ -387,36 +273,23 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E06: Close position via market order on stop
+### TC-E06: ปิด position ด้วย market order ตอนหยุด {#tc-e06-close-position-via-market-order-on-stop}
 
-| Field              | Value                                                                                       |
-| ------------------ | ------------------------------------------------------------------------------------------- |
-| **Prerequisite**   | Open position from TC-E01 or TC-E02.                                                        |
-| **Action**         | Stop the strategy. ExecTester closes position via market order.                             |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` -> `OrderFilled` (closing order). |
-| **Pass criteria**  | Position closed, or only the exact sub-precision residual remains. No open orders remain.   |
-| **Skip when**      | Adapter does not support market orders.                                                     |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | มี position เปิดอยู่จาก TC-E01 หรือ TC-E02 |
+| **การกระทำ** | หยุด strategy แล้ว ExecTester ปิด position ด้วย market order |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` -> `OrderFilled` (order ปิด) |
+| **เกณฑ์ผ่าน** | position ถูกปิด หรือเหลือเพียงเศษที่ต่ำกว่า precision พอดี และไม่มี order เปิดค้างอยู่ |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ market order |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- This test naturally follows TC-E01 or TC-E02 as part of the same session.
-- `close_positions_on_stop=True` is the default.
-- The closing order should be on the opposite side of the position.
-- Set `close_positions_qty_precision` when the venue accepts fewer size decimals than the
-  instrument. The tester closes only that venue-fillable quantity and logs any exact residual.
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    open_position_on_start_qty=Decimal("0.01"),
-    close_positions_on_stop=True,
-    enable_limit_buys=False,
-    enable_limit_sells=False,
-)
-```
+- test นี้ตามหลัง TC-E01 หรือ TC-E02 โดยธรรมชาติใน session เดียวกัน
+- `close_positions_on_stop=True` เป็นค่า default
+- order ปิดควรอยู่ฝั่งตรงข้ามกับ position
+- ตั้ง `close_positions_qty_precision` เมื่อ venue รับทศนิยมของขนาดได้น้อยกว่า instrument tester จะปิดเฉพาะ quantity
+  ที่ venue fill ได้ และ log เศษที่เหลืออยู่
 
 **Rust config**:
 
@@ -438,49 +311,38 @@ ExecTesterConfig::builder()
 
 ---
 
-## Group 2: Limit orders
+## กลุ่ม 2: Limit order {#group-2-limit-orders}
 
-Test limit order submission, acceptance, and behavior across time-in-force options.
+ทดสอบการ submit, การ accept และพฤติกรรมของ limit order ภายใต้ตัวเลือก time-in-force ต่าง ๆ
 
-| TC     | Name                      | Description                                         | Skip when |
-| ------ | ------------------------- | --------------------------------------------------- | --------- |
-| TC-E10 | Limit BUY GTC             | Place GTC limit buy below TOB, verify accepted.     | Never.    |
-| TC-E11 | Limit SELL GTC            | Place GTC limit sell above TOB, verify accepted.    | Never.    |
-| TC-E12 | Limit BUY and SELL pair   | Both sides simultaneously, verify both accepted.    | Never.    |
-| TC-E13 | Limit IOC aggressive fill | Limit IOC at aggressive price, expect fill.         | No IOC.   |
-| TC-E14 | Limit IOC passive no fill | Verify cancel or documented no-liquidity rejection. | No IOC.   |
-| TC-E15 | Limit FOK fill            | Limit FOK at aggressive price, expect fill.         | No FOK.   |
-| TC-E16 | Limit FOK no fill         | Verify cancel or documented no-liquidity rejection. | No FOK.   |
-| TC-E17 | Limit GTD                 | Limit with expiry time, verify accepted.            | No GTD.   |
-| TC-E18 | Limit GTD expiry          | Verify documented terminal event at expiry.         | No GTD.   |
-| TC-E19 | Limit DAY                 | Limit with DAY TIF, verify accepted.                | No DAY.   |
+| TC | ชื่อ | คำอธิบาย | ข้ามเมื่อ |
+| --- | --- | --- | --- |
+| TC-E10 | Limit BUY GTC | วาง limit buy แบบ GTC ต่ำกว่า TOB แล้วตรวจว่าถูก accept | ไม่ข้าม |
+| TC-E11 | Limit SELL GTC | วาง limit sell แบบ GTC สูงกว่า TOB แล้วตรวจว่าถูก accept | ไม่ข้าม |
+| TC-E12 | คู่ Limit BUY และ SELL | วางทั้งสองฝั่งพร้อมกัน ตรวจว่าถูก accept ทั้งคู่ | ไม่ข้าม |
+| TC-E13 | Limit IOC aggressive fill | limit IOC ที่ราคา aggressive คาดว่าจะ fill | ไม่มี IOC |
+| TC-E14 | Limit IOC passive no fill | ตรวจการ cancel หรือ rejection แบบไม่มี liquidity ตามที่ระบุไว้ | ไม่มี IOC |
+| TC-E15 | Limit FOK fill | limit FOK ที่ราคา aggressive คาดว่าจะ fill | ไม่มี FOK |
+| TC-E16 | Limit FOK no fill | ตรวจการ cancel หรือ rejection แบบไม่มี liquidity ตามที่ระบุไว้ | ไม่มี FOK |
+| TC-E17 | Limit GTD | limit ที่มีเวลาหมดอายุ ตรวจว่าถูก accept | ไม่มี GTD |
+| TC-E18 | Limit GTD expiry | ตรวจ terminal event ตอนหมดอายุตามที่ระบุไว้ | ไม่มี GTD |
+| TC-E19 | Limit DAY | limit แบบ DAY TIF ตรวจว่าถูก accept | ไม่มี DAY |
 
-### TC-E10: Limit BUY GTC - submit and accept
+### TC-E10: Limit BUY GTC - submit และ accept {#tc-e10-limit-buy-gtc---submit-and-accept}
 
-| Field              | Value                                                                       |
-| ------------------ | --------------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, instrument loaded, quotes flowing.                       |
-| **Action**         | ExecTester places a limit buy at `best_bid - tob_offset_ticks`.             |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted`.                  |
-| **Pass criteria**  | Order is open on the venue with correct price, quantity, side=BUY, TIF=GTC. |
-| **Skip when**      | Never.                                                                      |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด instrument แล้ว, quote ไหลเข้า |
+| **การกระทำ** | ExecTester วาง limit buy ที่ `best_bid - tob_offset_ticks` |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` |
+| **เกณฑ์ผ่าน** | order เปิดอยู่บน venue ด้วย price, quantity ถูกต้อง, side=BUY, TIF=GTC |
+| **ข้ามเมื่อ** | ไม่ข้าม |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- The `tob_offset_ticks` (default 500) places the order well away from the market to avoid accidental fills.
-- Verify the order appears in the cache with `OrderStatus.ACCEPTED`.
-- The order should remain open until explicitly canceled.
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    enable_limit_buys=True,
-    enable_limit_sells=False,
-)
-```
+- `tob_offset_ticks` (default 500) วาง order ไว้ห่างจากตลาดมากเพื่อเลี่ยงการ fill โดยไม่ตั้งใจ
+- ตรวจว่า order ปรากฏใน cache ด้วย `OrderStatus.ACCEPTED`
+- order ควรเปิดอยู่จนกว่าจะถูก cancel อย่างชัดเจน
 
 **Rust config**:
 
@@ -498,26 +360,15 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E11: Limit SELL GTC - submit and accept
+### TC-E11: Limit SELL GTC - submit และ accept {#tc-e11-limit-sell-gtc---submit-and-accept}
 
-| Field              | Value                                                                        |
-| ------------------ | ---------------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, instrument loaded, quotes flowing.                        |
-| **Action**         | ExecTester places a limit sell at `best_ask + tob_offset_ticks`.             |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted`.                   |
-| **Pass criteria**  | Order is open on the venue with correct price, quantity, side=SELL, TIF=GTC. |
-| **Skip when**      | Never.                                                                       |
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    enable_limit_buys=False,
-    enable_limit_sells=True,
-)
-```
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด instrument แล้ว, quote ไหลเข้า |
+| **การกระทำ** | ExecTester วาง limit sell ที่ `best_ask + tob_offset_ticks` |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` |
+| **เกณฑ์ผ่าน** | order เปิดอยู่บน venue ด้วย price, quantity ถูกต้อง, side=SELL, TIF=GTC |
+| **ข้ามเมื่อ** | ไม่ข้าม |
 
 **Rust config**:
 
@@ -535,26 +386,15 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E12: Limit BUY and SELL pair
+### TC-E12: คู่ Limit BUY และ SELL {#tc-e12-limit-buy-and-sell-pair}
 
-| Field              | Value                                                                                      |
-| ------------------ | ------------------------------------------------------------------------------------------ |
-| **Prerequisite**   | Adapter connected, instrument loaded, quotes flowing.                                      |
-| **Action**         | ExecTester places both a limit buy and limit sell.                                         |
-| **Event sequence** | Two independent sequences: each `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted`. |
-| **Pass criteria**  | Both orders open on venue, buy below bid, sell above ask.                                  |
-| **Skip when**      | Never.                                                                                     |
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    enable_limit_buys=True,
-    enable_limit_sells=True,
-)
-```
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด instrument แล้ว, quote ไหลเข้า |
+| **การกระทำ** | ExecTester วางทั้ง limit buy และ limit sell |
+| **ลำดับ event** | สองลำดับที่เป็นอิสระต่อกัน: แต่ละตัว `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` |
+| **เกณฑ์ผ่าน** | order ทั้งสองเปิดอยู่บน venue โดย buy ต่ำกว่า bid และ sell สูงกว่า ask |
+| **ข้ามเมื่อ** | ไม่ข้าม |
 
 **Rust config**:
 
@@ -572,89 +412,76 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E13: Limit IOC aggressive fill
+### TC-E13: Limit IOC aggressive fill {#tc-e13-limit-ioc-aggressive-fill}
 
-| Field              | Value                                                                       |
-| ------------------ | --------------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, instrument loaded, quotes flowing.                       |
-| **Action**         | Submit a limit buy IOC at or above the best ask (aggressive price).         |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` -> `OrderFilled`. |
-| **Pass criteria**  | Order fills immediately. Position opened.                                   |
-| **Skip when**      | Adapter does not support IOC TIF.                                           |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด instrument แล้ว, quote ไหลเข้า |
+| **การกระทำ** | submit limit buy IOC ที่ราคาเท่ากับหรือสูงกว่า best ask (ราคา aggressive) |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` -> `OrderFilled` |
+| **เกณฑ์ผ่าน** | order ถูก fill ทันที และ position ถูกเปิด |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ IOC TIF |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- This test requires manual order creation or adapter-specific configuration, as the ExecTester's
-  default limit order placement uses GTC TIF.
-- The venue cancels IOC orders that do not fill immediately.
+- test นี้ต้องสร้าง order ด้วยมือหรือใช้ config เฉพาะของ adapter เพราะการวาง limit order แบบ default ของ ExecTester ใช้
+  GTC TIF
+- venue จะ cancel IOC order ที่ fill ไม่ได้ทันที
 
-### TC-E14: Limit IOC passive - no fill
+### TC-E14: Limit IOC passive - no fill {#tc-e14-limit-ioc-passive---no-fill}
 
-| Field              | Value                                                                                   |
-| ------------------ | --------------------------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, instrument loaded, quotes flowing.                                   |
-| **Action**         | Submit a limit buy IOC well below the market (passive price).                           |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted`; then acceptance/cancel or documented rejection. |
-| **Pass criteria**  | No fill; `Canceled`, or `Rejected` with the adapter-documented no-liquidity reason.     |
-| **Skip when**      | Adapter does not support IOC TIF.                                                       |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด instrument แล้ว, quote ไหลเข้า |
+| **การกระทำ** | submit limit buy IOC ที่ต่ำกว่าตลาดมาก (ราคา passive) |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` จากนั้น accept/cancel หรือ rejection ตามที่ระบุไว้ |
+| **เกณฑ์ผ่าน** | ไม่มี fill; `Canceled` หรือ `Rejected` ด้วยเหตุผลไม่มี liquidity ตามที่ adapter ระบุไว้ |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ IOC TIF |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- The default outcome is `OrderAccepted` -> `OrderCanceled`. If the venue explicitly rejects the
-  order for no liquidity, verify the adapter-documented `OrderSubmitted` -> `OrderRejected` sequence,
-  exact rejection reason, and zero filled quantity in both Rust and Python. Other rejection reasons
-  and `OrderExpired` do not pass this case.
-  Preserve an explicit venue rejection rather than synthesizing acceptance or cancellation.
+- ผลลัพธ์ default คือ `OrderAccepted` -> `OrderCanceled` ถ้า venue reject order อย่างชัดเจนเพราะไม่มี liquidity ให้ตรวจลำดับ
+  `OrderSubmitted` -> `OrderRejected` ตามที่ adapter ระบุไว้ เหตุผลการ reject ที่ตรงกันพอดี และ filled quantity เป็นศูนย์
+  เหตุผลการ reject อื่นและ `OrderExpired` ไม่ผ่าน case นี้
+  ให้คง rejection ที่ venue ส่งมาอย่างชัดเจนไว้ แทนที่จะสังเคราะห์เป็นการ accept หรือ cancel
 
-### TC-E15: Limit FOK fill
+### TC-E15: Limit FOK fill {#tc-e15-limit-fok-fill}
 
-| Field              | Value                                                                              |
-| ------------------ | ---------------------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, instrument loaded, quotes flowing, sufficient book depth.       |
-| **Action**         | Submit a limit buy FOK at aggressive price with quantity within top-of-book depth. |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` -> `OrderFilled`.        |
-| **Pass criteria**  | Order fills completely in a single fill event.                                     |
-| **Skip when**      | Adapter does not support FOK TIF.                                                  |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด instrument แล้ว, quote ไหลเข้า, book มีความลึกเพียงพอ |
+| **การกระทำ** | submit limit buy FOK ที่ราคา aggressive ด้วย quantity ที่อยู่ภายในความลึกของ top-of-book |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` -> `OrderFilled` |
+| **เกณฑ์ผ่าน** | order ถูก fill ทั้งหมดใน fill event เดียว |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ FOK TIF |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- FOK requires the entire quantity to be fillable. Use small quantities so book depth is sufficient.
+- FOK ต้อง fill ได้ทั้ง quantity ใช้ quantity ขนาดเล็กเพื่อให้ความลึกของ book เพียงพอ
 
-### TC-E16: Limit FOK no fill
+### TC-E16: Limit FOK no fill {#tc-e16-limit-fok-no-fill}
 
-| Field              | Value                                                                                   |
-| ------------------ | --------------------------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, instrument loaded, quotes flowing.                                   |
-| **Action**         | Submit a limit buy FOK at passive price (well below market).                            |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted`; then acceptance/cancel or documented rejection. |
-| **Pass criteria**  | No fill; `Canceled`, or `Rejected` with the adapter-documented no-liquidity reason.     |
-| **Skip when**      | Adapter does not support FOK TIF.                                                       |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด instrument แล้ว, quote ไหลเข้า |
+| **การกระทำ** | submit limit buy FOK ที่ราคา passive (ต่ำกว่าตลาดมาก) |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` จากนั้น accept/cancel หรือ rejection ตามที่ระบุไว้ |
+| **เกณฑ์ผ่าน** | ไม่มี fill; `Canceled` หรือ `Rejected` ด้วยเหตุผลไม่มี liquidity ตามที่ adapter ระบุไว้ |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ FOK TIF |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- Apply the same adapter-specific no-liquidity checks as [TC-E14](#tc-e14-limit-ioc-passive---no-fill).
+- ใช้การตรวจกรณีไม่มี liquidity เฉพาะของ adapter แบบเดียวกับ [TC-E14](#tc-e14-limit-ioc-passive---no-fill)
 
-### TC-E17: Limit GTD - submit and accept
+### TC-E17: Limit GTD - submit และ accept {#tc-e17-limit-gtd---submit-and-accept}
 
-| Field              | Value                                                                       |
-| ------------------ | --------------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, instrument loaded, quotes flowing.                       |
-| **Action**         | Place limit buy with `order_expire_time_delta_mins` set (e.g., 60 minutes). |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted`.                  |
-| **Pass criteria**  | Order accepted with GTD TIF and correct expiry timestamp.                   |
-| **Skip when**      | Adapter does not support GTD TIF.                                           |
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    order_expire_time_delta_mins=60,
-    enable_limit_buys=True,
-    enable_limit_sells=False,
-)
-```
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด instrument แล้ว, quote ไหลเข้า |
+| **การกระทำ** | วาง limit buy โดยตั้ง `order_expire_time_delta_mins` (เช่น 60 นาที) |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` |
+| **เกณฑ์ผ่าน** | order ถูก accept ด้วย GTD TIF และ timestamp หมดอายุที่ถูกต้อง |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ GTD TIF |
 
 **Rust config**:
 
@@ -673,89 +500,75 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E18: Limit GTD expiry
+### TC-E18: Limit GTD expiry {#tc-e18-limit-gtd-expiry}
 
-| Field              | Value                                                                       |
-| ------------------ | --------------------------------------------------------------------------- |
-| **Prerequisite**   | Open GTD limit order from TC-E17 using the shortest venue-supported expiry. |
-| **Action**         | Wait for the GTD expiry time to elapse.                                     |
-| **Event sequence** | `OrderExpired` by default, or the terminal event documented by the adapter. |
-| **Pass criteria**  | Order reaches the adapter-documented terminal status at venue expiry.       |
-| **Skip when**      | Adapter does not support GTD TIF.                                           |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | มี GTD limit order เปิดอยู่จาก TC-E17 โดยใช้เวลาหมดอายุที่สั้นที่สุดที่ venue รองรับ |
+| **การกระทำ** | รอจนถึงเวลาหมดอายุของ GTD |
+| **ลำดับ event** | `OrderExpired` โดย default หรือ terminal event ที่ adapter ระบุไว้ |
+| **เกณฑ์ผ่าน** | order ไปถึง terminal status ตามที่ adapter ระบุไว้เมื่อหมดอายุบน venue |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ GTD TIF |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- Use the shortest expiry accepted by the venue. Do not assume one or two minutes is valid.
-- Some venues report GTD expiry as a cancel. Preserve and verify the documented adapter mapping
-  instead of normalizing every venue to `OrderExpired`.
+- ใช้เวลาหมดอายุที่สั้นที่สุดที่ venue ยอมรับ อย่าสมมติว่าหนึ่งหรือสองนาทีใช้ได้เสมอ
+- บาง venue รายงานการหมดอายุของ GTD เป็น cancel ให้คงและตรวจการ map ของ adapter ตามที่ระบุไว้ แทนที่จะ normalize
+  ทุก venue ให้เป็น `OrderExpired`
 
-### TC-E19: Limit DAY - submit and accept
+### TC-E19: Limit DAY - submit และ accept {#tc-e19-limit-day---submit-and-accept}
 
-| Field              | Value                                                                              |
-| ------------------ | ---------------------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, instrument loaded, market is in trading hours.                  |
-| **Action**         | Submit limit buy with DAY TIF.                                                     |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted`.                         |
-| **Pass criteria**  | Order accepted with DAY TIF. Will be automatically canceled at end of trading day. |
-| **Skip when**      | Adapter does not support DAY TIF.                                                  |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด instrument แล้ว, ตลาดอยู่ในเวลาทำการ |
+| **การกระทำ** | submit limit buy ด้วย DAY TIF |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` |
+| **เกณฑ์ผ่าน** | order ถูก accept ด้วย DAY TIF และจะถูก cancel อัตโนมัติเมื่อจบวันทำการ |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ DAY TIF |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- DAY orders may behave differently on 24/7 crypto venues vs traditional markets.
-- Verify behavior when submitted outside trading hours (if applicable).
+- DAY order อาจทำงานต่างกันระหว่าง venue crypto ที่เปิด 24/7 กับตลาดดั้งเดิม
+- ตรวจพฤติกรรมเมื่อ submit นอกเวลาทำการ (ถ้าเกี่ยวข้อง)
 
 ---
 
-## Group 3: Stop and conditional orders
+## กลุ่ม 3: Stop order และ conditional order {#group-3-stop-and-conditional-orders}
 
-Test stop and conditional order types. These orders rest on the venue until a trigger condition is met.
-Adapters that support venue-native conditional orders should also verify that open trigger
-orders appear in restart reconciliation, not only in the normal open-order endpoint.
+ทดสอบ order ประเภท stop และ conditional order เหล่านี้วางรออยู่บน venue จนกว่าเงื่อนไข trigger จะเป็นจริง adapter ที่
+รองรับ conditional order แบบ native ของ venue ควรตรวจด้วยว่า trigger order ที่เปิดอยู่ปรากฏใน reconciliation ตอน restart
+ไม่ใช่เฉพาะใน endpoint ของ open order ปกติ
 
-| TC     | Name                 | Description                                 | Skip when         |
-| ------ | -------------------- | ------------------------------------------- | ----------------- |
-| TC-E20 | StopMarket BUY       | Stop buy above ask, verify accepted.        | No `STOP_MARKET`. |
-| TC-E21 | StopMarket SELL      | Stop sell below bid, verify accepted.       | No `STOP_MARKET`. |
-| TC-E22 | StopLimit BUY        | Stop-limit buy with trigger + limit price.  | No `STOP_LIMIT`.  |
-| TC-E23 | StopLimit SELL       | Stop-limit sell with trigger + limit price. | No `STOP_LIMIT`.  |
-| TC-E24 | MarketIfTouched BUY  | MIT buy below bid.                          | No `MIT`.         |
-| TC-E25 | MarketIfTouched SELL | MIT sell above ask.                         | No `MIT`.         |
-| TC-E26 | LimitIfTouched BUY   | LIT buy with trigger + limit price.         | No `LIT`.         |
-| TC-E27 | LimitIfTouched SELL  | LIT sell with trigger + limit price.        | No `LIT`.         |
+| TC | ชื่อ | คำอธิบาย | ข้ามเมื่อ |
+| --- | --- | --- | --- |
+| TC-E20 | StopMarket BUY | stop buy สูงกว่า ask ตรวจว่าถูก accept | ไม่มี `STOP_MARKET` |
+| TC-E21 | StopMarket SELL | stop sell ต่ำกว่า bid ตรวจว่าถูก accept | ไม่มี `STOP_MARKET` |
+| TC-E22 | StopLimit BUY | stop-limit buy ที่มี trigger + limit price | ไม่มี `STOP_LIMIT` |
+| TC-E23 | StopLimit SELL | stop-limit sell ที่มี trigger + limit price | ไม่มี `STOP_LIMIT` |
+| TC-E24 | MarketIfTouched BUY | MIT buy ต่ำกว่า bid | ไม่มี `MIT` |
+| TC-E25 | MarketIfTouched SELL | MIT sell สูงกว่า ask | ไม่มี `MIT` |
+| TC-E26 | LimitIfTouched BUY | LIT buy ที่มี trigger + limit price | ไม่มี `LIT` |
+| TC-E27 | LimitIfTouched SELL | LIT sell ที่มี trigger + limit price | ไม่มี `LIT` |
 
-### TC-E20: StopMarket BUY
+### TC-E20: StopMarket BUY {#tc-e20-stopmarket-buy}
 
-| Field              | Value                                                                 |
-| ------------------ | --------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, instrument loaded, quotes flowing.                 |
-| **Action**         | ExecTester places a stop-market buy above the current ask.            |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted`.            |
-| **Pass criteria**  | Stop order accepted on venue with correct trigger price and side=BUY. |
-| **Skip when**      | Adapter does not support `StopMarket` orders.                         |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด instrument แล้ว, quote ไหลเข้า |
+| **การกระทำ** | ExecTester วาง stop-market buy สูงกว่า ask ปัจจุบัน |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` |
+| **เกณฑ์ผ่าน** | stop order ถูก accept บน venue ด้วย trigger price ที่ถูกต้องและ side=BUY |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ order แบบ `StopMarket` |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- The trigger price should be above the current ask by `stop_offset_ticks`.
-- The order should NOT trigger immediately (trigger price is above market).
-- For venues with long-lived trigger signatures, check trigger-order signing expiry against the venue's
-  trigger-order window, rather than normal order expiry.
-- Verifying trigger and fill requires the market to move, which may not happen during the test.
-- After acceptance, restart or force reconciliation. If the venue keeps trigger orders in a separate endpoint,
-  check the open order reports. Make sure that the order still appears there.
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    enable_limit_buys=False,
-    enable_limit_sells=False,
-    enable_stop_buys=True,
-    enable_stop_sells=False,
-    stop_order_type=OrderType.STOP_MARKET,
-)
-```
+- trigger price ควรสูงกว่า ask ปัจจุบันเท่ากับ `stop_offset_ticks`
+- order ไม่ควร trigger ทันที (trigger price อยู่สูงกว่าตลาด)
+- สำหรับ venue ที่มี trigger signature อายุยาว ให้ตรวจการหมดอายุของ signature ของ trigger order เทียบกับช่วงเวลาของ
+  trigger order ของ venue ไม่ใช่การหมดอายุของ order ปกติ
+- การตรวจ trigger และ fill ต้องอาศัยการเคลื่อนไหวของตลาด ซึ่งอาจไม่เกิดขึ้นระหว่าง test
+- หลังถูก accept ให้ restart หรือบังคับ reconciliation ถ้า venue เก็บ trigger order ไว้ใน endpoint แยก ให้ตรวจ open order
+  report และตรวจให้แน่ใจว่า order ยังปรากฏอยู่ที่นั่น
 
 **Rust config**:
 
@@ -776,29 +589,15 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E21: StopMarket SELL
+### TC-E21: StopMarket SELL {#tc-e21-stopmarket-sell}
 
-| Field              | Value                                                                  |
-| ------------------ | ---------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, instrument loaded, quotes flowing.                  |
-| **Action**         | ExecTester places a stop-market sell below the current bid.            |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted`.             |
-| **Pass criteria**  | Stop order accepted on venue with correct trigger price and side=SELL. |
-| **Skip when**      | Adapter does not support `StopMarket` orders.                          |
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    enable_limit_buys=False,
-    enable_limit_sells=False,
-    enable_stop_buys=False,
-    enable_stop_sells=True,
-    stop_order_type=OrderType.STOP_MARKET,
-)
-```
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด instrument แล้ว, quote ไหลเข้า |
+| **การกระทำ** | ExecTester วาง stop-market sell ต่ำกว่า bid ปัจจุบัน |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` |
+| **เกณฑ์ผ่าน** | stop order ถูก accept บน venue ด้วย trigger price ที่ถูกต้องและ side=SELL |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ order แบบ `StopMarket` |
 
 **Rust config**:
 
@@ -819,34 +618,19 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E22: StopLimit BUY
+### TC-E22: StopLimit BUY {#tc-e22-stoplimit-buy}
 
-| Field              | Value                                                                             |
-| ------------------ | --------------------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, instrument loaded, quotes flowing.                             |
-| **Action**         | ExecTester places a stop-limit buy with trigger price above ask and limit offset. |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted`.                        |
-| **Pass criteria**  | Stop-limit order accepted with correct trigger price, limit price, and side=BUY.  |
-| **Skip when**      | Adapter does not support `StopLimit` orders.                                      |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด instrument แล้ว, quote ไหลเข้า |
+| **การกระทำ** | ExecTester วาง stop-limit buy โดย trigger price สูงกว่า ask พร้อม limit offset |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` |
+| **เกณฑ์ผ่าน** | stop-limit order ถูก accept ด้วย trigger price, limit price ที่ถูกต้อง และ side=BUY |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ order แบบ `StopLimit` |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- Requires `stop_limit_offset_ticks` to be set for the limit price offset from the trigger price.
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    enable_limit_buys=False,
-    enable_limit_sells=False,
-    enable_stop_buys=True,
-    enable_stop_sells=False,
-    stop_order_type=OrderType.STOP_LIMIT,
-    stop_limit_offset_ticks=50,
-)
-```
+- ต้องตั้ง `stop_limit_offset_ticks` เพื่อกำหนดระยะของ limit price จาก trigger price
 
 **Rust config**:
 
@@ -868,30 +652,15 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E23: StopLimit SELL
+### TC-E23: StopLimit SELL {#tc-e23-stoplimit-sell}
 
-| Field              | Value                                                                             |
-| ------------------ | --------------------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, instrument loaded, quotes flowing.                             |
-| **Action**         | ExecTester places a stop-limit sell with trigger price below bid.                 |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted`.                        |
-| **Pass criteria**  | Stop-limit order accepted with correct trigger price, limit price, and side=SELL. |
-| **Skip when**      | Adapter does not support `StopLimit` orders.                                      |
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    enable_limit_buys=False,
-    enable_limit_sells=False,
-    enable_stop_buys=False,
-    enable_stop_sells=True,
-    stop_order_type=OrderType.STOP_LIMIT,
-    stop_limit_offset_ticks=50,
-)
-```
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด instrument แล้ว, quote ไหลเข้า |
+| **การกระทำ** | ExecTester วาง stop-limit sell โดย trigger price ต่ำกว่า bid |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` |
+| **เกณฑ์ผ่าน** | stop-limit order ถูก accept ด้วย trigger price, limit price ที่ถูกต้อง และ side=SELL |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ order แบบ `StopLimit` |
 
 **Rust config**:
 
@@ -913,101 +682,86 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E24: MarketIfTouched BUY
+### TC-E24: MarketIfTouched BUY {#tc-e24-marketiftouched-buy}
 
-| Field              | Value                                                      |
-| ------------------ | ---------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, instrument loaded, quotes flowing.      |
-| **Action**         | Place MIT buy with trigger below current bid (buy on dip). |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted`. |
-| **Pass criteria**  | MIT order accepted on venue with correct trigger price.    |
-| **Skip when**      | Adapter does not support `MarketIfTouched` orders.         |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด instrument แล้ว, quote ไหลเข้า |
+| **การกระทำ** | วาง MIT buy โดย trigger ต่ำกว่า bid ปัจจุบัน (ซื้อตอนราคาย่อ) |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` |
+| **เกณฑ์ผ่าน** | MIT order ถูก accept บน venue ด้วย trigger price ที่ถูกต้อง |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ order แบบ `MarketIfTouched` |
 
-### TC-E25: MarketIfTouched SELL
+### TC-E25: MarketIfTouched SELL {#tc-e25-marketiftouched-sell}
 
-| Field              | Value                                                          |
-| ------------------ | -------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, instrument loaded, quotes flowing.          |
-| **Action**         | Place MIT sell with trigger above current ask (sell on rally). |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted`.     |
-| **Pass criteria**  | MIT order accepted on venue with correct trigger price.        |
-| **Skip when**      | Adapter does not support `MarketIfTouched` orders.             |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด instrument แล้ว, quote ไหลเข้า |
+| **การกระทำ** | วาง MIT sell โดย trigger สูงกว่า ask ปัจจุบัน (ขายตอนราคาขึ้น) |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` |
+| **เกณฑ์ผ่าน** | MIT order ถูก accept บน venue ด้วย trigger price ที่ถูกต้อง |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ order แบบ `MarketIfTouched` |
 
-### TC-E26: LimitIfTouched BUY
+### TC-E26: LimitIfTouched BUY {#tc-e26-limitiftouched-buy}
 
-| Field              | Value                                                          |
-| ------------------ | -------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, instrument loaded, quotes flowing.          |
-| **Action**         | Place LIT buy with trigger below bid and limit price offset.   |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted`.     |
-| **Pass criteria**  | LIT order accepted with correct trigger price and limit price. |
-| **Skip when**      | Adapter does not support `LimitIfTouched` orders.              |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด instrument แล้ว, quote ไหลเข้า |
+| **การกระทำ** | วาง LIT buy โดย trigger ต่ำกว่า bid พร้อม limit price offset |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` |
+| **เกณฑ์ผ่าน** | LIT order ถูก accept ด้วย trigger price และ limit price ที่ถูกต้อง |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ order แบบ `LimitIfTouched` |
 
-### TC-E27: LimitIfTouched SELL
+### TC-E27: LimitIfTouched SELL {#tc-e27-limitiftouched-sell}
 
-| Field              | Value                                                          |
-| ------------------ | -------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, instrument loaded, quotes flowing.          |
-| **Action**         | Place LIT sell with trigger above ask and limit price offset.  |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted`.     |
-| **Pass criteria**  | LIT order accepted with correct trigger price and limit price. |
-| **Skip when**      | Adapter does not support `LimitIfTouched` orders.              |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด instrument แล้ว, quote ไหลเข้า |
+| **การกระทำ** | วาง LIT sell โดย trigger สูงกว่า ask พร้อม limit price offset |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` |
+| **เกณฑ์ผ่าน** | LIT order ถูก accept ด้วย trigger price และ limit price ที่ถูกต้อง |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ order แบบ `LimitIfTouched` |
 
 ---
 
-## Group 4: Order modification
+## กลุ่ม 4: การแก้ไข order {#group-4-order-modification}
 
-Test order modification (amend) and cancel-replace workflows.
+ทดสอบการแก้ไข order (amend) และ workflow แบบ cancel-replace
 
-| TC     | Name                      | Description                                    | Skip when                |
-| ------ | ------------------------- | ---------------------------------------------- | ------------------------ |
-| TC-E30 | Modify limit BUY price    | Amend open limit buy to new price.             | No modify support.       |
-| TC-E31 | Modify limit SELL price   | Amend open limit sell to new price.            | No modify support.       |
-| TC-E32 | Cancel-replace limit BUY  | Cancel and resubmit limit buy at new price.    | Never.                   |
-| TC-E33 | Cancel-replace limit SELL | Cancel and resubmit limit sell at new price.   | Never.                   |
-| TC-E34 | Modify stop trigger price | Amend stop order trigger price.                | No modify or no stop.    |
-| TC-E35 | Cancel-replace stop order | Cancel and resubmit stop at new trigger price. | No stop orders.          |
-| TC-E36 | Modify rejected           | Modify on unsupported adapter.                 | Adapter supports modify. |
+| TC | ชื่อ | คำอธิบาย | ข้ามเมื่อ |
+| --- | --- | --- | --- |
+| TC-E30 | แก้ราคา limit BUY | amend limit buy ที่เปิดอยู่ไปราคาใหม่ | ไม่รองรับ modify |
+| TC-E31 | แก้ราคา limit SELL | amend limit sell ที่เปิดอยู่ไปราคาใหม่ | ไม่รองรับ modify |
+| TC-E32 | Cancel-replace limit BUY | cancel แล้ว submit limit buy ใหม่ที่ราคาใหม่ | ไม่ข้าม |
+| TC-E33 | Cancel-replace limit SELL | cancel แล้ว submit limit sell ใหม่ที่ราคาใหม่ | ไม่ข้าม |
+| TC-E34 | แก้ trigger price ของ stop | amend trigger price ของ stop order | ไม่มี modify หรือไม่มี stop |
+| TC-E35 | Cancel-replace stop order | cancel แล้ว submit stop ใหม่ที่ trigger price ใหม่ | ไม่มี stop order |
+| TC-E36 | Modify ถูกปฏิเสธ | modify บน adapter ที่ไม่รองรับ | adapter รองรับ modify |
 
-`trigger_limit_order_maintenance_once=True` requires exactly one of the limit-order modify or
-cancel-replace modes and at least one enabled limit side. It is incompatible with bracket entries,
-`test_modify_rejected`, and two-sided batch limit submission. Configuration validation rejects these
-combinations.
+`trigger_limit_order_maintenance_once=True` ต้องใช้โหมด modify หรือ cancel-replace ของ limit order อย่างใดอย่างหนึ่ง
+พอดี และต้องเปิดฝั่ง limit อย่างน้อยหนึ่งฝั่ง ใช้ร่วมกับ bracket entry, `test_modify_rejected` และการ submit limit แบบ
+batch สองฝั่งไม่ได้ การ validate config จะปฏิเสธการผสมเหล่านี้
 
-### TC-E30: Modify limit BUY price
+### TC-E30: แก้ราคา limit BUY {#tc-e30-modify-limit-buy-price}
 
-| Field              | Value                                                                        |
-| ------------------ | ---------------------------------------------------------------------------- |
-| **Prerequisite**   | Open GTC limit buy from TC-E10.                                              |
-| **Action**         | ExecTester modifies the open limit buy to a new price.                       |
-| **Event sequence** | `OrderPendingUpdate` -> `OrderUpdated`.                                      |
-| **Pass criteria**  | `OrderUpdated` event logged with the new price. Order exits `PendingUpdate`. |
-| **Skip when**      | Adapter does not support order modification.                                 |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | มี GTC limit buy เปิดอยู่จาก TC-E10 |
+| **การกระทำ** | ExecTester แก้ limit buy ที่เปิดอยู่ไปเป็นราคาใหม่ |
+| **ลำดับ event** | `OrderPendingUpdate` -> `OrderUpdated` |
+| **เกณฑ์ผ่าน** | มี log ของ event `OrderUpdated` พร้อมราคาใหม่ และ order ออกจาก `PendingUpdate` |
+| **ข้ามเมื่อ** | adapter ไม่รองรับการแก้ไข order |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- `trigger_limit_order_maintenance_once=True` amends to a different valid price directly from
-  the first `OrderAccepted`, preferring one tick more passive. A quiet book is not inconclusive.
-- After the one-shot workflow starts, it stops further limit maintenance for that side. Thus, the tester does
-  not immediately amend the order back to the TOB target.
-- Without that flag, the modify waits for the order price to drift from the target
-  TOB offset. No movement and no `OrderUpdated` is inconclusive, not a failure.
-- Verify the `OrderUpdated` log shows the expected price. If the event never
-  arrives after a forced or drift-triggered amend, the order stays in `PendingUpdate`
-  and the tester stops modifying it.
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    enable_limit_buys=True,
-    enable_limit_sells=False,
-    modify_orders_to_maintain_tob_offset=True,
-    trigger_limit_order_maintenance_once=True,
-)
-```
+- `trigger_limit_order_maintenance_once=True` จะ amend ไปเป็นราคาอื่นที่ถูกต้องทันทีตั้งแต่ `OrderAccepted` ตัวแรก
+  โดยเลือก passive ขึ้นหนึ่ง tick ก่อน book ที่เงียบไม่ถือว่าสรุปผลไม่ได้
+- หลัง workflow แบบครั้งเดียวเริ่มแล้ว มันจะหยุดการดูแล limit ของฝั่งนั้นต่อ ดังนั้น tester จะไม่ amend order กลับไปที่เป้า
+  TOB ทันที
+- ถ้าไม่มี flag นั้น การ modify จะรอให้ราคาของ order เบี่ยงออกจาก TOB offset เป้าหมาย ถ้าตลาดไม่ขยับและไม่มี
+  `OrderUpdated` ถือว่าสรุปผลไม่ได้ ไม่ใช่การไม่ผ่าน
+- ตรวจว่า log ของ `OrderUpdated` แสดงราคาที่คาดไว้ ถ้า event ไม่มาถึงเลยหลังการ amend แบบบังคับหรือแบบที่เกิดจากการเบี่ยง
+  order จะค้างอยู่ใน `PendingUpdate` และ tester จะหยุดแก้ไขมัน
 
 **Rust config**:
 
@@ -1027,32 +781,19 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E31: Modify limit SELL price
+### TC-E31: แก้ราคา limit SELL {#tc-e31-modify-limit-sell-price}
 
-| Field              | Value                                                                        |
-| ------------------ | ---------------------------------------------------------------------------- |
-| **Prerequisite**   | Open GTC limit sell from TC-E11.                                             |
-| **Action**         | ExecTester modifies the open limit sell to a new price.                      |
-| **Event sequence** | `OrderPendingUpdate` -> `OrderUpdated`.                                      |
-| **Pass criteria**  | `OrderUpdated` event logged with the new price. Order exits `PendingUpdate`. |
-| **Skip when**      | Adapter does not support order modification.                                 |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | มี GTC limit sell เปิดอยู่จาก TC-E11 |
+| **การกระทำ** | ExecTester แก้ limit sell ที่เปิดอยู่ไปเป็นราคาใหม่ |
+| **ลำดับ event** | `OrderPendingUpdate` -> `OrderUpdated` |
+| **เกณฑ์ผ่าน** | มี log ของ event `OrderUpdated` พร้อมราคาใหม่ และ order ออกจาก `PendingUpdate` |
+| **ข้ามเมื่อ** | adapter ไม่รองรับการแก้ไข order |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- Same one-shot trigger and quiet-book guidance as TC-E30.
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    enable_limit_buys=False,
-    enable_limit_sells=True,
-    modify_orders_to_maintain_tob_offset=True,
-    trigger_limit_order_maintenance_once=True,
-)
-```
+- ใช้แนวทางเรื่อง one-shot trigger และ book ที่เงียบแบบเดียวกับ TC-E30
 
 **Rust config**:
 
@@ -1072,37 +813,23 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E32: Cancel-replace limit BUY
+### TC-E32: Cancel-replace limit BUY {#tc-e32-cancel-replace-limit-buy}
 
-| Field              | Value                                                                                                 |
-| ------------------ | ----------------------------------------------------------------------------------------------------- |
-| **Prerequisite**   | Open GTC limit buy.                                                                                   |
-| **Action**         | ExecTester cancels and resubmits the limit buy at a new price.                                        |
-| **Event sequence** | `OrderPendingCancel` -> `OrderCanceled` -> `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted`. |
-| **Pass criteria**  | Original order canceled, new order accepted at updated price.                                         |
-| **Skip when**      | Never (cancel-replace is always available).                                                           |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | มี GTC limit buy เปิดอยู่ |
+| **การกระทำ** | ExecTester cancel แล้ว submit limit buy ใหม่ที่ราคาใหม่ |
+| **ลำดับ event** | `OrderPendingCancel` -> `OrderCanceled` -> `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` |
+| **เกณฑ์ผ่าน** | order เดิมถูก cancel และ order ใหม่ถูก accept ที่ราคาที่อัปเดตแล้ว |
+| **ข้ามเมื่อ** | ไม่ข้าม (cancel-replace ใช้ได้เสมอ) |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- This is the universal alternative when the adapter does not support native modify.
-- Two distinct orders in the cache: the canceled original and the new replacement.
-- `trigger_limit_order_maintenance_once=True` requests one cancel directly from the first
-  `OrderAccepted`, then submits the replacement only after `OrderCanceled`.
-- Without the one-shot trigger, cancel-replace waits for TOB drift. No movement and no replacement
-  is inconclusive, not a failure.
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    enable_limit_buys=True,
-    enable_limit_sells=False,
-    cancel_replace_orders_to_maintain_tob_offset=True,
-    trigger_limit_order_maintenance_once=True,
-)
-```
+- นี่คือทางเลือกที่ใช้ได้ทั่วไปเมื่อ adapter ไม่รองรับ modify แบบ native
+- จะมี order สองตัวที่แยกกันใน cache: ตัวเดิมที่ถูก cancel และตัวใหม่ที่มาแทน
+- `trigger_limit_order_maintenance_once=True` จะขอ cancel หนึ่งครั้งทันทีตั้งแต่ `OrderAccepted` ตัวแรก แล้ว submit
+  ตัวแทนหลังจากได้ `OrderCanceled` แล้วเท่านั้น
+- ถ้าไม่มี one-shot trigger cancel-replace จะรอให้ TOB เบี่ยง ถ้าตลาดไม่ขยับและไม่มีตัวแทน ถือว่าสรุปผลไม่ได้ ไม่ใช่การไม่ผ่าน
 
 **Rust config**:
 
@@ -1122,32 +849,19 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E33: Cancel-replace limit SELL
+### TC-E33: Cancel-replace limit SELL {#tc-e33-cancel-replace-limit-sell}
 
-| Field              | Value                                                                                                 |
-| ------------------ | ----------------------------------------------------------------------------------------------------- |
-| **Prerequisite**   | Open GTC limit sell.                                                                                  |
-| **Action**         | ExecTester cancels and resubmits the limit sell at a new price.                                       |
-| **Event sequence** | `OrderPendingCancel` -> `OrderCanceled` -> `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted`. |
-| **Pass criteria**  | Original order canceled, new order accepted at updated price.                                         |
-| **Skip when**      | Never.                                                                                                |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | มี GTC limit sell เปิดอยู่ |
+| **การกระทำ** | ExecTester cancel แล้ว submit limit sell ใหม่ที่ราคาใหม่ |
+| **ลำดับ event** | `OrderPendingCancel` -> `OrderCanceled` -> `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` |
+| **เกณฑ์ผ่าน** | order เดิมถูก cancel และ order ใหม่ถูก accept ที่ราคาที่อัปเดตแล้ว |
+| **ข้ามเมื่อ** | ไม่ข้าม |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- Same one-shot trigger and quiet-book guidance as TC-E32.
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    enable_limit_buys=False,
-    enable_limit_sells=True,
-    cancel_replace_orders_to_maintain_tob_offset=True,
-    trigger_limit_order_maintenance_once=True,
-)
-```
+- ใช้แนวทางเรื่อง one-shot trigger และ book ที่เงียบแบบเดียวกับ TC-E32
 
 **Rust config**:
 
@@ -1167,31 +881,20 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E34: Modify stop trigger price
+### TC-E34: แก้ trigger price ของ stop {#tc-e34-modify-stop-trigger-price}
 
-| Field              | Value                                                                                                  |
-| ------------------ | ------------------------------------------------------------------------------------------------------ |
-| **Prerequisite**   | Open stop order from TC-E20 or TC-E22.                                                                 |
-| **Action**         | ExecTester modifies stop trigger price as market moves (`modify_stop_orders_to_maintain_offset=True`). |
-| **Event sequence** | `OrderPendingUpdate` -> `OrderUpdated`.                                                                |
-| **Pass criteria**  | `OrderUpdated` event logged with the new trigger price. Order exits `PendingUpdate`.                   |
-| **Skip when**      | Adapter does not support native stop modify, or no stop order support.                                 |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | มี stop order เปิดอยู่จาก TC-E20 หรือ TC-E22 |
+| **การกระทำ** | ExecTester แก้ trigger price ของ stop ตามการเคลื่อนไหวของตลาด (`modify_stop_orders_to_maintain_offset=True`) |
+| **ลำดับ event** | `OrderPendingUpdate` -> `OrderUpdated` |
+| **เกณฑ์ผ่าน** | มี log ของ event `OrderUpdated` พร้อม trigger price ใหม่ และ order ออกจาก `PendingUpdate` |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ modify stop แบบ native หรือไม่รองรับ stop order |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- Some venues allow limit-order modify but reject trigger-order replace. For those adapters,
-  skip TC-E34 and run TC-E35 instead.
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    enable_stop_buys=True,
-    modify_stop_orders_to_maintain_offset=True,
-)
-```
+- บาง venue อนุญาตให้ modify limit order แต่ปฏิเสธการ replace trigger order สำหรับ adapter เหล่านั้น ให้ข้าม TC-E34 และ
+  รัน TC-E35 แทน
 
 **Rust config**:
 
@@ -1209,32 +912,20 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E35: Cancel-replace stop order
+### TC-E35: Cancel-replace stop order {#tc-e35-cancel-replace-stop-order}
 
-| Field              | Value                                                                                                 |
-| ------------------ | ----------------------------------------------------------------------------------------------------- |
-| **Prerequisite**   | Open stop order.                                                                                      |
-| **Action**         | ExecTester cancels and resubmits stop at new trigger price.                                           |
-| **Event sequence** | `OrderPendingCancel` -> `OrderCanceled` -> `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted`. |
-| **Pass criteria**  | Original stop canceled, new stop accepted at updated trigger price.                                   |
-| **Skip when**      | No stop order support.                                                                                |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | มี stop order เปิดอยู่ |
+| **การกระทำ** | ExecTester cancel แล้ว submit stop ใหม่ที่ trigger price ใหม่ |
+| **ลำดับ event** | `OrderPendingCancel` -> `OrderCanceled` -> `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` |
+| **เกณฑ์ผ่าน** | stop เดิมถูก cancel และ stop ใหม่ถูก accept ที่ trigger price ที่อัปเดตแล้ว |
+| **ข้ามเมื่อ** | ไม่รองรับ stop order |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- This is the required path for venues that do not support native trigger-order replace.
-- After the new stop is accepted, restart or force reconciliation and verify exactly one
-  current trigger order remains.
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    enable_stop_buys=True,
-    cancel_replace_stop_orders_to_maintain_offset=True,
-)
-```
+- นี่คือ path ที่จำเป็นสำหรับ venue ที่ไม่รองรับการ replace trigger order แบบ native
+- หลัง stop ใหม่ถูก accept ให้ restart หรือบังคับ reconciliation แล้วตรวจว่ามี trigger order ปัจจุบันเหลืออยู่หนึ่งตัวพอดี
 
 **Rust config**:
 
@@ -1252,61 +943,49 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E36: Modify rejected
+### TC-E36: Modify ถูกปฏิเสธ {#tc-e36-modify-rejected}
 
-| Field              | Value                                                                                                |
-| ------------------ | ---------------------------------------------------------------------------------------------------- |
-| **Prerequisite**   | Open limit order, adapter does NOT support modify.                                                   |
-| **Action**         | Attempt to modify the order (programmatically, not via ExecTester auto-maintain).                    |
-| **Event sequence** | `OrderModifyRejected`.                                                                               |
-| **Pass criteria**  | Modify attempt results in `OrderModifyRejected` event with reason. Original order remains unchanged. |
-| **Skip when**      | Adapter supports order modification.                                                                 |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | มี limit order เปิดอยู่ และ adapter *ไม่* รองรับ modify |
+| **การกระทำ** | พยายาม modify order (ผ่านโค้ด ไม่ใช่ผ่านการดูแลอัตโนมัติของ ExecTester) |
+| **ลำดับ event** | `OrderModifyRejected` |
+| **เกณฑ์ผ่าน** | การพยายาม modify ได้ event `OrderModifyRejected` พร้อมเหตุผล และ order เดิมไม่เปลี่ยนแปลง |
+| **ข้ามเมื่อ** | adapter รองรับการแก้ไข order |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- This tests the adapter's rejection path, not the ExecTester's cancel-replace logic.
-- The rejection reason should indicate that modification is not supported.
+- test นี้ทดสอบ path การปฏิเสธของ adapter ไม่ใช่ logic cancel-replace ของ ExecTester
+- เหตุผลการปฏิเสธควรระบุว่าไม่รองรับการแก้ไข
 
 ---
 
-## Group 5: Order cancellation
+## กลุ่ม 5: การ cancel order {#group-5-order-cancellation}
 
-Test order cancellation workflows.
+ทดสอบ workflow การ cancel order
 
-| TC     | Name                       | Description                                       | Skip when        |
-| ------ | -------------------------- | ------------------------------------------------- | ---------------- |
-| TC-E40 | Cancel single limit order  | Cancel an open limit order.                       | Never.           |
-| TC-E41 | Cancel all on stop         | Strategy stop cancels all open orders (default).  | Never.           |
-| TC-E42 | Individual cancels on stop | Cancel orders one-by-one on stop.                 | Never.           |
-| TC-E43 | Batch cancel on stop       | Cancel orders via batch API on stop.              | No batch cancel. |
-| TC-E44 | Cancel already-canceled    | Verify documented rejection or idempotent result. | Never.           |
+| TC | ชื่อ | คำอธิบาย | ข้ามเมื่อ |
+| --- | --- | --- | --- |
+| TC-E40 | Cancel limit order ตัวเดียว | cancel limit order ที่เปิดอยู่ | ไม่ข้าม |
+| TC-E41 | Cancel ทั้งหมดตอนหยุด | การหยุด strategy จะ cancel order ที่เปิดอยู่ทั้งหมด (default) | ไม่ข้าม |
+| TC-E42 | Cancel ทีละตัวตอนหยุด | cancel order ทีละตัวตอนหยุด | ไม่ข้าม |
+| TC-E43 | Batch cancel ตอนหยุด | cancel order ผ่าน batch API ตอนหยุด | ไม่มี batch cancel |
+| TC-E44 | Cancel order ที่ถูก cancel แล้ว | ตรวจ rejection ตามที่ระบุไว้ หรือผลแบบ idempotent | ไม่ข้าม |
 
-### TC-E40: Cancel single limit order
+### TC-E40: Cancel limit order ตัวเดียว {#tc-e40-cancel-single-limit-order}
 
-| Field              | Value                                                           |
-| ------------------ | --------------------------------------------------------------- |
-| **Prerequisite**   | Open GTC limit order from TC-E10 or TC-E11.                     |
-| **Action**         | Stop the strategy. ExecTester cancels the open limit order.     |
-| **Event sequence** | `OrderPendingCancel` -> `OrderCanceled`.                        |
-| **Pass criteria**  | Order status transitions to CANCELED. No open orders remaining. |
-| **Skip when**      | Never.                                                          |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | มี GTC limit order เปิดอยู่จาก TC-E10 หรือ TC-E11 |
+| **การกระทำ** | หยุด strategy แล้ว ExecTester cancel limit order ที่เปิดอยู่ |
+| **ลำดับ event** | `OrderPendingCancel` -> `OrderCanceled` |
+| **เกณฑ์ผ่าน** | สถานะ order เปลี่ยนเป็น CANCELED และไม่มี order เปิดเหลืออยู่ |
+| **ข้ามเมื่อ** | ไม่ข้าม |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- `cancel_orders_on_stop=True` (default) triggers cancellation when the strategy stops.
-- Verify the `OrderCanceled` event contains the correct `venue_order_id`.
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    enable_limit_buys=True,
-    enable_limit_sells=False,
-    cancel_orders_on_stop=True,
-)
-```
+- `cancel_orders_on_stop=True` (default) จะ trigger การ cancel เมื่อ strategy หยุด
+- ตรวจว่า event `OrderCanceled` มี `venue_order_id` ที่ถูกต้อง
 
 **Rust config**:
 
@@ -1325,33 +1004,21 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E41: Cancel all on stop
+### TC-E41: Cancel ทั้งหมดตอนหยุด {#tc-e41-cancel-all-on-stop}
 
-| Field              | Value                                                          |
-| ------------------ | -------------------------------------------------------------- |
-| **Prerequisite**   | Multiple open orders (limit buy + limit sell from TC-E12).     |
-| **Action**         | Stop the strategy with `cancel_orders_on_stop=True` (default). |
-| **Event sequence** | For each order: `OrderPendingCancel` -> `OrderCanceled`.       |
-| **Pass criteria**  | All open orders canceled. No open orders remaining.            |
-| **Skip when**      | Never.                                                         |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | มี order เปิดอยู่หลายตัว (limit buy + limit sell จาก TC-E12) |
+| **การกระทำ** | หยุด strategy โดย `cancel_orders_on_stop=True` (default) |
+| **ลำดับ event** | สำหรับแต่ละ order: `OrderPendingCancel` -> `OrderCanceled` |
+| **เกณฑ์ผ่าน** | order ที่เปิดอยู่ทั้งหมดถูก cancel และไม่มี order เปิดเหลืออยู่ |
+| **ข้ามเมื่อ** | ไม่ข้าม |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- Default stop uses `cancel_all`. Some venues implement that as account-wide. Confirm
-  the adapter's `CancelAllOrders` scope before running beside other open orders.
-  Use `use_individual_cancels_on_stop` or `use_batch_cancel_on_stop` to isolate.
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    enable_limit_buys=True,
-    enable_limit_sells=True,
-    cancel_orders_on_stop=True,
-)
-```
+- การหยุดแบบ default ใช้ `cancel_all` บาง venue implement สิ่งนี้แบบครอบคลุมทั้ง account ให้ยืนยันขอบเขตของ
+  `CancelAllOrders` ของ adapter ก่อนรันข้าง ๆ order อื่นที่เปิดอยู่ ใช้ `use_individual_cancels_on_stop` หรือ
+  `use_batch_cancel_on_stop` เพื่อแยกขอบเขต
 
 **Rust config**:
 
@@ -1370,27 +1037,15 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E42: Individual cancels on stop
+### TC-E42: Cancel ทีละตัวตอนหยุด {#tc-e42-individual-cancels-on-stop}
 
-| Field              | Value                                                               |
-| ------------------ | ------------------------------------------------------------------- |
-| **Prerequisite**   | Multiple open orders.                                               |
-| **Action**         | Stop with `use_individual_cancels_on_stop=True`.                    |
-| **Event sequence** | Individual `OrderPendingCancel` -> `OrderCanceled` for each order.  |
-| **Pass criteria**  | Each order canceled individually. All orders reach CANCELED status. |
-| **Skip when**      | Never.                                                              |
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    enable_limit_buys=True,
-    enable_limit_sells=True,
-    use_individual_cancels_on_stop=True,
-)
-```
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | มี order เปิดอยู่หลายตัว |
+| **การกระทำ** | หยุดโดย `use_individual_cancels_on_stop=True` |
+| **ลำดับ event** | `OrderPendingCancel` -> `OrderCanceled` แยกกันสำหรับแต่ละ order |
+| **เกณฑ์ผ่าน** | แต่ละ order ถูก cancel ทีละตัว และทุก order ไปถึงสถานะ CANCELED |
+| **ข้ามเมื่อ** | ไม่ข้าม |
 
 **Rust config**:
 
@@ -1409,27 +1064,15 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E43: Batch cancel on stop
+### TC-E43: Batch cancel ตอนหยุด {#tc-e43-batch-cancel-on-stop}
 
-| Field              | Value                                                                    |
-| ------------------ | ------------------------------------------------------------------------ |
-| **Prerequisite**   | Multiple open orders, adapter supports batch cancel.                     |
-| **Action**         | Stop with `use_batch_cancel_on_stop=True`.                               |
-| **Event sequence** | Batch `OrderPendingCancel` -> `OrderCanceled` for all orders.            |
-| **Pass criteria**  | All orders canceled via single batch request. All reach CANCELED status. |
-| **Skip when**      | Adapter does not support batch cancel.                                   |
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    enable_limit_buys=True,
-    enable_limit_sells=True,
-    use_batch_cancel_on_stop=True,
-)
-```
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | มี order เปิดอยู่หลายตัว และ adapter รองรับ batch cancel |
+| **การกระทำ** | หยุดโดย `use_batch_cancel_on_stop=True` |
+| **ลำดับ event** | `OrderPendingCancel` -> `OrderCanceled` แบบ batch สำหรับทุก order |
+| **เกณฑ์ผ่าน** | ทุก order ถูก cancel ผ่าน batch request เดียว และทุกตัวไปถึงสถานะ CANCELED |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ batch cancel |
 
 **Rust config**:
 
@@ -1448,63 +1091,47 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E44: Cancel already-canceled order
+### TC-E44: Cancel order ที่ถูก cancel แล้ว {#tc-e44-cancel-already-canceled-order}
 
-| Field              | Value                                                                                 |
-| ------------------ | ------------------------------------------------------------------------------------- |
-| **Prerequisite**   | A previously canceled order (from TC-E40).                                            |
-| **Action**         | Attempt to cancel the same order again.                                               |
-| **Event sequence** | `OrderCancelRejected` by default, or no new event for a documented idempotent result. |
-| **Pass criteria**  | Result matches the adapter contract without a duplicate terminal event.               |
-| **Skip when**      | Never.                                                                                |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | มี order ที่ถูก cancel ไปแล้ว (จาก TC-E40) |
+| **การกระทำ** | พยายาม cancel order เดิมซ้ำอีกครั้ง |
+| **ลำดับ event** | `OrderCancelRejected` โดย default หรือไม่มี event ใหม่สำหรับผลแบบ idempotent ที่ระบุไว้ |
+| **เกณฑ์ผ่าน** | ผลตรงกับ contract ของ adapter และไม่มี terminal event ซ้ำ |
+| **ข้ามเมื่อ** | ไม่ข้าม |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- The default contract tests the adapter's error handling for invalid cancel requests. The
-  rejection reason should indicate the order is not in a cancelable state.
-- `Strategy.cancel_order` and the order manager drop cancels for locally closed orders, so
-  `ExecTester` cannot reach the adapter after TC-E40. A second `cancel_order` that never
-  leaves the process is inconclusive.
-- A venue may treat an already-terminal cancel as idempotent. Document that disposition and use an
-  adapter-focused test that submits `CancelOrder` with the venue order ID after the order is
-  terminal.
+- contract แบบ default ทดสอบการจัดการ error ของ adapter สำหรับ cancel request ที่ไม่ถูกต้อง เหตุผลการปฏิเสธควรระบุว่า
+  order ไม่อยู่ในสถานะที่ cancel ได้
+- `Strategy.cancel_order` และ order manager จะทิ้ง cancel ของ order ที่ปิดแล้วในเครื่อง ดังนั้น `ExecTester` จึงไปไม่ถึง
+  adapter หลัง TC-E40 การเรียก `cancel_order` ครั้งที่สองที่ไม่เคยออกจาก process ถือว่าสรุปผลไม่ได้
+- venue อาจถือว่าการ cancel order ที่ terminal แล้วเป็นแบบ idempotent ให้บันทึกพฤติกรรมนั้นไว้ และใช้ test ที่เน้น adapter
+  ซึ่ง submit `CancelOrder` พร้อม venue order ID หลังจาก order terminal แล้ว
 
 ---
 
-## Group 6: Bracket orders
+## กลุ่ม 6: Bracket order {#group-6-bracket-orders}
 
-Test bracket order submission (entry + take-profit + stop-loss).
+ทดสอบการ submit bracket order (entry + take-profit + stop-loss)
 
-| TC     | Name                         | Description                                     | Skip when           |
-| ------ | ---------------------------- | ----------------------------------------------- | ------------------- |
-| TC-E50 | Bracket BUY                  | Entry limit buy + TP limit sell + SL stop sell. | No bracket support. |
-| TC-E51 | Bracket SELL                 | Entry limit sell + TP limit buy + SL stop buy.  | No bracket support. |
-| TC-E52 | Bracket entry fill activates | Verify TP/SL become active after entry fill.    | No bracket support. |
-| TC-E53 | Bracket with post-only entry | Entry order uses post-only flag.                | No bracket or PO.   |
+| TC | ชื่อ | คำอธิบาย | ข้ามเมื่อ |
+| --- | --- | --- | --- |
+| TC-E50 | Bracket BUY | entry limit buy + TP limit sell + SL stop sell | ไม่รองรับ bracket |
+| TC-E51 | Bracket SELL | entry limit sell + TP limit buy + SL stop buy | ไม่รองรับ bracket |
+| TC-E52 | Entry fill แล้ว bracket ทำงาน | ตรวจว่า TP/SL active หลัง entry ถูก fill | ไม่รองรับ bracket |
+| TC-E53 | Bracket ที่ entry เป็น post-only | entry order ใช้ flag post-only | ไม่มี bracket หรือ PO |
 
-### TC-E50: Bracket BUY
+### TC-E50: Bracket BUY {#tc-e50-bracket-buy}
 
-| Field              | Value                                                                                                                                   |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, instrument loaded, quotes flowing.                                                                                   |
-| **Action**         | ExecTester submits a bracket order: limit buy entry + take-profit sell + stop-loss sell.                                                |
-| **Event sequence** | Entry: `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted`. TP and SL: `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted`. |
-| **Pass criteria**  | Three orders created and accepted: entry below bid, TP above ask, SL below entry.                                                       |
-| **Skip when**      | Adapter does not support bracket orders.                                                                                                |
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    enable_brackets=True,
-    bracket_entry_order_type=OrderType.LIMIT,
-    bracket_offset_ticks=500,
-    enable_limit_buys=True,
-    enable_limit_sells=False,
-)
-```
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด instrument แล้ว, quote ไหลเข้า |
+| **การกระทำ** | ExecTester submit bracket order: entry เป็น limit buy + take-profit sell + stop-loss sell |
+| **ลำดับ event** | Entry: `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` ส่วน TP และ SL: `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` |
+| **เกณฑ์ผ่าน** | order สามตัวถูกสร้างและ accept: entry ต่ำกว่า bid, TP สูงกว่า ask, SL ต่ำกว่า entry |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ bracket order |
 
 **Rust config**:
 
@@ -1525,75 +1152,63 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E51: Bracket SELL
+### TC-E51: Bracket SELL {#tc-e51-bracket-sell}
 
-| Field              | Value                                                           |
-| ------------------ | --------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, instrument loaded, quotes flowing.           |
-| **Action**         | ExecTester submits bracket: limit sell entry + TP buy + SL buy. |
-| **Event sequence** | Same pattern as TC-E50 but for sell side.                       |
-| **Pass criteria**  | Three orders created and accepted on sell side.                 |
-| **Skip when**      | Adapter does not support bracket orders.                        |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด instrument แล้ว, quote ไหลเข้า |
+| **การกระทำ** | ExecTester submit bracket: entry เป็น limit sell + TP buy + SL buy |
+| **ลำดับ event** | รูปแบบเดียวกับ TC-E50 แต่เป็นฝั่ง sell |
+| **เกณฑ์ผ่าน** | order สามตัวถูกสร้างและ accept บนฝั่ง sell |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ bracket order |
 
-### TC-E52: Bracket entry fill activates TP/SL
+### TC-E52: Entry fill แล้ว TP/SL ทำงาน {#tc-e52-bracket-entry-fill-activates-tpsl}
 
-| Field              | Value                                                                 |
-| ------------------ | --------------------------------------------------------------------- |
-| **Prerequisite**   | Bracket order from TC-E50 where entry order fills.                    |
-| **Action**         | Entry order fills. Verify contingent TP and SL orders activate.       |
-| **Event sequence** | Entry: `OrderFilled`. TP and SL transition from contingent to active. |
-| **Pass criteria**  | After entry fill, TP and SL orders are live on the venue.             |
-| **Skip when**      | Adapter does not support bracket orders.                              |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | bracket order จาก TC-E50 ที่ entry order ถูก fill |
+| **การกระทำ** | entry order ถูก fill แล้วตรวจว่า contingent order TP และ SL active |
+| **ลำดับ event** | Entry: `OrderFilled` จากนั้น TP และ SL เปลี่ยนจาก contingent เป็น active |
+| **เกณฑ์ผ่าน** | หลัง entry ถูก fill order TP และ SL ทำงานอยู่บน venue |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ bracket order |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- This requires the entry order to actually fill, which may need aggressive pricing.
-- The TP/SL activation mechanism varies by venue (some activate immediately, some are OCA groups).
+- ต้องให้ entry order ถูก fill จริง ซึ่งอาจต้องใช้ราคาแบบ aggressive
+- กลไกการทำให้ TP/SL active แตกต่างกันตาม venue (บางที่ active ทันที บางที่เป็นกลุ่ม OCA)
 
-### TC-E53: Bracket with post-only entry
+### TC-E53: Bracket ที่ entry เป็น post-only {#tc-e53-bracket-with-post-only-entry}
 
-| Field              | Value                                                                   |
-| ------------------ | ----------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter supports brackets and post-only.                                |
-| **Action**         | Submit bracket with `use_post_only=True` (applied to entry and TP).     |
-| **Event sequence** | Same as TC-E50 with post-only flag on entry.                            |
-| **Pass criteria**  | Entry and TP orders accepted as post-only (maker). SL is not post-only. |
-| **Skip when**      | No bracket support or no post-only support.                             |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter รองรับ bracket และ post-only |
+| **การกระทำ** | submit bracket ด้วย `use_post_only=True` (ใช้กับ entry และ TP) |
+| **ลำดับ event** | เหมือน TC-E50 โดย entry มี flag post-only |
+| **เกณฑ์ผ่าน** | entry และ TP ถูก accept แบบ post-only (maker) ส่วน SL ไม่ใช่ post-only |
+| **ข้ามเมื่อ** | ไม่รองรับ bracket หรือไม่รองรับ post-only |
 
 ---
 
-## Group 7: Order flags
+## กลุ่ม 7: Order flag {#group-7-order-flags}
 
-Test order-level flags and special parameters.
+ทดสอบ flag ระดับ order และพารามิเตอร์พิเศษ
 
-| TC     | Name                | Description                                  | Skip when            |
-| ------ | ------------------- | -------------------------------------------- | -------------------- |
-| TC-E60 | PostOnly accepted   | Limit with post-only, placed away from TOB.  | No post-only.        |
-| TC-E61 | ReduceOnly on close | Close position with reduce-only flag.        | No reduce-only.      |
-| TC-E62 | Display quantity    | Iceberg order with visible quantity < total. | No display quantity. |
-| TC-E63 | Custom order params | Adapter-specific params via `order_params`.  | N/A.                 |
+| TC | ชื่อ | คำอธิบาย | ข้ามเมื่อ |
+| --- | --- | --- | --- |
+| TC-E60 | PostOnly ถูก accept | limit แบบ post-only วางห่างจาก TOB | ไม่มี post-only |
+| TC-E61 | ReduceOnly ตอนปิด | ปิด position ด้วย flag reduce-only | ไม่มี reduce-only |
+| TC-E62 | Display quantity | iceberg order ที่ quantity ที่มองเห็น < ทั้งหมด | ไม่มี display quantity |
+| TC-E63 | Custom order params | พารามิเตอร์เฉพาะของ adapter ผ่าน `order_params` | ไม่เกี่ยวข้อง |
 
-### TC-E60: PostOnly accepted
+### TC-E60: PostOnly ถูก accept {#tc-e60-postonly-accepted}
 
-| Field              | Value                                                                   |
-| ------------------ | ----------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, instrument loaded, quotes flowing.                   |
-| **Action**         | ExecTester places limit buy with `use_post_only=True` at passive price. |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted`.              |
-| **Pass criteria**  | Order accepted as a maker order. Post-only flag acknowledged by venue.  |
-| **Skip when**      | Adapter does not support post-only flag.                                |
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    enable_limit_buys=True,
-    enable_limit_sells=False,
-    use_post_only=True,
-)
-```
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด instrument แล้ว, quote ไหลเข้า |
+| **การกระทำ** | ExecTester วาง limit buy ด้วย `use_post_only=True` ที่ราคา passive |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` |
+| **เกณฑ์ผ่าน** | order ถูก accept เป็น maker order และ venue รับรู้ flag post-only |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ flag post-only |
 
 **Rust config**:
 
@@ -1612,29 +1227,15 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E61: ReduceOnly on close
+### TC-E61: ReduceOnly ตอนปิด {#tc-e61-reduceonly-on-close}
 
-| Field              | Value                                                                                          |
-| ------------------ | ---------------------------------------------------------------------------------------------- |
-| **Prerequisite**   | Open position (from TC-E01).                                                                   |
-| **Action**         | Stop strategy with `reduce_only_on_stop=True`. Closing order uses reduce-only flag.            |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` -> `OrderFilled` (with reduce-only). |
-| **Pass criteria**  | Closing order has reduce-only flag. Position fully closed.                                     |
-| **Skip when**      | Adapter does not support reduce-only flag.                                                     |
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    open_position_on_start_qty=Decimal("0.01"),
-    reduce_only_on_stop=True,
-    close_positions_on_stop=True,
-    enable_limit_buys=False,
-    enable_limit_sells=False,
-)
-```
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | มี position เปิดอยู่ (จาก TC-E01) |
+| **การกระทำ** | หยุด strategy โดย `reduce_only_on_stop=True` order ปิดจะใช้ flag reduce-only |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` -> `OrderFilled` (พร้อม reduce-only) |
+| **เกณฑ์ผ่าน** | order ปิดมี flag reduce-only และ position ถูกปิดทั้งหมด |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ flag reduce-only |
 
 **Rust config**:
 
@@ -1655,27 +1256,15 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E62: Display quantity (iceberg)
+### TC-E62: Display quantity (iceberg) {#tc-e62-display-quantity-iceberg}
 
-| Field              | Value                                                                           |
-| ------------------ | ------------------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, adapter supports display quantity.                           |
-| **Action**         | Place limit order with `order_display_qty` < `order_qty`.                       |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted`.                      |
-| **Pass criteria**  | Order accepted with display quantity set. Only display qty visible on the book. |
-| **Skip when**      | Adapter does not support display quantity / iceberg orders.                     |
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("1.0"),
-    order_display_qty=Quantity.from_str("0.1"),
-    enable_limit_buys=True,
-    enable_limit_sells=False,
-)
-```
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว และ adapter รองรับ display quantity |
+| **การกระทำ** | วาง limit order โดย `order_display_qty` < `order_qty` |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` |
+| **เกณฑ์ผ่าน** | order ถูก accept พร้อมตั้ง display quantity และมองเห็นเฉพาะ display qty บน book |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ display quantity / iceberg order |
 
 **Rust config**:
 
@@ -1694,98 +1283,81 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E63: Custom order params
+### TC-E63: Custom order params {#tc-e63-custom-order-params}
 
-| Field              | Value                                                                        |
-| ------------------ | ---------------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, adapter accepts additional parameters.                    |
-| **Action**         | Place order with `order_params` dict containing adapter-specific parameters. |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted`.                   |
-| **Pass criteria**  | Order accepted. Adapter-specific parameters passed through to venue.         |
-| **Skip when**      | N/A (adapter-specific).                                                      |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว และ adapter รับพารามิเตอร์เพิ่มเติมได้ |
+| **การกระทำ** | วาง order พร้อม `order_params` ที่มีพารามิเตอร์เฉพาะของ adapter |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` |
+| **เกณฑ์ผ่าน** | order ถูก accept และพารามิเตอร์เฉพาะของ adapter ถูกส่งผ่านไปถึง venue |
+| **ข้ามเมื่อ** | ไม่เกี่ยวข้อง (ขึ้นกับ adapter) |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- The `order_params` dict is opaque to the ExecTester and passed through to the adapter.
-- Consult the adapter's guide for supported parameters.
+- `order_params` เป็นข้อมูลทึบ (opaque) สำหรับ ExecTester และถูกส่งผ่านไปยัง adapter โดยตรง
+- ดูพารามิเตอร์ที่รองรับได้จากคู่มือของ adapter
 
 ---
 
-## Group 8: Rejection handling
+## กลุ่ม 8: การจัดการ rejection {#group-8-rejection-handling}
 
-Test that the adapter correctly handles and reports order rejections.
+ทดสอบว่า adapter จัดการและรายงาน order rejection ได้ถูกต้อง
 
-| TC     | Name                   | Description                                      | Skip when       |
-| ------ | ---------------------- | ------------------------------------------------ | --------------- |
-| TC-E70 | PostOnly rejection     | Post-only order that would cross the spread.     | No post-only.   |
-| TC-E71 | ReduceOnly rejection   | Reduce-only order with no position to reduce.    | No reduce-only. |
-| TC-E72 | Unsupported order type | Submit order type not supported by adapter.      | Never.          |
-| TC-E73 | Unsupported TIF        | Submit order with unsupported time in force.     | Never.          |
-| TC-E74 | Ambiguous submit fail  | Transport, timeout, or send failure on submit.   | No mock path.   |
-| TC-E75 | Ambiguous cancel fail  | Transport, timeout, or send failure on cancel.   | No cancel.      |
-| TC-E76 | Ambiguous modify fail  | Transport, timeout, or send failure on modify.   | No modify.      |
-| TC-E77 | Ambiguous batch fail   | Whole-batch failure without per-order result.    | No batch.       |
-| TC-E78 | Per-order batch reject | Batch response has explicit per-order rejection. | No batch.       |
+| TC | ชื่อ | คำอธิบาย | ข้ามเมื่อ |
+| --- | --- | --- | --- |
+| TC-E70 | PostOnly rejection | post-only order ที่จะ cross spread | ไม่มี post-only |
+| TC-E71 | ReduceOnly rejection | reduce-only order ที่ไม่มี position ให้ลด | ไม่มี reduce-only |
+| TC-E72 | Order type ที่ไม่รองรับ | submit order type ที่ adapter ไม่รองรับ | ไม่ข้าม |
+| TC-E73 | TIF ที่ไม่รองรับ | submit order ด้วย time in force ที่ไม่รองรับ | ไม่ข้าม |
+| TC-E74 | Submit ล้มเหลวแบบกำกวม | ความล้มเหลวของ transport, timeout หรือการส่งตอน submit | ไม่มี mock path |
+| TC-E75 | Cancel ล้มเหลวแบบกำกวม | ความล้มเหลวของ transport, timeout หรือการส่งตอน cancel | ไม่มี cancel |
+| TC-E76 | Modify ล้มเหลวแบบกำกวม | ความล้มเหลวของ transport, timeout หรือการส่งตอน modify | ไม่มี modify |
+| TC-E77 | Batch ล้มเหลวแบบกำกวม | ทั้ง batch ล้มเหลวโดยไม่มีผลราย order | ไม่มี batch |
+| TC-E78 | Batch reject ราย order | response ของ batch มี rejection ราย order อย่างชัดเจน | ไม่มี batch |
 
-TC-E74 through TC-E78 are specified collectively below because they usually require a mock HTTP or
-WebSocket boundary rather than a live venue.
+TC-E74 ถึง TC-E78 ระบุรวมกันด้านล่าง เพราะปกติต้องใช้ mock ที่ขอบเขต HTTP หรือ WebSocket แทน venue จริง
 
-### Ambiguous outcome failures
+### ความล้มเหลวที่ผลลัพธ์กำกวม {#ambiguous-outcome-failures}
 
-These cases prove that adapter request failures do not turn into terminal rejection events when the venue
-outcome is unknown. The pass criteria also define an exception for local prepare failures. The command must be
-known not to have been sent. The failure must be attributable to one cancel or modify command. If both
-conditions hold, the adapter can emit the matching rejection event.
+case เหล่านี้พิสูจน์ว่าความล้มเหลวของ request จาก adapter จะไม่กลายเป็น terminal rejection event เมื่อไม่ทราบผลลัพธ์
+ที่ venue เกณฑ์ผ่านยังกำหนดข้อยกเว้นสำหรับความล้มเหลวตอนเตรียม request ในเครื่อง: ต้องทราบแน่ชัดว่า command ยังไม่ได้
+ถูกส่ง และความล้มเหลวต้องระบุได้ว่าเป็นของ cancel หรือ modify command ตัวเดียว ถ้าเงื่อนไขทั้งสองเป็นจริง adapter จึง
+ปล่อย rejection event ที่ตรงกันได้
 
-**Pass criteria**:
+**เกณฑ์ผ่าน**:
 
-- Submit failures from transport errors, timeouts, WebSocket send failures, retry exhaustion, or
-  response parse failures do not emit `OrderRejected`.
-- Cancel failures from transport errors, timeouts, WebSocket send failures, retry exhaustion, or
-  whole-request server failures do not emit `OrderCancelRejected`.
-- Modify failures from transport errors, timeouts, WebSocket send failures, retry exhaustion, or
-  whole-request server failures do not emit `OrderModifyRejected`.
-- Local cancel prepare failures that prove the command cannot be sent may emit
-  `OrderCancelRejected` when the adapter can attribute the failure to one cancel command.
-- Local modify prepare failures that prove the command cannot be sent may emit
-  `OrderModifyRejected` when the adapter can attribute the failure to one modify command.
-- Whole-batch request failures do not emit one rejection per order when the venue did not return
-  per-order results.
-- Explicit per-order venue rejections still emit the matching rejection event with the venue
-  reason.
+- ความล้มเหลวของ submit จาก transport error, timeout, การส่ง WebSocket ล้มเหลว, retry หมด หรือ parse response
+  ล้มเหลว จะไม่ปล่อย `OrderRejected`
+- ความล้มเหลวของ cancel จาก transport error, timeout, การส่ง WebSocket ล้มเหลว, retry หมด หรือ server ล้มเหลวทั้ง
+  request จะไม่ปล่อย `OrderCancelRejected`
+- ความล้มเหลวของ modify จาก transport error, timeout, การส่ง WebSocket ล้มเหลว, retry หมด หรือ server ล้มเหลวทั้ง
+  request จะไม่ปล่อย `OrderModifyRejected`
+- ความล้มเหลวตอนเตรียม cancel ในเครื่องที่พิสูจน์ได้ว่าส่ง command ไม่ได้ อาจปล่อย `OrderCancelRejected` ได้ เมื่อ adapter
+  ระบุได้ว่าความล้มเหลวเป็นของ cancel command ตัวเดียว
+- ความล้มเหลวตอนเตรียม modify ในเครื่องที่พิสูจน์ได้ว่าส่ง command ไม่ได้ อาจปล่อย `OrderModifyRejected` ได้ เมื่อ
+  adapter ระบุได้ว่าความล้มเหลวเป็นของ modify command ตัวเดียว
+- ความล้มเหลวของ request ทั้ง batch จะไม่ปล่อย rejection ทีละ order เมื่อ venue ไม่ได้คืนผลราย order
+- rejection ราย order ที่ venue ระบุชัดเจนยังคงปล่อย rejection event ที่ตรงกันพร้อมเหตุผลจาก venue
 
-The order remains in the appropriate in-flight state until a venue update, query result, or
-reconciliation pass resolves it.
+order จะยังคงอยู่ในสถานะ in-flight ที่เหมาะสม จนกว่า update จาก venue, ผล query หรือรอบ reconciliation จะ resolve มัน
 
-### TC-E70: PostOnly rejection
+### TC-E70: PostOnly rejection {#tc-e70-postonly-rejection}
 
-| Field              | Value                                                                                                                           |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, instrument loaded, quotes flowing.                                                                           |
-| **Action**         | ExecTester places post-only order on the wrong side of the book (`test_reject_post_only=True`), causing it to cross the spread. |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderRejected`.                                                                      |
-| **Pass criteria**  | Venue rejects order. `OrderRejected.due_post_only=true`. Reason names post-only violation.                                      |
-| **Skip when**      | Adapter does not support post-only flag.                                                                                        |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด instrument แล้ว, quote ไหลเข้า |
+| **การกระทำ** | ExecTester วาง post-only order ผิดฝั่งของ book (`test_reject_post_only=True`) ทำให้ cross spread |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderRejected` |
+| **เกณฑ์ผ่าน** | venue reject order, `OrderRejected.due_post_only=true` และเหตุผลระบุว่าละเมิด post-only |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ flag post-only |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- The ExecTester's `test_reject_post_only` mode intentionally prices the order to cross.
-- Some venues may partially fill instead of rejecting. Behavior is venue-specific.
-- Adapters that emit `OrderRejected` for a post-only crossing reject should set
-  `due_post_only=true` so strategies can distinguish this from other venue rejections.
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    enable_limit_buys=True,
-    enable_limit_sells=False,
-    use_post_only=True,
-    test_reject_post_only=True,
-)
-```
+- โหมด `test_reject_post_only` ของ ExecTester ตั้งราคา order ให้ cross โดยเจตนา
+- บาง venue อาจ partial fill แทนการ reject พฤติกรรมขึ้นกับ venue
+- adapter ที่ปล่อย `OrderRejected` สำหรับการ reject เพราะ post-only cross ควรตั้ง `due_post_only=true` เพื่อให้ strategy
+  แยกกรณีนี้ออกจาก rejection อื่นของ venue ได้
 
 **Rust config**:
 
@@ -1805,34 +1377,20 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E71: ReduceOnly rejection
+### TC-E71: ReduceOnly rejection {#tc-e71-reduceonly-rejection}
 
-| Field              | Value                                                                                                                                                              |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Prerequisite**   | Adapter connected, no open position for the instrument.                                                                                                            |
-| **Action**         | ExecTester opens a market position with `reduce_only=True` via `test_reject_reduce_only=True` and `open_position_on_start_qty`, when no position exists to reduce. |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderRejected`.                                                                                                         |
-| **Pass criteria**  | Order rejected. `OrderRejected` event with reason indicating reduce-only violation.                                                                                |
-| **Skip when**      | Adapter does not support reduce-only flag.                                                                                                                         |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว และไม่มี position เปิดอยู่สำหรับ instrument นั้น |
+| **การกระทำ** | ExecTester เปิด market position ด้วย `reduce_only=True` ผ่าน `test_reject_reduce_only=True` และ `open_position_on_start_qty` ขณะที่ไม่มี position ให้ลด |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderRejected` |
+| **เกณฑ์ผ่าน** | order ถูก reject โดยมี event `OrderRejected` พร้อมเหตุผลที่ระบุว่าละเมิด reduce-only |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ flag reduce-only |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- The `test_reject_reduce_only` flag only applies to the opening market order submitted via
-  `open_position_on_start_qty`.
-- Verify no prior position exists for the instrument before running this test.
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    open_position_on_start_qty=Decimal("0.01"),
-    test_reject_reduce_only=True,
-    enable_limit_buys=False,
-    enable_limit_sells=False,
-)
-```
+- flag `test_reject_reduce_only` ใช้กับ market order เปิดที่ submit ผ่าน `open_position_on_start_qty` เท่านั้น
+- ตรวจว่าไม่มี position เดิมของ instrument อยู่ก่อนรัน test นี้
 
 **Rust config**:
 
@@ -1852,80 +1410,70 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E72: Unsupported order type
+### TC-E72: Order type ที่ไม่รองรับ {#tc-e72-unsupported-order-type}
 
-| Field              | Value                                                                |
-| ------------------ | -------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, order type not in adapter's supported set.        |
-| **Action**         | Submit an order type the adapter does not support.                   |
-| **Event sequence** | `OrderDenied` (pre-submission rejection by adapter).                 |
-| **Pass criteria**  | Order denied before reaching venue. `OrderDenied` event with reason. |
-| **Skip when**      | Never (every adapter has unsupported order types to test).           |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว และ order type ไม่อยู่ในชุดที่ adapter รองรับ |
+| **การกระทำ** | submit order type ที่ adapter ไม่รองรับ |
+| **ลำดับ event** | `OrderDenied` (adapter ปฏิเสธก่อน submit) |
+| **เกณฑ์ผ่าน** | order ถูก deny ก่อนถึง venue โดยมี event `OrderDenied` พร้อมเหตุผล |
+| **ข้ามเมื่อ** | ไม่ข้าม (ทุก adapter มี order type ที่ไม่รองรับให้ทดสอบ) |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- `OrderDenied` occurs at the adapter level before the order reaches the venue.
-- This differs from the normal `OrderRejected` path, which follows a venue rejection. Reconciliation can also
-  synthesize `OrderRejected`. See [Terminal reconciliation
-  provenance](../concepts/execution/policies.md#terminal-reconciliation-provenance).
-- Test by configuring a stop order type that the adapter does not support.
+- `OrderDenied` เกิดที่ระดับ adapter ก่อนที่ order จะถึง venue
+- ต่างจาก path ปกติของ `OrderRejected` ซึ่งเกิดตามหลังการ reject จาก venue reconciliation ก็สังเคราะห์ `OrderRejected`
+  ได้เช่นกัน ดู [Terminal reconciliation
+  provenance](../concepts/execution/policies.md#terminal-reconciliation-provenance)
+- ทดสอบโดยตั้งค่า stop order type ที่ adapter ไม่รองรับ
 
-### TC-E73: Unsupported TIF
+### TC-E73: TIF ที่ไม่รองรับ {#tc-e73-unsupported-tif}
 
-| Field              | Value                                                                |
-| ------------------ | -------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, TIF not in adapter's supported set.               |
-| **Action**         | Submit an order with a TIF the adapter does not support.             |
-| **Event sequence** | `OrderDenied` (pre-submission rejection by adapter).                 |
-| **Pass criteria**  | Order denied before reaching venue. `OrderDenied` event with reason. |
-| **Skip when**      | Never (every adapter has unsupported TIF options to test).           |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว และ TIF ไม่อยู่ในชุดที่ adapter รองรับ |
+| **การกระทำ** | submit order ด้วย TIF ที่ adapter ไม่รองรับ |
+| **ลำดับ event** | `OrderDenied` (adapter ปฏิเสธก่อน submit) |
+| **เกณฑ์ผ่าน** | order ถูก deny ก่อนถึง venue โดยมี event `OrderDenied` พร้อมเหตุผล |
+| **ข้ามเมื่อ** | ไม่ข้าม (ทุก adapter มีตัวเลือก TIF ที่ไม่รองรับให้ทดสอบ) |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- Similar to TC-E72 but for time-in-force options.
-- Test with TIF values from the Nautilus enum that the adapter does not map.
+- คล้าย TC-E72 แต่เป็นตัวเลือก time-in-force
+- ทดสอบด้วยค่า TIF จาก enum ของ Nautilus ที่ adapter ไม่ได้ map
 
 ---
 
-## Group 9: Lifecycle and reconciliation
+## กลุ่ม 9: Lifecycle และ reconciliation {#group-9-lifecycle-and-reconciliation}
 
-Test strategy lifecycle behavior and execution-state recovery on start, stop, and report failure.
+ทดสอบพฤติกรรม lifecycle ของ strategy และการกู้คืน execution state ตอนเริ่ม ตอนหยุด และเมื่อ report ล้มเหลว
 
-TC-E88 and TC-E89 run offline as deterministic adapter unit or integration tests rather than through
-`ExecTester` against a venue.
+TC-E88 และ TC-E89 รันแบบ offline เป็น unit test หรือ integration test ของ adapter ที่ให้ผลแน่นอน (deterministic) แทนการ
+รันผ่าน `ExecTester` กับ venue
 
-| TC     | Name                              | Description                                              | Skip when                                   |
-| ------ | --------------------------------- | -------------------------------------------------------- | ------------------------------------------- |
-| TC-E80 | Open position on start            | Open a position immediately when strategy starts.        | No market orders.                           |
-| TC-E81 | Cancel orders on stop             | Cancel all open orders when strategy stops.              | Never.                                      |
-| TC-E82 | Close positions on stop           | Close open positions when strategy stops.                | No market orders.                           |
-| TC-E83 | Unsubscribe on stop               | Unsubscribe from data feeds on strategy stop.            | No unsub support.                           |
-| TC-E84 | Reconcile open orders             | Reconcile existing open orders from a prior session.     | Never.                                      |
-| TC-E85 | Reconcile filled orders           | Reconcile previously filled orders from a prior session. | Never.                                      |
-| TC-E86 | Reconcile open long               | Reconcile existing open long position.                   | Never.                                      |
-| TC-E87 | Reconcile open short              | Reconcile existing open short position.                  | Never.                                      |
-| TC-E88 | Reconciliation commission failure | A required fill commission cannot be represented.        | No fill commission logic.                   |
-| TC-E89 | WebSocket commission failure      | A private fill commission cannot be represented.         | No private fill stream or commission logic. |
+| TC | ชื่อ | คำอธิบาย | ข้ามเมื่อ |
+| --- | --- | --- | --- |
+| TC-E80 | เปิด position ตอนเริ่ม | เปิด position ทันทีเมื่อ strategy เริ่ม | ไม่มี market order |
+| TC-E81 | Cancel order ตอนหยุด | cancel order ที่เปิดอยู่ทั้งหมดเมื่อ strategy หยุด | ไม่ข้าม |
+| TC-E82 | ปิด position ตอนหยุด | ปิด position ที่เปิดอยู่เมื่อ strategy หยุด | ไม่มี market order |
+| TC-E83 | Unsubscribe ตอนหยุด | unsubscribe จาก data feed เมื่อ strategy หยุด | ไม่รองรับ unsub |
+| TC-E84 | Reconcile open order | reconcile open order ที่มีอยู่จาก session ก่อนหน้า | ไม่ข้าม |
+| TC-E85 | Reconcile filled order | reconcile order ที่ fill แล้วจาก session ก่อนหน้า | ไม่ข้าม |
+| TC-E86 | Reconcile open long | reconcile long position ที่เปิดอยู่ | ไม่ข้าม |
+| TC-E87 | Reconcile open short | reconcile short position ที่เปิดอยู่ | ไม่ข้าม |
+| TC-E88 | Commission ล้มเหลวตอน reconciliation | แทนค่า commission ของ fill ที่จำเป็นไม่ได้ | ไม่มี logic ของ fill commission |
+| TC-E89 | Commission ล้มเหลวทาง WebSocket | แทนค่า commission ของ private fill ไม่ได้ | ไม่มี private fill stream หรือ logic ของ commission |
 
-### TC-E80: Open position on start
+### TC-E80: เปิด position ตอนเริ่ม {#tc-e80-open-position-on-start}
 
-| Field              | Value                                                                                              |
-| ------------------ | -------------------------------------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, instrument loaded, no existing position.                                        |
-| **Action**         | Strategy starts with `open_position_on_start_qty` set.                                             |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` -> `OrderFilled`.                        |
-| **Pass criteria**  | Position opened on start. Market order submitted and filled before limit order maintenance begins. |
-| **Skip when**      | Adapter does not support market orders.                                                            |
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    open_position_on_start_qty=Decimal("0.01"),
-)
-```
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด instrument แล้ว, ไม่มี position เดิม |
+| **การกระทำ** | strategy เริ่มทำงานโดยตั้ง `open_position_on_start_qty` |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` -> `OrderFilled` |
+| **เกณฑ์ผ่าน** | position เปิดตอนเริ่ม market order ถูก submit และ fill ก่อนที่การดูแล limit order จะเริ่ม |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ market order |
 
 **Rust config**:
 
@@ -1942,45 +1490,35 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E81: Cancel orders on stop
+### TC-E81: Cancel order ตอนหยุด {#tc-e81-cancel-orders-on-stop}
 
-| Field              | Value                                                          |
-| ------------------ | -------------------------------------------------------------- |
-| **Prerequisite**   | Open limit orders from the strategy session.                   |
-| **Action**         | Stop the strategy with `cancel_orders_on_stop=True` (default). |
-| **Event sequence** | For each open order: `OrderPendingCancel` -> `OrderCanceled`.  |
-| **Pass criteria**  | All strategy-owned open orders canceled on stop.               |
-| **Skip when**      | Never.                                                         |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | มี limit order เปิดอยู่จาก session ของ strategy |
+| **การกระทำ** | หยุด strategy โดย `cancel_orders_on_stop=True` (default) |
+| **ลำดับ event** | สำหรับแต่ละ order ที่เปิดอยู่: `OrderPendingCancel` -> `OrderCanceled` |
+| **เกณฑ์ผ่าน** | open order ทั้งหมดที่ strategy เป็นเจ้าของถูก cancel ตอนหยุด |
+| **ข้ามเมื่อ** | ไม่ข้าม |
 
-### TC-E82: Close positions on stop
+### TC-E82: ปิด position ตอนหยุด {#tc-e82-close-positions-on-stop}
 
-| Field              | Value                                                                                      |
-| ------------------ | ------------------------------------------------------------------------------------------ |
-| **Prerequisite**   | Open position from the strategy session.                                                   |
-| **Action**         | Stop the strategy with `close_positions_on_stop=True` (default).                           |
-| **Event sequence** | Closing order: `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` -> `OrderFilled`. |
-| **Pass criteria**  | Positions closed, or only exact sub-precision residuals remain. No open orders remain.     |
-| **Skip when**      | Adapter does not support market orders.                                                    |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | มี position เปิดอยู่จาก session ของ strategy |
+| **การกระทำ** | หยุด strategy โดย `close_positions_on_stop=True` (default) |
+| **ลำดับ event** | order ปิด: `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` -> `OrderFilled` |
+| **เกณฑ์ผ่าน** | position ถูกปิด หรือเหลือเพียงเศษที่ต่ำกว่า precision พอดี และไม่มี order เปิดค้างอยู่ |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ market order |
 
-### TC-E83: Unsubscribe on stop
+### TC-E83: Unsubscribe ตอนหยุด {#tc-e83-unsubscribe-on-stop}
 
-| Field              | Value                                                            |
-| ------------------ | ---------------------------------------------------------------- |
-| **Prerequisite**   | Active data subscriptions (quotes, trades, book).                |
-| **Action**         | Stop the strategy with `can_unsubscribe=True` (default).         |
-| **Event sequence** | Data subscriptions removed.                                      |
-| **Pass criteria**  | No further data events received after stop. Clean disconnection. |
-| **Skip when**      | Adapter does not support unsubscribe.                            |
-
-**Python config**:
-
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,
-    order_qty=Quantity.from_str("0.01"),
-    can_unsubscribe=True,
-)
-```
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | มี data subscription ที่ active อยู่ (quote, trade, book) |
+| **การกระทำ** | หยุด strategy โดย `can_unsubscribe=True` (default) |
+| **ลำดับ event** | data subscription ถูกยกเลิก |
+| **เกณฑ์ผ่าน** | ไม่ได้รับ data event อีกหลังหยุด และตัดการเชื่อมต่ออย่างเรียบร้อย |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ unsubscribe |
 
 **Rust config**:
 
@@ -1997,363 +1535,316 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E84: Reconcile open orders
+### TC-E84: Reconcile open order {#tc-e84-reconcile-open-orders}
 
-| Field              | Value                                                                                                                           |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| **Prerequisite**   | One or more open limit orders on the venue from a prior session.                                                                |
-| **Action**         | Start the node with `reconciliation=True`.                                                                                      |
-| **Event sequence** | `OrderStatusReport` generated for each open order.                                                                              |
-| **Pass criteria**  | Each open order is loaded into the cache with correct `venue_order_id`, status=ACCEPTED, price, quantity, side, and order type. |
-| **Skip when**      | Never.                                                                                                                          |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | มี limit order เปิดอยู่บน venue อย่างน้อยหนึ่งตัวจาก session ก่อนหน้า |
+| **การกระทำ** | เริ่ม node โดย `reconciliation=True` |
+| **ลำดับ event** | สร้าง `OrderStatusReport` สำหรับแต่ละ open order |
+| **เกณฑ์ผ่าน** | open order แต่ละตัวถูกโหลดเข้า cache ด้วย `venue_order_id`, status=ACCEPTED, price, quantity, side และ order type ที่ถูกต้อง |
+| **ข้ามเมื่อ** | ไม่ข้าม |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- Leave limit orders open from a prior test session (do not cancel on stop).
-- Configure `external_order_instrument_ids` so strategy registration creates the active claim used
-  to assign reconciled orders.
-- Verify that the reconciled order count matches the venue-reported count.
-- Mass-status may include historical terminal orders. Unclaimed ones appear as EXTERNAL.
-  Compare open-order counts against the venue open-order endpoint, not the full mass-status
-  length.
-- Report `ts_event` values must be Unix nanoseconds even when the venue only has second precision.
+- ปล่อย limit order เปิดค้างไว้จาก test session ก่อนหน้า (ไม่ cancel ตอนหยุด)
+- ตั้ง `external_order_instrument_ids` เพื่อให้การลงทะเบียน strategy สร้าง claim ที่ active ซึ่งใช้ assign order ที่
+  reconcile แล้ว
+- ตรวจว่าจำนวน order ที่ reconcile ตรงกับจำนวนที่ venue รายงาน
+- mass-status อาจรวม terminal order ในอดีตด้วย ตัวที่ไม่มีใคร claim จะปรากฏเป็น EXTERNAL ให้เทียบจำนวน open order
+  กับ endpoint open order ของ venue ไม่ใช่ความยาวทั้งหมดของ mass-status
+- ค่า `ts_event` ของ report ต้องเป็น Unix nanoseconds แม้ venue จะมีความละเอียดแค่ระดับวินาที
 
-### TC-E85: Reconcile filled orders
+### TC-E85: Reconcile filled order {#tc-e85-reconcile-filled-orders}
 
-| Field              | Value                                                                                                                               |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| **Prerequisite**   | One or more filled orders on the venue from a prior session.                                                                        |
-| **Action**         | Start the node with `reconciliation=True`.                                                                                          |
-| **Event sequence** | `FillReport` generated for each historical fill.                                                                                    |
-| **Pass criteria**  | Each filled order is loaded into the cache with correct `venue_order_id`, status=FILLED, fill price, fill quantity, and commission. |
-| **Skip when**      | Never.                                                                                                                              |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | มี order ที่ fill แล้วบน venue อย่างน้อยหนึ่งตัวจาก session ก่อนหน้า |
+| **การกระทำ** | เริ่ม node โดย `reconciliation=True` |
+| **ลำดับ event** | สร้าง `FillReport` สำหรับแต่ละ fill ในอดีต |
+| **เกณฑ์ผ่าน** | order ที่ fill แล้วแต่ละตัวถูกโหลดเข้า cache ด้วย `venue_order_id`, status=FILLED, fill price, fill quantity และ commission ที่ถูกต้อง |
+| **ข้ามเมื่อ** | ไม่ข้าม |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- Requires orders that filled in a prior session.
-- Verify fill price, quantity, and commission match the venue's reported values.
-- Some adapters may only report fills within a lookback window.
-- Historical fill replay can change a live zero commission to the REST fee. That flip is
-  expected when the stream omits fees and reconciliation supplies them.
-- Report `ts_event` values must be Unix nanoseconds even when the venue only has second precision.
+- ต้องมี order ที่ fill ใน session ก่อนหน้า
+- ตรวจว่า fill price, quantity และ commission ตรงกับค่าที่ venue รายงาน
+- บาง adapter อาจรายงานเฉพาะ fill ภายในช่วง lookback
+- การ replay fill ในอดีตอาจเปลี่ยน commission ที่เป็นศูนย์ใน live ไปเป็นค่าธรรมเนียมจาก REST การเปลี่ยนนี้เป็นเรื่องที่คาดไว้
+  เมื่อ stream ไม่ส่งค่าธรรมเนียมมาและ reconciliation เป็นผู้เติมให้
+- ค่า `ts_event` ของ report ต้องเป็น Unix nanoseconds แม้ venue จะมีความละเอียดแค่ระดับวินาที
 
-### TC-E86: Reconcile open long position
+### TC-E86: Reconcile open long position {#tc-e86-reconcile-open-long-position}
 
-| Field              | Value                                                                                                        |
-| ------------------ | ------------------------------------------------------------------------------------------------------------ |
-| **Prerequisite**   | An open long position on the venue from a prior session.                                                     |
-| **Action**         | Start the node with `reconciliation=True`.                                                                   |
-| **Event sequence** | `PositionStatusReport` generated for the long position.                                                      |
-| **Pass criteria**  | Position loaded into cache with correct instrument, side=LONG, quantity, and entry price matching the venue. |
-| **Skip when**      | Never.                                                                                                       |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | มี long position เปิดอยู่บน venue จาก session ก่อนหน้า |
+| **การกระทำ** | เริ่ม node โดย `reconciliation=True` |
+| **ลำดับ event** | สร้าง `PositionStatusReport` สำหรับ long position |
+| **เกณฑ์ผ่าน** | position ถูกโหลดเข้า cache ด้วย instrument, side=LONG, quantity และ entry price ที่ตรงกับ venue |
+| **ข้ามเมื่อ** | ไม่ข้าม |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- Open a long position in a prior session and stop the strategy without closing it
-  (`close_positions_on_stop=False`).
-- Verify the reconciled position quantity and average entry price match the venue.
-- After reconciliation, the strategy should be able to manage or close this position.
+- เปิด long position ใน session ก่อนหน้า แล้วหยุด strategy โดยไม่ปิด position (`close_positions_on_stop=False`)
+- ตรวจว่า quantity และราคาเข้าเฉลี่ยของ position ที่ reconcile ตรงกับ venue
+- หลัง reconciliation strategy ควรจัดการหรือปิด position นี้ได้
 
-### TC-E87: Reconcile open short position
+### TC-E87: Reconcile open short position {#tc-e87-reconcile-open-short-position}
 
-| Field              | Value                                                                                                         |
-| ------------------ | ------------------------------------------------------------------------------------------------------------- |
-| **Prerequisite**   | An open short position on the venue from a prior session.                                                     |
-| **Action**         | Start the node with `reconciliation=True`.                                                                    |
-| **Event sequence** | `PositionStatusReport` generated for the short position.                                                      |
-| **Pass criteria**  | Position loaded into cache with correct instrument, side=SHORT, quantity, and entry price matching the venue. |
-| **Skip when**      | Never.                                                                                                        |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | มี short position เปิดอยู่บน venue จาก session ก่อนหน้า |
+| **การกระทำ** | เริ่ม node โดย `reconciliation=True` |
+| **ลำดับ event** | สร้าง `PositionStatusReport` สำหรับ short position |
+| **เกณฑ์ผ่าน** | position ถูกโหลดเข้า cache ด้วย instrument, side=SHORT, quantity และ entry price ที่ตรงกับ venue |
+| **ข้ามเมื่อ** | ไม่ข้าม |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- Open a short position in a prior session and stop the strategy without closing it
-  (`close_positions_on_stop=False`).
-- Verify the reconciled position quantity and average entry price match the venue.
-- After reconciliation, the strategy should be able to manage or close this position.
+- เปิด short position ใน session ก่อนหน้า แล้วหยุด strategy โดยไม่ปิด position (`close_positions_on_stop=False`)
+- ตรวจว่า quantity และราคาเข้าเฉลี่ยของ position ที่ reconcile ตรงกับ venue
+- หลัง reconciliation strategy ควรจัดการหรือปิด position นี้ได้
 
-### TC-E88: Reconciliation commission failure
+### TC-E88: Commission ล้มเหลวตอน reconciliation {#tc-e88-reconciliation-commission-failure}
 
-| Field              | Value                                                                                                           |
-| ------------------ | --------------------------------------------------------------------------------------------------------------- |
-| **Prerequisite**   | A deterministic fixture produces an out-of-range commission for an owned, confirmed fill.                       |
-| **Action**         | Exercise direct fill, mass-status, targeted report, and inferred-fill commission paths with the fixture.        |
-| **Event sequence** | Report requests return an error. Engine reconciliation logs a hook error and emits no fallback inferred fill.   |
-| **Pass criteria**  | The error is observable. Startup fails or inferred work defers. A later valid response reconciles exactly once. |
-| **Skip when**      | The adapter does not calculate commission for fill reports.                                                     |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | fixture แบบ deterministic สร้าง commission ที่อยู่นอกช่วงสำหรับ fill ที่เป็นของเราและได้รับการยืนยันแล้ว |
+| **การกระทำ** | ทดสอบ path ของ commission ทั้งแบบ direct fill, mass-status, targeted report และ inferred fill ด้วย fixture นั้น |
+| **ลำดับ event** | report request คืน error, engine reconciliation log hook error และไม่ปล่อย inferred fill สำรอง |
+| **เกณฑ์ผ่าน** | สังเกตเห็น error ได้ การเริ่มระบบล้มเหลวหรืองานแบบ inferred ถูกเลื่อนไป และ response ที่ถูกต้องในภายหลัง reconcile ได้ครั้งเดียวพอดี |
+| **ข้ามเมื่อ** | adapter ไม่ได้คำนวณ commission สำหรับ fill report |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- Assert that no zero or generic commission replaces the failed venue calculation.
-- Exercise the inferred-fill hook as well as direct `FillReport` construction.
-- Skip the inferred-fill portion when the adapter does not override the shared commission hook.
-- Assert that hook quantity, price, and liquidity inputs match the emitted inferred fill. Include the
-  back-solved price of an incremental residual after a prior fill.
-- Valid explicit fills may apply, but the residual quantity and dependent terminal transition stay
-  pending.
-- A position-only synthetic correction without trade evidence is not a commission calculation
-  failure.
+- assert ว่าไม่มี commission ที่เป็นศูนย์หรือค่าทั่วไปมาแทนการคำนวณของ venue ที่ล้มเหลว
+- ทดสอบ inferred-fill hook ด้วย นอกเหนือจากการสร้าง `FillReport` โดยตรง
+- ข้ามส่วน inferred fill เมื่อ adapter ไม่ได้ override commission hook ที่ใช้ร่วมกัน
+- assert ว่า input ด้าน quantity, price และ liquidity ของ hook ตรงกับ inferred fill ที่ปล่อยออกมา รวมถึงราคาที่คำนวณย้อน
+  (back-solved) ของเศษส่วนเพิ่มหลัง fill ก่อนหน้า
+- fill ที่ระบุชัดเจนและถูกต้องอาจ apply ได้ แต่ quantity ที่เหลือและ terminal transition ที่ขึ้นกับมันยังคง pending
+- การแก้ไขแบบสังเคราะห์เฉพาะ position ที่ไม่มีหลักฐานการ trade ไม่ถือเป็นความล้มเหลวในการคำนวณ commission
 
-### TC-E89: WebSocket commission failure
+### TC-E89: Commission ล้มเหลวทาง WebSocket {#tc-e89-websocket-commission-failure}
 
-| Field              | Value                                                                                                                |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| **Prerequisite**   | A private fill fixture produces an out-of-range commission and has a stable venue trade ID.                          |
-| **Action**         | Deliver the invalid trade, replace its commission with a valid value, then redeliver the same trade ID.              |
-| **Event sequence** | The first delivery emits no fill and changes no fill, terminal, or deduplication state. The replay emits one fill.   |
-| **Pass criteria**  | No panic or fallback occurs. The valid replay applies exactly once. REST reconciliation can recover a missed replay. |
-| **Skip when**      | The adapter has no private fill stream or does not calculate commission for private fills.                           |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | fixture ของ private fill สร้าง commission ที่อยู่นอกช่วง และมี venue trade ID ที่คงที่ |
+| **การกระทำ** | ส่ง trade ที่ไม่ถูกต้อง แทน commission ด้วยค่าที่ถูกต้อง แล้วส่ง trade ID เดิมซ้ำ |
+| **ลำดับ event** | การส่งครั้งแรกไม่ปล่อย fill และไม่เปลี่ยน state ด้าน fill, terminal หรือ deduplication ส่วนการ replay ปล่อย fill หนึ่งตัว |
+| **เกณฑ์ผ่าน** | ไม่เกิด panic หรือ fallback, replay ที่ถูกต้อง apply ครั้งเดียวพอดี และ REST reconciliation กู้ replay ที่พลาดไปได้ |
+| **ข้ามเมื่อ** | adapter ไม่มี private fill stream หรือไม่ได้คำนวณ commission สำหรับ private fill |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- For a venue trade that fills several owned orders, make one report fail. Assert that the first delivery
-  emits none of those reports. This prevents a replay from duplicating reports built before the failure.
-- Assert that the adapter consumes the deduplication key only after all reports construct and route
-  successfully.
-- Assert that a failed trade does not confirm or terminalize its order.
+- สำหรับ venue trade ที่ fill order ของเราหลายตัว ให้ทำให้ report หนึ่งตัวล้มเหลว แล้ว assert ว่าการส่งครั้งแรกไม่ปล่อย report
+  ใดเลย เพื่อป้องกันไม่ให้ replay สร้าง report ซ้ำกับที่สร้างไว้ก่อนเกิดความล้มเหลว
+- assert ว่า adapter ใช้ deduplication key หลังจาก report ทั้งหมดสร้างและ route สำเร็จแล้วเท่านั้น
+- assert ว่า trade ที่ล้มเหลวไม่ทำให้ order ของมันถูกยืนยันหรือเข้าสู่ terminal
 
 ---
 
-## Group 10: Options trading
+## กลุ่ม 10: การเทรด option {#group-10-options-trading}
 
-Test options-specific execution behavior. Options instruments typically have different constraints from linear
-derivatives: venues may restrict order types, support alternative pricing modes, or disallow conditional
-orders. Exact restrictions vary by venue. Consult the adapter guide.
+ทดสอบพฤติกรรม execution เฉพาะของ option instrument ประเภท option มักมีข้อจำกัดต่างจาก linear derivative: venue
+อาจจำกัด order type, รองรับโหมดการตั้งราคาแบบอื่น หรือไม่อนุญาต conditional order ข้อจำกัดที่แน่ชัดแตกต่างกันตาม venue
+ให้ดูคู่มือของ adapter
 
-These tests require a `CryptoOption` instrument. Use an OTM option with
-reasonable liquidity for fills.
+test เหล่านี้ต้องใช้ instrument แบบ `CryptoOption` ให้ใช้ option แบบ OTM ที่มี liquidity พอสมควรสำหรับการ fill
 
-| TC      | Name                          | Description                                                           | Skip when           |
-| ------- | ----------------------------- | --------------------------------------------------------------------- | ------------------- |
-| TC-E90  | Limit BUY option              | Place a limit buy on an option instrument.                            | No options support. |
-| TC-E91  | Limit SELL option             | Place a limit sell on an option instrument.                           | No options support. |
-| TC-E92  | Limit with alt pricing        | Place a limit order with adapter-specific pricing via `order_params`. | No alt pricing.     |
-| TC-E94  | Unsupported order type denied | Submit an order type the adapter rejects for options.                 | No options support. |
-| TC-E96  | Conditional order rejected    | Submit a stop/conditional order on an option. Expect rejection.       | No options support. |
-| TC-E99  | FOK limit option              | Place a FOK limit order on an option instrument.                      | No FOK options.     |
-| TC-E100 | Cancel option order           | Cancel an open limit order on an option instrument.                   | No options support. |
-| TC-E101 | Reconcile option position     | Reconcile an open option position from a prior session.               | No options support. |
+| TC | ชื่อ | คำอธิบาย | ข้ามเมื่อ |
+| --- | --- | --- | --- |
+| TC-E90 | Limit BUY option | วาง limit buy บน option instrument | ไม่รองรับ option |
+| TC-E91 | Limit SELL option | วาง limit sell บน option instrument | ไม่รองรับ option |
+| TC-E92 | Limit แบบตั้งราคาทางเลือก | วาง limit order ที่ตั้งราคาแบบเฉพาะของ adapter ผ่าน `order_params` | ไม่มีการตั้งราคาทางเลือก |
+| TC-E94 | Order type ที่ไม่รองรับถูก deny | submit order type ที่ adapter ปฏิเสธสำหรับ option | ไม่รองรับ option |
+| TC-E96 | Conditional order ถูก reject | submit stop/conditional order บน option และคาดว่าจะถูก reject | ไม่รองรับ option |
+| TC-E99 | FOK limit option | วาง FOK limit order บน option instrument | ไม่มี FOK สำหรับ option |
+| TC-E100 | Cancel option order | cancel limit order ที่เปิดอยู่บน option instrument | ไม่รองรับ option |
+| TC-E101 | Reconcile option position | reconcile option position ที่เปิดอยู่จาก session ก่อนหน้า | ไม่รองรับ option |
 
-### TC-E90: Limit BUY option
+### TC-E90: Limit BUY option {#tc-e90-limit-buy-option}
 
-| Field              | Value                                                                       |
-| ------------------ | --------------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, option instrument loaded, quotes flowing.                |
-| **Action**         | ExecTester places a limit buy on the option at a passive price.             |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted`.                  |
-| **Pass criteria**  | Order accepted by venue with correct instrument, side, price, and quantity. |
-| **Skip when**      | Adapter does not support options trading.                                   |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด option instrument แล้ว, quote ไหลเข้า |
+| **การกระทำ** | ExecTester วาง limit buy บน option ที่ราคา passive |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` |
+| **เกณฑ์ผ่าน** | venue accept order ด้วย instrument, side, price และ quantity ที่ถูกต้อง |
+| **ข้ามเมื่อ** | adapter ไม่รองรับการเทรด option |
 
-**Python config**:
+### TC-E91: Limit SELL option {#tc-e91-limit-sell-option}
 
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,  # CryptoOption instrument
-    order_qty=Quantity.from_str("1"),
-    enable_limit_buys=True,
-    enable_limit_sells=False,
-    tob_offset_ticks=500,
-)
-```
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด option instrument แล้ว, quote ไหลเข้า |
+| **การกระทำ** | ExecTester วาง limit sell บน option ที่ราคา passive |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` |
+| **เกณฑ์ผ่าน** | venue accept order ด้วย instrument, side, price และ quantity ที่ถูกต้อง |
+| **ข้ามเมื่อ** | adapter ไม่รองรับการเทรด option |
 
-### TC-E91: Limit SELL option
+### TC-E92: Limit แบบตั้งราคาทางเลือก {#tc-e92-limit-with-alternative-pricing}
 
-| Field              | Value                                                                       |
-| ------------------ | --------------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, option instrument loaded, quotes flowing.                |
-| **Action**         | ExecTester places a limit sell on the option at a passive price.            |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted`.                  |
-| **Pass criteria**  | Order accepted by venue with correct instrument, side, price, and quantity. |
-| **Skip when**      | Adapter does not support options trading.                                   |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว และโหลด option instrument แล้ว |
+| **การกระทำ** | วาง limit order ที่ตั้งราคาแบบเฉพาะของ adapter ผ่าน `order_params` |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` |
+| **เกณฑ์ผ่าน** | order ถูก accept และ venue รับรู้โหมดการตั้งราคาทางเลือก |
+| **ข้ามเมื่อ** | adapter ไม่รองรับโหมดการตั้งราคาทางเลือกสำหรับ option |
 
-**Python config**:
+**ข้อควรพิจารณา**:
 
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,  # CryptoOption instrument
-    order_qty=Quantity.from_str("1"),
-    enable_limit_buys=False,
-    enable_limit_sells=True,
-    tob_offset_ticks=500,
-)
-```
+- ฟิลด์ `price` ของ order อาจเป็นแค่ค่า placeholder เมื่อใช้การตั้งราคาทางเลือก ดู key ของพารามิเตอร์ที่รองรับได้จากคู่มือ
+  ของ adapter
+- ตัวอย่าง: OKX รองรับ `px_usd` (ราคาเป็น USD) และ `px_vol` (implied volatility)
+- ตรวจใน response ของ venue ว่าโหมดการตั้งราคาสะท้อนออกมาถูกต้อง
 
-### TC-E92: Limit with alternative pricing
+### TC-E94: Order type ที่ไม่รองรับถูก deny สำหรับ option {#tc-e94-unsupported-order-type-denied-for-options}
 
-| Field              | Value                                                               |
-| ------------------ | ------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, option instrument loaded.                        |
-| **Action**         | Place limit order with adapter-specific pricing via `order_params`. |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted`.          |
-| **Pass criteria**  | Order accepted. Venue acknowledges the alternative pricing mode.    |
-| **Skip when**      | Adapter does not support alternative pricing modes for options.     |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว และโหลด option instrument แล้ว |
+| **การกระทำ** | submit order type ที่ venue ไม่รองรับสำหรับ option (เช่น market order) |
+| **ลำดับ event** | ขึ้นกับ adapter: `OrderDenied` (ก่อน submit) หรือ `OrderSubmitted` -> `OrderRejected` (หลัง submit) |
+| **เกณฑ์ผ่าน** | order ไม่ถูก fill และเหตุผลของการ deny หรือ reject อ้างถึง order type ที่ไม่รองรับ |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ option |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- The `price` field on the order object may be a placeholder when alternative pricing
-  is active. Consult the adapter guide for supported parameter keys.
-- Example: OKX supports `px_usd` (USD price) and `px_vol` (implied volatility).
-- Verify in venue responses that the pricing mode is reflected correctly.
+- จุดที่ปฏิเสธแตกต่างกันตาม adapter บาง adapter deny ในเครื่องก่อน submit บางตัว submit แล้วส่งต่อ rejection จาก venue
+- ExecTester trigger market order ได้ผ่าน `open_position_on_start_qty` บน option instrument บาง type ที่ไม่รองรับ
+  (เช่น `MarketToLimit`) ต้อง submit ด้วยมือหรือผ่านโค้ด
+- ทดสอบทุก type ที่ไม่รองรับตามที่ adapter ระบุไว้
 
-**Python config**:
+### TC-E96: Conditional order ถูก reject สำหรับ option {#tc-e96-conditional-order-rejected-for-options}
 
-```python
-ExecTesterConfig(
-    instrument_id=instrument_id,  # CryptoOption instrument
-    order_qty=Quantity.from_str("1"),
-    enable_limit_buys=True,
-    enable_limit_sells=False,
-    order_params={"px_usd": "100.5"},  # Adapter-specific pricing key
-)
-```
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว และโหลด option instrument แล้ว |
+| **การกระทำ** | submit conditional order บน option instrument |
+| **ลำดับ event** | ขึ้นกับ adapter: `OrderDenied` (ก่อน submit) หรือ `OrderSubmitted` -> `OrderRejected` (หลัง submit) |
+| **เกณฑ์ผ่าน** | order ไม่ถูก fill และเหตุผลอ้างถึง conditional order type ที่ไม่รองรับ |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ option หรือ adapter รองรับ conditional สำหรับ option |
 
-### TC-E94: Unsupported order type denied for options
+**ข้อควรพิจารณา**:
 
-| Field              | Value                                                                                                       |
-| ------------------ | ----------------------------------------------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, option instrument loaded.                                                                |
-| **Action**         | Submit an order type the venue does not support for options (e.g. market order).                            |
-| **Event sequence** | Adapter-dependent: `OrderDenied` (pre-submission) or `OrderSubmitted` -> `OrderRejected` (post-submission). |
-| **Pass criteria**  | Order does not fill. Denial or rejection reason references the unsupported order type.                      |
-| **Skip when**      | Adapter does not support options.                                                                           |
+- ทดสอบ conditional type แต่ละตัวที่ adapter ระบุว่าไม่รองรับสำหรับ option (เช่น `STOP_MARKET`, `STOP_LIMIT`,
+  `MARKET_IF_TOUCHED`, `LIMIT_IF_TOUCHED`, `TRAILING_STOP_MARKET`)
+- ExecTester trigger conditional order ได้ผ่าน `enable_stop_buys`/`enable_stop_sells` ร่วมกับ `stop_order_type` บน
+  option instrument
 
-**Considerations**:
+### TC-E99: FOK limit option {#tc-e99-fok-limit-option}
 
-- The exact rejection point varies by adapter. Some adapters deny locally before submitting. Others submit and
-  relay the venue rejection.
-- ExecTester can trigger a market order via `open_position_on_start_qty` on an
-  option instrument. Some unsupported types (e.g. `MarketToLimit`) require
-  manual or programmatic submission.
-- Test each unsupported type the adapter documents.
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | adapter เชื่อมต่อแล้ว, โหลด option instrument แล้ว, book มีความลึกเพียงพอ |
+| **การกระทำ** | วาง limit order ด้วย `TimeInForce::Fok` บน option instrument |
+| **ลำดับ event** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` -> `OrderFilled` หรือ `OrderCanceled` |
+| **เกณฑ์ผ่าน** | order ถูก fill ทั้งหมดหรือถูก cancel ไม่มี partial fill |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ FOK สำหรับ option |
 
-### TC-E96: Conditional order rejected for options
+**ข้อควรพิจารณา**:
 
-| Field              | Value                                                                                                       |
-| ------------------ | ----------------------------------------------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, option instrument loaded.                                                                |
-| **Action**         | Submit a conditional order on an option instrument.                                                         |
-| **Event sequence** | Adapter-dependent: `OrderDenied` (pre-submission) or `OrderSubmitted` -> `OrderRejected` (post-submission). |
-| **Pass criteria**  | Order does not fill. Reason references unsupported conditional order type.                                  |
-| **Skip when**      | Adapter does not support options, or adapter supports conditionals for options.                             |
+- บาง venue ใช้ order type เฉพาะสำหรับ FOK order ของ option (เช่น OKX ใช้ `op_fok`) adapter จัดการการ map นี้ให้โดยไม่ต้อง
+  ทำอะไรเพิ่ม
+- ใช้ quantity เล็กและราคา aggressive เพื่อให้ได้ fill ในกรณีบวก
 
-**Considerations**:
+### TC-E100: Cancel option order {#tc-e100-cancel-option-order}
 
-- Test each conditional type the adapter documents as unsupported for options
-  (e.g. `STOP_MARKET`, `STOP_LIMIT`, `MARKET_IF_TOUCHED`, `LIMIT_IF_TOUCHED`,
-  `TRAILING_STOP_MARKET`).
-- ExecTester can trigger conditional orders via `enable_stop_buys`/`enable_stop_sells`
-  with `stop_order_type` on an option instrument.
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | มี limit order เปิดอยู่จาก TC-E90 หรือ TC-E91 |
+| **การกระทำ** | cancel limit order ที่เปิดอยู่ |
+| **ลำดับ event** | `OrderPendingCancel` -> `OrderCanceled` |
+| **เกณฑ์ผ่าน** | order ถูก cancel และไม่ปรากฏใน open order บน venue อีก |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ option |
 
-### TC-E99: FOK limit option
+### TC-E101: Reconcile option position {#tc-e101-reconcile-option-position}
 
-| Field              | Value                                                                                          |
-| ------------------ | ---------------------------------------------------------------------------------------------- |
-| **Prerequisite**   | Adapter connected, option instrument loaded, sufficient book depth.                            |
-| **Action**         | Place a limit order with `TimeInForce::Fok` on an option instrument.                           |
-| **Event sequence** | `OrderInitialized` -> `OrderSubmitted` -> `OrderAccepted` -> `OrderFilled` or `OrderCanceled`. |
-| **Pass criteria**  | Order fills completely or is canceled. No partial fills.                                       |
-| **Skip when**      | Adapter does not support FOK for options.                                                      |
+| ฟิลด์ | ค่า |
+| --- | --- |
+| **เงื่อนไขก่อนทดสอบ** | มี option position เปิดอยู่จาก session ก่อนหน้า |
+| **การกระทำ** | เริ่ม node โดย `reconciliation=True` |
+| **ลำดับ event** | สร้าง `PositionStatusReport` สำหรับ option position |
+| **เกณฑ์ผ่าน** | position ถูกโหลดเข้า cache ด้วย instrument, side, quantity และ entry price ที่ถูกต้อง |
+| **ข้ามเมื่อ** | adapter ไม่รองรับ option |
 
-**Considerations**:
+**ข้อควรพิจารณา**:
 
-- Some venues use a dedicated order type for options FOK orders (e.g. OKX uses
-  `op_fok`). The adapter handles this mapping transparently.
-- Use small quantities and aggressive pricing to get a fill for the positive case.
-
-### TC-E100: Cancel option order
-
-| Field              | Value                                                          |
-| ------------------ | -------------------------------------------------------------- |
-| **Prerequisite**   | Open limit order from TC-E90 or TC-E91.                        |
-| **Action**         | Cancel the open limit order.                                   |
-| **Event sequence** | `OrderPendingCancel` -> `OrderCanceled`.                       |
-| **Pass criteria**  | Order canceled. No longer appears in open orders on the venue. |
-| **Skip when**      | Adapter does not support options.                              |
-
-### TC-E101: Reconcile option position
-
-| Field              | Value                                                                                |
-| ------------------ | ------------------------------------------------------------------------------------ |
-| **Prerequisite**   | Open option position from a prior session.                                           |
-| **Action**         | Start the node with `reconciliation=True`.                                           |
-| **Event sequence** | `PositionStatusReport` generated for the option position.                            |
-| **Pass criteria**  | Position loaded into cache with correct instrument, side, quantity, and entry price. |
-| **Skip when**      | Adapter does not support options.                                                    |
-
-**Considerations**:
-
-- Open an option position in a prior session and stop without closing
-  (`close_positions_on_stop=False`).
-- Verify the reconciled position matches the venue-reported state.
+- เปิด option position ใน session ก่อนหน้า แล้วหยุดโดยไม่ปิด (`close_positions_on_stop=False`)
+- ตรวจว่า position ที่ reconcile ตรงกับ state ที่ venue รายงาน
 
 ---
 
-## ExecTester configuration reference
+## Reference ของ config ExecTester {#exectester-configuration-reference}
 
-Quick reference for each Python `ExecTesterConfig` parameter. Defaults are resolved values after construction.
-The Rust builder uses equivalent defaults.
+reference แบบย่อของแต่ละพารามิเตอร์ของ `ExecTesterConfig` ค่า default คือค่าที่ resolve แล้วหลังการสร้าง builder ของ Rust
+ใช้ default ที่เทียบเท่ากัน
 
-| Parameter                                       | Type                  | Default                | Affects groups |
-| ----------------------------------------------- | --------------------- | ---------------------- | -------------- |
-| `strategy_id`                                   | `StrategyId?`         | `None`                 | All            |
-| `order_id_tag`                                  | `str?`                | `None`                 | All            |
-| `use_hyphens_in_client_order_ids`               | `bool`                | `True`                 | All            |
-| `use_uuid_client_order_ids`                     | `bool`                | `False`                | All            |
-| `external_order_instrument_ids`                 | `list[InstrumentId]?` | `None`                 | 9              |
-| `instrument_id`                                 | `InstrumentId`        | `BTCUSDT-PERP.BINANCE` | All            |
-| `client_id`                                     | `ClientId?`           | `None`                 | All            |
-| `order_qty`                                     | `Quantity`            | `0.001`                | All            |
-| `order_display_qty`                             | `Quantity?`           | `None`                 | 2, 7           |
-| `order_expire_time_delta_mins`                  | `PositiveInt?`        | `None`                 | 2              |
-| `order_params`                                  | `dict?`               | `None`                 | 7, 10          |
-| `subscribe_book`                                | `bool`                | `False`                |                |
-| `subscribe_quotes`                              | `bool`                | `True`                 |                |
-| `subscribe_trades`                              | `bool`                | `True`                 |                |
-| `book_type`                                     | `BookType`            | `L2_MBP`               |                |
-| `book_depth`                                    | `PositiveInt?`        | `None`                 |                |
-| `book_interval_ms`                              | `PositiveInt`         | `1000`                 |                |
-| `book_levels_to_print`                          | `PositiveInt`         | `10`                   |                |
-| `open_position_on_start_qty`                    | `Decimal?`            | `None`                 | 1, 9           |
-| `open_position_on_first_quote`                  | `bool`                | `False`                | 1              |
-| `open_position_time_in_force`                   | `TimeInForce`         | `GTC`                  | 1              |
-| `enable_limit_buys`                             | `bool`                | `True`                 | 2, 4, 5, 6     |
-| `enable_limit_sells`                            | `bool`                | `True`                 | 2, 4, 5, 6     |
-| `enable_stop_buys`                              | `bool`                | `False`                | 3, 4           |
-| `enable_stop_sells`                             | `bool`                | `False`                | 3, 4           |
-| `tob_offset_ticks`                              | `PositiveInt`         | `500`                  | 2, 4           |
-| `limit_time_in_force`                           | `TimeInForce?`        | `None`                 | 2, 6           |
-| `stop_order_type`                               | `OrderType`           | `STOP_MARKET`          | 3              |
-| `stop_offset_ticks`                             | `PositiveInt`         | `100`                  | 3              |
-| `stop_limit_offset_ticks`                       | `PositiveInt?`        | `None`                 | 3              |
-| `stop_trigger_type`                             | `TriggerType`         | `DEFAULT`              | 3              |
-| `stop_time_in_force`                            | `TimeInForce?`        | `None`                 | 3              |
-| `trailing_offset`                               | `Decimal?`            | `None`                 | 3              |
-| `trailing_offset_type`                          | `TrailingOffsetType`  | `BASIS_POINTS`         | 3              |
-| `enable_brackets`                               | `bool`                | `False`                | 6              |
-| `batch_submit_limit_pair`                       | `bool`                | `False`                | 2, 5           |
-| `bracket_entry_order_type`                      | `OrderType`           | `LIMIT`                | 6              |
-| `bracket_offset_ticks`                          | `PositiveInt`         | `500`                  | 6              |
-| `modify_orders_to_maintain_tob_offset`          | `bool`                | `False`                | 4              |
-| `modify_stop_orders_to_maintain_offset`         | `bool`                | `False`                | 4              |
-| `cancel_replace_orders_to_maintain_tob_offset`  | `bool`                | `False`                | 4              |
-| `cancel_replace_stop_orders_to_maintain_offset` | `bool`                | `False`                | 4              |
-| `trigger_limit_order_maintenance_once`          | `bool`                | `False`                | 4              |
-| `use_post_only`                                 | `bool`                | `False`                | 2, 6, 7, 8     |
-| `limit_aggressive`                              | `bool`                | `False`                | 2              |
-| `use_quote_quantity`                            | `bool`                | `False`                | 1, 7           |
-| `emulation_trigger`                             | `TriggerType?`        | `None`                 | 2, 3           |
-| `use_individual_cancels_on_stop`                | `bool`                | `False`                | 5              |
-| `cancel_orders_on_stop`                         | `bool`                | `True`                 | 5, 9           |
-| `close_positions_on_stop`                       | `bool`                | `True`                 | 9              |
-| `close_positions_qty_precision`                 | `int?`                | `None`                 | 9              |
-| `close_positions_time_in_force`                 | `TimeInForce?`        | `None`                 | 9              |
-| `reduce_only_on_stop`                           | `bool`                | `True`                 | 7, 9           |
-| `use_batch_cancel_on_stop`                      | `bool`                | `False`                | 5              |
-| `dry_run`                                       | `bool`                | `False`                |                |
-| `log_data`                                      | `bool`                | `True`                 |                |
-| `test_reject_post_only`                         | `bool`                | `False`                | 8              |
-| `test_reject_reduce_only`                       | `bool`                | `False`                | 8              |
-| `test_modify_rejected`                          | `bool`                | `False`                | 4              |
-| `can_unsubscribe`                               | `bool`                | `True`                 | 9              |
-| `clamp_to_instrument_price_range`               | `bool`                | `False`                | 1-8, 10        |
-| `log_events`                                    | `bool`                | `True`                 | All            |
-| `log_commands`                                  | `bool`                | `True`                 | All            |
+| พารามิเตอร์ | Default | กลุ่มที่เกี่ยวข้อง |
+| --- | --- | --- |
+| `strategy_id` | `None` | ทั้งหมด |
+| `order_id_tag` | `None` | ทั้งหมด |
+| `use_hyphens_in_client_order_ids` | `True` | ทั้งหมด |
+| `use_uuid_client_order_ids` | `False` | ทั้งหมด |
+| `external_order_instrument_ids` | `None` | 9 |
+| `instrument_id` | `BTCUSDT-PERP.BINANCE` | ทั้งหมด |
+| `client_id` | `None` | ทั้งหมด |
+| `order_qty` | `0.001` | ทั้งหมด |
+| `order_display_qty` | `None` | 2, 7 |
+| `order_expire_time_delta_mins` | `None` | 2 |
+| `order_params` | `None` | 7, 10 |
+| `subscribe_book` | `False` |  |
+| `subscribe_quotes` | `True` |  |
+| `subscribe_trades` | `True` |  |
+| `book_type` | `L2_MBP` |  |
+| `book_depth` | `None` |  |
+| `book_interval_ms` | `1000` |  |
+| `book_levels_to_print` | `10` |  |
+| `open_position_on_start_qty` | `None` | 1, 9 |
+| `open_position_on_first_quote` | `False` | 1 |
+| `open_position_time_in_force` | `GTC` | 1 |
+| `enable_limit_buys` | `True` | 2, 4, 5, 6 |
+| `enable_limit_sells` | `True` | 2, 4, 5, 6 |
+| `enable_stop_buys` | `False` | 3, 4 |
+| `enable_stop_sells` | `False` | 3, 4 |
+| `tob_offset_ticks` | `500` | 2, 4 |
+| `limit_time_in_force` | `None` | 2, 6 |
+| `stop_order_type` | `STOP_MARKET` | 3 |
+| `stop_offset_ticks` | `100` | 3 |
+| `stop_limit_offset_ticks` | `None` | 3 |
+| `stop_trigger_type` | `DEFAULT` | 3 |
+| `stop_time_in_force` | `None` | 3 |
+| `trailing_offset` | `None` | 3 |
+| `trailing_offset_type` | `BASIS_POINTS` | 3 |
+| `enable_brackets` | `False` | 6 |
+| `batch_submit_limit_pair` | `False` | 2, 5 |
+| `bracket_entry_order_type` | `LIMIT` | 6 |
+| `bracket_offset_ticks` | `500` | 6 |
+| `modify_orders_to_maintain_tob_offset` | `False` | 4 |
+| `modify_stop_orders_to_maintain_offset` | `False` | 4 |
+| `cancel_replace_orders_to_maintain_tob_offset` | `False` | 4 |
+| `cancel_replace_stop_orders_to_maintain_offset` | `False` | 4 |
+| `trigger_limit_order_maintenance_once` | `False` | 4 |
+| `use_post_only` | `False` | 2, 6, 7, 8 |
+| `limit_aggressive` | `False` | 2 |
+| `use_quote_quantity` | `False` | 1, 7 |
+| `emulation_trigger` | `None` | 2, 3 |
+| `use_individual_cancels_on_stop` | `False` | 5 |
+| `cancel_orders_on_stop` | `True` | 5, 9 |
+| `close_positions_on_stop` | `True` | 9 |
+| `close_positions_qty_precision` | `None` | 9 |
+| `close_positions_time_in_force` | `None` | 9 |
+| `reduce_only_on_stop` | `True` | 7, 9 |
+| `use_batch_cancel_on_stop` | `False` | 5 |
+| `dry_run` | `False` |  |
+| `log_data` | `True` |  |
+| `test_reject_post_only` | `False` | 8 |
+| `test_reject_reduce_only` | `False` | 8 |
+| `test_modify_rejected` | `False` | 4 |
+| `can_unsubscribe` | `True` | 9 |
+| `clamp_to_instrument_price_range` | `False` | 1-8, 10 |
+| `log_events` | `True` | ทั้งหมด |
+| `log_commands` | `True` | ทั้งหมด |

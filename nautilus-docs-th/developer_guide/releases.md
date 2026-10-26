@@ -1,32 +1,31 @@
 # Releases
 
-This guide covers the release process and the standards for writing release notes.
+คู่มือนี้อธิบายกระบวนการ release และมาตรฐานในการเขียน release notes
 
-## Overview
+## ภาพรวม {#overview}
 
-NautilusTrader uses a three-branch model:
+NautilusTrader ใช้โมเดลสาม branch:
 
-- **`develop`**: active development. Publishes dev wheels to Cloudflare R2 on each push.
-- **`nightly`**: pre-release testing. Publishes all supported pre-release wheels and CLI binaries.
-- **`master`**: stable releases. Triggers the full release pipeline.
+- **`develop`**: การพัฒนาที่กำลังดำเนินอยู่ publish dev wheel ไปยัง Cloudflare R2 ทุกครั้งที่ push
+- **`nightly`**: การทดสอบก่อน release publish pre-release wheel ที่รองรับทั้งหมดและ binary ของ CLI
+- **`master`**: release เวอร์ชันเสถียร trigger pipeline release เต็มรูปแบบ
 
-When a release commit merges to `master`, the pipeline automatically:
+เมื่อ commit สำหรับ release ถูก merge เข้า `master` pipeline จะทำงานต่อไปนี้โดยอัตโนมัติ:
 
-- Tags the version from `python/pyproject.toml`.
-- Creates a draft GitHub release.
-- Uploads release assets.
-- Publishes Cargo crates to crates.io.
-- Publishes wheels and sdist to PyPI.
-- Publishes the GitHub release.
-- Builds Docker images.
-- Triggers a docs rebuild.
+- ติด tag เวอร์ชันจาก `python/pyproject.toml`
+- สร้าง GitHub release แบบ draft
+- อัปโหลด release asset
+- publish Cargo crate ไปยัง crates.io
+- publish wheel และ sdist ไปยัง PyPI
+- publish GitHub release
+- build Docker image
+- trigger การ rebuild เอกสาร
 
-## Stable release workflow
+## Workflow ของ stable release {#stable-release-workflow}
 
-The `build` workflow treats the GitHub release as the anchor for stable releases. It first creates a draft
-release. It uploads the wheel and sdist assets to that draft. Only then does it publish those packages to
-package indexes. The workflow publishes the GitHub release only after the registry verification and final
-integrity assets are complete.
+workflow `build` ใช้ GitHub release เป็นจุดยึดของ stable release โดยจะสร้าง release แบบ draft ก่อน แล้วอัปโหลด
+asset ของ wheel และ sdist ไปยัง draft นั้น หลังจากนั้นจึง publish package เหล่านั้นไปยัง package index ต่าง ๆ
+workflow จะ publish GitHub release ก็ต่อเมื่อการตรวจสอบ registry และ asset ด้าน integrity ขั้นสุดท้ายเสร็จสมบูรณ์แล้ว
 
 ```mermaid
 flowchart TD
@@ -68,148 +67,136 @@ flowchart TD
     tag --> publish_release
 ```
 
-Keep these sequencing rules intact when editing `.github/workflows/build.yml`:
+เมื่อแก้ไข `.github/workflows/build.yml` ให้คงกฎเรื่องลำดับเหล่านี้ไว้:
 
-- The draft GitHub release must exist before any release asset upload or package registry publish.
-- `tag-release` must depend on `security-audit` so stable release tagging cannot proceed after an
-  audit failure.
-- Wheel and sdist assets must be attached to the GitHub release before package index publishing
-  starts (`packages.nautechsystems.io`, PyPI, crates.io).
-- PyPI and crates.io Trusted Publishing jobs must keep `environment: release` and `id-token: write`. Those
-  registrations depend on the `release` environment.
-- Non-OIDC integrity and asset-upload jobs should avoid `environment: release` unless they need
-  release environment secrets or approvals.
-- `publish-release-integrity` must run after PyPI and crates.io publishing. It generates the
-  release manifest first, verifies registries against that manifest, then attaches final integrity
-  assets only after verification passes.
-- `publish-github-release` must be the final stable release job. GitHub recommends creating a draft release,
-  attaching all assets, then publishing the draft before enabling release immutability. If GitHub release
-  immutability is enabled for the repo, published release assets and the release tag cannot change. Only the
-  title and release notes stay editable. The job verifies the final draft asset set before publishing and
-  verifies GitHub's release attestation after publishing the draft.
+- GitHub release แบบ draft ต้องมีอยู่ก่อนการอัปโหลด release asset หรือการ publish ไปยัง package registry ใด ๆ
+- `tag-release` ต้องขึ้นกับ `security-audit` เพื่อไม่ให้การติด tag ของ stable release ดำเนินต่อได้หลังจาก audit ล้มเหลว
+- asset ของ wheel และ sdist ต้องถูกแนบกับ GitHub release ก่อนเริ่ม publish ไปยัง package index
+  (`packages.nautechsystems.io`, PyPI, crates.io)
+- job สำหรับ Trusted Publishing ของ PyPI และ crates.io ต้องคง `environment: release` และ `id-token: write` ไว้
+  เพราะการลงทะเบียนเหล่านั้นขึ้นกับ environment `release`
+- job ด้าน integrity และการอัปโหลด asset ที่ไม่ใช้ OIDC ควรหลีกเลี่ยง `environment: release` เว้นแต่ต้องใช้ secret
+  หรือการอนุมัติของ release environment
+- `publish-release-integrity` ต้องรันหลังการ publish ไปยัง PyPI และ crates.io โดยจะสร้าง release manifest ก่อน
+  ตรวจสอบ registry เทียบกับ manifest นั้น แล้วจึงแนบ asset ด้าน integrity ขั้นสุดท้ายหลังการตรวจสอบผ่านแล้วเท่านั้น
+- `publish-github-release` ต้องเป็น job สุดท้ายของ stable release GitHub แนะนำให้สร้าง release แบบ draft แนบ asset
+  ทั้งหมด แล้วจึง publish draft ก่อนเปิด release immutability หากเปิด release immutability ของ GitHub ไว้สำหรับ repo
+  release asset ที่ publish แล้วและ release tag จะเปลี่ยนแปลงไม่ได้ แก้ไขได้เฉพาะชื่อเรื่องและ release notes เท่านั้น
+  job นี้จะตรวจชุด asset ของ draft ขั้นสุดท้ายก่อน publish และตรวจ release attestation ของ GitHub หลัง publish draft
 
-## Recovering a missing release tag
+## การกู้คืน release tag ที่หายไป {#recovering-a-missing-release-tag}
 
-The `Create git tag` step creates `v<version>` only when the run's commit changes the version from
-its parent (`HEAD~1`), and never when the tag already exists. If the version is unchanged and the tag
-is missing, `Verify release tag` fails no matter how often the failed jobs are re-run.
+ขั้นตอน `Create git tag` จะสร้าง `v<version>` ก็ต่อเมื่อ commit ของการรันนั้นเปลี่ยนเวอร์ชันจาก parent (`HEAD~1`)
+และจะไม่สร้างเลยหาก tag มีอยู่แล้ว หากเวอร์ชันไม่เปลี่ยนและ tag หายไป `Verify release tag` จะล้มเหลวเสมอไม่ว่าจะ
+รัน job ที่ล้มเหลวซ้ำกี่ครั้งก็ตาม
 
-A retried release normally has one or more commits on `master` after the version bump. Thus, the retry run has
-the same version as its parent and does not create the tag. Because `tag-release` anchors the draft release
-and each downstream publish job, the run cannot proceed while the tag is missing.
+release ที่ถูก retry มักจะมี commit หนึ่งตัวหรือมากกว่าบน `master` หลังจาก bump เวอร์ชัน ดังนั้นการรันที่ retry
+จะมีเวอร์ชันเดียวกับ parent และไม่สร้าง tag เนื่องจาก `tag-release` เป็นจุดยึดของ release แบบ draft และของ
+job publish ปลายน้ำทุกตัว การรันจึงดำเนินต่อไม่ได้ขณะที่ tag ยังหายไป
 
-First check whether the tag exists and whether the run's commit bumps the version:
+ขั้นแรกให้ตรวจว่า tag มีอยู่หรือไม่ และ commit ของการรันนั้น bump เวอร์ชันหรือไม่:
 
-- If the tag is missing and the run's commit bumps the version, rerun the failed jobs. No manual tag is
-  necessary. After the jobs pass, `tag-release` creates the tag.
-- If the tag is missing and the run's commit carries the same version as its parent, no re-run
-  creates the tag. Recover with the manual tag procedure below.
+- หาก tag หายไปและ commit ของการรัน bump เวอร์ชัน ให้รัน job ที่ล้มเหลวซ้ำ ไม่ต้องสร้าง tag ด้วยมือ เมื่อ job ผ่าน
+  `tag-release` จะสร้าง tag ให้เอง
+- หาก tag หายไปและ commit ของการรันมีเวอร์ชันเดียวกับ parent การรันซ้ำจะไม่สร้าง tag ให้ ให้กู้คืนด้วยขั้นตอน
+  สร้าง tag ด้วยมือด้านล่าง
 
-Manual tag recovery works because of the remaining `tag-release` mechanics:
+การกู้คืนด้วยการสร้าง tag ด้วยมือได้ผลเพราะกลไกที่เหลือของ `tag-release`:
 
-- On a re-run after the manual push, `Create git tag` skips creation under the same rule.
-- `Verify release tag` requires `v<version>` to resolve to the run's commit (`GITHUB_SHA`), so a
-  manually pushed tag at that exact commit passes the check.
-- Draft release creation is idempotent, so a re-run updates the existing draft if one was already
-  created.
+- เมื่อรันซ้ำหลัง push tag ด้วยมือ `Create git tag` จะข้ามการสร้างตามกฎเดิม
+- `Verify release tag` กำหนดให้ `v<version>` ต้อง resolve ไปยัง commit ของการรันนั้น (`GITHUB_SHA`) tag ที่ push
+  ด้วยมือที่ commit นั้นพอดีจึงผ่านการตรวจ
+- การสร้าง release แบบ draft เป็น idempotent การรันซ้ำจึงอัปเดต draft ที่มีอยู่แล้วหากเคยสร้างไว้
 
-To recover, a maintainer creates the tag manually and re-runs the failed jobs:
+ในการกู้คืน maintainer จะสร้าง tag ด้วยมือและรัน job ที่ล้มเหลวซ้ำ:
 
-1. From the failed run page, note the run's commit SHA. Check out that commit locally and confirm
-   the version it carries:
+1. จากหน้าการรันที่ล้มเหลว ให้จด commit SHA ของการรันไว้ checkout commit นั้นในเครื่องและยืนยันเวอร์ชันที่ commit นั้นมี:
 
    ```bash
    ./scripts/package-version.sh
    ```
 
-1. Create a signed annotated tag at the run's exact commit, using the existing tag message
-   convention, and push it:
+1. สร้าง signed annotated tag ที่ commit ของการรันนั้นพอดี โดยใช้รูปแบบข้อความ tag ที่มีอยู่ แล้ว push:
 
    ```bash
    git tag -s v<version> -m "Released version <version>" <run-commit-sha>
    git push origin v<version>
    ```
 
-1. Verify the tag locally. The signature must be good and `git rev-parse 'v<version>^{commit}'`
-   must equal the run's commit SHA:
+1. ตรวจสอบ tag ในเครื่อง signature ต้องถูกต้อง และ `git rev-parse 'v<version>^{commit}'` ต้องเท่ากับ commit SHA
+   ของการรัน:
 
    ```bash
    git tag -v v<version>
    git rev-parse 'v<version>^{commit}'
    ```
 
-1. On the failed run, select "Re-run failed jobs". `Verify release tag` passes with the pushed
-   tag, and draft release creation and the downstream publishing jobs continue.
+1. ในการรันที่ล้มเหลว ให้เลือก "Re-run failed jobs" `Verify release tag` จะผ่านด้วย tag ที่ push ไว้ และการสร้าง
+   release แบบ draft กับ job publish ปลายน้ำจะดำเนินต่อ
 
-Only do this when the release commit and version are final. The tag is the permanent release anchor, and once
-release immutability applies the published release tag cannot be changed. If `v<version>` points at a
-different commit, do not move or re-push the existing tag. Investigate the mismatch. `Verify release tag`
-fails in that case by design.
+ทำขั้นตอนนี้เฉพาะเมื่อ commit และเวอร์ชันของ release เป็นค่าสุดท้ายแล้วเท่านั้น tag คือจุดยึดถาวรของ release และเมื่อ
+release immutability มีผลแล้ว release tag ที่ publish ไปแล้วจะเปลี่ยนไม่ได้ หาก `v<version>` ชี้ไปที่ commit อื่น
+อย่าย้ายหรือ push tag ที่มีอยู่ซ้ำ ให้ตรวจสอบหาสาเหตุของความไม่ตรงกัน ซึ่งในกรณีนี้ `Verify release tag` ถูกออกแบบ
+มาให้ล้มเหลวโดยตั้งใจ
 
-## Recovering a partial release
+## การกู้คืน release ที่ทำไม่สมบูรณ์ {#recovering-a-partial-release}
 
-Use the `recover-release` workflow when packages already exist on PyPI and crates.io but release integrity
-verification or final GitHub publication fails. It verifies existing packages without rebuilding or
-republishing them. It also verifies a release that a maintainer has already published manually.
+ใช้ workflow `recover-release` เมื่อ package มีอยู่แล้วบน PyPI และ crates.io แต่การตรวจสอบ release integrity หรือ
+การ publish GitHub ขั้นสุดท้ายล้มเหลว workflow นี้ตรวจสอบ package ที่มีอยู่โดยไม่ build หรือ publish ใหม่ และยังตรวจ
+release ที่ maintainer publish ด้วยมือไปแล้วได้ด้วย
 
-The source must be a completed `build` workflow run from a push to `master` in this repository, with a
-successful `tag-release` job. The release tag must resolve to that run's commit, and the tag version must
-match `python/pyproject.toml` at that commit. Recovery checks out that source and requires the release's
-complete package inventory to match the current stable wheel matrix, including the matching sdist. Historical
-releases with a different matrix fail verification.
+แหล่งที่มาต้องเป็นการรัน workflow `build` ที่เสร็จสมบูรณ์จากการ push ไปยัง `master` ใน repository นี้ และมี job
+`tag-release` ที่สำเร็จ release tag ต้อง resolve ไปยัง commit ของการรันนั้น และเวอร์ชันของ tag ต้องตรงกับ
+`python/pyproject.toml` ที่ commit นั้น การกู้คืนจะ checkout แหล่งที่มานั้น และกำหนดให้รายการ package ทั้งหมดของ release
+ตรงกับ wheel matrix ของ stable ปัจจุบัน รวมถึง sdist ที่ตรงกันด้วย release ในอดีตที่มี matrix ต่างออกไปจะไม่ผ่านการตรวจสอบ
 
-1. Wait for the original build and any other recovery attempt to finish. Do not rerun the source build
-   during recovery. Jobs that write the tag or GitHub release share a lock by release tag. GitHub permits
-   one pending job per lock; a newer pending job replaces the earlier pending job.
-1. Open **Actions > recover-release > Run workflow** and select `master`.
-1. Enter the existing release tag and the original build run ID, then choose a mode:
-   - `verify`: require an already-published release and check it without changing its assets, notes, or
-     publication state.
-   - `recover`: resume a draft release. If it is already published, run verification without changing it.
-1. Review the recovery artifact even when the workflow fails. After correcting the cause, rerun with
-   the same tag and source run ID.
+1. รอให้ build เดิมและความพยายามกู้คืนอื่น ๆ เสร็จสิ้นก่อน อย่ารัน build ต้นทางซ้ำระหว่างการกู้คืน job ที่เขียน tag
+   หรือ GitHub release จะใช้ lock ร่วมกันตาม release tag GitHub อนุญาตให้มี job ที่รอคิวได้หนึ่งตัวต่อ lock และ job
+   ที่รอคิวตัวใหม่กว่าจะแทนที่ตัวที่รออยู่ก่อนหน้า
+1. เปิด **Actions > recover-release > Run workflow** แล้วเลือก `master`
+1. ใส่ release tag ที่มีอยู่และ run ID ของ build เดิม แล้วเลือกโหมด:
+   - `verify`: กำหนดให้ต้องมี release ที่ publish แล้ว และตรวจสอบโดยไม่เปลี่ยน asset, notes หรือสถานะการ publish
+   - `recover`: ดำเนินการ release แบบ draft ต่อ หากถูก publish ไปแล้ว จะรันการตรวจสอบโดยไม่เปลี่ยนแปลงอะไร
+1. ตรวจดู artifact ของการกู้คืนแม้ workflow จะล้มเหลว หลังแก้สาเหตุแล้ว ให้รันซ้ำด้วย tag และ run ID ต้นทางเดิม
 
-Recovery verifies package attestations and their sibling bundles against the original build workflow and
-source commit, checks each envelope against its verified bundle, then verifies registry contents. It compares
-existing GitHub assets by content, uploads only missing assets, and stops on a mismatch. Existing
-`dist-manifest.json` and `crates-manifest.json` assets keep their bytes when their JSON content matches apart
-from `generated_at`. Recovery updates checksum notes only when needed, verifies the complete draft asset
-set, checks Rekor readiness, publishes the draft, and verifies GitHub's release attestation.
+การกู้คืนจะตรวจ attestation ของ package และ bundle ที่คู่กันเทียบกับ build workflow และ commit ต้นทางเดิม ตรวจ
+envelope แต่ละตัวเทียบกับ bundle ที่ผ่านการตรวจแล้ว จากนั้นตรวจเนื้อหาใน registry มันเปรียบเทียบ asset ที่มีอยู่บน
+GitHub ตามเนื้อหา อัปโหลดเฉพาะ asset ที่ขาด และหยุดเมื่อพบความไม่ตรงกัน asset `dist-manifest.json` และ
+`crates-manifest.json` ที่มีอยู่จะคง byte เดิมไว้หากเนื้อหา JSON ตรงกันยกเว้น `generated_at` การกู้คืนจะอัปเดต
+checksum notes เฉพาะเมื่อจำเป็น ตรวจชุด asset ของ draft ทั้งหมด ตรวจความพร้อมของ Rekor, publish draft และตรวจ
+release attestation ของ GitHub
 
-Recovery restores missing packages or provenance only from unexpired artifacts belonging to the selected
-source run. If required evidence is unavailable, recovery stops. A fully populated published release does
-not require retained source-run artifacts. After a failure that follows publication, rerun either mode to
-check the release again without republishing it.
+การกู้คืนจะคืน package หรือ provenance ที่ขาดไปจาก artifact ที่ยังไม่หมดอายุของการรันต้นทางที่เลือกเท่านั้น หากหลักฐาน
+ที่จำเป็นไม่มีอยู่ การกู้คืนจะหยุด release ที่ publish แล้วและมีข้อมูลครบถ้วนไม่จำเป็นต้องมี artifact ของการรันต้นทาง
+เก็บไว้ หลังจากเกิดความล้มเหลวที่ตามมาหลังการ publish ให้รันโหมดใดก็ได้ซ้ำเพื่อตรวจ release อีกครั้งโดยไม่ publish ซ้ำ
 
-If an asset upload fails, recovery stops after that attempt. Rerun recovery to verify the assets that
-arrived and upload only the remaining files. An interrupted upload can leave an incomplete asset or a
-file whose content does not match. Recovery names the affected asset and stops. Confirm that the release
-is still a draft and that the named asset came from the interrupted upload. Delete only that confirmed
-bad asset from the draft, then rerun recovery. Do not delete or replace assets on a published release.
+หากการอัปโหลด asset ล้มเหลว การกู้คืนจะหยุดหลังความพยายามนั้น ให้รันการกู้คืนซ้ำเพื่อตรวจ asset ที่มาถึงแล้วและอัปโหลด
+เฉพาะไฟล์ที่เหลือ การอัปโหลดที่ถูกขัดจังหวะอาจทิ้ง asset ที่ไม่สมบูรณ์หรือไฟล์ที่เนื้อหาไม่ตรงไว้ การกู้คืนจะระบุชื่อ asset
+ที่ได้รับผลกระทบแล้วหยุด ให้ยืนยันว่า release ยังเป็น draft และ asset ที่ระบุมาจากการอัปโหลดที่ถูกขัดจังหวะจริง แล้วลบ
+เฉพาะ asset เสียที่ยืนยันแล้วนั้นออกจาก draft จากนั้นรันการกู้คืนซ้ำ ห้ามลบหรือแทนที่ asset บน release ที่ publish แล้ว
 
-The runner's GitHub CLI must support `gh attestation verify --source-digest` and `gh release verify`.
-Recovery checks both capabilities before changing the release. The workflow retains source metadata,
-tool versions, the last step checkpoint, per-step and retry logs, exit status, registry responses,
-downloaded verification inputs, and the isolated verifier cache for 30 days. The normal build's integrity and final publication
-jobs also retain diagnostic artifacts on failure. A later successful rerun preserves those artifacts.
+GitHub CLI ของ runner ต้องรองรับ `gh attestation verify --source-digest` และ `gh release verify` การกู้คืนจะตรวจ
+ความสามารถทั้งสองก่อนเปลี่ยนแปลง release workflow จะเก็บ metadata ของต้นทาง, เวอร์ชันของเครื่องมือ, checkpoint
+ของขั้นตอนล่าสุด, log รายขั้นตอนและของการ retry, exit status, response จาก registry, input สำหรับการตรวจสอบที่ดาวน์โหลด
+มา และ cache ของ verifier ที่แยกไว้เป็นเวลา 30 วัน job ด้าน integrity และการ publish ขั้นสุดท้ายของ build ปกติก็เก็บ
+artifact สำหรับวินิจฉัยไว้เมื่อล้มเหลวเช่นกัน และการรันซ้ำที่สำเร็จในภายหลังจะคง artifact เหล่านั้นไว้
 
-## Versioning
+## การกำหนดเวอร์ชัน {#versioning}
 
-The project maintains two version numbers:
+โปรเจกต์ดูแลหมายเลขเวอร์ชันสองชุด:
 
-| File                     | Scope          |
+| ไฟล์                     | ขอบเขต          |
 | ------------------------ | -------------- |
 | `python/pyproject.toml`  | Python package |
-| `Cargo.toml` (workspace) | Rust crates    |
+| `Cargo.toml` (workspace) | Rust crate     |
 
-These are bumped independently. The Python version drives the `v<python-version>` release tag. Versions ending
-in `aN`, `bN`, or `rcN` create a GitHub pre-release. Final versions create a normal release.
+ทั้งสองถูก bump แยกกันอย่างอิสระ เวอร์ชันของ Python เป็นตัวกำหนด release tag `v<python-version>` เวอร์ชันที่ลงท้าย
+ด้วย `aN`, `bN` หรือ `rcN` จะสร้าง GitHub pre-release ส่วนเวอร์ชัน final จะสร้าง release ปกติ
 
-## Crates.io publishing
+## การ publish ไปยัง crates.io {#cratesio-publishing}
 
-The `build` workflow publishes Cargo crates from the `publish-cargo-crates` job. The job uses
-crates.io Trusted Publishing through GitHub Actions OIDC, so it does not use a persistent cargo
-token. Configure each crate on crates.io with:
+workflow `build` publish Cargo crate จาก job `publish-cargo-crates` job นี้ใช้ crates.io Trusted Publishing ผ่าน
+GitHub Actions OIDC จึงไม่ใช้ cargo token แบบถาวร ให้ตั้งค่าแต่ละ crate บน crates.io ด้วย:
 
 | Field       | Value             |
 | ----------- | ----------------- |
@@ -218,83 +205,81 @@ token. Configure each crate on crates.io with:
 | Workflow    | `build.yml`       |
 | Environment | `release`         |
 
-Enable Trusted Publishing Only for crates after their trusted publisher is configured. Crates that
-have never been published still need an initial manual publish before crates.io allows the trusted
-publisher configuration.
+เปิด Trusted Publishing Only สำหรับ crate หลังจากตั้งค่า trusted publisher ของ crate นั้นแล้ว crate ที่ไม่เคย publish
+มาก่อนยังต้อง publish ด้วยมือครั้งแรกก่อนที่ crates.io จะยอมให้ตั้งค่า trusted publisher
 
-Do not use `cargo publish --workspace` for CI releases. The release job runs
-`scripts/ci/publish-cargo-crates.sh`, which:
+อย่าใช้ `cargo publish --workspace` สำหรับ release ใน CI job ของ release จะรัน `scripts/ci/publish-cargo-crates.sh`
+ซึ่ง:
 
-- Publishes crates one at a time in dependency order.
-- Skips versions already present on crates.io.
-- Waits for each new version to appear in the crates.io API and sparse index before publishing dependents.
+- publish crate ทีละตัวตามลำดับ dependency
+- ข้ามเวอร์ชันที่มีอยู่แล้วบน crates.io
+- รอให้เวอร์ชันใหม่แต่ละตัวปรากฏใน crates.io API และ sparse index ก่อน publish crate ที่ขึ้นกับมัน
 
-The script fails before uploading if a publishable crate depends on a local `publish = false` crate
-absent from crates.io. Optional local dependencies also block publication because a public feature
-that resolves to an absent crate would be unusable.
+script จะล้มเหลวก่อนอัปโหลดหาก crate ที่ publish ได้ขึ้นกับ crate ใน local ที่ตั้ง `publish = false` และไม่มีอยู่บน
+crates.io dependency ใน local แบบ optional ก็ขัดขวางการ publish เช่นกัน เพราะ public feature ที่ resolve ไปยัง crate
+ที่ไม่มีอยู่จะใช้งานไม่ได้
 
-Post-publish verification treats an existing crate version as `previously_published` only when
-crates.io shows it was trusted-published by this repository.
+การตรวจสอบหลัง publish จะถือว่าเวอร์ชันของ crate ที่มีอยู่แล้วเป็น `previously_published` ก็ต่อเมื่อ crates.io แสดงว่า
+เวอร์ชันนั้นถูก trusted-publish โดย repository นี้เท่านั้น
 
-**Manual recovery**: User-published versions fail verification unless
-`CRATES_IO_MANUAL_PUBLISH_EXCEPTIONS` names each recovered `crate@version` for emergency token-publish
-recovery. Accepted entries appear in `crates-manifest.json` with `release_status: "manual_token_publish"`.
-Malformed or unused exception entries fail the job.
+**การกู้คืนด้วยมือ**: เวอร์ชันที่ผู้ใช้ publish เองจะไม่ผ่านการตรวจสอบ เว้นแต่ `CRATES_IO_MANUAL_PUBLISH_EXCEPTIONS`
+จะระบุ `crate@version` ที่กู้คืนแต่ละตัวไว้สำหรับการกู้คืนฉุกเฉินด้วยการ publish ผ่าน token รายการที่ยอมรับจะปรากฏใน
+`crates-manifest.json` พร้อม `release_status: "manual_token_publish"` รายการยกเว้นที่รูปแบบผิดหรือไม่ได้ใช้จะทำให้
+job ล้มเหลว
 
-Wrong trusted-publishing repositories and checksum or sparse-index mismatches also fail verification.
+repository ของ trusted-publishing ที่ผิด และความไม่ตรงกันของ checksum หรือ sparse index ก็ทำให้การตรวจสอบล้มเหลวเช่นกัน
 
-## Release checklist
+## Checklist ของ release {#release-checklist}
 
-### Pre-release (on `develop`)
+### ก่อน release (บน `develop`) {#pre-release-on-develop}
 
-- [ ] Finalize `RELEASES.md`: review all items, remove empty sections
-- [ ] Ensure versions are set in `python/pyproject.toml` and the `Cargo.toml` workspace
-- [ ] Ensure crates.io Trusted Publishing is configured for every crate that CI publishes:
+- [ ] ปิดงาน `RELEASES.md`: ทบทวนทุกรายการ ลบหมวดที่ว่าง
+- [ ] ตรวจว่าตั้งเวอร์ชันไว้ใน `python/pyproject.toml` และ workspace ของ `Cargo.toml` แล้ว
+- [ ] ตรวจว่าตั้งค่า crates.io Trusted Publishing ไว้สำหรับทุก crate ที่ CI publish:
   `bash scripts/ci/check-crates-io-trusted-publishing.sh`
-- [ ] Run `make check-features` locally on the final release candidate
-- [ ] Run `make check-docsrs` locally on the final release candidate
-- [ ] Ensure all CI checks pass on `develop`
+- [ ] รัน `make check-features` ในเครื่องกับ release candidate ตัวสุดท้าย
+- [ ] รัน `make check-docsrs` ในเครื่องกับ release candidate ตัวสุดท้าย
+- [ ] ตรวจว่า CI check ทั้งหมดผ่านบน `develop`
 
-### Release
+### Release {#release}
 
-- [ ] Merge `develop` into `nightly`, verify nightly CI passes
-- [ ] Merge `nightly` into `master`
-- [ ] Verify the `build` workflow completes:
-  - Wheels built for Linux x86/ARM, macOS, Windows
-  - `cargo-deny` and `cargo-vet` pass
-  - `security-audit` passes its Zizmor and supply-chain checks
-  - Release docs/features and Cargo publish preflights pass before tagging
-  - Tag and draft GitHub release created
-  - Wheels and sdist attached to the GitHub release before package registry publishing
-  - Cargo crates published to crates.io or skipped because the version already exists
-  - Wheels and sdist published to PyPI
-  - Registry verification passes before release checksums, crates manifest, and attestation siblings
-    are attached
-  - GitHub release published after all release assets and integrity assets are attached
-  - If the run fails with the release tag missing, follow
-    [Recovering a missing release tag](#recovering-a-missing-release-tag) and re-run the failed jobs
-  - If packages exist but integrity verification or GitHub publication fails, follow
-    [Recovering a partial release](#recovering-a-partial-release)
-- [ ] Verify the `docker` workflow completes (images built and pushed)
-- [ ] Verify the `build-docs` workflow completes (docs rebuild triggered)
+- [ ] merge `develop` เข้า `nightly` แล้วตรวจว่า nightly CI ผ่าน
+- [ ] merge `nightly` เข้า `master`
+- [ ] ตรวจว่า workflow `build` ทำงานเสร็จ:
+  - build wheel สำหรับ Linux x86/ARM, macOS, Windows แล้ว
+  - `cargo-deny` และ `cargo-vet` ผ่าน
+  - `security-audit` ผ่านการตรวจของ Zizmor และ supply-chain
+  - preflight ของ release docs/features และ Cargo publish ผ่านก่อนติด tag
+  - สร้าง tag และ GitHub release แบบ draft แล้ว
+  - แนบ wheel และ sdist กับ GitHub release ก่อน publish ไปยัง package registry
+  - publish Cargo crate ไปยัง crates.io แล้ว หรือข้ามไปเพราะมีเวอร์ชันนั้นอยู่แล้ว
+  - publish wheel และ sdist ไปยัง PyPI แล้ว
+  - การตรวจสอบ registry ผ่านก่อนแนบ release checksum, crates manifest และ attestation sibling
+  - publish GitHub release หลังแนบ release asset และ asset ด้าน integrity ครบทั้งหมดแล้ว
+  - หากการรันล้มเหลวเพราะ release tag หายไป ให้ทำตาม
+    [การกู้คืน release tag ที่หายไป](#recovering-a-missing-release-tag) แล้วรัน job ที่ล้มเหลวซ้ำ
+  - หาก package มีอยู่แล้วแต่การตรวจสอบ integrity หรือการ publish GitHub ล้มเหลว ให้ทำตาม
+    [การกู้คืน release ที่ทำไม่สมบูรณ์](#recovering-a-partial-release)
+- [ ] ตรวจว่า workflow `docker` ทำงานเสร็จ (build และ push image แล้ว)
+- [ ] ตรวจว่า workflow `build-docs` ทำงานเสร็จ (trigger การ rebuild เอกสารแล้ว)
 
-### Post-release (on `develop`)
+### หลัง release (บน `develop`) {#post-release-on-develop}
 
-- [ ] Update the release date in `RELEASES.md` for the published version
-- [ ] Add horizontal separator `---` below the completed release
-- [ ] Add the next version template at the top of `RELEASES.md` (see below)
-- [ ] Bump `python/pyproject.toml` version to the next release number
-- [ ] Bump crate versions in tutorial and how-to `Cargo.toml` snippets
+- [ ] อัปเดตวันที่ release ใน `RELEASES.md` สำหรับเวอร์ชันที่ publish แล้ว
+- [ ] เพิ่มเส้นคั่นแนวนอน `---` ใต้ release ที่เสร็จแล้ว
+- [ ] เพิ่ม template ของเวอร์ชันถัดไปไว้ด้านบนของ `RELEASES.md` (ดูด้านล่าง)
+- [ ] bump เวอร์ชันใน `python/pyproject.toml` เป็นหมายเลข release ถัดไป
+- [ ] bump เวอร์ชันของ crate ใน snippet `Cargo.toml` ของ tutorial และ how-to
   (`docs/concepts/rust.md`, `docs/how_to/run_rust_backtest.md`,
   `docs/how_to/run_rust_live_trading.md`)
 
-## Release notes
+## Release notes {#release-notes}
 
-This section documents the standards for writing release notes in `RELEASES.md`.
+ส่วนนี้อธิบายมาตรฐานในการเขียน release notes ใน `RELEASES.md`
 
-### Sections
+### หมวด {#sections}
 
-Use the following sections in this order:
+ใช้หมวดต่อไปนี้ตามลำดับ:
 
 1. Enhancements
 2. Breaking Changes
@@ -304,13 +289,13 @@ Use the following sections in this order:
 6. Documentation Updates
 7. Deprecations
 
-Omit sections that have no items for a given release.
+ละหมวดที่ไม่มีรายการใน release นั้นออก
 
-### Enhancements
+### Enhancements {#enhancements}
 
-New features and user-visible improvements.
+feature ใหม่และการปรับปรุงที่ผู้ใช้มองเห็นได้
 
-**Format**:
+**รูปแบบ**:
 
 ```markdown
 - Added `subscribe_order_fills(...)` and `unsubscribe_order_fills(...)` for `Actor`
@@ -318,17 +303,17 @@ New features and user-visible improvements.
 - Added support for `OrderBookDepth10` requests (#2955), thanks @faysou
 ```
 
-**Guidelines**:
+**แนวทาง**:
 
-- Start with "Added".
-- Use backticks for code elements.
-- Be specific about what was added, not how.
+- ขึ้นต้นด้วย "Added"
+- ใช้ backtick สำหรับส่วนที่เป็นโค้ด
+- ระบุให้ชัดว่าเพิ่ม *อะไร* ไม่ใช่เพิ่ม *อย่างไร*
 
-### Breaking Changes
+### Breaking Changes {#breaking-changes}
 
-Changes that may break existing code.
+การเปลี่ยนแปลงที่อาจทำให้โค้ดเดิมใช้งานไม่ได้
 
-**Format**:
+**รูปแบบ**:
 
 ```markdown
 - Removed `nautilus_trader.analysis.statistics` subpackage - must import from `nautilus_trader.analysis`
@@ -336,50 +321,50 @@ Changes that may break existing code.
 - Changed `start` parameter to required for `Actor` data request methods
 ```
 
-**Guidelines**:
+**แนวทาง**:
 
-- Start with "Removed", "Renamed", or "Changed".
-- Explain migration path briefly.
+- ขึ้นต้นด้วย "Removed", "Renamed" หรือ "Changed"
+- อธิบายวิธี migrate สั้น ๆ
 
-### Security
+### Security {#security}
 
-Security hardening and fixes that prevent crashes, undefined behavior, or data corruption.
-Includes significant hardening improvements elevated from Internal Improvements.
+การเสริมความปลอดภัยและการแก้ไขที่ป้องกัน crash, undefined behavior หรือข้อมูลเสียหาย
+รวมถึงการเสริมความแข็งแกร่ง (hardening) ที่สำคัญซึ่งยกระดับมาจาก Internal Improvements
 
-**Format**:
+**รูปแบบ**:
 
 ```markdown
 - Fixed divide-by-zero and overflow bugs in model crate that could cause crashes
 - Fixed core arithmetic operations to reject NaN/Infinity values and improve overflow handling
 ```
 
-**Guidelines**:
+**แนวทาง**:
 
-- Include overflow/underflow fixes, memory safety improvements, FFI guards, data integrity fixes.
-- Focus on user impact: what could have happened.
-- Exclude routine dependency updates, minor hardening, or test-only fixes.
-- Omit this section entirely if there are no security items for the release.
+- รวมการแก้ overflow/underflow, การปรับปรุง memory safety, FFI guard และการแก้ไขด้าน data integrity
+- เน้นผลกระทบต่อผู้ใช้: อะไรที่อาจเกิดขึ้นได้
+- ไม่รวมการอัปเดต dependency ตามปกติ, hardening เล็กน้อย หรือการแก้ที่เกี่ยวกับ test เท่านั้น
+- ละหมวดนี้ทั้งหมดหาก release นั้นไม่มีรายการด้าน security
 
-### Fixes
+### Fixes {#fixes}
 
-Bug fixes that improve correctness but do not qualify as security issues.
+การแก้ bug ที่ช่วยให้ทำงานถูกต้องขึ้น แต่ไม่เข้าข่ายปัญหาด้าน security
 
-**Format**:
+**รูปแบบ**:
 
 ```markdown
 - Fixed reduce-only order panic when quantity exceeds position
 - Fixed Binance order status parsing for external orders (#3006), thanks for reporting @bmlquant
 ```
 
-**Guidelines**:
+**แนวทาง**:
 
-- Start with "Fixed".
+- ขึ้นต้นด้วย "Fixed"
 
-### Internal Improvements
+### Internal Improvements {#internal-improvements}
 
-Implementation details and infrastructure changes.
+รายละเอียดของ implementation และการเปลี่ยนแปลงด้าน infrastructure
 
-**Format**:
+**รูปแบบ**:
 
 ```markdown
 - Added ARM64 support to Docker builds
@@ -389,16 +374,16 @@ Implementation details and infrastructure changes.
 - Upgraded `pyo3` crates to v0.26.0
 ```
 
-**Guidelines**:
+**แนวทาง**:
 
-- Use "Added", "Implemented", "Improved", "Optimized", "Upgraded", "Refined", "Standardized".
-- Include version numbers for dependency upgrades.
+- ใช้ "Added", "Implemented", "Improved", "Optimized", "Upgraded", "Refined", "Standardized"
+- ใส่หมายเลขเวอร์ชันสำหรับการอัปเกรด dependency
 
-### Documentation Updates
+### Documentation Updates {#documentation-updates}
 
-Changes to guides and examples.
+การเปลี่ยนแปลงของคู่มือและตัวอย่าง
 
-**Format**:
+**รูปแบบ**:
 
 ```markdown
 - Added rate limit tables with links to official docs
@@ -406,71 +391,71 @@ Changes to guides and examples.
 - Fixed broken links
 ```
 
-### Deprecations
+### Deprecations {#deprecations}
 
-Features marked for removal.
+feature ที่ถูกกำหนดให้ลบออกในอนาคต
 
-**Format**:
+**รูปแบบ**:
 
 ```markdown
 - Deprecated `some_config_option`; disable (`False`) to maintain consistent behavior. Will be removed in future version
 ```
 
-**Guidelines**:
+**แนวทาง**:
 
-- Explain migration path and provide alternatives.
+- อธิบายวิธี migrate และให้ทางเลือกอื่น
 
-## Attribution
+## การให้เครดิต {#attribution}
 
-- Credit external contributors: `thanks @username` or `thanks for reporting @username`.
-- Include issue/PR numbers for community contributions and complex features: `(#1234)`.
+- ให้เครดิตผู้ร่วมพัฒนาภายนอก: `thanks @username` หรือ `thanks for reporting @username`
+- ใส่หมายเลข issue/PR สำหรับการมีส่วนร่วมจากชุมชนและ feature ที่ซับซ้อน: `(#1234)`
 
-## Style
+## รูปแบบการเขียน {#style}
 
-- Use sentence case (capitalize first word only).
-- Do not end with periods.
-- Use backticks for code elements.
-- Focus on **what** changed, not how.
+- ใช้ sentence case (ขึ้นต้นตัวพิมพ์ใหญ่เฉพาะคำแรก)
+- ไม่ลงท้ายด้วยจุด
+- ใช้ backtick สำหรับส่วนที่เป็นโค้ด
+- เน้นว่า **อะไร** เปลี่ยนไป ไม่ใช่เปลี่ยนอย่างไร
 
-**Be specific**:
+**เขียนให้เจาะจง**:
 
 ```markdown
 Bad:  Improved Binance adapter
 Good: Improved Binance fill handling when instrument not cached
 ```
 
-## Security classification
+## การจัดประเภทด้าน security {#security-classification}
 
-Include in Security if the change addresses:
+ใส่ไว้ในหมวด Security หากการเปลี่ยนแปลงนั้นแก้ปัญหาเรื่อง:
 
-- Memory safety (overflow, underflow, divide-by-zero that threatens stability).
-- Undefined behavior or crashes that could corrupt state.
-- Data integrity (NaN/Infinity propagation, race conditions leading to corruption).
-- Input validation preventing injection or exploitation (SQL injection, command injection, path traversal).
-- Build hardening (non-exec stack, FFI guards).
-- Significant hardening that users should know about.
+- memory safety (overflow, underflow, การหารด้วยศูนย์ที่คุกคามเสถียรภาพ)
+- undefined behavior หรือ crash ที่อาจทำให้ state เสียหาย
+- data integrity (การแพร่กระจายของ NaN/Infinity, race condition ที่นำไปสู่ความเสียหาย)
+- การตรวจสอบ input เพื่อป้องกันการ injection หรือการโจมตี (SQL injection, command injection, path traversal)
+- build hardening (non-exec stack, FFI guard)
+- hardening ที่สำคัญซึ่งผู้ใช้ควรรู้
 
-Otherwise use Fixes (for logic bugs and panics) or Internal Improvements (for minor hardening).
+กรณีอื่นให้ใช้ Fixes (สำหรับ logic bug และ panic) หรือ Internal Improvements (สำหรับ hardening เล็กน้อย)
 
-Note: Plain logic panics belong in Fixes unless they threaten system stability or data corruption.
+หมายเหตุ: panic จาก logic ธรรมดาให้อยู่ใน Fixes เว้นแต่จะคุกคามเสถียรภาพของระบบหรือทำให้ข้อมูลเสียหาย
 
-## Examples
+## ตัวอย่าง {#examples}
 
-**Security** (could cause crashes/corruption):
+**Security** (อาจทำให้เกิด crash/ความเสียหาย):
 
 ```markdown
 - Fixed divide-by-zero in margin calculations that could crash the engine
 - Fixed integer overflow in model arithmetic that could crash the process
 ```
 
-**Fixes** (incorrect but safe):
+**Fixes** (ไม่ถูกต้องแต่ปลอดภัย):
 
 ```markdown
 - Fixed Binance order status parsing for external orders
 - Fixed position purge logic to prevent purging re-opened position
 ```
 
-**Enhancements** (user-facing):
+**Enhancements** (ผู้ใช้มองเห็น):
 
 ```markdown
 - Added Bybit conditional orders support
@@ -482,7 +467,7 @@ Note: Plain logic panics belong in Fixes unless they threaten system stability o
 - Implemented Bybit ping/pong handling
 ```
 
-## Release notes template
+## Template ของ release notes {#release-notes-template}
 
 ```markdown
 # NautilusTrader <VERSION> Beta

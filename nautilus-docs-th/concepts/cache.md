@@ -1,26 +1,24 @@
 # Cache
 
-The `Cache` is the central in-memory store for trading state and recent market data. Actors and
-strategies use it to read data maintained by the data and execution engines or to share raw bytes
-under application-defined keys.
+`Cache` คือที่เก็บข้อมูลใน memory ส่วนกลางสำหรับ trading state และ market data ล่าสุด actor และ strategy
+ใช้ cache เพื่ออ่านข้อมูลที่ data engine และ execution engine ดูแลอยู่ หรือเพื่อแชร์ข้อมูลแบบ raw bytes ภายใต้
+key ที่แอปพลิเคชันกำหนดเอง
 
-The cache:
+cache ทำหน้าที่:
 
-- Stores current order books and bounded histories of quotes, trades, bars, and other market data.
-- Tracks orders, positions, accounts, instruments, and currencies until they are purged or reset.
-- Shares caller-serialized data between components and persists it when a backing database is
-  configured.
+- เก็บ order book ปัจจุบัน และประวัติแบบจำกัดขนาดของ quote, trade, bar และ market data อื่น ๆ
+- ติดตาม order, position, account, instrument และ currency จนกว่าจะถูก purge หรือ reset
+- แชร์ข้อมูลที่ผู้เรียก serialize เองระหว่าง component และ persist ข้อมูลนั้นเมื่อมีการตั้งค่า backing database
 
-## How caching works
+## การทำงานของ cache {#how-caching-works}
 
-The engines add built-in data to the `Cache` as events flow through the system. Live adapters feed
-events to the engine asynchronously, so the cache changes **when the engine processes an event**, not
-when the adapter first receives it.
+engine จะเพิ่มข้อมูลแบบ built-in ลงใน `Cache` เมื่อ event ไหลผ่านระบบ live adapter ส่ง event ให้ engine
+แบบ asynchronous ดังนั้น cache จะเปลี่ยน **เมื่อ engine ประมวลผล event** ไม่ใช่ตอนที่ adapter ได้รับ event
+ครั้งแรก
 
-For quotes, trades, and bars, the `DataEngine` attempts to write to the `Cache` before publishing to
-subscribers. After a successful write, the latest value is available by the time the strategy handler runs.
-Order book deltas and depth snapshots are published directly. `BookUpdater` subscriptions maintain current
-book state separately:
+สำหรับ quote, trade และ bar นั้น `DataEngine` จะพยายามเขียนลง `Cache` ก่อน publish ให้ subscriber
+เมื่อเขียนสำเร็จ ค่าล่าสุดจะพร้อมใช้งานแล้วตอนที่ handler ของ strategy ทำงาน ส่วน order book delta และ
+depth snapshot จะถูก publish โดยตรง และ subscription ของ `BookUpdater` จะดูแล state ของ book ปัจจุบันแยกต่างหาก:
 
 ```mermaid
 flowchart LR
@@ -32,73 +30,32 @@ flowchart LR
     data --> engine --> cache --> callback
 ```
 
-For the full step-by-step trace, see
-[Data flow: life of a quote tick](architecture.md#data-flow-life-of-a-quote-tick).
+ดูการไล่ลำดับทีละขั้นแบบเต็มได้ที่
+[Data flow: วงจรชีวิตของ quote tick](architecture.md#data-flow-life-of-a-quote-tick)
 
-### Basic example
+### ตัวอย่างพื้นฐาน {#basic-example}
 
-Within a strategy, access the shared `Cache` through `self.cache`:
+ภายใน strategy สามารถเข้าถึง `Cache` ที่ใช้ร่วมกันเพื่ออ่าน bar ล่าสุด, state ของ position ปัจจุบัน และ
+open order ของ instrument ได้
 
-```python
-def on_bar(self, bar: Bar) -> None:
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-    # Read recent bars; index 0 is the same bar after a successful cache write
-    last_bar = self.cache.bar(self.bar_type, index=0)
-    previous_bar = self.cache.bar(self.bar_type, index=1)
-    third_last_bar = self.cache.bar(self.bar_type, index=2)
+## การตั้งค่า {#configuration}
 
-    # Read current position state
-    if self.last_position_opened_id is not None:
-        position = self.cache.position(self.last_position_opened_id)
-        if position is not None and position.is_open:
-            open_quantity = position.quantity
+ใช้ `CacheConfig` เพื่อตั้งค่าพฤติกรรมและความจุของ `Cache` แล้วส่งให้ `BacktestEngine` หรือ `LiveNode`
+ขึ้นอยู่กับ [environment context](architecture.md#environment-contexts)
 
-    # Read open orders for the instrument
-    open_orders = self.cache.orders_open(instrument_id=self.instrument_id)
-```
-
-## Configuration
-
-Use the `CacheConfig` class to configure the `Cache` behavior and capacity.
-Pass it to a `BacktestEngine` or `LiveNode`, depending on the
-[environment context](architecture.md#environment-contexts).
-
-The same capacity settings apply in both environments:
-
-```python
-from nautilus_trader.config import BacktestEngineConfig
-from nautilus_trader.config import CacheConfig
-from nautilus_trader.config import LiveNodeConfig
-
-# For backtesting
-engine_config = BacktestEngineConfig(
-    cache=CacheConfig(
-        # Retain up to 10,000 entries per history per instrument
-        tick_capacity=10_000,
-        # Store last 5,000 bars per bar type
-        bar_capacity=5_000,
-    ),
-)
-
-# For live trading
-node_config = LiveNodeConfig(
-    cache=CacheConfig(
-        tick_capacity=10_000,
-        bar_capacity=5_000,
-    ),
-)
-```
+การตั้งค่าความจุแบบเดียวกันใช้ได้ทั้งสอง environment
 
 :::tip
-By default, the `Cache` keeps up to 10,000 values in each per-instrument tick sequence and 10,000
-bars for each bar type. These are separate limits, not combined totals. Set each capacity to a value
-in `[1, 1_000_000]`. Increase them when a strategy needs a longer in-memory lookback and the
-additional memory use is acceptable.
+โดย default `Cache` จะเก็บค่าได้สูงสุด 10,000 ค่าในแต่ละลำดับ tick ต่อ instrument และ 10,000 bar ต่อ bar type
+ค่าเหล่านี้เป็นขีดจำกัดแยกกัน ไม่ใช่ผลรวม ตั้งค่าความจุแต่ละตัวได้ในช่วง `[1, 1_000_000]` ให้เพิ่มค่าเมื่อ
+strategy ต้องการ lookback ใน memory ที่ยาวขึ้น และยอมรับการใช้ memory ที่เพิ่มขึ้นได้
 :::
 
-### Configuration options
+### ตัวเลือกการตั้งค่า {#configuration-options}
 
-The `CacheConfig` type supports these parameters:
+`CacheConfig` รองรับพารามิเตอร์ต่อไปนี้:
 
 ```rust
 use nautilus_common::{cache::CacheConfig, enums::SerializationEncoding};
@@ -120,30 +77,29 @@ let config = CacheConfig {
 ```
 
 :::note
-Each bar type maintains its own capacity. For example, if you use both 1-minute and 5-minute bars,
-each stores up to `bar_capacity` bars.
-When `bar_capacity` is reached, the `Cache` automatically removes the oldest data.
+แต่ละ bar type มีความจุของตัวเอง ตัวอย่างเช่น ถ้าใช้ทั้ง bar 1 นาทีและ 5 นาที แต่ละชนิดจะเก็บได้สูงสุด
+`bar_capacity` bar
+เมื่อถึง `bar_capacity` แล้ว `Cache` จะลบข้อมูลที่เก่าที่สุดออกโดยอัตโนมัติ
 :::
 
-### Database configuration
+### การตั้งค่า database {#database-configuration}
 
-Configure a database backing to recover successfully persisted, supported cache records after a
-restart. Restorable records include general data, currencies, instruments, instrument closes,
-accounts, orders, and positions. Startup does not restore bounded market-data histories or the
-running process.
+ตั้งค่า database backing เพื่อกู้คืน cache record ที่รองรับและ persist สำเร็จแล้วหลังจาก restart record ที่
+กู้คืนได้ ได้แก่ general data, currency, instrument, instrument close, account, order และ position
+ตอนเริ่มต้นระบบจะไม่กู้คืนประวัติ market data แบบจำกัดขนาด และไม่กู้คืน process ที่กำลังทำงานอยู่
 
-Instrument closes persist whenever a backing database is configured. `save_market_data` does not
-gate them because they are recovery snapshots rather than bounded market-data history.
+instrument close จะถูก persist เสมอเมื่อมีการตั้งค่า backing database โดย `save_market_data` ไม่ได้ควบคุม
+ส่วนนี้ เพราะเป็น snapshot สำหรับการกู้คืน ไม่ใช่ประวัติ market data แบบจำกัดขนาด
 
-`CacheConfig` controls cache behavior. Connection settings belong to the concrete backing config,
-such as `RedisCacheConfig` or `PostgresCacheConfig`.
+`CacheConfig` ควบคุมพฤติกรรมของ cache ส่วนการตั้งค่าการเชื่อมต่ออยู่ใน config ของ backing แต่ละตัว เช่น
+`RedisCacheConfig` หรือ `PostgresCacheConfig`
 
-A backing is a recovery mechanism, not a complete event archive or a synchronized distributed cache. Each node
-owns its in-memory cache. Pointing multiple nodes at the same database namespace does not keep those caches
-coherent.
+backing เป็นกลไกสำหรับการกู้คืน ไม่ใช่คลังเก็บ event ที่สมบูรณ์ หรือ distributed cache ที่ซิงก์กัน แต่ละ node
+เป็นเจ้าของ cache ใน memory ของตัวเอง การชี้หลาย node ไปยัง namespace เดียวกันของ database ไม่ได้ทำให้
+cache เหล่านั้นสอดคล้องกัน
 
-Rust-native callers build a concrete database config and use the `CacheDatabaseFactory` trait to
-construct the adapter passed into the system builder:
+ฝั่ง Rust ให้สร้าง database config แบบ concrete แล้วใช้ trait `CacheDatabaseFactory` เพื่อสร้าง adapter
+ที่จะส่งเข้าไปยัง system builder:
 
 ```rust
 use nautilus_common::{
@@ -172,7 +128,7 @@ let cache_database = database
     .await?;
 ```
 
-For a Rust-native live node, attach the adapter before startup:
+สำหรับ live node ใน Rust ให้ attach adapter ก่อนเริ่มต้นระบบ:
 
 ```rust
 let node_config = LiveNodeConfig {
@@ -185,49 +141,27 @@ node.run().await?;
 ```
 
 :::warning
-With the default `LiveExecutionEngineConfig.load_cache = true`, the node restores persisted cache state
-and rebuilds derived indexes before connecting clients or reconciling execution state. Setting
-`CacheConfig.flush_on_start = true` clears the backing instead. A Postgres backing clears only the
-node's trader rows (see below).
+เมื่อใช้ค่า default `LiveExecutionEngineConfig.load_cache = true` node จะกู้คืน cache state ที่ persist ไว้
+และสร้าง derived index ใหม่ ก่อนเชื่อมต่อ client หรือทำ reconciliation ของ execution state การตั้ง
+`CacheConfig.flush_on_start = true` จะล้าง backing แทน สำหรับ backing แบบ Postgres จะล้างเฉพาะแถวของ
+trader ของ node นั้น (ดูด้านล่าง)
 :::
 
-Python passes the same database config to `LiveNodeBuilder.with_cache_database_factory`. The node
-constructs and owns the adapter when it starts, so the connection opens only when the node runs:
+ส่ง `PostgresCacheConfig` แทน เพื่อใช้ Postgres เป็น backing ของ cache data Postgres ไม่รองรับการ persist
+state ของ actor หรือ strategy จึงไม่ควรใช้ร่วมกับ `load_state` หรือ `save_state`
 
-```python
-from nautilus_trader.common import Environment
-from nautilus_trader.infrastructure import RedisCacheConfig
-from nautilus_trader.live import LiveNode
-from nautilus_trader.model import TraderId
+backing แบบ Postgres ผูกขอบเขตกับ trader ID ของ node ดังนั้นหลาย node จึงใช้ database เดียวกันได้:
 
-node = (
-    LiveNode.builder("LiveNode", TraderId("TRADER-001"), Environment.LIVE)
-    .with_cache_database_factory(RedisCacheConfig(host="localhost", port=6379))
-    .build()
-)
-
-try:
-    node.run()
-finally:
-    node.dispose()
-```
-
-Pass `PostgresCacheConfig` instead to back cache data with Postgres. Postgres does not support actor
-or strategy state persistence, so do not combine it with `load_state` or `save_state`. Both configs
-come from `nautilus_trader.infrastructure`.
-
-A Postgres backing is scoped to the node's trader ID, so several nodes can share one database:
-
-- The node loads and writes only its own orders, positions, snapshots, and accounts, keyed by trader. Thus,
-  two traders can reuse the same client order or position IDs.
-- `flush_on_start` deletes only that trader's rows.
-- Currencies, instruments, instrument closes, market data, and general data stay shared across traders.
+- node จะโหลดและเขียนเฉพาะ order, position, snapshot และ account ของตัวเอง โดยใช้ trader เป็น key
+  ดังนั้น trader สองรายจึงใช้ client order ID หรือ position ID ซ้ำกันได้
+- `flush_on_start` ลบเฉพาะแถวของ trader นั้น
+- currency, instrument, instrument close, market data และ general data ยังใช้ร่วมกันระหว่าง trader
 
 :::warning
-Upgrading an existing database is a required migration step. Account events persisted before trader scoping
-have no trader, and nothing establishes which trader owns them, so connecting fails while any exist. This
-blocks each node using that database. The error lists the affected accounts. Run `nautilus database init`,
-then assign each account to its trader:
+การอัปเกรด database ที่มีอยู่แล้วเป็นขั้นตอน migration ที่ต้องทำ account event ที่ persist ไว้ก่อนมีการผูก
+ขอบเขตตาม trader จะไม่มี trader และไม่มีอะไรระบุได้ว่า trader คนใดเป็นเจ้าของ ดังนั้นการเชื่อมต่อจะล้มเหลว
+ตราบที่ยังมี event เหล่านี้อยู่ ซึ่งจะ block ทุก node ที่ใช้ database นั้น error จะแสดงรายการ account ที่ได้รับ
+ผลกระทบ ให้รัน `nautilus database init` แล้ว assign แต่ละ account ให้ trader ของมัน:
 
 ```bash
 nautilus database assign-account --account-id <ACCOUNT_ID> --trader-id <TRADER_ID>
@@ -236,19 +170,19 @@ nautilus database assign-account --account-id <ACCOUNT_ID> --trader-id <TRADER_I
 :::
 
 :::warning
-Always dispose the node. `dispose()` closes the backing, which flushes writes still held in the
-buffer when `CacheConfig.buffer_interval_ms` is set. Returning straight from `run()` can drop them.
+ต้อง dispose node ทุกครั้ง `dispose()` จะปิด backing ซึ่งจะ flush การเขียนที่ยังค้างอยู่ใน buffer เมื่อตั้งค่า
+`CacheConfig.buffer_interval_ms` ไว้ การ return ออกจาก `run()` ทันทีอาจทำให้ข้อมูลเหล่านั้นหายไป
 :::
 
-## Using the cache
+## การใช้งาน cache {#using-the-cache}
 
-### Accessing market data
+### การเข้าถึง market data {#accessing-market-data}
 
-The `Cache` provides access to order books, quotes, trades, bars, and other market data. Cached
-market-data histories use **reverse indexing**: index 0 is the latest entry, and index 1 is the previous
-entry. The list accessors use the same order as the single-entry accessors.
+`Cache` ให้เข้าถึง order book, quote, trade, bar และ market data อื่น ๆ ประวัติ market data ใน cache ใช้
+**reverse indexing**: index 0 คือรายการล่าสุด และ index 1 คือรายการก่อนหน้า accessor ที่คืนค่าเป็นรายการ
+ใช้ลำดับเดียวกับ accessor ที่คืนค่ารายการเดียว
 
-| Data type           | History                              | Latest entry                       |
+| ชนิดข้อมูล          | ประวัติ                              | รายการล่าสุด                       |
 | ------------------- | ------------------------------------ | ---------------------------------- |
 | Quotes              | `quotes(instrument_id)`              | `quote(instrument_id)`             |
 | Trades              | `trades(instrument_id)`              | `trade(instrument_id)`             |
@@ -258,557 +192,209 @@ entry. The list accessors use the same order as the single-entry accessors.
 | Funding rates       | `funding_rates(instrument_id)`       | `funding_rate(instrument_id)`      |
 | Instrument statuses | `instrument_statuses(instrument_id)` | `instrument_status(instrument_id)` |
 
-Bars are ordered by `ts_event`, newest first. The other histories use reverse insertion order: the
-most recently added entry comes first, even if it has an older timestamp. These histories are not
-sorted by `ts_event` or `ts_init`.
+bar เรียงตาม `ts_event` จากใหม่ไปเก่า ส่วนประวัติอื่นเรียงตามลำดับการเพิ่มแบบย้อนกลับ: รายการที่เพิ่มล่าสุด
+จะอยู่ก่อน แม้ว่าจะมี timestamp เก่ากว่าก็ตาม ประวัติเหล่านี้ไม่ได้เรียงตาม `ts_event` หรือ `ts_init`
 
-Each history accessor returns a list, or `None` when no entries are cached for the key. For a nonempty
-list, `[0]` is the latest entry. `[-1]` selects the oldest retained bar or the least recently inserted
-entry in the other histories. Only `quote()`, `trade()`, and `bar()` accept an `index` argument.
-They return `None` for a missing entry at a valid non-negative index. A negative index, or an integer
-too large for the platform's unsigned index type, raises `OverflowError`. Negative indexing works on
-the returned Python lists.
+accessor ของประวัติแต่ละตัวคืนค่าเป็นรายการ หรือไม่มีค่าเมื่อไม่มีรายการใน cache สำหรับ key นั้น สำหรับรายการ
+ที่ไม่ว่าง ตัวแรกคือรายการล่าสุด ส่วนตัวสุดท้ายคือ bar ที่เก่าที่สุดที่ยังเก็บไว้ หรือรายการที่เพิ่มเข้ามานานที่สุด
+ในประวัติอื่น ๆ มีเพียง `quote()`, `trade()` และ `bar()` เท่านั้นที่รับ argument `index` และจะไม่มีค่า
+เมื่อไม่มีรายการที่ index ที่ไม่ติดลบและถูกต้อง
 
-`CacheConfig.bar_capacity` limits the history for each bar type. `CacheConfig.tick_capacity` limits
-each of the other histories per instrument. When a history reaches its capacity, a new insertion
-removes the last entry.
+`CacheConfig.bar_capacity` จำกัดประวัติของแต่ละ bar type ส่วน `CacheConfig.tick_capacity` จำกัดประวัติ
+อื่น ๆ แต่ละชนิดต่อ instrument เมื่อประวัติเต็มความจุแล้ว การเพิ่มรายการใหม่จะลบรายการสุดท้ายออก
 
-#### Order book
+#### Order book {#order-book}
 
-The cache holds the current order book state for each instrument, rather than a history of book
-updates. Instrument closes also keep one value per instrument: `instrument_close(instrument_id)`
-returns the last inserted close, or `None` if absent.
+cache เก็บ state ของ order book ปัจจุบันของแต่ละ instrument ไม่ได้เก็บประวัติการอัปเดตของ book
+instrument close ก็เก็บค่าเดียวต่อ instrument เช่นกัน: `instrument_close(instrument_id)` คืนค่า close
+ที่เพิ่มล่าสุด หรือไม่มีค่าถ้ายังไม่มี
 
-```python
-# Get the current order book. Returns OrderBook or None
-book = self.cache.order_book(instrument_id)
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python ของ accessor ในส่วนนี้ (order book, quote, trade, bar, price,
+> bar type) จึงตัดออก
 
-# Check whether an order book exists
-has_book = self.cache.has_order_book(instrument_id)
+#### Trade tick {#trade-ticks}
 
-# Get the number of applied book updates
-update_count = self.cache.book_update_count(instrument_id)
-```
+quote และ trade จะสะสม tick ทั้งหมด รวมถึง tick ที่มี timestamp เดียวกัน
 
-#### Quote ticks
+#### การเข้าถึง bar {#bar-access}
 
-```python
-# Get quotes. Returns list[QuoteTick] or None
-quotes = self.cache.quotes(instrument_id)
+ถ้าต้องการประมวลผล bar จากเก่าไปใหม่ ให้กลับลำดับรายการที่ได้คืนมา
 
-# Returns QuoteTick or None
-latest_quote = self.cache.quote(instrument_id)
+bar ถูกเก็บแบบ **ใหม่สุดก่อนต่อ bar type** bar ที่ใหม่กว่าจะถูกเพิ่มเข้าไป bar ที่เก่ากว่าจะถูกข้าม แต่ยังคง
+ส่งไปใน response
 
-# Returns QuoteTick or None
-second_last_quote = self.cache.quote(instrument_id, index=1)
+- **Time bar**: bar ที่มี `ts_event` เดียวกันจะแทนที่ตัวที่อยู่ใน cache (ข้อมูลที่มาทีหลังชนะ) ดังนั้นข้อมูลซ้ำจาก
+  historical request ที่ช่วงเวลาทับซ้อนกันจะไม่สะสม
+- **Non-time bar**: Renko brick หรือ volume bar ที่ออกมาจากการอัปเดตครั้งเดียวอาจมี `ts_event` เดียวกันได้
+  ตามปกติ bar ทุกตัวที่ timestamp เดียวกันจะถูกเก็บไว้ รวมถึงตัวที่ถูกส่งซ้ำจาก request ที่ทับซ้อนกัน
+- **Internal request aggregation**: cache จะแทรก bar ที่สร้างจาก request ลงในตำแหน่งตามลำดับแทนที่จะข้าม
+  เพราะ cache เป็นช่องทางเดียวที่ส่ง bar เหล่านี้ออกไป
 
-# Check quote availability
-quote_count = self.cache.quote_count(instrument_id)
-has_quotes = self.cache.has_quote_ticks(instrument_id)
-```
+#### การเข้าถึงราคา {#price-access}
 
-#### Trade ticks
+ดึงราคาปัจจุบันตามประเภทได้ โดยมีตัวเลือก `BID`, `ASK`, `MID`, `LAST` และ `MARK`
 
-```python
-# Get trades. Returns list[TradeTick] or None
-trades = self.cache.trades(instrument_id)
+#### Bar type {#bar-types}
 
-# Returns TradeTick or None
-latest_trade = self.cache.trade(instrument_id)
+ดึง bar type ทั้งหมดที่มีของ instrument ได้ โดยกรองตาม price type (`BID`, `ASK`, `MID`, `LAST`, `MARK`)
+และ aggregation source
 
-# Returns TradeTick or None
-second_last_trade = self.cache.trade(instrument_id, index=1)
+#### ตัวอย่างอย่างง่าย {#simple-example}
 
-# Check trade availability
-trade_count = self.cache.trade_count(instrument_id)
-has_trades = self.cache.has_trade_ticks(instrument_id)
-```
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-Quotes and trades accumulate all ticks, including those sharing a timestamp.
+### Trading object {#trading-objects}
 
-#### Bar access
+`Cache` ให้เข้าถึง trading object เช่น:
 
-```python
-# Get all cached bars for a bar type. Returns list[Bar] or None
-bars = self.cache.bars(bar_type)
+- Order
+- Position
+- Account
+- Instrument
 
-# Get the most recent bar. Returns Bar or None
-latest_bar = self.cache.bar(bar_type)
+#### Order {#orders}
 
-# Get a historical bar by index (0 = most recent). Returns Bar or None
-second_last_bar = self.cache.bar(bar_type, index=1)
+query order ได้ตาม venue, strategy, instrument, account หรือ order side
 
-# Check whether bars exist and get the count
-bar_count = self.cache.bar_count(bar_type)
-has_bars = self.cache.has_bars(bar_type)
-```
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python ของการเข้าถึง order, การ query สถานะ (open, closed, emulated,
+> inflight, active local) และสถิติของ order จึงตัดออก
 
-To process bars from oldest to newest, reverse the returned list:
+#### Position {#positions}
 
-```python
-bars_chronological = list(reversed(self.cache.bars(bar_type) or []))
-```
+`Cache` เก็บ position ไว้จนกว่าจะถูก purge หรือ reset และมีหลายวิธีให้ query
 
-Bars are kept **newest-first per bar type**. A newer bar is added. An older bar is skipped but is still
-delivered in the response.
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python ของการเข้าถึง position, การ query สถานะ และสถิติของ position
+> จึงตัดออก
 
-- **Time bars**: a bar with the same `ts_event` replaces the cached one (the later data wins), so duplicates
-  from overlapping historical requests do not accumulate.
-- **Non-time bars**: Renko bricks or volume bars emitted from a single update can legitimately share a
-  `ts_event`. All bars at the same timestamp are kept, including any re-delivered by an overlapping request.
-- **Internal request aggregation**: the cache inserts request-generated bars at their ordered position instead
-  of skipping them. The cache is their only delivery path.
+#### Account {#accounts}
 
-#### Price access
+การค้นหาด้วย venue จะได้ผลก็ต่อเมื่อมี account ที่ออกภายใต้ venue นั้นเพียงหนึ่ง account เท่านั้น (venue คือ
+prefix ของ account ID เช่น `BINANCE` ใน `BINANCE-001`) เมื่อมีหลาย account ใช้ venue เดียวกัน
+`account_for_venue` และ `account_id` จะไม่คืนค่า ให้ดึง account เหล่านั้นด้วย ID แทน
 
-```python
-from nautilus_trader.model import PriceType
+#### Instrument {#instruments}
 
-# Get the current price by type. Returns Price or None
-price = self.cache.price(
-    instrument_id=instrument_id,
-    # Options: BID, ASK, MID, LAST, MARK
-    price_type=PriceType.MID,
-)
-```
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python (ดึง instrument ตาม ID, ทั้งหมด, ตาม venue และดึง instrument ID)
+> จึงตัดออก
 
-#### Bar types
+### การ purge ข้อมูลใน cache {#purging-cached-data}
 
-```python
-from nautilus_trader.model import AggregationSource, PriceType
+session ที่ทำงานยาวนานจะสะสม closed order, closed position, account event และ instrument ที่ไม่ได้ใช้แล้ว
+cache มี method สำหรับ purge ทั้งแบบเจาะจงและแบบเป็นชุด เพื่อให้ strategy และ live trading engine คุมการใช้
+memory ได้โดยไม่ต้อง restart ระบบ
 
-# Get all available bar types for an instrument. Returns list[BarType]
-bar_types = self.cache.bar_types(
-    instrument_id=instrument_id,
-    # Options: BID, ASK, MID, LAST, MARK
-    price_type=PriceType.LAST,
-    aggregation_source=AggregationSource.EXTERNAL,
-)
-```
+#### การ purge แบบเจาะจง {#targeted-purges}
 
-#### Simple example
+ใช้เพื่อลบ entity ทีละตัว แต่ละ method จะไม่ purge ถ้า entity นั้นยัง active อยู่
 
-```python
-from nautilus_trader.model import Bar, BarType
-from nautilus_trader.trading import Strategy
-
-
-class MarketDataStrategy(Strategy):
-    def on_start(self) -> None:
-
-        # Subscribe to 1-minute bars
-        self.bar_type = BarType.from_str(f"{self.instrument_id}-1-MINUTE-LAST-EXTERNAL")
-        self.subscribe_bars(self.bar_type)
-
-    def on_bar(self, bar: Bar) -> None:
-        bars = (self.cache.bars(self.bar_type) or [])[:3]
-        if len(bars) < 3:
-            return
-
-        # Access the latest three bars for analysis
-        current_bar = bars[0]
-        prev_bar = bars[1]
-        prev_prev_bar = bars[2]
-
-        # Read the latest quote and trade
-        latest_quote = self.cache.quote(self.instrument_id)
-        latest_trade = self.cache.trade(self.instrument_id)
-
-        if latest_quote is not None:
-            current_spread = latest_quote.ask_price - latest_quote.bid_price
-            self.log.info(f"Current spread: {current_spread}")
-```
-
-### Trading objects
-
-The `Cache` provides access to trading objects such as:
-
-- Orders
-- Positions
-- Accounts
-- Instruments
-
-#### Orders
-
-Query orders by venue, strategy, instrument, account, or order side.
-
-##### Basic order access
-
-```python
-# Get a specific order by its client order ID
-order = self.cache.order(ClientOrderId("O-123"))
-
-# Get all orders in the system
-orders = self.cache.orders()
-
-# All orders for a specific venue
-orders_for_venue = self.cache.orders(venue=venue)
-
-# All orders for a specific strategy
-orders_for_strategy = self.cache.orders(strategy_id=strategy_id)
-
-# All orders for an instrument
-orders_for_instrument = self.cache.orders(instrument_id=instrument_id)
-```
-
-##### Order state queries
-
-```python
-# Orders currently active at the venue
-open_orders = self.cache.orders_open()
-
-# Orders that have completed their lifecycle
-closed_orders = self.cache.orders_closed()
-
-# Orders being simulated locally by the system
-emulated_orders = self.cache.orders_emulated()
-
-# Orders submitted (or modified) to venue, but not yet confirmed
-inflight_orders = self.cache.orders_inflight()
-
-# Orders still managed locally (initialized, emulated, or released)
-local_active_orders = [order for order in self.cache.orders() if order.is_active_local]
-
-# Checks if an order with the given ID exists in the cache
-exists = self.cache.order_exists(client_order_id)
-
-# Checks if an order is currently open
-is_open = self.cache.is_order_open(client_order_id)
-
-# Checks if an order is closed
-is_closed = self.cache.is_order_closed(client_order_id)
-
-# Checks if an order is being simulated locally
-is_emulated = self.cache.is_order_emulated(client_order_id)
-
-# Checks if an order is submitted or modified, but not yet confirmed
-is_inflight = self.cache.is_order_inflight(client_order_id)
-
-# Checks if an order is still managed locally
-order = self.cache.order(client_order_id)
-is_active_local = order is not None and order.is_active_local
-```
-
-##### Order statistics
-
-```python
-# Number of open orders
-open_count = self.cache.orders_open_count()
-
-# Number of closed orders
-closed_count = self.cache.orders_closed_count()
-
-# Number of emulated orders
-emulated_count = self.cache.orders_emulated_count()
-
-# Number of inflight orders
-inflight_count = self.cache.orders_inflight_count()
-
-# Number of locally active orders (initialized, emulated, or released)
-local_active_count = sum(order.is_active_local for order in self.cache.orders())
-
-# Total number of orders in the system
-total_count = self.cache.orders_total_count()
-
-# Number of currently open BUY orders
-buy_orders_count = self.cache.orders_open_count(side=OrderSide.BUY)
-
-# Total number of orders for a given venue
-venue_orders_count = self.cache.orders_total_count(venue=venue)
-```
-
-#### Positions
-
-The `Cache` keeps positions until they are purged or reset and provides several ways to query them.
-
-##### Position access
-
-```python
-# Get a specific position by its ID
-position = self.cache.position(PositionId("P-123"))
-
-# All positions in the system
-all_positions = self.cache.positions()
-
-# All currently open positions
-open_positions = self.cache.positions_open()
-
-# All closed positions
-closed_positions = self.cache.positions_closed()
-
-# Positions for a specific venue
-venue_positions = self.cache.positions(venue=venue)
-
-# Positions for a specific instrument
-instrument_positions = self.cache.positions(instrument_id=instrument_id)
-
-# Positions for a specific strategy
-strategy_positions = self.cache.positions(strategy_id=strategy_id)
-
-# All long positions
-long_positions = self.cache.positions(side=PositionSide.LONG)
-```
-
-##### Position state queries
-
-```python
-# Checks if a position with the given ID exists
-exists = self.cache.position_exists(position_id)
-
-# Checks if a position is open
-is_open = self.cache.is_position_open(position_id)
-
-# Checks if a position is closed
-is_closed = self.cache.is_position_closed(position_id)
-
-# All orders related to a specific position
-orders = self.cache.orders_for_position(position_id)
-
-# Find the position associated with a specific order
-position = self.cache.position_for_order(client_order_id)
-```
-
-##### Position statistics
-
-```python
-# Number of currently open positions
-open_count = self.cache.positions_open_count()
-
-# Number of closed positions
-closed_count = self.cache.positions_closed_count()
-
-# Total number of positions in the system
-total_count = self.cache.positions_total_count()
-
-# Number of open long positions
-long_positions_count = self.cache.positions_open_count(side=PositionSide.LONG)
-
-# Number of positions for a given instrument
-instrument_positions_count = self.cache.positions_total_count(instrument_id=instrument_id)
-```
-
-#### Accounts
-
-```python
-# Retrieve account by ID
-account = self.cache.account(account_id)
-
-# Retrieve account for a specific venue
-account = self.cache.account_for_venue(venue)
-
-# Retrieve account ID for a venue
-account_id = self.cache.account_id(venue)
-```
-
-A venue lookup resolves only when exactly one account is issued under the venue (the account ID prefix, such
-as `BINANCE` in `BINANCE-001`). When several accounts share a venue, `account_for_venue` and `account_id`
-return `None`. Get those accounts by ID.
-
-#### Instruments
-
-```python
-# Retrieve a specific instrument by its ID
-instrument = self.cache.instrument(instrument_id)
-
-# Retrieve all instruments in the cache
-all_instruments = self.cache.instruments()
-
-# Instruments for a specific venue
-venue_instruments = self.cache.instruments(venue=venue)
-
-# Get all instrument IDs
-instrument_ids = self.cache.instrument_ids()
-
-# Get instrument IDs for a specific venue
-venue_instrument_ids = self.cache.instrument_ids(venue=venue)
-```
-
-### Purging cached data
-
-Long-running sessions accumulate closed orders, closed positions, account events, and
-unused instruments. The cache exposes targeted and bulk purge methods so strategies and
-the live trading engine can keep memory bounded without restarting the system.
-
-#### Targeted purges
-
-Use these to drop a single entity. Each refuses to purge while the entity is still active.
-
-- `cache.purge_order(client_order_id)`: removes the order and each order-keyed index entry. Skips open orders.
-- `cache.purge_position(position_id)`: removes the position, its snapshots, and position-keyed
-  index entries. Skips open positions.
-- `cache.purge_instrument(instrument_id)`: removes the instrument and its transient per-instrument
-  maps (order book, quotes, trades, mark/index/funding prices, instrument status and close, greeks,
-  and bars referencing the instrument). Skips while any associated order is non-terminal (anything
-  that has not reached a closed state, including initialized, submitted, accepted, emulated,
-  released, and inflight orders) or any associated position is non-closed. Cached orders and
-  positions remain indexed until purged separately, preserving historical queries and realized PnL.
+- `cache.purge_order(client_order_id)`: ลบ order และ index entry ทุกตัวที่ใช้ order เป็น key ข้าม open order
+- `cache.purge_position(position_id)`: ลบ position, snapshot ของ position และ index entry ที่ใช้ position
+  เป็น key ข้าม open position
+- `cache.purge_instrument(instrument_id)`: ลบ instrument และ map ชั่วคราวต่อ instrument (order book, quote,
+  trade, ราคา mark/index/funding, instrument status และ close, greeks และ bar ที่อ้างอิง instrument นั้น)
+  จะข้ามถ้ามี order ที่เกี่ยวข้องตัวใดยังไม่อยู่ในสถานะสิ้นสุด (ทุกสถานะที่ยังไม่ถึงสถานะปิด รวมถึง order ที่เป็น
+  initialized, submitted, accepted, emulated, released และ inflight) หรือมี position ที่เกี่ยวข้องตัวใดยัง
+  ไม่ปิด order และ position ใน cache จะยังคงอยู่ใน index จนกว่าจะถูก purge แยกต่างหาก เพื่อรักษา historical
+  query และ realized PnL ไว้
 
 :::warning
-`purge_instrument` is intended for actors and strategies with their own lifecycle logic
-for deciding when an instrument is no longer needed. Purging an instrument that another
-component still relies on causes missing instrument lookups and loses market-data
-history. Active subscriptions belong to the data engine, so unsubscribe before purging
-if you no longer want updates.
+`purge_instrument` มีไว้สำหรับ actor และ strategy ที่มี lifecycle logic ของตัวเองในการตัดสินว่าเมื่อใดไม่ต้องการ
+instrument แล้ว การ purge instrument ที่ component อื่นยังใช้อยู่จะทำให้ค้นหา instrument ไม่เจอ และสูญเสีย
+ประวัติ market data subscription ที่ active อยู่เป็นของ data engine ดังนั้นให้ unsubscribe ก่อน purge
+ถ้าไม่ต้องการรับอัปเดตอีก
 :::
 
-#### Bulk purges
+#### การ purge แบบเป็นชุด {#bulk-purges}
 
-Use these to sweep older entries by age. They take the current timestamp and a buffer or
-lookback window in seconds.
+ใช้เพื่อกวาดรายการที่เก่าออกตามอายุ โดยรับ timestamp ปัจจุบันและช่วง buffer หรือ lookback หน่วยวินาที
 
-- `cache.purge_closed_orders(ts_now, buffer_secs)`: closed orders whose close timestamp is
-  older than `buffer_secs`.
-- `cache.purge_closed_positions(ts_now, buffer_secs)`: closed positions whose close timestamp
-  is older than `buffer_secs`.
-- `cache.purge_account_events(ts_now, lookback_secs)`: account state events older than
-  `lookback_secs`. A value of `0` purges all events.
+- `cache.purge_closed_orders(ts_now, buffer_secs)`: closed order ที่ timestamp ตอนปิดเก่ากว่า `buffer_secs`
+- `cache.purge_closed_positions(ts_now, buffer_secs)`: closed position ที่ timestamp ตอนปิดเก่ากว่า
+  `buffer_secs`
+- `cache.purge_account_events(ts_now, lookback_secs)`: account state event ที่เก่ากว่า `lookback_secs`
+  ค่า `0` จะ purge event ทั้งหมด
 
 :::warning
-Keep the closed source position of a virtual `HEDGING` flip while its order can still receive fills.
-Purging it removes the history needed to route later fills and can cause the engine to reject them.
+ให้เก็บ closed source position ของการ flip แบบ virtual `HEDGING` ไว้ ตราบใดที่ order ของมันยังอาจได้รับ fill
+การ purge position นั้นจะลบประวัติที่จำเป็นสำหรับ route fill ที่ตามมา และอาจทำให้ engine reject fill เหล่านั้น
 :::
 
-#### Automatic purging in live trading
+#### การ purge อัตโนมัติใน live trading {#automatic-purging-in-live-trading}
 
-`LiveExecutionEngineConfig` schedules the bulk purges on a timer. All purge intervals default to `None`, which
-disables the corresponding loop. Set an interval to enable a loop and set its buffer or lookback to control
-how recent entries stay protected. This example uses the recommended starting values from the live-trading
-configuration guide:
+`LiveExecutionEngineConfig` ตั้งเวลาให้ purge แบบเป็นชุดทำงานด้วย timer ช่วงเวลา purge ทุกตัวมีค่า default
+เป็น `None` ซึ่งปิด loop ที่เกี่ยวข้องไว้ ตั้งค่า interval เพื่อเปิด loop และตั้ง buffer หรือ lookback เพื่อควบคุม
+ว่ารายการที่ใหม่แค่ไหนจะได้รับการคุ้มครอง ค่าเริ่มต้นที่แนะนำจากคู่มือการตั้งค่า live trading คือ:
 
-```python
-from nautilus_trader.config import LiveExecutionEngineConfig
+- `purge_closed_orders_interval_mins=15`, `purge_closed_orders_buffer_mins=60`
+- `purge_closed_positions_interval_mins=15`, `purge_closed_positions_buffer_mins=60`
+- `purge_account_events_interval_mins=15`, `purge_account_events_lookback_mins=60`
 
-exec_engine = LiveExecutionEngineConfig(
-    purge_closed_orders_interval_mins=15,
-    purge_closed_orders_buffer_mins=60,
-    purge_closed_positions_interval_mins=15,
-    purge_closed_positions_buffer_mins=60,
-    purge_account_events_interval_mins=15,
-    purge_account_events_lookback_mins=60,
-)
-```
-
-A shorter interval runs a purge more often, while a shorter buffer or lookback removes newer data.
-Choose each value separately based on memory limits and the recent execution context needed for
-reconciliation or analysis. See
-[Configure live trading: memory management](../how_to/configure_live_trading.md) for the
-full parameter reference.
+interval ที่สั้นลงทำให้ purge บ่อยขึ้น ส่วน buffer หรือ lookback ที่สั้นลงจะลบข้อมูลที่ใหม่กว่า เลือกแต่ละค่าแยกกัน
+ตามขีดจำกัดของ memory และ execution context ล่าสุดที่ต้องใช้สำหรับ reconciliation หรือการวิเคราะห์ ดูรายการ
+พารามิเตอร์ทั้งหมดได้ที่
+[ตั้งค่า live trading: การจัดการ memory](../how_to/configure_live_trading.md)
 
 :::note
-The instrument purge has no automatic loop because the right time to drop an instrument
-depends on strategy state, not age. Call `cache.purge_instrument` from the actor or
-strategy that owns the instrument's lifecycle.
+การ purge instrument ไม่มี loop อัตโนมัติ เพราะเวลาที่เหมาะสมในการลบ instrument ขึ้นอยู่กับ state ของ strategy
+ไม่ใช่อายุ ให้เรียก `cache.purge_instrument` จาก actor หรือ strategy ที่ดูแล lifecycle ของ instrument นั้น
 :::
 
-### Custom data
+### Custom data {#custom-data}
 
-The `Cache` stores raw bytes under application-defined string keys. Serialize values before adding
-them and deserialize them after retrieval. Actors and strategies can use these entries to share
-small amounts of application data.
+`Cache` เก็บ raw bytes ภายใต้ string key ที่แอปพลิเคชันกำหนด ให้ serialize ค่าก่อนเพิ่ม และ deserialize หลัง
+ดึงออกมา actor และ strategy ใช้รายการเหล่านี้เพื่อแชร์ข้อมูลแอปพลิเคชันจำนวนเล็กน้อยได้
 
-#### Basic storage and retrieval
+#### การเก็บและดึงข้อมูลเบื้องต้น {#basic-storage-and-retrieval}
 
-```python
-# Store serialized data
-self.cache.add(key="my_key", value=b"some binary data")
-
-# Retrieve serialized data. Returns bytes or None
-stored_data = self.cache.get("my_key")
-```
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python (`add` และ `get` ด้วย key) จึงตัดออก
 
 :::warning
-The `Cache` is not a general database. Use a dedicated store for large datasets or complex queries.
+`Cache` ไม่ใช่ database ทั่วไป ให้ใช้ที่เก็บข้อมูลเฉพาะทางสำหรับชุดข้อมูลขนาดใหญ่หรือ query ที่ซับซ้อน
 :::
 
-## Best practices and common questions
+## แนวปฏิบัติที่ดีและคำถามที่พบบ่อย {#best-practices-and-common-questions}
 
-### Cache vs. portfolio usage
+### Cache กับ portfolio {#cache-vs-portfolio-usage}
 
-The `Cache` and `Portfolio` serve different purposes:
+`Cache` และ `Portfolio` มีหน้าที่ต่างกัน:
 
 **Cache**:
 
-- Keeps execution objects, selected object histories, and bounded recent market data until purge or reset.
-- Applies local state changes immediately, such as initializing an order before submission.
-- Applies external events when the engine processes them, such as when an order fills.
+- เก็บ execution object, ประวัติของ object บางชนิด และ market data ล่าสุดแบบจำกัดขนาด จนกว่าจะ purge หรือ reset
+- ใช้การเปลี่ยนแปลง state ภายในทันที เช่น การ initialize order ก่อน submit
+- ใช้ event จากภายนอกเมื่อ engine ประมวลผล event นั้น เช่น ตอนที่ order ถูก fill
 
 **Portfolio**:
 
-- Aggregates position, exposure, and account information.
-- Computes current portfolio values from cached state and market prices.
+- รวบรวมข้อมูล position, exposure และ account
+- คำนวณมูลค่า portfolio ปัจจุบันจาก state ใน cache และราคาตลาด
 
-```python
-from nautilus_trader.model import PositionChanged
-from nautilus_trader.trading import Strategy
+### Cache กับตัวแปรของ strategy {#cache-vs-strategy-variables}
 
+ใช้รายการใน cache สำหรับข้อมูลที่แชร์และ serialize แล้ว และใช้ตัวแปรของ strategy สำหรับ working state ภายใน
 
-class MyStrategy(Strategy):
-    def on_position_changed(self, event: PositionChanged) -> None:
+**การเก็บใน cache**:
 
-        # Read the fills retained by the cached position
-        position = self.cache.position(event.position_id)
-        fills = position.events() if position is not None else []
+- actor และ strategy ที่ใช้ system cache ร่วมกันเข้าถึงได้
+- persist รายการ byte ทั่วไปได้เมื่อมีการตั้งค่า backing database และการเขียนเสร็จสมบูรณ์
+- ยังคงอยู่เมื่อ strategy ตัวใดตัวหนึ่ง reset แต่การ reset cache หรือ execution engine จะล้างรายการใน memory
 
-        # Read current aggregate exposure from the portfolio
-        current_exposure = self.portfolio.net_exposure(event.instrument_id)
-```
+**ตัวแปรของ strategy**:
 
-### Cache vs. strategy variables
+- เก็บการคำนวณและค่าระหว่างทางที่มี type และเฉพาะของ strategy ไว้ภายใน
+- ไม่เปิดเผยค่าให้ component อื่น และไม่ persist ให้อัตโนมัติ
 
-Use cache entries for shared, serialized data and strategy variables for local working state.
+การ persist state ของ actor และ strategy ข้ามการ restart process ใช้ hook `on_save` และ `on_load` แยกต่างหาก
+ร่วมกับ backing ที่รองรับ ดูหัวข้อ
+[การตั้งค่า cache database](../how_to/configure_live_trading.md#cache-database-configuration)
+ในคู่มือ live trading
 
-**Cache storage**:
+ให้ serialize ข้อมูลที่แชร์ก่อนเพิ่มลงใน cache แล้ว strategy อื่นจึงดึงข้อมูลนั้นมา deserialize ได้
 
-- Available to actors and strategies that share the system cache.
-- Can persist general byte entries when a backing database is configured and writes complete.
-- Stays available when an individual strategy resets, but a cache or execution-engine reset clears the
-  in-memory entries.
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-**Strategy variables**:
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-- Keep typed, strategy-specific calculations and intermediate values encapsulated.
-- Do not expose values to other components or persist them automatically.
-
-Actor and strategy state persistence across process restarts uses separate `on_save` and `on_load`
-hooks with a supported backing. See the
-[cache database configuration](../how_to/configure_live_trading.md#cache-database-configuration)
-section of the live-trading guide.
-
-Serialize shared data before adding it to the cache:
-
-```python
-import json
-
-from nautilus_trader.trading import Strategy
-
-
-class MyStrategy(Strategy):
-    def on_start(self) -> None:
-        shared_data = {
-            "last_reset": self.clock.timestamp_ns(),
-            "trading_enabled": True,
-        }
-        self.cache.add("shared_strategy_info", json.dumps(shared_data).encode())
-```
-
-Another strategy can retrieve the cached data as follows:
-
-```python
-import json
-
-from nautilus_trader.trading import Strategy
-
-
-class AnotherStrategy(Strategy):
-    def on_start(self) -> None:
-        data_bytes = self.cache.get("shared_strategy_info")
-        if data_bytes is not None:
-            shared_data = json.loads(data_bytes)
-            self.log.info(f"Shared data retrieved: {shared_data}")
-```
-
-## Related guides
-
-- [Data](data/): Data types stored in the cache.
-- [Strategies](strategies.md): Strategies access cache for market data and state.
-- [Reports](reports.md): Generate reports from cached data.
+- [Data](data/): ชนิดข้อมูลที่เก็บใน cache
+- [Strategies](strategies.md): strategy เข้าถึง cache เพื่ออ่าน market data และ state
+- [Reports](reports.md): สร้าง report จากข้อมูลใน cache

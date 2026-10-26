@@ -1,28 +1,27 @@
 # Logging
 
-The platform provides Rust logging for backtesting and live trading through the standard `log` crate facade.
+แพลตฟอร์มมีระบบ logging ฝั่ง Rust สำหรับ backtest และ live trading ผ่าน facade มาตรฐานของ crate `log`
 
-The core logger operates in a separate thread and uses a multi-producer single-consumer (MPSC) channel to receive log messages.
-This moves log output I/O off the calling thread. Message arguments are still formatted on the
-calling thread before the event is queued.
+core logger ทำงานใน thread แยก และใช้ channel แบบ multi-producer single-consumer (MPSC) ในการรับ log message
+วิธีนี้ย้าย I/O ของการเขียน log ออกจาก thread ที่เรียกใช้ อย่างไรก็ตาม argument ของ message ยังคงถูก format
+บน thread ที่เรียกใช้ก่อนที่ event จะเข้าคิว
 
-Logging output is configurable and supports:
+output ของ logging ปรับแต่งได้ และรองรับ:
 
-- **stdout/stderr writer** for console output
-- **file writer** for persistent storage of logs
+- **stdout/stderr writer** สำหรับแสดงผลบน console
+- **file writer** สำหรับเก็บ log ไว้ถาวร
 
 :::tip
-Infrastructure such as [Vector](https://github.com/vectordotdev/vector) can be integrated to collect and aggregate events within your system.
+สามารถเชื่อมต่อ infrastructure อย่าง [Vector](https://github.com/vectordotdev/vector) เพื่อเก็บรวบรวมและ aggregate event ภายในระบบของคุณได้
 :::
 
-## Architecture
+## สถาปัตยกรรม {#architecture}
 
-The logging subsystem captures events from multiple sources and routes them through an MPSC channel to a dedicated logging thread:
+subsystem ของ logging รับ event จากหลายแหล่ง แล้วส่งต่อผ่าน MPSC channel ไปยัง thread สำหรับ logging โดยเฉพาะ:
 
 ```mermaid
 flowchart TB
     subgraph Sources["Log Sources"]
-        PY["Python Logger"]
         NAUT["Nautilus Rust Components"]
         LOG["External Rust Libraries<br/>(using log crate)<br/>rustls, etc."]
     end
@@ -49,7 +48,6 @@ flowchart TB
         FILE["Log Files"]
     end
 
-    PY --> NL
     NAUT --> NL
     LOG --> LF --> NL
 
@@ -66,378 +64,294 @@ flowchart TB
     TRACE --> EF --> FMT --> STDOUT
 ```
 
-- **Python and Nautilus components**: Log directly through the Nautilus Logger.
-- **External `log` crate users**: Filtered by `stdout_level`/`fileout_level` in `LoggerConfig`.
-- **External `tracing` crate users**: When enabled, output goes directly to stdout (separate from Nautilus logging), filtered by the `RUST_LOG` environment variable.
-- **Logging thread**: NautilusTrader sends all log events through an MPSC channel to a dedicated thread. Thus,
-  log I/O operations do not block the main thread.
+- **Component ของ Nautilus**: log ผ่าน Nautilus Logger โดยตรง
+- **ผู้ใช้ crate `log` ภายนอก**: ถูกกรองด้วย `stdout_level`/`fileout_level` ใน `LoggerConfig`
+- **ผู้ใช้ crate `tracing` ภายนอก**: เมื่อเปิดใช้ output จะออกไปที่ stdout โดยตรง (แยกจาก logging ของ Nautilus) และถูกกรองด้วย environment variable `RUST_LOG`
+- **Logging thread**: NautilusTrader ส่ง log event ทั้งหมดผ่าน MPSC channel ไปยัง thread เฉพาะ ดังนั้น
+  การทำ I/O ของ log จึงไม่ block main thread
 
-## Configuration
+## การตั้งค่า {#configuration}
 
-Logging can be configured by importing the `LoggerConfig` object.
-By default, log events with an `INFO` `LogLevel` and higher are written to stdout/stderr.
+ตั้งค่า logging ได้ผ่าน object `LoggerConfig`
+โดยค่าเริ่มต้น log event ที่มี `LogLevel` ตั้งแต่ `INFO` ขึ้นไปจะถูกเขียนออก stdout/stderr
 
-The following log levels are supported:
+log level ที่รองรับมีดังนี้:
 
-- `OFF` - Disable logging.
-- `TRACE` - Most verbose level.
-- `DEBUG` - Detailed diagnostic information.
-- `INFO` - General operational messages.
-- `WARNING` - Potential issues that do not prevent operation.
-- `ERROR` - Errors that may affect functionality.
+- `OFF` - ปิด logging
+- `TRACE` - ระดับที่ละเอียดที่สุด
+- `DEBUG` - ข้อมูลวินิจฉัยโดยละเอียด
+- `INFO` - message ทั่วไปเกี่ยวกับการทำงาน
+- `WARNING` - ปัญหาที่อาจเกิดขึ้นแต่ไม่ขัดขวางการทำงาน
+- `ERROR` - error ที่อาจกระทบการทำงาน
 
-See the `LoggerConfig` [API Reference](/docs/python-api-latest/common.html#nautilus_trader.common.LoggerConfig) for further details.
+สิ่งที่ตั้งค่าได้มีดังนี้:
 
-Logging can be configured in the following ways:
+- `LogLevel` ขั้นต่ำสำหรับ stdout/stderr
+- `LogLevel` ขั้นต่ำสำหรับ log file
+- ขนาดสูงสุดก่อน rotate log file
+- จำนวน backup log file สูงสุดที่เก็บไว้เมื่อ rotate
+- การตั้งชื่อ log file อัตโนมัติด้วยส่วนประกอบวันที่หรือ timestamp หรือกำหนดชื่อ log file เอง
+- directory สำหรับเขียน log file
+- รูปแบบ log file เป็น plain text หรือ JSON
+- การกรองแต่ละ component ตาม log level
+- สี ANSI ในบรรทัด log
+- ข้าม logging ทั้งหมด (bypass)
+- พิมพ์ config ของ Rust ออก stdout ตอน initialize
+- ล้าง log file เดิมตอนเริ่มทำงาน (`clear_log_file`)
 
-- Minimum `LogLevel` for stdout/stderr.
-- Minimum `LogLevel` for log files.
-- Maximum size before rotating a log file.
-- Maximum number of backup log files to maintain when rotating.
-- Automatic log file naming with date or timestamp components, or custom log file name.
-- Directory for writing log files.
-- Plain text or JSON log file formatting.
-- Filtering of individual components by log level.
-- ANSI colors in log lines.
-- Bypass logging entirely.
-- Print Rust config to stdout at initialization.
-- Truncate an existing log file on startup (`clear_log_file`).
+### Logging ออก standard output {#standard-output-logging}
 
-### Standard output logging
+stdout/stderr writer จะเขียน log message ออก console ตั้งระดับขั้นต่ำได้ด้วย `stdout_level`
 
-The stdout/stderr writers write log messages to the console. Set the minimum level with `stdout_level`.
+### Logging ลงไฟล์ {#file-logging}
 
-### File logging
+โดยค่าเริ่มต้น log file จะถูกเขียนลง current working directory โดยมี setting สำหรับควบคุมการตั้งชื่อไฟล์และการ rotate
 
-Log files are written to the current working directory by default. Settings control file naming and rotation.
-
-Set the log directory and custom file basename with `FileWriterConfig.directory` and
-`FileWriterConfig.file_name`.
+กำหนด directory ของ log และชื่อไฟล์ฐาน (basename) เองได้ด้วย `FileWriterConfig.directory` และ
+`FileWriterConfig.file_name`
 
 :::warning
-When file logging is enabled, logging initialization fails if the log directory cannot be created or the log
-file cannot be opened. Thus, a node with an unusable log path does not start. Rust binaries that initialize
-logging lazily from `NAUTILUS_LOG` report the error and continue with console logging only.
+เมื่อเปิด file logging การ initialize logging จะล้มเหลวหากสร้าง log directory ไม่ได้หรือเปิด log
+file ไม่ได้ ดังนั้น node ที่มี log path ใช้งานไม่ได้จะไม่ start ส่วน Rust binary ที่ initialize
+logging แบบ lazy จาก `NAUTILUS_LOG` จะรายงาน error แล้วทำงานต่อโดยใช้เพียง console logging
 :::
 
-The logging thread flushes the file buffer to the operating system at approximately 100 ms intervals without
-syncing to disk. Thus, a tailed log file stays current. Blocking console output can delay a flush, and an
-abrupt process exit can still lose lines that are buffered or queued for the logging thread.
+logging thread จะ flush buffer ของไฟล์ไปยังระบบปฏิบัติการทุก ๆ ประมาณ 100 ms โดยไม่
+sync ลง disk ดังนั้น log file ที่ tail ดูอยู่จะเป็นปัจจุบันเสมอ แต่ console output ที่ block อาจทำให้ flush ล่าช้า และการที่ process
+จบลงกะทันหันยังอาจทำให้บรรทัดที่อยู่ใน buffer หรือในคิวของ logging thread สูญหายได้
 
-**Log file formats**:
+**รูปแบบ log file**:
 
-- `None` (default) - Plain text format with `.log` extension.
-- `"json"` - JSON format with `.jsonl` extension, useful for log aggregation tools.
+- `None` (ค่าเริ่มต้น) - รูปแบบ plain text นามสกุล `.log`
+- `"json"` - รูปแบบ JSON นามสกุล `.jsonl` เหมาะกับเครื่องมือ aggregate log
 
-For detailed information about log file naming conventions and rotation behavior, see the [Log file rotation](#log-file-rotation) and [Log file naming convention](#log-file-naming-convention) sections below.
+สำหรับรายละเอียดเรื่องข้อกำหนดการตั้งชื่อ log file และพฤติกรรมการ rotate ดูหัวข้อ [การ rotate log file](#log-file-rotation) และ [ข้อกำหนดการตั้งชื่อ log file](#log-file-naming-convention) ด้านล่าง
 
-#### Log file rotation
+#### การ rotate log file {#log-file-rotation}
 
-Rotation behavior depends on both the presence of a size limit and whether a custom file name is provided:
+พฤติกรรมการ rotate ขึ้นอยู่กับทั้งการมี size limit และการกำหนดชื่อไฟล์เอง:
 
-- **Size-based rotation**:
-  - Set `FileWriterConfig.file_rotate` to a `(max_file_size, max_backup_count)` tuple, such as
-    `(100_000_000, 5)` for 100 MB and five backup files.
-  - When writing a log entry would make the current file exceed this size, the file is closed and a new one is created.
-  - Rotation file names have millisecond resolution. If a rotation resolves to the active path,
-    logging continues to that file, which may briefly exceed the configured maximum size.
-- **Date-based rotation (default naming only)**:
-  - Applies when `file_rotate` and `file_name` are both unset.
-  - On the first write after each UTC date change (midnight), the logger closes the current log file and
-    starts a new one. This creates one file per UTC day.
-- **No rotation**:
-  - When `file_name` is set without `file_rotate`, logs continue to append to the same file.
-  - Note: Size-based rotation takes precedence: if both a custom name and size limit are provided, rotation still occurs.
-- **Backup file management**:
-  - The second value in `file_rotate` limits the total number of rotated files kept.
-  - When this limit is exceeded, the oldest backup files are automatically removed.
-  - The limit applies to files rotated by the current process. Rotated files from earlier runs are not
-    removed. Use an external tool such as `logrotate` for retention across restarts.
-- **Rotation failures**:
-  - If a rotation fails (for example, the new file cannot be opened), logging continues to the
-    current file and rotation is retried at the next size or date boundary.
+- **Rotate ตามขนาด**:
+  - ตั้ง `FileWriterConfig.file_rotate` เป็น tuple `(max_file_size, max_backup_count)` เช่น
+    `(100_000_000, 5)` สำหรับ 100 MB และ backup ห้าไฟล์
+  - เมื่อการเขียน log entry จะทำให้ไฟล์ปัจจุบันเกินขนาดนี้ ไฟล์จะถูกปิดและสร้างไฟล์ใหม่ขึ้นมา
+  - ชื่อไฟล์ที่ rotate มีความละเอียดระดับมิลลิวินาที หากการ rotate ได้ path ซ้ำกับไฟล์ที่ใช้งานอยู่
+    logging จะเขียนต่อในไฟล์นั้น ซึ่งอาจเกินขนาดสูงสุดที่ตั้งไว้ชั่วขณะ
+- **Rotate ตามวันที่ (เฉพาะการตั้งชื่อแบบค่าเริ่มต้น)**:
+  - ใช้เมื่อไม่ได้ตั้งทั้ง `file_rotate` และ `file_name`
+  - ในการเขียนครั้งแรกหลังวันที่ UTC เปลี่ยน (เที่ยงคืน) logger จะปิด log file ปัจจุบันและ
+    เริ่มไฟล์ใหม่ ทำให้ได้หนึ่งไฟล์ต่อหนึ่งวัน UTC
+- **ไม่ rotate**:
+  - เมื่อตั้ง `file_name` โดยไม่ตั้ง `file_rotate` log จะถูกต่อท้ายในไฟล์เดิมเรื่อย ๆ
+  - หมายเหตุ: การ rotate ตามขนาดมีลำดับความสำคัญสูงกว่า หากกำหนดทั้งชื่อเองและ size limit ก็ยังคงมีการ rotate
+- **การจัดการ backup file**:
+  - ค่าที่สองใน `file_rotate` จำกัดจำนวนไฟล์ที่ rotate แล้วซึ่งจะเก็บไว้ทั้งหมด
+  - เมื่อเกินจำนวนนี้ backup file ที่เก่าที่สุดจะถูกลบโดยอัตโนมัติ
+  - ขีดจำกัดนี้ใช้กับไฟล์ที่ rotate โดย process ปัจจุบันเท่านั้น ไฟล์ที่ rotate จากการรันครั้งก่อนจะไม่
+    ถูกลบ ให้ใช้เครื่องมือภายนอกอย่าง `logrotate` สำหรับการเก็บรักษาข้ามการ restart
+- **การ rotate ล้มเหลว**:
+  - หากการ rotate ล้มเหลว (เช่น เปิดไฟล์ใหม่ไม่ได้) logging จะเขียนต่อใน
+    ไฟล์ปัจจุบัน และจะลอง rotate ใหม่เมื่อถึงขอบเขตขนาดหรือวันที่ครั้งถัดไป
 
-#### Log file naming convention
+#### ข้อกำหนดการตั้งชื่อ log file {#log-file-naming-convention}
 
-The default naming convention ensures log files are uniquely identifiable and timestamped.
-The format depends on whether file rotation is enabled:
+ข้อกำหนดการตั้งชื่อแบบค่าเริ่มต้นทำให้ log file ระบุตัวตนได้ไม่ซ้ำและมี timestamp กำกับ
+รูปแบบขึ้นอยู่กับว่าเปิดการ rotate ไฟล์หรือไม่:
 
-**With file rotation enabled**:
+**เมื่อเปิดการ rotate ไฟล์**:
 
-- **Format**: `{trader_id}_{%Y-%m-%d_%H%M%S-%3f}_{instance_id}.{log|jsonl}`
-- **Example**: `TESTER-001_2025-04-09_210721-521_d7dc12c8-7008-4042-8ac4-017c3db0fc38.log`
-- **Components**:
-  - `{trader_id}`: The trader identifier (for example, `TESTER-001`).
-  - `{%Y-%m-%d_%H%M%S-%3f}`: UTC datetime with millisecond resolution.
-  - `{instance_id}`: A unique instance identifier.
-  - `{log|jsonl}`: File suffix based on format setting.
+- **รูปแบบ**: `{trader_id}_{%Y-%m-%d_%H%M%S-%3f}_{instance_id}.{log|jsonl}`
+- **ตัวอย่าง**: `TESTER-001_2025-04-09_210721-521_d7dc12c8-7008-4042-8ac4-017c3db0fc38.log`
+- **ส่วนประกอบ**:
+  - `{trader_id}`: trader identifier (เช่น `TESTER-001`)
+  - `{%Y-%m-%d_%H%M%S-%3f}`: วันเวลา UTC ความละเอียดระดับมิลลิวินาที
+  - `{instance_id}`: instance identifier ที่ไม่ซ้ำกัน
+  - `{log|jsonl}`: นามสกุลไฟล์ตาม setting รูปแบบ
 
-**Without size-based rotation (default naming)**:
+**เมื่อไม่มีการ rotate ตามขนาด (การตั้งชื่อแบบค่าเริ่มต้น)**:
 
-- **Format**: `{trader_id}_{%Y-%m-%d}_{instance_id}.{log|jsonl}`
-- **Example**: `TESTER-001_2025-04-09_d7dc12c8-7008-4042-8ac4-017c3db0fc38.log`
-- **Components**:
-  - `{trader_id}`: The trader identifier.
-  - `{%Y-%m-%d}`: Date only (YYYY-MM-DD).
-  - `{instance_id}`: A unique instance identifier.
-  - `{log|jsonl}`: File suffix based on format setting.
-- **Note**: With default naming and no size limit, logs rotate daily at UTC midnight.
+- **รูปแบบ**: `{trader_id}_{%Y-%m-%d}_{instance_id}.{log|jsonl}`
+- **ตัวอย่าง**: `TESTER-001_2025-04-09_d7dc12c8-7008-4042-8ac4-017c3db0fc38.log`
+- **ส่วนประกอบ**:
+  - `{trader_id}`: trader identifier
+  - `{%Y-%m-%d}`: วันที่เท่านั้น (YYYY-MM-DD)
+  - `{instance_id}`: instance identifier ที่ไม่ซ้ำกัน
+  - `{log|jsonl}`: นามสกุลไฟล์ตาม setting รูปแบบ
+- **หมายเหตุ**: เมื่อใช้การตั้งชื่อแบบค่าเริ่มต้นและไม่มี size limit log จะ rotate ทุกวันตอนเที่ยงคืน UTC
 
-**Custom naming**:
+**การตั้งชื่อเอง**:
 
-If `file_name` is set (for example, `my_custom_log`):
+หากตั้ง `file_name` (เช่น `my_custom_log`):
 
-- With rotation disabled: The file will be named exactly as provided (for example, `my_custom_log.log`).
-- With rotation enabled: The file will include the custom name and timestamp (for example,
-  `my_custom_log_2025-04-09_210721-521.log`).
-- An extension in `file_name` is replaced by the format suffix, so `my_custom_log.log` produces the
-  same names as `my_custom_log`.
+- เมื่อปิดการ rotate: ไฟล์จะมีชื่อตรงตามที่กำหนด (เช่น `my_custom_log.log`)
+- เมื่อเปิดการ rotate: ไฟล์จะมีทั้งชื่อที่กำหนดและ timestamp (เช่น
+  `my_custom_log_2025-04-09_210721-521.log`)
+- นามสกุลที่ใส่ใน `file_name` จะถูกแทนที่ด้วยนามสกุลตามรูปแบบ ดังนั้น `my_custom_log.log` จะให้
+  ชื่อไฟล์เหมือนกับ `my_custom_log`
 
-### Component log filtering
+### การกรอง log ราย component {#component-log-filtering}
 
-The `component_levels` parameter sets log levels for individual components.
-The input value should be a dictionary of component ID strings to log level strings: `dict[str, str]`.
+parameter `component_levels` ใช้กำหนด log level ให้แต่ละ component
+ค่าที่ใส่เป็น mapping จาก string ของ component ID ไปยัง string ของ log level
 
-Below is an example of a trading node logging configuration that includes some of the options mentioned above:
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python ของการตั้งค่า logging ใน trading node จึงตัดออก
 
-```python
-from nautilus_trader.common import LogLevel
-from nautilus_trader.config import FileWriterConfig
-from nautilus_trader.config import LoggerConfig
-from nautilus_trader.config import LiveNodeConfig
-from nautilus_trader.model import TraderId
+สำหรับ backtest สามารถใช้ `BacktestEngineConfig` แทน `LiveNodeConfig` ได้ เพราะมี option เดียวกัน
 
-config_node = LiveNodeConfig(
-    trader_id=TraderId.from_str("TESTER-001"),
-    logging=LoggerConfig(
-        stdout_level=LogLevel.INFO,
-        fileout_level=LogLevel.DEBUG,
-        component_levels={"Portfolio": "INFO"},
-        file_config=FileWriterConfig(file_format="json"),
-    ),
-)
-```
+### การตั้งค่าผ่าน environment variable {#environment-variable-configuration}
 
-For backtesting, the `BacktestEngineConfig` class can be used instead of `LiveNodeConfig`, as the same options are available.
-
-### Environment variable configuration
-
-The `NAUTILUS_LOG` environment variable provides an alternative way to configure logging using a semicolon-separated spec string. This is useful for Rust-only binaries or when you want to override logging settings without modifying code.
+environment variable `NAUTILUS_LOG` เป็นอีกทางหนึ่งในการตั้งค่า logging โดยใช้ spec string ที่คั่นด้วยเครื่องหมาย semicolon เหมาะสำหรับ Rust-only binary หรือเมื่อต้องการ override setting ของ logging โดยไม่ต้องแก้ code
 
 ```bash
 export NAUTILUS_LOG="stdout=Info;fileout=Debug;RiskEngine=Error;is_colored"
 ```
 
-**Supported keys**:
+**Key ที่รองรับ**:
 
-| Key                   | Type      | Description                                      |
-| --------------------- | --------- | ------------------------------------------------ |
-| `stdout`              | Log level | Maximum level for stdout output.                 |
-| `fileout`             | Log level | Maximum level for file output.                   |
-| `is_colored`          | Flag      | Enable ANSI colors (default: true).              |
-| `print_config`        | Flag      | Print config to stdout at startup.               |
-| `log_components_only` | Flag      | Only log components with explicit filters.       |
-| `<Component>`         | Log level | Component-specific level (exact match).          |
-| `<module::path>`      | Log level | Module-specific level (prefix match, Rust only). |
+| Key                   | Type      | Description                                           |
+| --------------------- | --------- | ----------------------------------------------------- |
+| `stdout`              | Log level | ระดับสูงสุดสำหรับ output ออก stdout                    |
+| `fileout`             | Log level | ระดับสูงสุดสำหรับ output ลงไฟล์                        |
+| `is_colored`          | Flag      | เปิดสี ANSI (ค่าเริ่มต้น: true)                        |
+| `print_config`        | Flag      | พิมพ์ config ออก stdout ตอนเริ่มทำงาน                  |
+| `log_components_only` | Flag      | log เฉพาะ component ที่มี filter กำหนดไว้ชัดเจน         |
+| `<Component>`         | Log level | ระดับเฉพาะของ component (match แบบตรงตัว)              |
+| `<module::path>`      | Log level | ระดับเฉพาะของ module (match แบบ prefix, Rust เท่านั้น)  |
 
-Flags are enabled by their presence in the spec string (no value needed). Log levels are case-insensitive: `Off`, `Trace`, `Debug`, `Info`, `Warn`, `Error`.
+flag จะเปิดใช้งานเมื่อปรากฏอยู่ใน spec string (ไม่ต้องใส่ค่า) ส่วน log level ไม่สนตัวพิมพ์เล็กใหญ่: `Off`, `Trace`, `Debug`, `Info`, `Warn`, `Error`
 
 :::note
-For Rust-only binaries, the logging subsystem initializes lazily on first use. Setting
-`NAUTILUS_LOG` configures it without requiring explicit `init_logging()` calls.
+สำหรับ Rust-only binary subsystem ของ logging จะ initialize แบบ lazy เมื่อใช้งานครั้งแรก การตั้ง
+`NAUTILUS_LOG` จะตั้งค่า logging ได้โดยไม่ต้องเรียก `init_logging()` เอง
 :::
 
-### Components-only logging
+### Logging เฉพาะ component {#components-only-logging}
 
-When focusing on a subset of noisy systems, enable `log_components_only` to log messages only from
-components listed in `component_levels`. All other components are suppressed regardless of the
-global stdout or file level.
+เมื่อต้องการโฟกัสเฉพาะบางส่วนของระบบที่มี log เยอะ ให้เปิด `log_components_only` เพื่อ log เฉพาะ message จาก
+component ที่ระบุไว้ใน `component_levels` เท่านั้น component อื่นทั้งหมดจะถูกปิดเสียงโดยไม่ขึ้นกับ
+ระดับ stdout หรือระดับไฟล์ส่วนกลาง
 
-Example (Python configuration):
-
-```python
-logging = LoggerConfig(
-    stdout_level=LogLevel.INFO,
-    component_levels={
-        "RiskEngine": "DEBUG",
-        "Portfolio": "INFO",
-    },
-    log_components_only=True,
-)
-```
-
-If you use the Rust spec string through the environment, include `log_components_only` alongside component
-filters, for example:
+หากใช้ Rust spec string ผ่าน environment ให้ใส่ `log_components_only` ไว้คู่กับ component
+filter เช่น:
 
 ```bash
 export NAUTILUS_LOG="stdout=Info;log_components_only;RiskEngine=Debug;Portfolio=Info"
 ```
 
-### Module path filtering (Rust only)
+### การกรองตาม module path (Rust เท่านั้น) {#module-path-filtering-rust-only}
 
-When using the `NAUTILUS_LOG` environment variable, you can filter by Rust module paths in addition to component names. Keys containing `::` are treated as module path filters with prefix matching, while keys without `::` are component filters with exact matching.
+เมื่อใช้ environment variable `NAUTILUS_LOG` สามารถกรองตาม module path ของ Rust ได้นอกเหนือจากชื่อ component โดย key ที่มี `::` จะถือเป็น module path filter แบบ match ด้วย prefix ส่วน key ที่ไม่มี `::` จะเป็น component filter แบบ match ตรงตัว
 
 ```bash
 # Filter all OKX adapter modules to Warn, but allow Debug for the websocket modules
 export NAUTILUS_LOG="stdout=Info;nautilus_okx::=Warn;nautilus_okx::websocket=Debug"
 ```
 
-The longest matching prefix takes precedence. In the example above, `nautilus_okx::websocket::handler` would use the `Debug` level (longer prefix), while `nautilus_okx::data` would use `Warn`.
+prefix ที่ match ยาวที่สุดจะมีลำดับความสำคัญสูงสุด จากตัวอย่างข้างต้น `nautilus_okx::websocket::handler` จะใช้ระดับ `Debug` (prefix ยาวกว่า) ส่วน `nautilus_okx::data` จะใช้ `Warn`
 
 :::tip
-Rust log macros automatically capture the module path when no explicit component is provided. This enables module-level filtering to work with standard logging calls.
+log macro ของ Rust จะเก็บ module path ให้อัตโนมัติเมื่อไม่ได้ระบุ component ไว้ชัดเจน ทำให้การกรองระดับ module ใช้ได้กับการเรียก logging แบบมาตรฐาน
 :::
 
 :::note
-Module path filtering is only available through the `NAUTILUS_LOG` environment variable. The Python
-`component_levels` configuration uses component name matching only.
+การกรองตาม module path ใช้ได้ผ่าน environment variable `NAUTILUS_LOG` เท่านั้น ส่วนการตั้งค่า
+`component_levels` ใช้การ match ด้วยชื่อ component เท่านั้น
 :::
 
 :::warning
-If `log_components_only=True` (or `log_components_only` is present in the spec string) and
-`component_levels` is empty, no log messages will be emitted to stdout/stderr or files. Add at
-least one component filter or disable components-only logging.
+หาก `log_components_only=True` (หรือมี `log_components_only` อยู่ใน spec string) และ
+`component_levels` ว่างเปล่า จะไม่มี log message ใดถูกส่งออก stdout/stderr หรือไฟล์เลย ให้เพิ่ม
+component filter อย่างน้อยหนึ่งตัว หรือปิด logging เฉพาะ component
 :::
 
-### Log colors
+### สีของ log {#log-colors}
 
-ANSI color codes improve log readability in terminals.
-In environments that do not support ANSI color rendering (such as some cloud environments or text editors),
-these color codes may not be appropriate as they can appear as raw text.
+รหัสสี ANSI ช่วยให้อ่าน log บน terminal ได้ง่ายขึ้น
+แต่ในสภาพแวดล้อมที่ไม่รองรับการแสดงสี ANSI (เช่น cloud environment บางแห่งหรือ text editor)
+รหัสสีเหล่านี้อาจไม่เหมาะ เพราะอาจปรากฏเป็นข้อความดิบ
 
-Set `LoggerConfig.is_colored=False` for these environments.
+ตั้ง `LoggerConfig.is_colored=False` สำหรับสภาพแวดล้อมเหล่านี้
 
-## Python callback exceptions
+## การใช้ logger โดยตรง {#using-a-logger-directly}
 
-Python callback errors include a traceback and chained exceptions. If traceback formatting fails,
-reporting falls back to the exception type and message.
+หากไม่มี object ที่ initialize `NautilusKernel` และ logging ให้ (เช่น `BacktestEngine` หรือ `LiveNode`)
+จะต้องเปิดใช้ logging เองด้วย `init_logging`
 
-Python strategy and execution algorithm order and position callbacks log failures at `ERROR`, with the
-component identity and callback name. Strategy market-exit callbacks use the same reporting. Python data and
-timer callback errors also reach `ERROR`. Those records use the emitting Rust module as their component.
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-For these event callbacks, an exception interrupts that Python invocation. By default, the runtime continues
-dispatching events. It does not roll back work the callback completed before raising.
+**เก็บ `LogGuard` ที่ได้คืนมาไว้ตลอด** ตราบเท่าที่ยังต้องการ logging โดยตรง subsystem ของ logging
+รองรับ guard พร้อมกันได้สูงสุด 255 ตัว
 
-To request a normal shutdown after an error, enable `shutdown_on_error` in the [backtest
-engine](backtesting/apis-and-runs.md#shutdown-on-error) or [live node](live.md#shutdown-on-error)
-configuration. The request takes effect when the runtime next checks for shutdown, rather than interrupting
-the current event dispatch.
+## LogGuard: การจัดการวงจรชีวิตของ log {#logguard-managing-log-lifecycle}
 
-## Using a logger directly
+`init_logging` คืนค่า `LogGuard` ที่ติดตามผู้ใช้หนึ่งรายของ subsystem logging ระดับ process-global
+`BacktestEngine` และ `LiveNode` ถือ guard ของตัวเองไว้ภายใน ดังนั้น application code จึงไม่จำเป็นต้อง
+ขอ guard จาก engine หรือ node
 
-You can initialize and use `Logger` objects directly anywhere, much like Python's built-in `logging` API.
+### การ implement reference counting {#reference-counting-implementation}
 
-Without an object that initializes a `NautilusKernel` and logging (such as `BacktestEngine` or `LiveNode`),
-activate logging as follows:
+ระบบ logging ใช้ reference counting เพื่อติดตาม instance ของ `LogGuard` ที่ยังใช้งานอยู่:
 
-```python
-from nautilus_trader.common import init_logging
-from nautilus_trader.common import Logger
-from nautilus_trader.common import LogLevel
-from nautilus_trader.core import UUID4
-from nautilus_trader.model import TraderId
+- **เพิ่มค่า counter**: เมื่อสร้าง `LogGuard` ใหม่ atomic counter จะเพิ่มขึ้น
+- **ลดค่า counter**: เมื่อ `LogGuard` ถูก drop counter จะลดลง
+- **Guard ตัวสุดท้าย**: เมื่อ counter เป็นศูนย์ log ที่ค้างอยู่ในไฟล์จะถูก flush และ sync โดย
+  logging thread ระดับ process-global ยังคงพร้อมใช้งานสำหรับ guard ที่สร้างภายหลัง
+- **จำนวน guard สูงสุด**: ระบบรองรับ instance ของ `LogGuard` พร้อมกันได้สูงสุด 255 ตัว การพยายามสร้างเกินจำนวนนี้จะทำให้ `init_logging` หรือการสร้าง engine/node ล้มเหลวด้วย error
 
-log_guard = init_logging(
-    trader_id=TraderId.from_str("TESTER-001"),
-    instance_id=UUID4(),
-    level_stdout=LogLevel.INFO,
-)
-logger = Logger("MyLogger")
-```
+การจบ process กะทันหันยังอาจทำให้ log ใน buffer สูญหายได้ ควร dispose engine และ node ตามปกติ และเก็บ guard
+ที่ได้จากการเรียก `init_logging` โดยตรงไว้จนกว่า application จะไม่ต้องการ logging อีก
 
-See the [`init_logging` API Reference](/docs/python-api-latest/common.html) for further details.
+## Tracing subscriber สำหรับ Rust library ภายนอก {#tracing-subscriber-for-external-rust-libraries}
 
-**Keep the returned `LogGuard` alive** for as long as direct logging is needed. The logging subsystem
-supports up to 255 concurrent guards.
+Rust crate ภายนอกที่ใช้ crate `tracing` สามารถแสดง log output ได้โดยเปิดใช้
+tracing subscriber ซึ่งมีประโยชน์ในการ debug dependency ภายนอก หรือเมื่อ integrate
+Rust component ที่เขียนเอง (เช่น feature extractor หรือ adapter)
 
-## LogGuard: managing log lifecycle
+### การเปิดใช้ subscriber {#enabling-the-subscriber}
 
-`init_logging` returns a `LogGuard` that tracks one user of the process-global logging subsystem.
-`BacktestEngine` and `LiveNode` own their guards internally, so application code does not need to
-acquire a guard from an engine or node.
+initialize tracing subscriber โดยตรง
 
-### Reference counting implementation
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-The logging system uses reference counting to track active `LogGuard` instances:
+### การกรองด้วย RUST_LOG {#filtering-with-rust_log}
 
-- **Counter increments**: When a new `LogGuard` is created, an atomic counter is incremented.
-- **Counter decrements**: When a `LogGuard` is dropped, the counter is decremented.
-- **Last guard**: When the counter reaches zero, pending file logs are flushed and synced. The
-  process-global logging thread stays available for later guards.
-- **Maximum guards**: The system supports up to 255 concurrent `LogGuard` instances. Attempting to create more raises a `ValueError` from `init_logging`, or a `RuntimeError` from engine or node creation.
+environment variable `RUST_LOG` ควบคุมว่าจะแสดง tracing event ใดบ้าง เช่น
+`RUST_LOG=my_feature_extractor=debug,hyper=warn` จะแสดง debug log จาก crate ของคุณ และแสดงตั้งแต่ระดับ warn ขึ้นไปจาก hyper
 
-Abrupt termination can still lose buffered logs. Dispose engines and nodes normally, and keep the guard
-returned by direct `init_logging` calls until the application no longer needs logging.
+หากไม่ได้ตั้ง `RUST_LOG` ระดับ filter ค่าเริ่มต้นคือ `warn`
 
-## Tracing subscriber for external Rust libraries
+### หลักการทำงาน {#how-it-works}
 
-External Rust crates that use the `tracing` crate can have their log output displayed by enabling
-the tracing subscriber. This is useful for debugging external dependencies or when integrating
-custom Rust components (such as feature extractors or adapters) compiled as separate PyO3 extensions.
+tracing subscriber ใช้ fmt layer ของ `tracing-subscriber` ร่วมกับ formatter ที่เขียนเองเพื่อส่ง output
+ออก stdout โดยตรง ซึ่งแยกจาก infrastructure ของ logging ใน Nautilus โดย tracing output
+ใช้รูปแบบที่สอดคล้องกับ Nautilus พร้อม timestamp ระดับนาโนวินาที
 
-### Enabling the subscriber
-
-Initialize the tracing subscriber directly:
-
-```python
-from nautilus_trader.common import init_tracing
-
-init_tracing()
-```
-
-### Filtering with RUST_LOG
-
-The `RUST_LOG` environment variable controls which tracing events are displayed:
-
-```bash
-# Show debug logs from your crate, warn and above from hyper
-RUST_LOG=my_feature_extractor=debug,hyper=warn python my_script.py
-```
-
-If `RUST_LOG` is not set, the default filter level is `warn`.
-
-### How it works
-
-The tracing subscriber uses a `tracing-subscriber` fmt layer with a custom formatter to output
-directly to stdout. This is separate from the Nautilus logging infrastructure - tracing output
-uses a Nautilus-aligned format with nanosecond timestamps.
-
-Example tracing output:
+ตัวอย่าง tracing output:
 
 ```
 2026-01-24T05:51:42.809619000Z [DEBUG] hyper_util::client::legacy::connect::http: connecting to 104.18.5.240:443
 2026-01-24T05:51:42.810543000Z [DEBUG] hyper_util::client::legacy::pool: pooling idle connection for ("https", api.example.com)
 ```
 
-**Differences from Nautilus logging**:
+**ความแตกต่างจาก logging ของ Nautilus**:
 
-- Tracing output goes directly to stdout, not through the Nautilus logging thread.
-- Tracing events are not written to Nautilus log files.
-- Filtering is controlled exclusively by `RUST_LOG`, independent of `LoggerConfig`.
+- tracing output ออกไปที่ stdout โดยตรง ไม่ผ่าน logging thread ของ Nautilus
+- tracing event ไม่ถูกเขียนลง log file ของ Nautilus
+- การกรองควบคุมด้วย `RUST_LOG` เพียงอย่างเดียว ไม่ขึ้นกับ `LoggerConfig`
 
-For external libraries that use the `log` crate (such as `rustls`), their events go through
-the Nautilus logger and are filtered by `stdout_level`/`fileout_level` in `LoggerConfig`.
+สำหรับ library ภายนอกที่ใช้ crate `log` (เช่น `rustls`) event จะผ่าน
+Nautilus logger และถูกกรองด้วย `stdout_level`/`fileout_level` ใน `LoggerConfig`
 
 :::tip
-`RUST_LOG` only affects crates using `tracing`. For crates using `log`, configure verbosity through
-`LoggerConfig` or the `NAUTILUS_LOG` environment variable (for example, `NAUTILUS_LOG=stdout=Debug`).
+`RUST_LOG` มีผลเฉพาะกับ crate ที่ใช้ `tracing` สำหรับ crate ที่ใช้ `log` ให้ตั้งระดับความละเอียดผ่าน
+`LoggerConfig` หรือ environment variable `NAUTILUS_LOG` (เช่น `NAUTILUS_LOG=stdout=Debug`)
 :::
 
 :::note
-The tracing subscriber can only be initialized once per process. A second `init_tracing()` call
-raises an error.
+tracing subscriber initialize ได้เพียงครั้งเดียวต่อ process การเรียก `init_tracing()` ครั้งที่สอง
+จะเกิด error
 :::
 
-## Platform-specific considerations
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-### Windows shutdown behavior
-
-On Windows, non-deterministic garbage collection during interpreter shutdown can occasionally
-delay the final `LogGuard` drop until after interpreter teardown has begun. Dropping the last
-guard is what flushes and syncs pending file logs, so a delayed drop can result in truncated
-logs.
-
-## Related guides
-
-- [Architecture](architecture.md) - System architecture including logging infrastructure.
+- [Architecture](architecture.md) - สถาปัตยกรรมของระบบ รวมถึง infrastructure ของ logging

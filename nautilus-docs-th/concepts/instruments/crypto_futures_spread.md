@@ -1,56 +1,54 @@
 # Crypto Futures Spread
 
-`CryptoFuturesSpread` represents an exchange-defined spread strategy over crypto
-futures. The venue publishes the strategy as a single instrument with its own symbol,
-strategy type, precision, increments, and expiration.
+`CryptoFuturesSpread` แทน spread strategy ที่ exchange กำหนดขึ้นบน crypto futures
+venue จะเผยแพร่ strategy นี้เป็น instrument เดียวที่มี symbol, ประเภท strategy, precision,
+increment และวันหมดอายุเป็นของตัวเอง
 
-Examples include listed crypto futures calendar spreads.
+ตัวอย่างเช่น crypto futures calendar spread ที่จดทะเบียนซื้อขายใน exchange
 
-## Fields
+## Field {#fields}
 
-| Field                 | Rust type          | Python type        | Required/default | Notes                                    |
-| --------------------- | ------------------ | ------------------ | ---------------- | ---------------------------------------- |
-| `instrument_id`       | `InstrumentId`     | `InstrumentId`     | Required         | Stored as `id` in Rust.                  |
-| `raw_symbol`          | `Symbol`           | `Symbol`           | Required         | Native venue symbol.                     |
-| `underlying`          | `Currency`         | `Currency`         | Required         | Crypto asset the strategy tracks.        |
-| `quote_currency`      | `Currency`         | `Currency`         | Required         | Currency used to quote the price.        |
-| `settlement_currency` | `Currency`         | `Currency`         | Required         | Currency used to settle PnL and fees.    |
-| `is_inverse`          | `bool`             | `bool`             | Required         | True when sizing/costing is inverse.     |
-| `strategy_type`       | `Ustr`             | `str`              | Required         | Venue strategy type, such as calendar.   |
-| `activation_ns`       | `UnixNanos`        | `int`              | Required         | Strategy activation timestamp.           |
-| `expiration_ns`       | `UnixNanos`        | `int`              | Required         | Strategy expiration timestamp.           |
-| `price_precision`     | `u8`               | `int`              | Required         | Decimal places allowed for prices.       |
-| `size_precision`      | `u8`               | `int`              | Required         | Decimal places allowed for order sizes.  |
-| `price_increment`     | `Price`            | `Price`            | Required         | Smallest valid price step.               |
-| `size_increment`      | `Quantity`         | `Quantity`         | Required         | Smallest valid size step.                |
-| `multiplier`          | `Quantity`         | `Quantity`         | `1`              | Strategy multiplier.                     |
-| `lot_size`            | `Quantity`         | `Quantity`         | `1`              | Rounded lot or board size.               |
-| `max_quantity`        | `Option<Quantity>` | `Quantity \| None` | `None`           | Maximum order quantity.                  |
-| `min_quantity`        | `Option<Quantity>` | `Quantity \| None` | `None`           | Minimum order quantity.                  |
-| `max_notional`        | `Option<Money>`    | `Money \| None`    | `None`           | Maximum order notional value.            |
-| `min_notional`        | `Option<Money>`    | `Money \| None`    | `None`           | Minimum order notional value.            |
-| `max_price`           | `Option<Price>`    | `Price \| None`    | `None`           | Maximum valid quote or order price.      |
-| `min_price`           | `Option<Price>`    | `Price \| None`    | `None`           | Minimum valid quote or order price.      |
-| `margin_init`         | `Option<Decimal>`  | `Decimal \| None`  | `0`              | Initial margin rate.                     |
-| `margin_maint`        | `Option<Decimal>`  | `Decimal \| None`  | `0`              | Maintenance margin rate.                 |
-| `tick_scheme`         | `Option<Ustr>`     | `str \| None`      | `None`           | Registered variable tick scheme name.    |
-| `info`                | `Option<Params>`   | `dict \| None`     | `None`           | Adapter metadata.                        |
-| `ts_event`            | `UnixNanos`        | `int`              | Required         | Event timestamp in nanoseconds.          |
-| `ts_init`             | `UnixNanos`        | `int`              | Required         | Initialization timestamp in nanoseconds. |
+| Field                 | Rust type          | จำเป็น/ค่าเริ่มต้น | หมายเหตุ                                       |
+| --------------------- | ------------------ | ------------------ | ---------------------------------------------- |
+| `instrument_id`       | `InstrumentId`     | จำเป็น             | ใน Rust เก็บเป็น `id`                          |
+| `raw_symbol`          | `Symbol`           | จำเป็น             | symbol ดั้งเดิมของ venue                       |
+| `underlying`          | `Currency`         | จำเป็น             | crypto asset ที่ strategy อ้างอิง              |
+| `quote_currency`      | `Currency`         | จำเป็น             | สกุลเงินที่ใช้ quote ราคา                      |
+| `settlement_currency` | `Currency`         | จำเป็น             | สกุลเงินที่ใช้ settle PnL และค่าธรรมเนียม       |
+| `is_inverse`          | `bool`             | จำเป็น             | เป็น true เมื่อการคิดขนาด/ต้นทุนเป็นแบบ inverse |
+| `strategy_type`       | `Ustr`             | จำเป็น             | ประเภท strategy ของ venue เช่น calendar        |
+| `activation_ns`       | `UnixNanos`        | จำเป็น             | timestamp ที่ strategy เริ่มใช้งาน             |
+| `expiration_ns`       | `UnixNanos`        | จำเป็น             | timestamp ที่ strategy หมดอายุ                 |
+| `price_precision`     | `u8`               | จำเป็น             | จำนวนทศนิยมที่อนุญาตสำหรับราคา                 |
+| `size_precision`      | `u8`               | จำเป็น             | จำนวนทศนิยมที่อนุญาตสำหรับขนาด order          |
+| `price_increment`     | `Price`            | จำเป็น             | ขั้นราคาที่เล็กที่สุดที่ใช้ได้                  |
+| `size_increment`      | `Quantity`         | จำเป็น             | ขั้นขนาดที่เล็กที่สุดที่ใช้ได้                  |
+| `multiplier`          | `Quantity`         | `1`                | ตัวคูณของ strategy                             |
+| `lot_size`            | `Quantity`         | `1`                | ขนาด lot หรือ board แบบปัดเศษ                  |
+| `max_quantity`        | `Option<Quantity>` | `None`             | quantity สูงสุดของ order                       |
+| `min_quantity`        | `Option<Quantity>` | `None`             | quantity ต่ำสุดของ order                       |
+| `max_notional`        | `Option<Money>`    | `None`             | มูลค่า notional สูงสุดของ order                |
+| `min_notional`        | `Option<Money>`    | `None`             | มูลค่า notional ต่ำสุดของ order                |
+| `max_price`           | `Option<Price>`    | `None`             | ราคา quote หรือ order สูงสุดที่ใช้ได้           |
+| `min_price`           | `Option<Price>`    | `None`             | ราคา quote หรือ order ต่ำสุดที่ใช้ได้           |
+| `margin_init`         | `Option<Decimal>`  | `0`                | อัตรา initial margin                           |
+| `margin_maint`        | `Option<Decimal>`  | `0`                | อัตรา maintenance margin                       |
+| `tick_scheme`         | `Option<Ustr>`     | `None`             | ชื่อ variable tick scheme ที่ลงทะเบียนไว้        |
+| `info`                | `Option<Params>`   | `None`             | metadata ของ adapter                           |
+| `ts_event`            | `UnixNanos`        | จำเป็น             | timestamp ของ event หน่วยนาโนวินาที            |
+| `ts_init`             | `UnixNanos`        | จำเป็น             | timestamp ตอน initialize หน่วยนาโนวินาที       |
 
-**Note**: Python constructors use `instrument_id`. Rust stores the same value as `id`.
+## พฤติกรรม {#behavior}
 
-## Behavior
+- `CryptoFuturesSpread` มี asset class เป็น `Cryptocurrency` และ instrument class เป็น
+  `FuturesSpread`
+- venue เผยแพร่ spread เป็น instrument เดียวที่ซื้อขายได้
+- strategy อาจเป็นแบบ linear, inverse หรือ quanto ขึ้นอยู่กับชุดสกุลเงิน
+- ราคา spread อาจเป็นศูนย์หรือติดลบได้ และ `RiskEngine` ยอมรับราคาที่ไม่เป็นบวกสำหรับ
+  instrument class นี้ ยกเว้น spread แบบ inverse
+- หาก adapter มีรายละเอียด leg เฉพาะของ venue ให้ ให้เก็บไว้ใน `info`
 
-- `CryptoFuturesSpread` has asset class `Cryptocurrency` and instrument class
-  `FuturesSpread`.
-- The venue publishes the spread as a single tradable instrument.
-- The strategy can be linear, inverse, or quanto, depending on the currency set.
-- Spread prices can be zero or negative, and the `RiskEngine` accepts non-positive prices
-  for this instrument class, except for inverse spreads.
-- Store venue-specific leg details in `info` when the adapter provides them.
-
-## Example
+## ตัวอย่าง {#example}
 
 ```rust tab="Rust"
 use jiff::Timestamp;
@@ -88,49 +86,14 @@ let btc_spread = CryptoFuturesSpread::builder()
     .unwrap();
 ```
 
-```python tab="Python"
-import pandas as pd
+## Adapter {#adapters}
 
-from nautilus_trader.model import CryptoFuturesSpread
-from nautilus_trader.model import Currency
-from nautilus_trader.model import InstrumentId
-from nautilus_trader.model import Price
-from nautilus_trader.model import Quantity
-from nautilus_trader.model import Symbol
+**Adapter ที่สร้างหรือใช้ instrument `CryptoFuturesSpread` ได้แก่**:
 
-BTC = Currency.from_str("BTC")
-USD = Currency.from_str("USD")
+- [Deribit](../../integrations/deribit.md) สำหรับ crypto futures combo
+- [OKX](../../integrations/okx.md) สำหรับตลาด crypto futures spread
 
-btc_spread = CryptoFuturesSpread(
-    instrument_id=InstrumentId.from_str("BTC-FS-19MAY26_PERP.DERIBIT"),
-    raw_symbol=Symbol("BTC-FS-19MAY26_PERP"),
-    underlying=BTC,
-    quote_currency=USD,
-    settlement_currency=BTC,
-    is_inverse=False,
-    strategy_type="FS",
-    activation_ns=pd.Timestamp("2026-05-12T00:00:00", tz="UTC").value,
-    expiration_ns=pd.Timestamp("2026-05-19T08:00:00", tz="UTC").value,
-    price_precision=1,
-    size_precision=0,
-    price_increment=Price.from_str("0.5"),
-    size_increment=Quantity.from_int(1),
-    multiplier=Quantity.from_int(10),
-    lot_size=Quantity.from_int(1),
-    min_quantity=Quantity.from_int(1),
-    ts_event=0,
-    ts_init=0,
-)
-```
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-## Adapters
-
-**Adapters that create or consume `CryptoFuturesSpread` instruments include**:
-
-- [Deribit](../../integrations/deribit.md) for crypto futures combos.
-- [OKX](../../integrations/okx.md) for crypto futures spread markets.
-
-## Related guides
-
-- [Crypto Future](crypto_future.md) covers single-leg dated crypto futures.
-- [Futures Spread](futures_spread.md) covers non-crypto futures spreads.
+- [Crypto Future](crypto_future.md) อธิบาย crypto futures แบบมีวันหมดอายุที่มี leg เดียว
+- [Futures Spread](futures_spread.md) อธิบาย futures spread ที่ไม่ใช่ crypto

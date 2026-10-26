@@ -1,49 +1,49 @@
 # Equity
 
-`Equity` represents a listed share, ETF, or similar cash-market security. Nautilus uses
-this type for instruments that trade in whole units, quote in one currency, and have no
-contract expiry.
+`Equity` แทนหุ้นจดทะเบียน, ETF หรือหลักทรัพย์ในตลาดเงินสดที่คล้ายกัน Nautilus ใช้
+type นี้กับ instrument ที่ซื้อขายเป็นหน่วยเต็ม, quote ในสกุลเงินเดียว และไม่มี
+วันหมดอายุของสัญญา
 
-Examples include `AAPL.XNAS`, `MSFT.XNAS`, and venue-specific ETF symbols.
+ตัวอย่างเช่น `AAPL.XNAS`, `MSFT.XNAS` และ symbol ของ ETF ที่เฉพาะเจาะจงตาม venue
 
-## Fields
+## ฟิลด์ {#fields}
 
-| Field             | Rust type          | Python type        | Required/default | Notes                                    |
-| ----------------- | ------------------ | ------------------ | ---------------- | ---------------------------------------- |
-| `instrument_id`   | `InstrumentId`     | `InstrumentId`     | Required         | Stored as `id` in Rust.                  |
-| `raw_symbol`      | `Symbol`           | `Symbol`           | Required         | Native venue symbol.                     |
-| `currency`        | `Currency`         | `Currency`         | Required         | Quote and settlement currency.           |
-| `price_precision` | `u8`               | `int`              | Required         | Decimal places allowed for prices.       |
-| `price_increment` | `Price`            | `Price`            | Required         | Smallest valid price step.               |
-| `lot_size`        | `Option<Quantity>` | `Quantity \| None` | `None`           | Board lot or whole-share lot size.       |
-| `ts_event`        | `UnixNanos`        | `int`              | Required         | Event timestamp in nanoseconds.          |
-| `ts_init`         | `UnixNanos`        | `int`              | Required         | Initialization timestamp in nanoseconds. |
-| `isin`            | `Option<Ustr>`     | `str \| None`      | `None`           | International Securities ID when known.  |
-| `max_quantity`    | `Option<Quantity>` | `Quantity \| None` | `None`           | Maximum order quantity.                  |
-| `min_quantity`    | `Option<Quantity>` | `Quantity \| None` | `None`           | Minimum order quantity.                  |
-| `max_price`       | `Option<Price>`    | `Price \| None`    | `None`           | Maximum valid quote or order price.      |
-| `min_price`       | `Option<Price>`    | `Price \| None`    | `None`           | Minimum valid quote or order price.      |
-| `margin_init`     | `Option<Decimal>`  | `Decimal \| None`  | `0`              | Initial margin rate.                     |
-| `margin_maint`    | `Option<Decimal>`  | `Decimal \| None`  | `0`              | Maintenance margin rate.                 |
-| `tick_scheme`     | `Option<Ustr>`     | `str \| None`      | `None`           | Registered variable tick scheme name.    |
-| `info`            | `Option<Params>`   | `dict \| None`     | `None`           | Adapter metadata.                        |
+| Field             | Rust type          | Required/default | Notes                                        |
+| ----------------- | ------------------ | ---------------- | -------------------------------------------- |
+| `instrument_id`   | `InstrumentId`     | Required         | ใน Rust เก็บไว้ในชื่อ `id`                    |
+| `raw_symbol`      | `Symbol`           | Required         | symbol ดั้งเดิมของ venue                      |
+| `currency`        | `Currency`         | Required         | สกุลเงินสำหรับ quote และ settlement           |
+| `price_precision` | `u8`               | Required         | จำนวนตำแหน่งทศนิยมที่อนุญาตสำหรับราคา         |
+| `price_increment` | `Price`            | Required         | ขั้นราคาที่เล็กที่สุดที่ใช้ได้                |
+| `lot_size`        | `Option<Quantity>` | `None`           | ขนาด board lot หรือ lot แบบหุ้นเต็มจำนวน       |
+| `ts_event`        | `UnixNanos`        | Required         | timestamp ของ event หน่วยนาโนวินาที           |
+| `ts_init`         | `UnixNanos`        | Required         | timestamp ตอน initialize หน่วยนาโนวินาที      |
+| `isin`            | `Option<Ustr>`     | `None`           | International Securities ID หากทราบ          |
+| `max_quantity`    | `Option<Quantity>` | `None`           | ปริมาณ order สูงสุด                           |
+| `min_quantity`    | `Option<Quantity>` | `None`           | ปริมาณ order ต่ำสุด                           |
+| `max_price`       | `Option<Price>`    | `None`           | ราคา quote หรือ order สูงสุดที่ใช้ได้         |
+| `min_price`       | `Option<Price>`    | `None`           | ราคา quote หรือ order ต่ำสุดที่ใช้ได้         |
+| `margin_init`     | `Option<Decimal>`  | `0`              | อัตรา initial margin                         |
+| `margin_maint`    | `Option<Decimal>`  | `0`              | อัตรา maintenance margin                     |
+| `tick_scheme`     | `Option<Ustr>`     | `None`           | ชื่อ variable tick scheme ที่ลงทะเบียนไว้      |
+| `info`            | `Option<Params>`   | `None`           | metadata จาก adapter                         |
 
-**Note**: Python constructors use `instrument_id`. Rust stores the same value as `id`.
+**หมายเหตุ**: ใน Rust ค่า `instrument_id` ถูกเก็บไว้ในชื่อ `id`
 
-## Behavior
+## พฤติกรรม {#behavior}
 
-- `Equity` has asset class `Equity` and instrument class `Spot`.
-- Quantity precision is always zero, so orders use whole-share quantities.
-- The multiplier and size increment are one.
-- It has no base currency, expiry, strike, option kind, or inverse costing flag.
-- Use price limits only when the venue publishes them.
+- `Equity` มี asset class เป็น `Equity` และ instrument class เป็น `Spot`
+- quantity precision เป็นศูนย์เสมอ ดังนั้น order จึงใช้ปริมาณเป็นจำนวนหุ้นเต็ม
+- multiplier และ size increment เท่ากับหนึ่ง
+- ไม่มี base currency, วันหมดอายุ, strike, ชนิด option หรือ flag การคิดต้นทุนแบบ inverse
+- ใช้ขีดจำกัดราคาเฉพาะเมื่อ venue เผยแพร่ข้อมูลนั้นเท่านั้น
 
 :::warning
-`Equity` fixes size precision at zero. The `RiskEngine` denies any order whose quantity
-precision exceeds the instrument size precision, so fractional-share quantities are rejected.
+`Equity` กำหนด size precision ไว้ที่ศูนย์ `RiskEngine` จะปฏิเสธ order ใด ๆ ที่ quantity
+precision เกิน size precision ของ instrument ดังนั้นปริมาณที่เป็นเศษส่วนของหุ้นจะถูกปฏิเสธ
 :::
 
-## Example
+## ตัวอย่าง {#example}
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -68,35 +68,14 @@ let aapl = Equity::builder()
     .unwrap();
 ```
 
-```python tab="Python"
-from nautilus_trader.model import Currency
-from nautilus_trader.model import Equity
-from nautilus_trader.model import InstrumentId
-from nautilus_trader.model import Price
-from nautilus_trader.model import Quantity
-from nautilus_trader.model import Symbol
+## Adapters {#adapters}
 
-aapl = Equity(
-    instrument_id=InstrumentId.from_str("AAPL.XNAS"),
-    raw_symbol=Symbol("AAPL"),
-    currency=Currency.from_str("USD"),
-    price_precision=2,
-    price_increment=Price.from_str("0.01"),
-    ts_event=0,
-    ts_init=0,
-    isin="US0378331005",
-    lot_size=Quantity.from_int(100),
-)
-```
+**Adapter ที่สร้างหรือใช้ instrument แบบ `Equity` ได้แก่**:
 
-## Adapters
+- [Databento](../../integrations/databento.md) สำหรับหุ้นและ ETF ที่จดทะเบียนในสหรัฐฯ
+- [Interactive Brokers](../../integrations/interactive_brokers.md) สำหรับสัญญาหุ้นจดทะเบียน
 
-**Adapters that create or consume `Equity` instruments include**:
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-- [Databento](../../integrations/databento.md) for listed US equities and ETFs.
-- [Interactive Brokers](../../integrations/interactive_brokers.md) for listed equity contracts.
-
-## Related guides
-
-- [Data](../data/) explains market data that references instruments.
-- [Value types](../value_types.md) explains `Price`, `Quantity`, and `Money`.
+- [Data](../data/) อธิบาย market data ที่อ้างอิงถึง instrument
+- [Value types](../value_types.md) อธิบาย `Price`, `Quantity` และ `Money`

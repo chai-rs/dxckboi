@@ -1,36 +1,33 @@
 # Synthetic Instrument
 
-`SyntheticInstrument` represents a local instrument whose price comes from a formula over
-other instruments. It is useful for spreads, baskets, ratios, and other derived prices
-that should appear in the system as an instrument.
+`SyntheticInstrument` แทน instrument ภายในระบบที่ราคามาจากสูตรคำนวณบน instrument อื่น เหมาะสำหรับ spread,
+basket, ratio และราคาที่ derive มาแบบอื่น ๆ ที่ต้องการให้ปรากฏในระบบเป็น instrument
 
-Examples include `(BTC.BINANCE + LTC.BINANCE) / 2.0` and ratio-style pairs built from
-component instrument prices.
+ตัวอย่างเช่น `(BTC.BINANCE + LTC.BINANCE) / 2.0` และคู่แบบ ratio ที่สร้างจากราคาของ instrument ที่เป็นองค์ประกอบ
 
-## Fields
+## Fields {#fields}
 
-| Field             | Rust type           | Python type          | Required/default | Notes                                       |
-| ----------------- | ------------------- | -------------------- | ---------------- | ------------------------------------------- |
-| `symbol`          | `Symbol`            | `Symbol`             | Required         | Synthetic symbol used with venue `SYNTH`.   |
-| `id`              | `InstrumentId`      | `InstrumentId`       | Derived          | Instrument ID formed from `symbol.SYNTH`.   |
-| `price_precision` | `u8`                | `int`                | Required         | Decimal places allowed for synthetic price. |
-| `price_increment` | `Price`             | `Price`              | Derived          | Smallest price step from precision.         |
-| `components`      | `Vec<InstrumentId>` | `list[InstrumentId]` | Required         | Component instruments used by the formula.  |
-| `formula`         | `String`            | `str`                | Required         | Numeric expression over component IDs.      |
-| `ts_event`        | `UnixNanos`         | `int`                | Required         | Event timestamp in nanoseconds.             |
-| `ts_init`         | `UnixNanos`         | `int`                | Required         | Initialization timestamp in nanoseconds.    |
+| Field             | Rust type           | จำเป็น/ค่าเริ่มต้น  | หมายเหตุ                                        |
+| ----------------- | ------------------- | ---------------- | ---------------------------------------------- |
+| `symbol`          | `Symbol`            | จำเป็น            | Synthetic symbol ที่ใช้คู่กับ venue `SYNTH`        |
+| `id`              | `InstrumentId`      | Derive ให้        | Instrument ID ที่สร้างจาก `symbol.SYNTH`         |
+| `price_precision` | `u8`                | จำเป็น            | จำนวนทศนิยมที่อนุญาตสำหรับราคา synthetic           |
+| `price_increment` | `Price`             | Derive ให้        | ขั้นราคาที่เล็กที่สุดซึ่งคำนวณจาก precision           |
+| `components`      | `Vec<InstrumentId>` | จำเป็น            | Instrument องค์ประกอบที่สูตรใช้                    |
+| `formula`         | `String`            | จำเป็น            | Expression เชิงตัวเลขบน ID ของ component          |
+| `ts_event`        | `UnixNanos`         | จำเป็น            | Timestamp ของ event หน่วย nanosecond             |
+| `ts_init`         | `UnixNanos`         | จำเป็น            | Timestamp ตอน initialize หน่วย nanosecond        |
 
-**Note**: Python constructs the instrument ID from `symbol` and the `SYNTH` venue. Rust
-stores the same value as `id`.
+**หมายเหตุ**: instrument ID สร้างจาก `symbol` และ venue `SYNTH` โดย Rust เก็บค่านี้ไว้ใน field `id`
 
-## Behavior
+## พฤติกรรม {#behavior}
 
-- `SyntheticInstrument` is local to Nautilus and does not represent a venue orderable market.
-- It always uses the synthetic venue `SYNTH`.
-- The formula must compile against the supplied component identifiers before the object is valid.
-- It has no venue limits, margins, fees, order book, or adapter-specific metadata.
+- `SyntheticInstrument` เป็นของภายใน Nautilus และไม่ได้แทนตลาดที่ส่ง order ไปยัง venue ได้
+- ใช้ synthetic venue `SYNTH` เสมอ
+- สูตรต้อง compile ได้กับ identifier ของ component ที่ให้มา object จึงจะถือว่าถูกต้อง
+- ไม่มี limit ของ venue, margin, fee, order book หรือ metadata เฉพาะของ adapter
 
-## Example
+## ตัวอย่าง {#example}
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -53,30 +50,12 @@ let synthetic = SyntheticInstrument::builder()
     .unwrap();
 ```
 
-```python tab="Python"
-from nautilus_trader.model import InstrumentId
-from nautilus_trader.model import Symbol
-from nautilus_trader.model import SyntheticInstrument
+## Adapters {#adapters}
 
-synthetic = SyntheticInstrument(
-    symbol=Symbol("BTC-LTC"),
-    price_precision=2,
-    components=[
-        InstrumentId.from_str("BTC.BINANCE"),
-        InstrumentId.from_str("LTC.BINANCE"),
-    ],
-    formula="(BTC.BINANCE + LTC.BINANCE) / 2.0",
-    ts_event=0,
-    ts_init=0,
-)
-```
+`SyntheticInstrument` ใช้ภายในระบบเท่านั้น โดย derive ราคาจาก instrument องค์ประกอบ ซึ่งอาจมาจาก adapter
+ใดก็ได้ที่โหลดเข้าระบบแล้ว
 
-## Adapters
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-`SyntheticInstrument` is local only. It derives prices from component instruments that
-may come from any adapter already loaded into the system.
-
-## Related guides
-
-- [Synthetics](../synthetics.md) covers formula-derived instruments and synthetic bars.
-- [Data](../data/) explains market data that references instruments.
+- [Synthetics](../synthetics.md) ครอบคลุม instrument ที่ derive จากสูตรและ synthetic bar
+- [Data](../data/) อธิบายข้อมูลตลาดที่อ้างอิงถึง instrument

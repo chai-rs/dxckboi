@@ -1,28 +1,26 @@
 # Continuous Futures
 
-A **continuous future** is a derived series that splices consecutive futures contracts into one
-adjusted price stream. Each underlying contract expires, so the continuous series rolls to the
-next contract at a transition point. Each segment is adjusted into a common price frame so contract
-changes do not introduce artificial price jumps.
+**continuous future** คือชุดข้อมูลอนุพันธ์ที่นำสัญญา futures ที่ต่อเนื่องกันมาต่อเป็น price stream เดียวที่ผ่าน
+การปรับราคาแล้ว เนื่องจากสัญญาอ้างอิงแต่ละตัวมีวันหมดอายุ ชุดข้อมูลแบบ continuous จึงต้อง roll ไปยังสัญญาถัดไป
+ณ จุดเปลี่ยน (transition point) แต่ละช่วงจะถูกปรับให้อยู่ในกรอบราคาเดียวกัน เพื่อไม่ให้การเปลี่ยนสัญญาสร้าง
+การกระโดดของราคาแบบเทียม
 
-Nautilus models a continuous future as a target `BarType` plus an explicit list of roll transitions supplied
-in request or subscription params. For each time segment, the data engine selects the real contract and
-computes its cumulative price adjustment. It feeds the adjusted source data through the normal bar aggregation
-path.
+Nautilus model continuous future ด้วย target `BarType` บวกกับรายการ roll transition ที่ระบุอย่างชัดเจนใน
+params ของ request หรือ subscription สำหรับแต่ละช่วงเวลา data engine จะเลือกสัญญาจริงและคำนวณค่าปรับราคาสะสม
+(cumulative price adjustment) จากนั้นป้อนข้อมูลต้นทางที่ปรับแล้วผ่านเส้นทาง bar aggregation ตามปกติ
 
-## Adjustment modes
+## โหมดการปรับราคา {#adjustment-modes}
 
-`ContinuousFutureAdjustmentType` combines direction (backward or forward) with operation
-(spread or ratio):
+`ContinuousFutureAdjustmentType` รวมทิศทาง (backward หรือ forward) เข้ากับวิธีคำนวณ (spread หรือ ratio):
 
-| Mode              | Operation      | Anchor segment                      |
-| ----------------- | -------------- | ----------------------------------- |
-| `BACKWARD_SPREAD` | Additive       | Last contract in adjustment range.  |
-| `FORWARD_SPREAD`  | Additive       | First contract in adjustment range. |
-| `BACKWARD_RATIO`  | Multiplicative | Last contract in adjustment range.  |
-| `FORWARD_RATIO`   | Multiplicative | First contract in adjustment range. |
+| โหมด              | วิธีคำนวณ      | ช่วงที่ใช้เป็น anchor                 |
+| ----------------- | -------------- | ------------------------------------- |
+| `BACKWARD_SPREAD` | บวก (Additive) | สัญญาสุดท้ายในช่วงที่ปรับราคา        |
+| `FORWARD_SPREAD`  | บวก (Additive) | สัญญาแรกในช่วงที่ปรับราคา            |
+| `BACKWARD_RATIO`  | คูณ (Multiplicative) | สัญญาสุดท้ายในช่วงที่ปรับราคา  |
+| `FORWARD_RATIO`   | คูณ (Multiplicative) | สัญญาแรกในช่วงที่ปรับราคา      |
 
-The cumulative adjustment at segment `k` of `N` transitions is:
+ค่าปรับสะสมที่ segment `k` จากทั้งหมด `N` transition คือ:
 
 ```text
 BACKWARD_SPREAD: sum over i in [k, N) of (post_i - pre_i)
@@ -31,105 +29,89 @@ BACKWARD_RATIO:  product over i in [k, N) of (post_i / pre_i)
 FORWARD_RATIO:   product over i in [0, k) of (pre_i / post_i)
 ```
 
-Spread modes accumulate additive offsets. Ratio modes accumulate multiplicative factors and
-require strictly positive prices.
+โหมด spread สะสม offset แบบบวก ส่วนโหมด ratio สะสมตัวคูณ และต้องการราคาที่เป็นบวกเท่านั้น
 
-## Inputs
+## Input {#inputs}
 
-A continuous-future request or subscription is any `RequestBars` or `SubscribeBars` that carries
-a `continuous_future_transitions` entry in `params`:
+request หรือ subscription แบบ continuous future คือ `RequestBars` หรือ `SubscribeBars` ใด ๆ ที่มี
+รายการ `continuous_future_transitions` อยู่ใน `params` โดยมีคีย์ดังนี้:
 
-```python
-params = {
-    "continuous_future_transitions": [
-        {
-            "transition_time_ns": 1773671460000000000,  # when ESH26 rolls to ESM26
-            "pre_instrument_id": "ESH26.XCME",
-            "post_instrument_id": "ESM26.XCME",
-            "pre_price": "6001.00",  # last ESH26 price pre-roll
-            "post_price": "5995.50",  # first ESM26 price post-roll
-        },
-        # ... more transitions ...
-    ],
-    "continuous_future_adjustment_mode": "BACKWARD_SPREAD",
-    # Optional: cap the upper end of cumulative adjustment at the transition whose
-    # post_instrument_id matches (the backward-mode anchor).
-    # "last_post_instrument_id": "ESM26.XCME",
-    # Optional: cap the lower end of cumulative adjustment at the transition whose
-    # pre_instrument_id matches (the forward-mode anchor).
-    # "first_pre_instrument_id": "ESM26.XCME",
-}
-```
+- `continuous_future_transitions`: รายการของ transition แต่ละแถวประกอบด้วย `transition_time_ns`
+  (เวลาที่สัญญาเดิม roll ไปยังสัญญาใหม่), `pre_instrument_id`, `post_instrument_id`, `pre_price`
+  (ราคาสุดท้ายของสัญญาเดิมก่อน roll) และ `post_price` (ราคาแรกของสัญญาใหม่หลัง roll)
+- `continuous_future_adjustment_mode`: เช่น `"BACKWARD_SPREAD"`
+- `last_post_instrument_id` (ไม่บังคับ): จำกัดขอบบนของการปรับสะสมไว้ที่ transition ที่ `post_instrument_id`
+  ตรงกัน (anchor ของโหมด backward)
+- `first_pre_instrument_id` (ไม่บังคับ): จำกัดขอบล่างของการปรับสะสมไว้ที่ transition ที่ `pre_instrument_id`
+  ตรงกัน (anchor ของโหมด forward)
 
-`continuous_future_adjustment_mode` defaults to `BACKWARD_SPREAD` when omitted.
+> หมายเหตุ: ต้นฉบับแสดงตัวอย่าง `params` เป็นโค้ด Python จึงตัดออก
 
-The request's `bar_type` or each subscription `bar_types` member identifies a **target** continuous bar type,
-such as `"ES.XCME-1-MINUTE-LAST-INTERNAL@1-MINUTE-EXTERNAL"`.
+ถ้าไม่ระบุ `continuous_future_adjustment_mode` จะใช้ค่า default เป็น `BACKWARD_SPREAD`
 
-Subscription targets share the command's `params`. Use separate commands for different chains or settings.
+`bar_type` ของ request หรือสมาชิกแต่ละตัวใน `bar_types` ของ subscription ระบุ bar type แบบ continuous
+ที่เป็น **target** เช่น `"ES.XCME-1-MINUTE-LAST-INTERNAL@1-MINUTE-EXTERNAL"`
 
-`ES.XCME` identifies the continuous root, not a real contract. Each segment gets raw source data from
-the real contract in the transitions list.
+target ของ subscription ใช้ `params` ของ command ร่วมกัน ถ้ามีหลาย chain หรือหลายการตั้งค่า ให้ใช้ command แยกกัน
 
-The continuous target bar type must be **internally aggregated**. Externally aggregated bars are
-not supported as continuous targets, but they can serve as the per-segment source.
+`ES.XCME` ระบุ continuous root ไม่ใช่สัญญาจริง แต่ละ segment จะได้ข้อมูลดิบต้นทางจากสัญญาจริงที่อยู่ใน
+รายการ transition
 
-### Bounded chains
+target bar type แบบ continuous ต้องเป็นแบบ **internally aggregated** bar ที่ aggregate จากภายนอก
+(externally aggregated) ใช้เป็น continuous target ไม่ได้ แต่ใช้เป็นต้นทางของแต่ละ segment ได้
 
-The two optional bounds restrict which transitions contribute to the cumulative adjustment. They
-do not remove contract segments from the request or subscription:
+### Chain แบบมีขอบเขต {#bounded-chains}
 
-- `last_post_instrument_id` caps the upper end at the first transition whose `post_instrument_id` matches.
-  Backward modes use the matching post contract as the zero-adjustment anchor. Forward modes exclude later
-  transitions from the cumulative adjustment.
-- `first_pre_instrument_id` caps the lower end at the first transition whose `pre_instrument_id` matches.
-  Forward modes use the matching pre contract as the zero-adjustment anchor. Backward modes exclude earlier
-  transitions from the cumulative adjustment.
+ขอบเขตที่เป็นตัวเลือกทั้งสองตัวจำกัดว่า transition ใดบ้างที่นำมาคิดในค่าปรับสะสม แต่ไม่ได้ตัด segment ของสัญญา
+ออกจาก request หรือ subscription:
 
-These bounds let callers pass a wider transition table while choosing the adjustment range.
+- `last_post_instrument_id` จำกัดขอบบนไว้ที่ transition แรกที่ `post_instrument_id` ตรงกัน
+  โหมด backward ใช้ post contract ที่ตรงกันเป็น anchor ที่มีค่าปรับเป็นศูนย์ ส่วนโหมด forward จะไม่นำ
+  transition ที่อยู่หลังจากนั้นมาคิดในค่าปรับสะสม
+- `first_pre_instrument_id` จำกัดขอบล่างไว้ที่ transition แรกที่ `pre_instrument_id` ตรงกัน
+  โหมด forward ใช้ pre contract ที่ตรงกันเป็น anchor ที่มีค่าปรับเป็นศูนย์ ส่วนโหมด backward จะไม่นำ
+  transition ที่อยู่ก่อนหน้านั้นมาคิดในค่าปรับสะสม
 
-## Validation
+ขอบเขตเหล่านี้ทำให้ผู้เรียกส่งตาราง transition ที่กว้างกว่าได้ โดยยังเลือกช่วงที่จะปรับราคาเองได้
 
-The request and subscription paths apply the same transition-parameter validation rules before
-allocating an aggregator or child segment state:
+## การตรวจสอบความถูกต้อง {#validation}
 
-- When supplied, `continuous_future_adjustment_mode` must parse as a valid
-  `ContinuousFutureAdjustmentType`.
-- `continuous_future_transitions` must be a non-empty array of transition rows.
-- Each row must include a non-negative integer `transition_time_ns`, and transition times must
-  be strictly increasing.
-- Each `pre_instrument_id` and `post_instrument_id` must parse as a valid `InstrumentId` whose
-  venue equals the target venue.
-- The chain must be continuous: row `i`'s `post_instrument_id` must equal row `i + 1`'s
-  `pre_instrument_id`.
-- Each row must include finite `pre_price` and `post_price`. Ratio modes additionally require
-  both prices to be positive.
-- If the caller supplies `last_post_instrument_id`, it must parse as an `InstrumentId`, match
-  the target venue, and appear as a `post_instrument_id` in the transition list. The same
-  applies to `first_pre_instrument_id`.
+ทั้งเส้นทาง request และ subscription ใช้กฎตรวจสอบ transition parameter ชุดเดียวกัน ก่อนจะสร้าง aggregator
+หรือ state ของ child segment:
 
-A validation error thus returns before either path starts an aggregation workflow.
+- ถ้าระบุ `continuous_future_adjustment_mode` ต้อง parse เป็น `ContinuousFutureAdjustmentType` ที่ถูกต้องได้
+- `continuous_future_transitions` ต้องเป็น array ของแถว transition ที่ไม่ว่าง
+- แต่ละแถวต้องมี `transition_time_ns` เป็นจำนวนเต็มที่ไม่ติดลบ และเวลาของ transition ต้องเพิ่มขึ้นอย่างเคร่งครัด
+- `pre_instrument_id` และ `post_instrument_id` แต่ละตัวต้อง parse เป็น `InstrumentId` ที่ถูกต้องได้ และ
+  venue ต้องตรงกับ venue ของ target
+- chain ต้องต่อเนื่อง: `post_instrument_id` ของแถว `i` ต้องเท่ากับ `pre_instrument_id` ของแถว `i + 1`
+- แต่ละแถวต้องมี `pre_price` และ `post_price` ที่เป็นค่าจำกัด (finite) โหมด ratio ยังต้องการให้ราคาทั้งสอง
+  เป็นบวกด้วย
+- ถ้าผู้เรียกระบุ `last_post_instrument_id` ค่านั้นต้อง parse เป็น `InstrumentId` ได้ venue ตรงกับ target
+  และต้องปรากฏเป็น `post_instrument_id` ในรายการ transition กฎเดียวกันใช้กับ `first_pre_instrument_id`
 
-After validation, the request path releases its request-scoped aggregators if setup or the initial
-segment dispatch fails. A failure while dispatching a later segment still ends the request with a
-completion response and normal aggregator cleanup.
+ดังนั้น validation error จะคืนกลับมาก่อนที่เส้นทางใดจะเริ่ม workflow ของการ aggregate
 
-## Target instrument auto-synthesis
+หลังผ่านการตรวจสอบแล้ว ถ้าการ setup หรือการ dispatch segment แรกล้มเหลว เส้นทาง request จะปล่อย aggregator
+ที่ผูกกับ request นั้น ส่วนความล้มเหลวระหว่าง dispatch segment ถัด ๆ ไป ยังคงจบ request ด้วย completion
+response และการเก็บกวาด aggregator ตามปกติ
 
-The continuous root (for example `ES.XCME`) is a synthetic id with no market data of its own. But downstream
-consumers (aggregators, cache lookups, serialization) still expect an `Instrument` in the cache. After
-validation, both the request and subscription paths ensure the target instrument exists:
+## การสร้าง target instrument อัตโนมัติ {#target-instrument-auto-synthesis}
 
-- If the target id is already cached, the target setup is a no-op. Callers can pre-register a custom
-  continuous instrument and the engine respects it.
-- Otherwise the target setup fetches the first segment's instrument from the cache and clones it. It overrides
-  only `id` and `raw_symbol`, and clears `activation_ns` and `expiration_ns` to `0`. Each other field
-  (currency, precision, increment, multiplier, lot size, underlying, fees, margins, exchange, tick scheme,
-  info) is reused from the segment.
-- If the first segment is not yet in the cache or is not a `FuturesContract`, the setup logs
-  a warning and returns. The caller must then register the continuous instrument manually.
+continuous root (เช่น `ES.XCME`) เป็น id สังเคราะห์ที่ไม่มี market data ของตัวเอง แต่ส่วนที่ทำงานต่อจากนั้น
+(aggregator, การค้นหาใน cache, serialization) ยังคาดหวังว่าจะมี `Instrument` อยู่ใน cache หลังผ่านการตรวจสอบ
+ทั้งเส้นทาง request และ subscription จะตรวจให้แน่ใจว่ามี target instrument อยู่:
 
-## Architecture overview
+- ถ้า target id อยู่ใน cache แล้ว การ setup target จะไม่ทำอะไร ผู้เรียกสามารถลงทะเบียน continuous instrument
+  แบบกำหนดเองไว้ก่อนได้ และ engine จะใช้ตัวนั้น
+- มิฉะนั้น การ setup target จะดึง instrument ของ segment แรกจาก cache แล้ว clone มา โดย override เฉพาะ `id`
+  และ `raw_symbol` และล้าง `activation_ns` กับ `expiration_ns` ให้เป็น `0` ฟิลด์อื่นทั้งหมด (currency,
+  precision, increment, multiplier, lot size, underlying, fee, margin, exchange, tick scheme, info) ใช้ค่า
+  จาก segment
+- ถ้า segment แรกยังไม่อยู่ใน cache หรือไม่ใช่ `FuturesContract` การ setup จะ log warning แล้ว return
+  ผู้เรียกต้องลงทะเบียน continuous instrument เอง
+
+## ภาพรวมสถาปัตยกรรม {#architecture-overview}
 
 ```mermaid
 flowchart TD
@@ -151,32 +133,31 @@ flowchart TD
     Agg2 -->|adjusted bars| MsgBus[(msgbus: data.bars.*)]
 ```
 
-Request-path bars land in the cache. Subscription-path bars publish to the message bus.
+bar จากเส้นทาง request จะถูกเก็บลง cache ส่วน bar จากเส้นทาง subscription จะ publish ไปยัง message bus
 
-Both paths use the same segmentation, source resolution, and adjustment calculation. The request path
-processes segments in sequence. The subscription path keeps one source active and switches it when the time
-alert for the next transition fires.
+ทั้งสองเส้นทางใช้การแบ่ง segment, การหา source และการคำนวณค่าปรับแบบเดียวกัน เส้นทาง request ประมวลผล
+segment ตามลำดับ ส่วนเส้นทาง subscription จะเปิดใช้งาน source ไว้หนึ่งตัว และสลับเมื่อ time alert ของ
+transition ถัดไปทำงาน
 
-## Segments
+## Segment {#segments}
 
-A **segment** is a contiguous time slice owned by one real contract. Transitions separate
-segments. Given `transitions[0..N)`:
+**segment** คือช่วงเวลาต่อเนื่องที่เป็นของสัญญาจริงหนึ่งสัญญา โดยมี transition เป็นตัวแบ่ง segment เมื่อมี
+`transitions[0..N)`:
 
-- Segment 0: `(-inf, transitions[0].time)` on `transitions[0].pre_instrument_id`.
-- Segment k, with k in `[1, N)`: `[transitions[k-1].time, transitions[k].time)` on
-  `transitions[k].pre_instrument_id`.
-- Segment N: `[transitions[N-1].time, +inf)` on `transitions[N-1].post_instrument_id`.
+- Segment 0: `(-inf, transitions[0].time)` บน `transitions[0].pre_instrument_id`
+- Segment k โดย k อยู่ใน `[1, N)`: `[transitions[k-1].time, transitions[k].time)` บน
+  `transitions[k].pre_instrument_id`
+- Segment N: `[transitions[N-1].time, +inf)` บน `transitions[N-1].post_instrument_id`
 
-The request path clips each segment to the requested time range and dispatches the segments in
-order. The subscription path uses the engine clock to select the active segment and schedules the
-next remaining transition.
+เส้นทาง request จะตัดแต่ละ segment ให้อยู่ในช่วงเวลาที่ request และ dispatch segment ตามลำดับ ส่วนเส้นทาง
+subscription ใช้ clock ของ engine เลือก segment ที่ active และตั้งเวลาสำหรับ transition ถัดไปที่เหลืออยู่
 
-## Request flow
+## ลำดับการทำงานของ request {#request-flow}
 
-The request path dispatches one child request at a time through the engine's normal request handling. Thus, a
-registered data catalog serves a segment before the client fills any gaps. When a child response arrives, the
-engine aggregates its data and advances to the next segment. A segment split across catalog and client data
-advances only after each part arrives.
+เส้นทาง request จะ dispatch child request ทีละตัวผ่านการจัดการ request ปกติของ engine ดังนั้น data catalog
+ที่ลงทะเบียนไว้จะให้ข้อมูลของ segment ก่อน แล้ว client จึงเติมช่องว่างที่เหลือ เมื่อ child response มาถึง
+engine จะ aggregate ข้อมูลแล้วไปยัง segment ถัดไป segment ที่แบ่งข้อมูลระหว่าง catalog และ client จะไปต่อ
+ก็ต่อเมื่อได้รับทุกส่วนครบแล้ว
 
 ```mermaid
 sequenceDiagram
@@ -198,21 +179,20 @@ sequenceDiagram
 ```
 
 :::info
-Adjusted bars are written to the cache as each child response is processed. The completion response signals
-that the request has finished and reports the source record count. It does not contain a combined vector of
-adjusted bars.
+bar ที่ปรับแล้วจะถูกเขียนลง cache ทันทีที่ประมวลผล child response แต่ละตัว completion response เป็นสัญญาณว่า
+request เสร็จสิ้นแล้วและรายงานจำนวน record ต้นทาง โดยไม่ได้มี vector รวมของ bar ที่ปรับแล้ว
 :::
 
-### Chain aggregators
+### Chain aggregator {#chain-aggregators}
 
-If a request sets `bar_types = (bar_type_1, bar_type_2)` for multi-level internal aggregation, the engine
-creates an isolated request-scoped aggregator for each level. Segment source responses enter the primary
-continuous target, and its emitted bars feed matching downstream aggregators. Only the primary builder
-receives the adjustment. Higher levels re-aggregate already adjusted data.
+ถ้า request ตั้ง `bar_types = (bar_type_1, bar_type_2)` สำหรับการ aggregate ภายในหลายระดับ engine จะสร้าง
+aggregator แยกที่ผูกกับ request สำหรับแต่ละระดับ response ต้นทางของ segment จะเข้าสู่ continuous target
+ตัวหลัก และ bar ที่ออกมาจะป้อนให้ aggregator ระดับถัดไปที่ตรงกัน มีเพียง builder ตัวหลักเท่านั้นที่ได้รับ
+ค่าปรับ ระดับที่สูงกว่าจะ aggregate ซ้ำจากข้อมูลที่ปรับแล้ว
 
-## Subscription flow
+## ลำดับการทำงานของ subscription {#subscription-flow}
 
-A small state machine drives each active subscription through a single pending time alert:
+state machine ขนาดเล็กขับเคลื่อน subscription ที่ active แต่ละตัวผ่าน time alert ที่รออยู่เพียงตัวเดียว:
 
 ```mermaid
 stateDiagram-v2
@@ -221,17 +201,17 @@ stateDiagram-v2
     Active --> [*]: unsubscribe(cancel timer, deactivate segment)
 ```
 
-When a transition fires, the engine:
+เมื่อ transition ทำงาน engine จะ:
 
-1. Deactivates the current segment by unsubscribing the source.
-1. Applies the next segment's adjustment.
-1. Subscribes to the new source.
-1. Arms the timer for the following transition.
+1. ปิด segment ปัจจุบันโดย unsubscribe source
+1. ใช้ค่าปรับของ segment ถัดไป
+1. subscribe source ใหม่
+1. ตั้ง timer สำหรับ transition ถัดไป
 
-## Source resolution
+## การหา source {#source-resolution}
 
-For any continuous-future target `BarType`, the raw data feeding the primary aggregator lives on
-the **segment contract**, not the continuous id. The target's shape decides the source type:
+สำหรับ target `BarType` แบบ continuous future ใด ๆ ข้อมูลดิบที่ป้อนให้ aggregator ตัวหลักจะมาจาก
+**สัญญาของ segment** ไม่ใช่ continuous id รูปแบบของ target เป็นตัวกำหนดประเภทของ source:
 
 ```mermaid
 flowchart TD
@@ -246,14 +226,14 @@ flowchart TD
     Check3 -->|MID/BID/ASK| Quotes["source = quotes (QuoteTicks)"]
 ```
 
-For internally aggregated sources, `LAST` uses trades, while `BID`, `ASK`, and `MID` use quotes.
-Other price types are not supported by quote aggregation.
+สำหรับ source ที่ aggregate ภายใน `LAST` ใช้ trade ส่วน `BID`, `ASK` และ `MID` ใช้ quote
+price type อื่นไม่รองรับใน quote aggregation
 
-## BarBuilder adjustment
+## การปรับราคาใน BarBuilder {#barbuilder-adjustment}
 
-The builder applies the adjustment **at ingress** on each `update(price, ...)` and `update_bar(bar, ...)`
-call. The running OHLC state thus stays in the adjusted common frame. Changing the adjustment during a bar
-affects only subsequent input.
+builder ใช้ค่าปรับ **ตอนรับข้อมูลเข้า** ในทุกการเรียก `update(price, ...)` และ `update_bar(bar, ...)`
+ดังนั้น state ของ OHLC ที่สะสมอยู่จะอยู่ในกรอบราคาร่วมที่ปรับแล้วเสมอ การเปลี่ยนค่าปรับระหว่าง bar จะมีผลเฉพาะ
+กับ input ที่เข้ามาหลังจากนั้น
 
 ```mermaid
 flowchart LR
@@ -267,21 +247,20 @@ flowchart LR
     Update --> Build[build on trigger]
 ```
 
-The `BarBuilder` uses the mode only to choose addition or multiplication. The engine resolves the
-adjustment direction into a cumulative value before calling `set_adjustment`. The `reset()` method
-clears per-bar OHLCV state for the next bar but preserves the segment-scoped adjustment.
+`BarBuilder` ใช้โหมดเพียงเพื่อเลือกว่าจะบวกหรือคูณ engine จะแปลงทิศทางการปรับเป็นค่าสะสมก่อนเรียก
+`set_adjustment` method `reset()` จะล้าง state ของ OHLCV ต่อ bar เพื่อเตรียม bar ถัดไป แต่ยังเก็บค่าปรับ
+ระดับ segment ไว้
 
-## Mid-bar roll boundary
+## การ roll กลาง bar {#mid-bar-roll-boundary}
 
-If a roll lands inside an in-progress target bar, the builder keeps the current OHLC state and applies the new
-adjustment only to subsequent updates. The pre-boundary portion stays at the old offset. The post-boundary
-portion uses the new offset. Rewriting the existing OHLC under the new adjustment would require raw input that
-the builder does not keep.
+ถ้าการ roll เกิดขึ้นระหว่าง target bar ที่กำลังสร้างอยู่ builder จะคง state ของ OHLC ปัจจุบันไว้ และใช้ค่าปรับใหม่
+เฉพาะกับการอัปเดตที่ตามมา ส่วนก่อนถึงจุดเปลี่ยนจะใช้ offset เดิม ส่วนหลังจุดเปลี่ยนใช้ offset ใหม่ การเขียน OHLC
+ที่มีอยู่ใหม่ด้วยค่าปรับใหม่จะต้องใช้ input ดิบ ซึ่ง builder ไม่ได้เก็บไว้
 
-## Limitations
+## ข้อจำกัด {#limitations}
 
-- The feature requires supplied transition metadata. The engine does not discover rolls, choose
-  contracts, or infer roll prices: that is the caller's responsibility.
-- Ratio adjustment converts the factor and each price through `f64` before rebuilding the adjusted `Price`.
-  For high-precision instruments, the result can differ from equivalent `Decimal` multiplication. Spread
-  adjustment stays exact in the fixed-point representation because it adds directly to `PriceRaw`.
+- ฟีเจอร์นี้ต้องได้รับ metadata ของ transition จากผู้เรียก engine ไม่ได้ค้นหาการ roll เลือกสัญญา หรืออนุมาน
+  ราคา roll เอง ซึ่งเป็นความรับผิดชอบของผู้เรียก
+- การปรับแบบ ratio แปลงตัวคูณและราคาแต่ละค่าผ่าน `f64` ก่อนสร้าง `Price` ที่ปรับแล้วขึ้นมาใหม่ สำหรับ instrument
+  ที่มี precision สูง ผลลัพธ์อาจต่างจากการคูณด้วย `Decimal` ส่วนการปรับแบบ spread ยังแม่นยำในรูปแบบ fixed-point
+  เพราะบวกเข้ากับ `PriceRaw` โดยตรง

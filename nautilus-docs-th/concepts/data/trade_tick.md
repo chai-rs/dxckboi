@@ -1,30 +1,30 @@
 # TradeTick
 
-`TradeTick` represents one executed trade or match event from a venue. It carries the traded price,
-size, aggressor side, and venue trade identifier.
+`TradeTick` แทน trade หรือ match event หนึ่งครั้งจาก venue โดยเก็บราคาที่ซื้อขาย
+size, ฝั่ง aggressor และ trade identifier ของ venue
 
-## Fields
+## ฟิลด์ {#fields}
 
-| Field            | Rust type       | Python type     | Required/default | Notes                                    |
-| ---------------- | --------------- | --------------- | ---------------- | ---------------------------------------- |
-| `instrument_id`  | `InstrumentId`  | `InstrumentId`  | Required         | Instrument for the trade.                |
-| `price`          | `Price`         | `Price`         | Required         | Executed price.                          |
-| `size`           | `Quantity`      | `Quantity`      | Required         | Executed quantity.                       |
-| `aggressor_side` | `AggressorSide` | `AggressorSide` | Required         | `BUY`, `SELL`, or `NO_AGGRESSOR`.        |
-| `trade_id`       | `TradeId`       | `TradeId`       | Required         | Venue-assigned match ID.                 |
-| `ts_event`       | `UnixNanos`     | `int`           | Required         | Event timestamp in nanoseconds.          |
-| `ts_init`        | `UnixNanos`     | `int`           | Required         | Initialization timestamp in nanoseconds. |
+| Field            | Rust type       | Required/default | Notes                                    |
+| ---------------- | --------------- | ---------------- | ---------------------------------------- |
+| `instrument_id`  | `InstrumentId`  | Required         | instrument ของ trade                     |
+| `price`          | `Price`         | Required         | ราคาที่ execute                          |
+| `size`           | `Quantity`      | Required         | ปริมาณที่ execute                        |
+| `aggressor_side` | `AggressorSide` | Required         | `BUY`, `SELL` หรือ `NO_AGGRESSOR`        |
+| `trade_id`       | `TradeId`       | Required         | match ID ที่ venue กำหนด                 |
+| `ts_event`       | `UnixNanos`     | Required         | timestamp ของ event หน่วยนาโนวินาที      |
+| `ts_init`        | `UnixNanos`     | Required         | timestamp ตอน initialize หน่วยนาโนวินาที |
 
-## Behavior
+## พฤติกรรม {#behavior}
 
-- `size` must be positive.
-- Information-driven bars require `TradeTick` data because they use `aggressor_side`.
-- Trade bars use `LAST` price type.
-- `trade_id` should be stable for the venue event when the venue provides one.
-- Parsing and deserialization accept the deprecated `BUYER`/`SELLER` values. String output is always canonical
-  `BUY`/`SELL`.
+- `size` ต้องเป็นค่าบวก
+- information-driven bar ต้องใช้ข้อมูล `TradeTick` เพราะใช้ `aggressor_side`
+- trade bar ใช้ price type แบบ `LAST`
+- `trade_id` ควรคงที่สำหรับ event เดียวกันของ venue เมื่อ venue ให้ค่านี้มา
+- การ parse และ deserialize ยอมรับค่า `BUYER`/`SELLER` ที่ deprecated แล้ว แต่ string ที่ output ออกมาจะเป็นค่า canonical
+  `BUY`/`SELL` เสมอ
 
-## Example
+## ตัวอย่าง {#example}
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -46,27 +46,8 @@ let trade = TradeTick::new(
 );
 ```
 
-```python tab="Python"
-from nautilus_trader.model import InstrumentId
-from nautilus_trader.model import Price
-from nautilus_trader.model import Quantity
-from nautilus_trader.model import TradeId
-from nautilus_trader.model import TradeTick
-from nautilus_trader.model import AggressorSide
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-trade = TradeTick(
-    instrument_id=InstrumentId.from_str("BTCUSDT.BINANCE"),
-    price=Price.from_str("65000.10"),
-    size=Quantity.from_str("0.25"),
-    aggressor_side=AggressorSide.BUY,
-    trade_id=TradeId("123456789"),
-    ts_event=1_000_000_000,
-    ts_init=1_000_000_100,
-)
-```
-
-## Related guides
-
-- [Bar](bar.md) covers trade-to-bar aggregation.
-- [Information-driven bars](index.md#information-driven-bars) explains aggressor-side use.
-- [Python API reference](/docs/python-api-latest/model/data.html) lists Python members.
+- [Bar](bar.md) อธิบายการ aggregate trade เป็น bar
+- [Information-driven bars](index.md#information-driven-bars) อธิบายการใช้ฝั่ง aggressor
+- [Rust API reference](https://nautilustrader.io/docs/core-latest/) แสดงรายละเอียด API ฝั่ง Rust

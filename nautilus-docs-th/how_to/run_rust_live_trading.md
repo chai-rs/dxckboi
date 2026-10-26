@@ -1,17 +1,16 @@
-# Run Live Trading (Rust)
+# การรัน Live Trading (Rust)
 
-The `LiveNode` connects to real venues and data sources through adapter clients. This guide
-walks through a complete live trading setup using OKX as an example.
+`LiveNode` เชื่อมต่อกับ venue และแหล่งข้อมูลจริงผ่าน adapter client คู่มือนี้จะพาตั้งค่า live trading
+แบบครบวงจร โดยใช้ OKX เป็นตัวอย่าง
 
-For the node lifecycle, see [Live trading](../concepts/live.md). For command outcomes, see
-[Execution policies](../concepts/execution/policies.md#command-outcomes). For state recovery, see
-[Execution reconciliation](../concepts/execution/reconciliation.md). For project setup and feature flags,
-see the [Rust](../concepts/rust.md#project-setup) concept guide.
+สำหรับ lifecycle ของ node ดูที่ [Live trading](../concepts/live.md) สำหรับผลลัพธ์ของ command ดูที่
+[Execution policies](../concepts/execution/policies.md#command-outcomes) สำหรับการกู้คืน state ดูที่
+[Execution reconciliation](../concepts/execution/reconciliation.md) สำหรับการตั้งค่าโปรเจกต์และ feature flag
+ดูคู่มือแนวคิด [Rust](../concepts/rust.md#project-setup)
 
-## Dependencies
+## Dependencies {#dependencies}
 
-Add the live crate, your venue adapter, and supporting crates to
-`Cargo.toml`:
+เพิ่ม crate live, adapter ของ venue ที่ใช้ และ crate สนับสนุนอื่น ๆ ลงใน `Cargo.toml`:
 
 ```toml
 [dependencies]
@@ -27,10 +26,10 @@ log = "0.4"
 tokio = { version = "1", features = ["full"] }
 ```
 
-## Build the node
+## สร้าง node {#build-the-node}
 
-The `LiveNode` uses a builder pattern. Add data and execution client
-factories for your venue, configure logging, and build.
+`LiveNode` ใช้ builder pattern ให้เพิ่ม factory ของ data client และ execution client สำหรับ venue ของคุณ
+ตั้งค่า logging แล้ว build
 
 ```rust
 use log::LevelFilter;
@@ -79,12 +78,12 @@ let mut node = LiveNode::builder(trader_id, Environment::Live)?
 ```
 
 :::warning
-This example disables reconciliation for simplicity. In production, remove
-`.with_reconciliation(false)` so the engine aligns cached state with the
-venue on startup. See [Execution reconciliation](../concepts/execution/reconciliation.md).
+ตัวอย่างนี้ปิด reconciliation เพื่อความเรียบง่าย ใน production ให้ลบ `.with_reconciliation(false)` ออก
+เพื่อให้ engine ปรับ state ใน cache ให้ตรงกับ venue ตอนเริ่มทำงาน ดู
+[Execution reconciliation](../concepts/execution/reconciliation.md)
 :::
 
-## Add strategies and run
+## เพิ่ม strategy และรัน {#add-strategies-and-run}
 
 ```rust
 use nautilus_model::{identifiers::InstrumentId, types::Quantity};
@@ -112,12 +111,11 @@ node.add_strategy(strategy)?;
 node.run().await?;
 ```
 
-The node runs until interrupted (Ctrl+C) or shut down programmatically.
+node จะทำงานไปจนกว่าจะถูก interrupt (Ctrl+C) หรือถูกสั่ง shut down จากโค้ด
 
-## Environment variables
+## Environment variable {#environment-variables}
 
-OKX reads API credentials from environment variables. Use a `.env` file
-with `dotenvy` or set them in your shell:
+OKX อ่าน API credential จาก environment variable ใช้ไฟล์ `.env` ร่วมกับ `dotenvy` หรือตั้งค่าใน shell:
 
 ```bash
 export OKX_API_KEY="your_api_key"
@@ -125,16 +123,14 @@ export OKX_API_SECRET="your_api_secret"
 export OKX_API_PASSPHRASE="your_passphrase"
 ```
 
-For demo trading, set `.environment(OKXEnvironment::Demo)` on both config builders and use demo
-API credentials from OKX.
+สำหรับ demo trading ให้ตั้ง `.environment(OKXEnvironment::Demo)` บน config builder ทั้งสองตัว และใช้
+API credential สำหรับ demo จาก OKX
 
-Each adapter documents its required variables in the
-[integration guide](../integrations/) for that venue.
+adapter แต่ละตัวระบุ environment variable ที่ต้องใช้ไว้ใน[คู่มือ integration](../integrations/) ของ venue นั้น
 
-## Async runtime
+## Async runtime {#async-runtime}
 
-`LiveNode::run()` is async and requires a Tokio runtime. Use `#[tokio::main]`
-on your main function:
+`LiveNode::run()` เป็น async และต้องใช้ Tokio runtime ใส่ `#[tokio::main]` ที่ฟังก์ชัน main:
 
 ```rust
 #[tokio::main]
@@ -148,12 +144,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-## Adapter examples
+## ตัวอย่างของ adapter {#adapter-examples}
 
-Most adapters include runnable examples with data testers and execution
-testers:
+adapter ส่วนใหญ่มีตัวอย่างที่รันได้ ทั้ง data tester และ execution tester:
 
-| Adapter             | Example directory                               |
+| Adapter             | ไดเรกทอรีตัวอย่าง                                |
 | ------------------- | ----------------------------------------------- |
 | Architect AX        | `crates/adapters/architect_ax/examples/`        |
 | Betfair             | `crates/adapters/betfair/examples/`             |

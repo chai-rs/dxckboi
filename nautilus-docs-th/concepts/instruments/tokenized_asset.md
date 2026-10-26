@@ -1,50 +1,48 @@
 # Tokenized Asset
 
-`TokenizedAsset` represents a spot-like token that tracks another asset on a crypto venue. Use it for
-tokenized equities, tokenized funds, or similar instruments. In these instruments, the trading venue exposes a
-token whose economic reference is an external asset.
+`TokenizedAsset` แทน token ลักษณะคล้าย spot ที่อ้างอิงราคาของ asset อื่นบน crypto venue ใช้กับ
+หุ้นแบบ tokenized, กองทุนแบบ tokenized หรือ instrument ที่คล้ายกัน ใน instrument ประเภทนี้ venue จะเปิดให้ซื้อขาย
+token ที่มีการอ้างอิงทางเศรษฐกิจเป็น asset ภายนอก
 
-Examples include tokenized stock or ETF symbols on crypto venues.
+ตัวอย่างเช่น symbol ของหุ้นหรือ ETF แบบ tokenized บน crypto venue
 
-## Fields
+## ฟิลด์ {#fields}
 
-| Field             | Rust type          | Python type        | Required/default | Notes                                    |
-| ----------------- | ------------------ | ------------------ | ---------------- | ---------------------------------------- |
-| `instrument_id`   | `InstrumentId`     | `InstrumentId`     | Required         | Stored as `id` in Rust.                  |
-| `raw_symbol`      | `Symbol`           | `Symbol`           | Required         | Native venue symbol.                     |
-| `asset_class`     | `AssetClass`       | `AssetClass`       | Required         | Economic asset classification.           |
-| `base_currency`   | `Currency`         | `Currency`         | Required         | Tokenized asset or base token.           |
-| `quote_currency`  | `Currency`         | `Currency`         | Required         | Currency used to price the token.        |
-| `price_precision` | `u8`               | `int`              | Required         | Decimal places allowed for prices.       |
-| `size_precision`  | `u8`               | `int`              | Required         | Decimal places allowed for order sizes.  |
-| `price_increment` | `Price`            | `Price`            | Required         | Smallest valid price step.               |
-| `size_increment`  | `Quantity`         | `Quantity`         | Required         | Smallest valid size step.                |
-| `ts_event`        | `UnixNanos`        | `int`              | Required         | Event timestamp in nanoseconds.          |
-| `ts_init`         | `UnixNanos`        | `int`              | Required         | Initialization timestamp in nanoseconds. |
-| `isin`            | `Option<Ustr>`     | `str \| None`      | `None`           | International Securities ID when known.  |
-| `multiplier`      | `Quantity`         | `Quantity`         | `1`              | Contract multiplier.                     |
-| `lot_size`        | `Option<Quantity>` | `Quantity \| None` | `None`           | Rounded lot or board size.               |
-| `max_quantity`    | `Option<Quantity>` | `Quantity \| None` | `None`           | Maximum order quantity.                  |
-| `min_quantity`    | `Option<Quantity>` | `Quantity \| None` | `None`           | Minimum order quantity.                  |
-| `max_notional`    | `Option<Money>`    | `Money \| None`    | `None`           | Maximum order notional value.            |
-| `min_notional`    | `Option<Money>`    | `Money \| None`    | `None`           | Minimum order notional value.            |
-| `max_price`       | `Option<Price>`    | `Price \| None`    | `None`           | Maximum valid quote or order price.      |
-| `min_price`       | `Option<Price>`    | `Price \| None`    | `None`           | Minimum valid quote or order price.      |
-| `margin_init`     | `Option<Decimal>`  | `Decimal \| None`  | `0`              | Initial margin rate.                     |
-| `margin_maint`    | `Option<Decimal>`  | `Decimal \| None`  | `0`              | Maintenance margin rate.                 |
-| `tick_scheme`     | `Option<Ustr>`     | `str \| None`      | `None`           | Registered variable tick scheme name.    |
-| `info`            | `Option<Params>`   | `dict \| None`     | `None`           | Adapter metadata.                        |
+| ฟิลด์              | Type ใน Rust        | จำเป็น/ค่าเริ่มต้น | หมายเหตุ                                    |
+| ----------------- | ------------------ | ---------------- | ----------------------------------------- |
+| `instrument_id`   | `InstrumentId`     | จำเป็น            | ใน Rust เก็บเป็น `id`                       |
+| `raw_symbol`      | `Symbol`           | จำเป็น            | symbol ดั้งเดิมของ venue                     |
+| `asset_class`     | `AssetClass`       | จำเป็น            | การจัดประเภท asset ทางเศรษฐกิจ               |
+| `base_currency`   | `Currency`         | จำเป็น            | asset แบบ tokenized หรือ base token         |
+| `quote_currency`  | `Currency`         | จำเป็น            | สกุลเงินที่ใช้กำหนดราคาของ token               |
+| `price_precision` | `u8`               | จำเป็น            | จำนวนตำแหน่งทศนิยมที่อนุญาตสำหรับราคา          |
+| `size_precision`  | `u8`               | จำเป็น            | จำนวนตำแหน่งทศนิยมที่อนุญาตสำหรับขนาด order   |
+| `price_increment` | `Price`            | จำเป็น            | ขั้นราคาที่เล็กที่สุดที่ใช้ได้                     |
+| `size_increment`  | `Quantity`         | จำเป็น            | ขั้นขนาดที่เล็กที่สุดที่ใช้ได้                     |
+| `ts_event`        | `UnixNanos`        | จำเป็น            | timestamp ของ event หน่วยนาโนวินาที            |
+| `ts_init`         | `UnixNanos`        | จำเป็น            | timestamp ตอน initialize หน่วยนาโนวินาที       |
+| `isin`            | `Option<Ustr>`     | `None`           | รหัสหลักทรัพย์สากล (ISIN) หากทราบ             |
+| `multiplier`      | `Quantity`         | `1`              | ตัวคูณของสัญญา (contract multiplier)          |
+| `lot_size`        | `Option<Quantity>` | `None`           | ขนาด lot หรือ board lot ที่ปัดแล้ว              |
+| `max_quantity`    | `Option<Quantity>` | `None`           | quantity สูงสุดของ order                     |
+| `min_quantity`    | `Option<Quantity>` | `None`           | quantity ต่ำสุดของ order                     |
+| `max_notional`    | `Option<Money>`    | `None`           | มูลค่า notional สูงสุดของ order               |
+| `min_notional`    | `Option<Money>`    | `None`           | มูลค่า notional ต่ำสุดของ order               |
+| `max_price`       | `Option<Price>`    | `None`           | ราคา quote หรือ order สูงสุดที่ใช้ได้            |
+| `min_price`       | `Option<Price>`    | `None`           | ราคา quote หรือ order ต่ำสุดที่ใช้ได้            |
+| `margin_init`     | `Option<Decimal>`  | `0`              | อัตรา initial margin                        |
+| `margin_maint`    | `Option<Decimal>`  | `0`              | อัตรา maintenance margin                    |
+| `tick_scheme`     | `Option<Ustr>`     | `None`           | ชื่อ tick scheme แบบแปรผันที่ลงทะเบียนไว้        |
+| `info`            | `Option<Params>`   | `None`           | metadata จาก adapter                        |
 
-**Note**: Python constructors use `instrument_id`. Rust stores the same value as `id`.
+## พฤติกรรม {#behavior}
 
-## Behavior
+- `TokenizedAsset` มี instrument class เป็น `Spot`
+- ไม่เป็นแบบ inverse เลย และ cost currency คือ quote currency
+- สามารถมี `isin` ได้เมื่อ token อ้างอิงหลักทรัพย์ที่จดทะเบียนในตลาด
+- ไม่มี activation timestamp, วันหมดอายุ, strike หรือ option kind
 
-- `TokenizedAsset` has instrument class `Spot`.
-- It is never inverse, and its cost currency is the quote currency.
-- It can carry an `isin` when the token references a listed security.
-- It has no activation timestamp, expiry, strike, or option kind.
-
-## Example
+## ตัวอย่าง {#example}
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -72,37 +70,12 @@ let aaplx = TokenizedAsset::builder()
     .unwrap();
 ```
 
-```python tab="Python"
-from nautilus_trader.model import AssetClass
-from nautilus_trader.model import Currency
-from nautilus_trader.model import InstrumentId
-from nautilus_trader.model import Price
-from nautilus_trader.model import Quantity
-from nautilus_trader.model import Symbol
-from nautilus_trader.model import TokenizedAsset
+## Adapter {#adapters}
 
-aaplx = TokenizedAsset(
-    instrument_id=InstrumentId.from_str("AAPLx/USD.KRAKEN"),
-    raw_symbol=Symbol("AAPLxUSD"),
-    asset_class=AssetClass.EQUITY,
-    base_currency=Currency.from_str("AAPLx"),
-    quote_currency=Currency.from_str("USD"),
-    price_precision=2,
-    size_precision=4,
-    price_increment=Price.from_str("0.01"),
-    size_increment=Quantity.from_str("0.0001"),
-    ts_event=0,
-    ts_init=0,
-    min_quantity=Quantity.from_str("0.0001"),
-)
-```
+adapter ของ [Kraken](../../integrations/kraken.md) สร้างหรือใช้ instrument แบบ
+`TokenizedAsset` สำหรับ asset แบบ tokenized ในกรณีที่ venue เปิดให้ใช้
 
-## Adapters
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-The [Kraken](../../integrations/kraken.md) adapter creates or consumes
-`TokenizedAsset` instruments for tokenized assets where the venue exposes them.
-
-## Related guides
-
-- [Currency Pair](currency_pair.md) covers ordinary crypto spot pairs.
-- [Equity](equity.md) covers listed cash equities.
+- [Currency Pair](currency_pair.md) ครอบคลุมคู่ spot ของ crypto ทั่วไป
+- [Equity](equity.md) ครอบคลุมหุ้นสามัญที่จดทะเบียนในตลาด

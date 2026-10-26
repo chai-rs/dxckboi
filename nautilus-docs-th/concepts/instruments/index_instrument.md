@@ -1,41 +1,39 @@
 # Index Instrument
 
-`IndexInstrument` represents a reference index such as an equity index, volatility index,
-or benchmark price series. It carries precision and increment metadata so Nautilus can
-store and route prices consistently, but it is not a directly tradable contract.
+`IndexInstrument` แทน index อ้างอิง เช่น ดัชนีหุ้น, ดัชนีความผันผวน หรือชุดราคา benchmark
+มันมี metadata ของ precision และ increment เพื่อให้ Nautilus จัดเก็บและ route ราคาได้อย่างสม่ำเสมอ
+แต่ไม่ใช่สัญญาที่ซื้อขายได้โดยตรง
 
-Examples include `SPX.XCBO`, `VIX.XCBO`, and venue-specific reference indexes.
+ตัวอย่างเช่น `SPX.XCBO`, `VIX.XCBO` และ index อ้างอิงเฉพาะของแต่ละ venue
 
-## Fields
+## Field {#fields}
 
-| Field             | Rust type        | Python type    | Required/default | Notes                                    |
-| ----------------- | ---------------- | -------------- | ---------------- | ---------------------------------------- |
-| `instrument_id`   | `InstrumentId`   | `InstrumentId` | Required         | Stored as `id` in Rust.                  |
-| `raw_symbol`      | `Symbol`         | `Symbol`       | Required         | Native venue symbol.                     |
-| `currency`        | `Currency`       | `Currency`     | Required         | Reference currency for quoted values.    |
-| `price_precision` | `u8`             | `int`          | Required         | Decimal places allowed for prices.       |
-| `size_precision`  | `u8`             | `int`          | Required         | Decimal places allowed for quantities.   |
-| `price_increment` | `Price`          | `Price`        | Required         | Smallest valid price step.               |
-| `size_increment`  | `Quantity`       | `Quantity`     | Required         | Smallest valid size step.                |
-| `ts_event`        | `UnixNanos`      | `int`          | Required         | Event timestamp in nanoseconds.          |
-| `ts_init`         | `UnixNanos`      | `int`          | Required         | Initialization timestamp in nanoseconds. |
-| `tick_scheme`     | `Option<Ustr>`   | `str \| None`  | `None`           | Registered variable tick scheme name.    |
-| `info`            | `Option<Params>` | `dict \| None` | `None`           | Adapter metadata.                        |
+| Field             | Rust type        | จำเป็น/ค่าเริ่มต้น | หมายเหตุ                                 |
+| ----------------- | ---------------- | ------------------ | ---------------------------------------- |
+| `instrument_id`   | `InstrumentId`   | จำเป็น             | ใน Rust เก็บเป็น `id`                    |
+| `raw_symbol`      | `Symbol`         | จำเป็น             | symbol ดั้งเดิมของ venue                 |
+| `currency`        | `Currency`       | จำเป็น             | สกุลเงินอ้างอิงของค่าที่ quote            |
+| `price_precision` | `u8`             | จำเป็น             | จำนวนทศนิยมที่อนุญาตสำหรับราคา           |
+| `size_precision`  | `u8`             | จำเป็น             | จำนวนทศนิยมที่อนุญาตสำหรับ quantity      |
+| `price_increment` | `Price`          | จำเป็น             | ขั้นราคาที่เล็กที่สุดที่ใช้ได้            |
+| `size_increment`  | `Quantity`       | จำเป็น             | ขั้นขนาดที่เล็กที่สุดที่ใช้ได้            |
+| `ts_event`        | `UnixNanos`      | จำเป็น             | timestamp ของ event หน่วยนาโนวินาที      |
+| `ts_init`         | `UnixNanos`      | จำเป็น             | timestamp ตอน initialize หน่วยนาโนวินาที |
+| `tick_scheme`     | `Option<Ustr>`   | `None`             | ชื่อ variable tick scheme ที่ลงทะเบียนไว้  |
+| `info`            | `Option<Params>` | `None`             | metadata ของ adapter                     |
 
-**Note**: Python constructors use `instrument_id`. Rust stores the same value as `id`.
+## พฤติกรรม {#behavior}
 
-## Behavior
-
-- `IndexInstrument` has asset class `Index` and instrument class `Spot`.
-- It has no limits, margins, fees, contract multiplier, expiry, or settlement currency.
-- Use option or futures types for tradable derivatives whose underlyings are indexes.
+- `IndexInstrument` มี asset class เป็น `Index` และ instrument class เป็น `Spot`
+- ไม่มี limit, margin, ค่าธรรมเนียม, contract multiplier, วันหมดอายุ หรือ settlement currency
+- สำหรับ derivatives ที่ซื้อขายได้และมี underlying เป็น index ให้ใช้ type ของ option หรือ futures
 
 :::warning
-`IndexInstrument` is a reference instrument, not a tradable contract. Do not submit orders against it. Trade
-the corresponding futures or option instrument instead.
+`IndexInstrument` เป็น instrument อ้างอิง ไม่ใช่สัญญาที่ซื้อขายได้ อย่าส่ง order ไปที่มัน ให้เทรด
+instrument futures หรือ option ที่สอดคล้องกันแทน
 :::
 
-## Example
+## ตัวอย่าง {#example}
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -59,33 +57,12 @@ let spx = IndexInstrument::builder()
     .unwrap();
 ```
 
-```python tab="Python"
-from nautilus_trader.model import Currency
-from nautilus_trader.model import IndexInstrument
-from nautilus_trader.model import InstrumentId
-from nautilus_trader.model import Price
-from nautilus_trader.model import Quantity
-from nautilus_trader.model import Symbol
+## Adapter {#adapters}
 
-spx = IndexInstrument(
-    instrument_id=InstrumentId.from_str("SPX.XCBO"),
-    raw_symbol=Symbol("SPX"),
-    currency=Currency.from_str("USD"),
-    price_precision=2,
-    size_precision=0,
-    price_increment=Price.from_str("0.01"),
-    size_increment=Quantity.from_str("1"),
-    ts_event=0,
-    ts_init=0,
-)
-```
+Adapter [Interactive Brokers](../../integrations/interactive_brokers.md) สร้าง definition ของ
+`IndexInstrument` สำหรับ index อ้างอิง
 
-## Adapters
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-The [Interactive Brokers](../../integrations/interactive_brokers.md) adapter creates
-`IndexInstrument` definitions for reference indexes.
-
-## Related guides
-
-- [Option Contract](option_contract.md) covers listed options on index underlyings.
-- [Futures Contract](futures_contract.md) covers index futures.
+- [Option Contract](option_contract.md) อธิบาย option ที่จดทะเบียนซื้อขายซึ่งมี underlying เป็น index
+- [Futures Contract](futures_contract.md) อธิบาย index futures

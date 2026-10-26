@@ -1,1344 +1,620 @@
 # Kraken
 
-The Kraken adapter supports live market data and order execution for Kraken
-Spot and Kraken Derivatives (Futures).
+adapter ของ Kraken รองรับ market data แบบ live และการส่ง order สำหรับ Kraken
+Spot และ Kraken Derivatives (Futures)
 
-## Overview
+## ภาพรวม {#overview}
 
-The adapter is implemented in Rust with Python bindings and does not require an
-external Kraken client library. Each data or execution configuration selects a
-Spot or Futures client through its `product_type`.
+adapter นี้ implement ด้วย Rust และไม่ต้องใช้ client library ภายนอกของ Kraken
+config ของ data หรือ execution แต่ละตัวจะเลือก client แบบ Spot หรือ Futures ผ่าน `product_type`
 
-The main Python components are:
+component หลักได้แก่:
 
-- `KrakenDataClientConfig` and `KrakenExecutionClientConfig`: Live client
-  configuration.
-- `KrakenDataClientFactory` and `KrakenExecutionClientFactory`: Factories used
-  by the trading node builder.
-- `KrakenSpotHttpClient` and `KrakenFuturesHttpClient`: Lower-level HTTP access
-  for direct requests.
+- `KrakenDataClientConfig` และ `KrakenExecutionClientConfig`: config ของ live
+  client
+- `KrakenDataClientFactory` และ `KrakenExecutionClientFactory`: factory ที่ trading node builder
+  ใช้
+- `KrakenSpotHttpClient` และ `KrakenFuturesHttpClient`: การเข้าถึง HTTP ระดับล่าง
+  สำหรับการส่ง request โดยตรง
 
-The Rust crate also exposes `KrakenSpotWebSocketClient` and `KrakenFuturesWebSocketClient` for
-lower-level WebSocket access.
+crate ของ Rust ยังมี `KrakenSpotWebSocketClient` และ `KrakenFuturesWebSocketClient` สำหรับ
+การเข้าถึง WebSocket ระดับล่างด้วย
 
-Configure the adapter through a live trading node, or use the lower-level clients
-for direct API access.
+ตั้งค่า adapter ผ่าน live trading node หรือใช้ client ระดับล่าง
+เพื่อเข้าถึง API โดยตรง
 
-## Examples
+## ตัวอย่าง {#examples}
 
-- [Python examples](https://github.com/nautechsystems/nautilus_trader/tree/develop/examples/live/kraken/)
-- [Rust examples](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/kraken/examples/)
+- [ตัวอย่าง Rust](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/kraken/examples/)
 
-## Kraken documentation
+## เอกสารของ Kraken {#kraken-documentation}
 
-- [Kraken API documentation](https://docs.kraken.com/)
+- [เอกสาร API ของ Kraken](https://docs.kraken.com/)
 - [Kraken Spot REST API](https://docs.kraken.com/exchange/guides/rest/introduction)
 - [Kraken Derivatives API](https://docs.kraken.com/exchange/guides/futures/introduction)
 
-## Products
+## ผลิตภัณฑ์ {#products}
 
-The adapter supports these product categories:
+adapter รองรับหมวดผลิตภัณฑ์ต่อไปนี้:
 
-| Product type          | Supported | Notes                                               |
-| --------------------- | --------- | --------------------------------------------------- |
-| Spot currency pairs   | ✓         | Cash trading and margin on eligible pairs.          |
-| Spot tokenized assets | ✓         | Loaded from Kraken's `tokenized_asset` asset class. |
-| Futures               | ✓         | Instruments returned by the Kraken Futures API.     |
+| ประเภทผลิตภัณฑ์           | รองรับ | หมายเหตุ                                                 |
+| --------------------- | ----- | ------------------------------------------------------ |
+| คู่สกุลเงิน Spot          | ✓     | การเทรดแบบ cash และ margin สำหรับคู่ที่เข้าเงื่อนไข             |
+| Spot tokenized asset  | ✓     | โหลดจาก asset class `tokenized_asset` ของ Kraken        |
+| Futures               | ✓     | instrument ที่ Kraken Futures API คืนมา                   |
 
 :::warning
-Kraken Futures can return instrument definitions that need more than standard-precision mode's nine decimal places.
-Keep [high-precision mode](../getting_started/installation.md#precision-mode) enabled for Futures. Standard-precision
-mode continues to support Spot, but Futures clients fail to start or return instruments when any definition cannot
-be parsed. Futures catalog requests return no partial result and never round, clamp, or omit an unsupported
-definition.
+Kraken Futures อาจคืนนิยามของ instrument ที่ต้องการทศนิยมมากกว่าเก้าตำแหน่งของโหมด standard-precision
+ให้เปิด[โหมด high-precision](../getting_started/installation.md#precision-mode)ไว้สำหรับ Futures โหมด standard-precision
+ยังรองรับ Spot ได้ แต่ client ของ Futures จะ start ไม่สำเร็จหรือคืน instrument ไม่ได้เมื่อมีนิยามใดที่
+parse ไม่ได้ request ของ catalog ฝั่ง Futures จะไม่คืนผลลัพธ์เพียงบางส่วน และจะไม่ปัด ตัด หรือละนิยามที่
+ไม่รองรับเลย
 :::
 
 :::note
-**Single product type per client**: Each Kraken data or execution client is configured for a single
-`product_type` (`SPOT` or `FUTURES`). A single client does not span both markets.
+**หนึ่งประเภทผลิตภัณฑ์ต่อหนึ่ง client**: data client หรือ execution client ของ Kraken แต่ละตัวถูกตั้งค่าให้ใช้
+`product_type` เดียว (`SPOT` หรือ `FUTURES`) client ตัวเดียวไม่ครอบคลุมทั้งสองตลาด
 :::
 
-## Spot instrument fees
+## ค่าธรรมเนียมของ instrument ฝั่ง Spot {#spot-instrument-fees}
 
-Spot instrument loading does not populate venue maker or taker fee rates and does
-not call Kraken's `TradeVolume` endpoint.
+การโหลด instrument ฝั่ง Spot จะไม่เติมอัตราค่าธรรมเนียม maker หรือ taker ของ venue และ
+ไม่เรียก endpoint `TradeVolume` ของ Kraken
 
-A Spot API key without `Funds permissions - Query` (**Query Funds**) fails when
-the execution client requests account state.
+API key ของ Spot ที่ไม่มีสิทธิ์ `Funds permissions - Query` (**Query Funds**) จะล้มเหลวเมื่อ
+execution client ขอสถานะของ account
 
-## Bar streaming
+## การ stream bar {#bar-streaming}
 
-### Supported intervals
+### Interval ที่รองรับ {#supported-intervals}
 
-For Spot, subscribe to `EXTERNAL` bars to receive Kraken's WebSocket OHLC data.
-The following intervals are available:
+สำหรับ Spot ให้ subscribe bar แบบ `EXTERNAL` เพื่อรับข้อมูล OHLC ผ่าน WebSocket ของ Kraken
+interval ที่มีให้ใช้มีดังนี้:
 
 | Interval   | BarType specification |
 | ---------- | --------------------- |
-| 1 minute   | `1-MINUTE-LAST`       |
-| 5 minutes  | `5-MINUTE-LAST`       |
-| 15 minutes | `15-MINUTE-LAST`      |
-| 30 minutes | `30-MINUTE-LAST`      |
-| 1 hour     | `1-HOUR-LAST`         |
-| 4 hours    | `4-HOUR-LAST`         |
-| 1 day      | `1-DAY-LAST`          |
-| 1 week     | `1-WEEK-LAST`         |
-| 15 days    | `15-DAY-LAST`         |
+| 1 นาที      | `1-MINUTE-LAST`       |
+| 5 นาที      | `5-MINUTE-LAST`       |
+| 15 นาที     | `15-MINUTE-LAST`      |
+| 30 นาที     | `30-MINUTE-LAST`      |
+| 1 ชั่วโมง    | `1-HOUR-LAST`         |
+| 4 ชั่วโมง    | `4-HOUR-LAST`         |
+| 1 วัน       | `1-DAY-LAST`          |
+| 1 สัปดาห์    | `1-WEEK-LAST`         |
+| 15 วัน      | `15-DAY-LAST`         |
 
 :::note
-**Futures limitation**: Kraken Futures does not support bar streaming via
-WebSocket. Use `request_bars()` for historical bar data instead.
+**ข้อจำกัดของ Futures**: Kraken Futures ไม่รองรับการ stream bar ผ่าน
+WebSocket ให้ใช้ `request_bars()` สำหรับข้อมูล bar ย้อนหลังแทน
 :::
 
-### Bar emission latency
+### Latency ในการส่ง bar {#bar-emission-latency}
 
-Kraken's [Spot WebSocket OHLC channel](https://docs.kraken.com/exchange/api-reference/spot-websocket-v2/ohlc)
-updates the current, incomplete bar on trade events. It does not provide a
-field that marks a bar as closed.
+[OHLC channel ของ Spot WebSocket](https://docs.kraken.com/exchange/api-reference/spot-websocket-v2/ohlc) ของ Kraken
+จะอัปเดต bar ปัจจุบันที่ยังไม่สมบูรณ์เมื่อมี trade event และไม่มี
+ฟิลด์ที่ระบุว่า bar ปิดแล้ว
 
-During normal streaming, the adapter buffers the current bar and emits it after receiving an update with a new
-`interval_begin`. Thus, the delay depends on the first trade in the next interval. For a market with no
-trades, it is not bounded to one bar period. When the WebSocket message handler stops, the adapter flushes its
-buffered bars, including a current bar that may still be incomplete.
+ระหว่างการ stream ตามปกติ adapter จะ buffer bar ปัจจุบันไว้และส่งออกไปหลังจากได้รับการอัปเดตที่มี
+`interval_begin` ใหม่ ดังนั้นความล่าช้าจึงขึ้นอยู่กับ trade แรกใน interval ถัดไป สำหรับตลาดที่ไม่มี
+trade ความล่าช้าจะไม่ถูกจำกัดไว้ที่หนึ่งช่วงของ bar เมื่อ message handler ของ WebSocket หยุดทำงาน adapter จะ flush
+bar ที่ buffer ไว้ออกไป รวมถึง bar ปัจจุบันที่อาจยังไม่สมบูรณ์
 
-The adapter uses buffering instead of timer-based emission because:
+adapter ใช้การ buffer แทนการส่งออกตาม timer เพราะ:
 
-- Timer-based emission could miss the final update before the bar closes.
-- Kraken's updates are not guaranteed to arrive at exact interval boundaries.
+- การส่งออกตาม timer อาจพลาดการอัปเดตสุดท้ายก่อน bar ปิด
+- ไม่มีการรับประกันว่าการอัปเดตของ Kraken จะมาถึงตรงขอบของ interval พอดี
 
 :::tip
-For lower bar latency, subscribe to trade ticks and use `INTERNAL` aggregation
-with `BarAggregator`. Time bars use local timers, avoiding the wait for Kraken's
-next-interval trade, and use the same aggregation behavior across venues.
+หากต้องการ latency ของ bar ที่ต่ำกว่า ให้ subscribe trade tick และใช้การรวมแบบ `INTERNAL`
+ด้วย `BarAggregator` time bar ใช้ timer ในเครื่อง จึงไม่ต้องรอ trade ใน interval ถัดไปของ Kraken
+และใช้พฤติกรรมการรวมแบบเดียวกันในทุก venue
 :::
 
-## Symbology
+## Symbology {#symbology}
 
-### Spot symbol normalization
+### การ normalize symbol ของ Spot {#spot-symbol-normalization}
 
-The adapter uses different Bitcoin symbol conventions for Spot and Futures:
+adapter ใช้ convention ของ symbol Bitcoin ที่ต่างกันระหว่าง Spot และ Futures:
 
-| Market  | Symbol format | Example            | Notes                                        |
-| ------- | ------------- | ------------------ | -------------------------------------------- |
-| Spot    | `BTC`         | `BTC/USD.KRAKEN`   | Adapter normalizes XBT to BTC at load time.  |
-| Futures | `XBT`         | `PI_XBTUSD.KRAKEN` | Instrument symbols keep Kraken's native XBT. |
+| ตลาด     | รูปแบบ symbol | ตัวอย่าง             | หมายเหตุ                                            |
+| ------- | ------------ | ------------------ | ------------------------------------------------- |
+| Spot    | `BTC`        | `BTC/USD.KRAKEN`   | adapter normalize XBT เป็น BTC ตอนโหลด              |
+| Futures | `XBT`        | `PI_XBTUSD.KRAKEN` | symbol ของ instrument คง XBT แบบดั้งเดิมของ Kraken ไว้ |
 
 :::note
-Kraken's REST API can return `XBT` for Bitcoin, while its WebSocket v2 API requires `BTC`. The adapter
-normalizes Spot symbols to `BTC` when loading instruments, whether `XBT` appears as the base currency (for
-example, `XBT/USD` to `BTC/USD`) or quote currency (for example, `ETH/XBT` to `ETH/BTC`). Futures instrument
-symbols retain Kraken's native `XBT` format. Futures currency codes do not, and follow the same
-[currency mapping](#currency-codes) as Spot.
+REST API ของ Kraken อาจคืน `XBT` สำหรับ Bitcoin ในขณะที่ WebSocket v2 API ต้องการ `BTC` adapter
+จะ normalize symbol ของ Spot เป็น `BTC` ตอนโหลด instrument ไม่ว่า `XBT` จะปรากฏเป็น base currency (เช่น
+`XBT/USD` เป็น `BTC/USD`) หรือ quote currency (เช่น `ETH/XBT` เป็น `ETH/BTC`) ส่วน symbol ของ instrument
+ฝั่ง Futures คงรูปแบบ `XBT` ดั้งเดิมของ Kraken ไว้ แต่รหัสสกุลเงินของ Futures ไม่ได้คงไว้ และใช้
+[การ map สกุลเงิน](#currency-codes)แบบเดียวกับ Spot
 :::
 
-Kraken also uses `XDG` for Dogecoin in some Spot responses. The adapter
-normalizes it to `DOGE`, including in quote currency symbols.
+Kraken ยังใช้ `XDG` สำหรับ Dogecoin ใน response บางตัวของ Spot adapter
+จะ normalize เป็น `DOGE` รวมถึงใน symbol ของ quote currency ด้วย
 
-### Currency codes
+### รหัสสกุลเงิน {#currency-codes}
 
-The adapter maps Kraken's legacy asset codes to standard codes consistently across
-instruments, balances, fees, and currency configuration:
+adapter จะ map รหัส asset แบบเก่าของ Kraken เป็นรหัสมาตรฐานอย่างสม่ำเสมอทั้งใน
+instrument, ยอดเงินคงเหลือ, ค่าธรรมเนียม และการตั้งค่าสกุลเงิน:
 
-- `XXBT` and `XBT` become `BTC`.
-- `XXDG` and `XDG` become `DOGE`.
-- `ZEUR` becomes `EUR`, and `ZUSD` becomes `USD`.
+- `XXBT` และ `XBT` เป็น `BTC`
+- `XXDG` และ `XDG` เป็น `DOGE`
+- `ZEUR` เป็น `EUR` และ `ZUSD` เป็น `USD`
 
-The mapping uses an explicit table, as Kraken's own CLI does, rather than stripping prefixes. `XTZ`, `XRP`,
-`XLM`, `XAUT`, `ZRX`, and `ZEC` are valid codes. An unlisted code passes through unchanged.
+การ map ใช้ตารางที่ระบุไว้อย่างชัดเจนแบบเดียวกับ CLI ของ Kraken เอง แทนการตัด prefix ทิ้ง `XTZ`, `XRP`,
+`XLM`, `XAUT`, `ZRX` และ `ZEC` เป็นรหัสที่ถูกต้อง รหัสที่ไม่อยู่ในรายการจะผ่านไปโดยไม่เปลี่ยนแปลง
 
-Configuration accepts either spelling. For example,
-`spot_positions_quote_currency="ZEUR"` and `"EUR"` both match a euro-quoted instrument.
+การตั้งค่ารับได้ทั้งสองการสะกด ตัวอย่างเช่น
+`spot_positions_quote_currency="ZEUR"` และ `"EUR"` จะตรงกับ instrument ที่ quote เป็นยูโรเหมือนกัน
 
-Fees use the venue-reported currency when available. Futures fills can carry a fee
-currency, which on an inverse contract is the base rather than the quote. Spot
-`TradesHistory` reports only a fee amount, so those commissions use the instrument's
-quote currency.
+ค่าธรรมเนียมใช้สกุลเงินที่ venue รายงานเมื่อมี fill ของ Futures อาจระบุสกุลเงินของค่าธรรมเนียม
+ซึ่งในสัญญาแบบ inverse จะเป็น base ไม่ใช่ quote ส่วน `TradesHistory` ของ Spot
+รายงานเพียงจำนวนค่าธรรมเนียม ดังนั้นค่าคอมมิชชันเหล่านั้นจึงใช้ quote currency ของ instrument
 
-#### Migration from earlier currency codes
+#### การ migrate จากรหัสสกุลเงินแบบเดิม {#migration-from-earlier-currency-codes}
 
 :::warning
-Migrate or rebuild caches and databases written before currency normalization.
-Stored instruments, fills, positions, and balances can use the earlier codes below.
+ให้ migrate หรือสร้าง cache และ database ที่เขียนไว้ก่อนการ normalize สกุลเงินใหม่
+instrument, fill, position และยอดเงินที่จัดเก็บไว้อาจใช้รหัสแบบเดิมด้านล่าง
 :::
 
-The earlier mappings differed by source:
+การ map แบบเดิมแตกต่างกันตามแหล่งที่มา:
 
-- Instruments retained `XXBT`, `XETH`, `XXDG`, `ZUSD`, and `ZEUR`, as did their fills
-  and positions. These become `BTC`, `ETH`, `DOGE`, `USD`, and `EUR`.
-- Spot balances and the margin summary asset lost one leading `X` or `Z`. This left
-  `XBT` and `XDG` instead of `BTC` and `DOGE`, and `TZ`, `RX`, and `AUT` instead of
-  `XTZ`, `ZRX`, and `XAUT`. `KFEE` becomes `FEE` under the explicit mapping.
-- Futures balances retained the wallet's spelling: cash and margin wallets use `xbt`, while the flex wallet
-  uses `XBT`. Both become `BTC`. `usd` becomes `USD`.
+- instrument คง `XXBT`, `XETH`, `XXDG`, `ZUSD` และ `ZEUR` ไว้ fill
+  และ position ของมันก็เช่นกัน ปัจจุบันรหัสเหล่านี้จะเป็น `BTC`, `ETH`, `DOGE`, `USD` และ `EUR`
+- ยอดเงิน Spot และ asset ของ margin summary ถูกตัด `X` หรือ `Z` ตัวหน้าออกหนึ่งตัว ทำให้เหลือ
+  `XBT` และ `XDG` แทน `BTC` และ `DOGE` และเหลือ `TZ`, `RX` และ `AUT` แทน
+  `XTZ`, `ZRX` และ `XAUT` ส่วน `KFEE` จะเป็น `FEE` ภายใต้การ map แบบชัดเจน
+- ยอดเงิน Futures คงการสะกดของ wallet ไว้: wallet แบบ cash และ margin ใช้ `xbt` ในขณะที่ flex wallet
+  ใช้ `XBT` ทั้งสองจะเป็น `BTC` และ `usd` จะเป็น `USD`
 
-#### Futures wallet aggregation
+#### การรวมยอดของ Futures wallet {#futures-wallet-aggregation}
 
-Futures balances with the same normalized code combine into one entry. Total and locked amounts sum across
-wallets. Each wallet's locked amount is bounded to `[0, total]` for a non-negative total. A negative total
-keeps its reported locked amount. The aggregate is not clamped. Free balance can therefore be negative when
-reservations exceed the combined holding, preserving the actual shortfall.
+ยอดเงิน Futures ที่มีรหัสหลัง normalize เดียวกันจะรวมเป็นรายการเดียว ยอดรวมและยอดที่ถูกล็อกจะบวกกันข้าม
+wallet ยอดที่ถูกล็อกของแต่ละ wallet จะถูกจำกัดให้อยู่ในช่วง `[0, total]` เมื่อยอดรวมไม่ติดลบ ยอดรวมที่ติดลบ
+จะคงยอดที่ถูกล็อกตามที่รายงานไว้ ผลรวมจะไม่ถูก clamp ดังนั้น free balance อาจติดลบได้เมื่อ
+ยอดที่จองไว้เกินยอดถือครองรวม ซึ่งเป็นการคงยอดขาดจริงไว้
 
-Previously, separate wallet entries overwrote each other in the account, leaving only the last entry read.
+ก่อนหน้านี้ รายการของแต่ละ wallet จะเขียนทับกันใน account ทำให้เหลือเพียงรายการสุดท้ายที่อ่าน
 
-#### Money precision
+#### Precision ของ money {#money-precision}
 
-Normalized codes can resolve to built-in currencies with different precision.
-Previously, unknown codes such as `ZEUR` and `ZUSD` registered as crypto currencies
-with eight decimal places. Built-in `EUR` and `USD` use two, and `JPY` uses none.
-This affects instrument quote currencies, REST fill commissions, and derived PnL.
+รหัสที่ normalize แล้วอาจ resolve เป็นสกุลเงิน built-in ที่มี precision ต่างกัน
+ก่อนหน้านี้รหัสที่ไม่รู้จักอย่าง `ZEUR` และ `ZUSD` ถูกลงทะเบียนเป็นสกุลเงิน crypto
+ที่มีทศนิยมแปดตำแหน่ง ส่วน `EUR` และ `USD` แบบ built-in ใช้สองตำแหน่ง และ `JPY` ไม่มีทศนิยม
+สิ่งนี้ส่งผลต่อ quote currency ของ instrument, ค่าคอมมิชชันของ fill จาก REST และ PnL ที่ derive มา
 
-Account balances retain eight decimal places because their parsers construct the currency directly rather than
-use the registry. The Futures flex `portfolioValue` entry and account-wide USD margin entries also use this
-eight-decimal currency. They previously used two-decimal `USD`, so their precision increases without loss.
+ยอดเงินของ account ยังคงทศนิยมแปดตำแหน่ง เพราะ parser ของมันสร้างสกุลเงินโดยตรงแทนการ
+ใช้ registry รายการ `portfolioValue` ของ Futures flex และรายการ margin แบบ USD ทั้ง account ก็ใช้
+สกุลเงินทศนิยมแปดตำแหน่งนี้เช่นกัน ก่อนหน้านี้ใช้ `USD` แบบสองตำแหน่ง ดังนั้น precision จึงเพิ่มขึ้นโดยไม่สูญเสียข้อมูล
 
-### Spot markets
+### ตลาด Spot {#spot-markets}
 
-NautilusTrader uses normalized, slash-separated symbols for Kraken Spot
-instruments. The adapter translates them to Kraken's native format internally.
+NautilusTrader ใช้ symbol ที่ normalize แล้วและคั่นด้วยเครื่องหมาย slash สำหรับ instrument ของ Kraken Spot
+adapter จะแปลงเป็นรูปแบบดั้งเดิมของ Kraken ภายใน
 
-**Instrument ID format**:
+**รูปแบบ instrument ID**:
 
-```python
-from nautilus_trader.model import InstrumentId
+- `BTC/USD.KRAKEN`: Spot BTC/USD
+- `ETH/USD.KRAKEN`: Spot ETH/USD
+- `SOL/USD.KRAKEN`: Spot SOL/USD
+- `BTC/USDT.KRAKEN`: Spot BTC/USDT
+- `ETH/BTC.KRAKEN`: Spot ETH/BTC (normalize มาจาก ETH/XBT)
 
+### ตลาด Futures {#futures-markets}
 
-InstrumentId.from_str("BTC/USD.KRAKEN")  # Spot BTC/USD
-InstrumentId.from_str("ETH/USD.KRAKEN")  # Spot ETH/USD
-InstrumentId.from_str("SOL/USD.KRAKEN")  # Spot SOL/USD
-InstrumentId.from_str("BTC/USDT.KRAKEN")  # Spot BTC/USDT
-InstrumentId.from_str("ETH/BTC.KRAKEN")  # Spot ETH/BTC (normalized from ETH/XBT)
-```
+symbol ของ Kraken Futures ใช้ prefix ของสัญญา:
 
-### Futures markets
+- `PI_`: สัญญา perpetual แบบ inverse (เช่น `PI_XBTUSD`)
+- `PF_`: สัญญา perpetual แบบ linear multi-collateral (เช่น `PF_XBTUSD`)
+- `PV_`: สัญญา perpetual แบบ vanilla (เช่น `PV_XRPXBT`)
+- `FI_`: สัญญาแบบมีวันครบกำหนดแบบ inverse (เช่น `FI_XBTUSD_230929`)
+- `FF_`: สัญญาแบบมีวันครบกำหนดแบบ linear
 
-Kraken Futures symbols use contract prefixes:
+[ข้อมูลอ้างอิง ticker symbol](https://support.kraken.com/articles/360022835891-ticker-symbols-derivatives) ของ Kraken
+แสดง prefix หลักของสัญญา ให้ใช้ catalog ของ instrument ที่คืนมาเพื่อดูว่ามีสัญญาใดให้ใช้บ้าง
+symbol ตัวอย่างอาจอ้างถึงสัญญาที่หมดอายุแล้วหรือไม่ได้ list ไว้
 
-- `PI_`: Perpetual inverse contracts (for example, `PI_XBTUSD`).
-- `PF_`: Perpetual linear multi-collateral contracts (for example, `PF_XBTUSD`).
-- `PV_`: Perpetual vanilla contracts (for example, `PV_XRPXBT`).
-- `FI_`: Fixed-maturity inverse contracts (for example, `FI_XBTUSD_230929`).
-- `FF_`: Fixed-maturity linear contracts.
+**รูปแบบ instrument ID**:
 
-Kraken's
-[ticker symbol reference](https://support.kraken.com/articles/360022835891-ticker-symbols-derivatives) lists
-the main contract prefixes. Use the returned instrument catalog to determine which contracts are available.
-Example symbols can refer to expired or unlisted contracts.
+- `PI_XBTUSD.KRAKEN`: BTC แบบ perpetual inverse
+- `PI_ETHUSD.KRAKEN`: ETH แบบ perpetual inverse
+- `PF_XBTUSD.KRAKEN`: BTC แบบ perpetual linear multi-collateral
 
-**Instrument ID format**:
+## ความสามารถด้านข้อมูล {#data-capabilities}
 
-```python
-from nautilus_trader.model import InstrumentId
+### Subscription (real-time) {#subscriptions-real-time}
 
+| Data type           | Spot | Futures | หมายเหตุ                                      |
+| ------------------- | ---- | ------- | ------------------------------------------- |
+| `QuoteTick`         | ✓    | ✓       | Spot จาก ticker; Futures จาก L2 book         |
+| `TradeTick`         | ✓    | ✓       |                                             |
+| `OrderBookDeltas`   | ✓    | ✓       | การอัปเดต L2/L3 ของ Spot และ L2 ของ Futures     |
+| `OrderBookDepth`    | -    | -       | ใช้ `OrderBookDeltas` ที่ depth `10`           |
+| `Bar`               | ✓    | -       | OHLC channel ของ Spot WS ดูส่วนเรื่อง bar      |
+| `MarkPriceUpdate`   | -    | ✓       | จาก ticker feed ของ futures                  |
+| `IndexPriceUpdate`  | -    | ✓       | จาก ticker feed ของ futures                  |
+| `FundingRateUpdate` | -    | ✓       | เฉพาะ perpetual                             |
+| `InstrumentStatus`  | -    | -       | live client ไม่ส่งการอัปเดตสถานะ               |
 
-InstrumentId.from_str("PI_XBTUSD.KRAKEN")  # Perpetual inverse BTC
-InstrumentId.from_str("PI_ETHUSD.KRAKEN")  # Perpetual inverse ETH
-InstrumentId.from_str("PF_XBTUSD.KRAKEN")  # Perpetual linear multi-collateral BTC
-```
+### Request (ย้อนหลัง) {#requests-historical}
 
-## Data capabilities
+| Data type              | Spot | Futures | หมายเหตุ                                    |
+| ---------------------- | ---- | ------- | ----------------------------------------- |
+| `TradeTick`            | ✓    | ✓       |                                           |
+| `Bar`                  | ✓    | ✓       |                                           |
+| `OrderBook` (snapshot) | ✓    | ✓       | ผ่าน HTTP depth endpoint                   |
+| `FundingRateUpdate`    | -    | ✓       | กรอง start/end/limit ที่ฝั่ง client           |
 
-### Subscriptions (real-time)
+### การตรวจสอบ checksum ของ L2 book {#l2-book-checksum-validation}
 
-| Data type           | Spot | Futures | Notes                                    |
-| ------------------- | ---- | ------- | ---------------------------------------- |
-| `QuoteTick`         | ✓    | ✓       | Spot ticker; Futures L2 book.            |
-| `TradeTick`         | ✓    | ✓       |                                          |
-| `OrderBookDeltas`   | ✓    | ✓       | Spot L2/L3 and Futures L2 updates.       |
-| `OrderBookDepth`    | -    | -       | Use `OrderBookDeltas` with depth `10`.   |
-| `Bar`               | ✓    | -       | Spot WS OHLC channel. See bar section.   |
-| `MarkPriceUpdate`   | -    | ✓       | From futures ticker feed.                |
-| `IndexPriceUpdate`  | -    | ✓       | From futures ticker feed.                |
-| `FundingRateUpdate` | -    | ✓       | Perpetuals only.                         |
-| `InstrumentStatus`  | -    | -       | Live clients do not emit status updates. |
+[L2 `book` channel ของ Spot](https://docs.kraken.com/exchange/api-reference/spot-websocket-v2/book) ของ Kraken
+ส่ง CRC32 checksum ของสิบระดับบนสุดในแต่ละฝั่งมากับทั้ง snapshot และการอัปเดต
+adapter จะตรวจสอบค่านี้เป็นค่าเริ่มต้นเทียบกับ shadow book ในเครื่อง โดยใช้ `pair_decimals`
+สำหรับราคาและ `lot_decimals` สำหรับ quantity จาก `AssetPairs` บางคู่มี scale ของราคาบน wire
+ละเอียดกว่า tick size หนึ่งหลัก instrument จะเก็บ scale ที่ละเอียดกว่านั้นไว้ใน metadata
+เพื่อให้การ render checksum ไม่ตัดตัวเลขของราคา
+ข้อความ `book` ของ Kraken Futures ไม่มี checksum
 
-### Requests (historical)
+#### การกู้คืนและ identity ของ stream {#recovery-and-stream-identity}
 
-| Data type              | Spot | Futures | Notes                                  |
-| ---------------------- | ---- | ------- | -------------------------------------- |
-| `TradeTick`            | ✓    | ✓       |                                        |
-| `Bar`                  | ✓    | ✓       |                                        |
-| `OrderBook` (snapshot) | ✓    | ✓       | Via HTTP depth endpoint.               |
-| `FundingRateUpdate`    | -    | ✓       | Client-side start/end/limit filtering. |
+เมื่อ checksum ไม่ตรงกัน adapter จะส่ง delta แบบ `Clear` ทิ้ง shadow book
+แล้ว unsubscribe และ resubscribe symbol นั้นที่ depth ที่ตั้งค่าไว้พร้อม snapshot
+และจะไม่สนใจการอัปเดตจนกว่า snapshot นั้นจะมาถึง การ unsubscribe `book` ทุกครั้งจะระบุ
+depth ด้วย เพราะ Kraken ใช้ symbol และ depth เป็น key ของ subscription และใช้ค่าเริ่มต้น `10` เมื่อ
+ไม่ระบุ depth ตอน unsubscribe
 
-### L2 book checksum validation
+การกู้คืนทำงานตามลำดับร่วมกับการเปลี่ยนแปลง subscription ของผู้ใช้ ดังนั้นการกู้คืนที่ค้างเก่าจะไม่มีวัน
+ยกเลิก subscription ตัวใหม่ที่เข้ามาแทน request subscribe จะระบุ identity ของแต่ละ stream
+adapter รับ frame เฉพาะจาก stream ล่าสุดของ symbol นั้นหลังจาก Kraken ยืนยัน
+request นั้นแล้ว และทิ้ง frame จาก subscription ที่ถูกแทนที่และการกู้คืนที่ถูกแทนที่ไปแล้ว
+snapshot จะเปลี่ยน book ก็ต่อเมื่อ parse และนำไปใช้สำเร็จเท่านั้น request กู้คืน
+ที่ทำก่อน snapshot ที่ได้รับการยอมรับหรือก่อนการ reconnect จะไม่ส่งอะไรหลังจาก event นั้น
 
-Kraken's [Spot L2 `book` channel](https://docs.kraken.com/exchange/api-reference/spot-websocket-v2/book)
-sends a CRC32 checksum for the top ten levels on each side in snapshots and updates.
-The adapter validates it by default against a local shadow book, using `pair_decimals`
-for prices and `lot_decimals` for quantities from `AssetPairs`. Some pairs have a wire
-price scale one digit finer than their tick size. The instrument retains that finer
-scale in its metadata so checksum rendering does not truncate price digits.
-Kraken Futures `book` messages carry no checksum.
+adapter ยังส่ง delta แบบ `Clear` เมื่อทิ้ง shadow book นอกการประมวลผล frame ซึ่งเกิดขึ้นใน
+event ต่อไปนี้:
 
-#### Recovery and stream identity
+- การ reconnect
+- การยืนยัน stream ใหม่
+- การปฏิเสธ request subscribe ล่าสุด
+- snapshot watchdog ตรวจพบ request ล่าสุดที่ยังไม่ได้รับการยืนยัน
 
-On a checksum mismatch, the adapter emits a `Clear` delta, drops the shadow book,
-and unsubscribes and resubscribes the symbol at its configured depth with a snapshot.
-It ignores updates until that snapshot arrives. Every `book` unsubscribe includes
-its depth: Kraken keys subscriptions by symbol and depth, and defaults an omitted
-unsubscribe depth to `10`.
+#### Snapshot ที่หายไปและ subscription ที่ถูกปฏิเสธ {#missing-snapshots-and-rejected-subscriptions}
 
-Recovery runs serially with user subscription changes, so stale recovery never
-cancels a replacement subscription. The subscribe request identifies each stream.
-The adapter accepts frames only from the symbol's latest stream after Kraken confirms
-that request, dropping frames from replaced subscriptions and superseded recoveries.
-A snapshot changes the book only after it parses and applies successfully. A recovery
-request made before an accepted snapshot or reconnect sends nothing after that event.
+snapshot watchdog เป็นกลไก retry เพียงอย่างเดียวสำหรับการกู้คืน `book` มันทำงานแม้
+จะปิดการตรวจสอบ checksum ไว้ เพราะมันยังกู้คืน stream ที่ไม่เคย
+ได้รับ snapshot เลยด้วย subscription ที่เข้ามาแทนแต่ละตัวจะเริ่มการรอใหม่ แทนที่จะ
+สืบทอดจำนวนครั้ง retry ของตัวก่อนหน้า
 
-The adapter also emits a `Clear` delta when it drops a shadow book outside frame processing. This occurs on
-these events:
+หากไม่มี snapshot มาถึงภายใน 10 วินาที data client จะขอใหม่อีกครั้ง โดยเพิ่มระยะรอเป็นสองเท่าระหว่าง
+แต่ละ request (`10`, `20`, `40`, `80` และ `160` วินาที) สูงสุดห้า request เมื่อถึงขีดจำกัด จะ log error และ
+หยุด retry book จะยังคงถูก clear และการอัปเดตจะถูกทิ้งจนกว่า snapshot จะมาถึง การเปลี่ยน subscription
+หรือการ reconnect จะเริ่มการกู้คืนใหม่อีกครั้ง
 
-- Reconnect.
-- Confirmation of a new stream.
-- Rejection of the latest subscribe request.
-- Detection of an unconfirmed latest request by the snapshot watchdog.
+การที่ Kraken ปฏิเสธ request subscribe ล่าสุดจะ clear book ที่ถืออยู่ และ log
+เหตุผลของ venue และเวลาของ request ถัดไปที่ระดับ error การปฏิเสธนับเป็น request ที่ล้มเหลว
+หนึ่งครั้ง ดังนั้นความพยายามถัดไปจะตามมาหลัง 20 วินาที การปฏิเสธอีกสี่ครั้ง
+จะใช้โควตาหมดในเวลาประมาณห้านาที การปฏิเสธชั่วคราวจึงสามารถ
+กู้คืนได้ในความพยายามถัดไปหลัง 20 วินาที การปฏิเสธของ request ที่ถูกแทนที่แล้วจะถูกเพิกเฉย
 
-#### Missing snapshots and rejected subscriptions
+เมื่อ reconnect adapter จะยกเลิกรายการ subscribe ที่บันทึกไว้และ replay การ subscribe แต่ละรายการ
+ด้วย request ID เดิม response ของการ replay จะไม่ตรงกับ request ที่ active อยู่ หาก Kraken
+ปฏิเสธการ replay watchdog จะตรวจพบ snapshot ที่หายไปภายในระยะรอพื้นฐาน
+10 วินาที
 
-The snapshot watchdog is the only retry mechanism for `book` recovery. It runs even
-with checksum validation disabled, because it also recovers streams that never
-receive a snapshot. Each replacement subscription starts a fresh wait rather than
-inheriting its predecessor's retry count.
+#### Checksum ไม่ตรงกันซ้ำๆ {#repeated-checksum-mismatches}
 
-If no snapshot arrives within 10 seconds, the data client requests it again. It doubles the wait between
-requests (`10`, `20`, `40`, `80`, and `160` seconds), up to five requests. At the cap, it logs an error and
-stops retrying. The book stays cleared and updates are dropped until a snapshot arrives. A subscription change
-or reconnect starts recovery again.
+การไม่ตรงกันสามครั้งบน instrument เดียวโดยไม่มีการอัปเดตที่ถูกต้องคั่นระหว่างกัน จะปิด
+การตรวจสอบสำหรับ instrument นั้นและ log error adapter จะคง book ไว้ตามที่
+ได้รับ เพื่อป้องกันการ resubscribe วนซ้ำเมื่อ Kraken คำนวณ hash ต่างออกไป
+snapshot ที่ถูกต้องจะไม่ reset จำนวนครั้งที่ไม่ตรงกัน
 
-Kraken's rejection of the latest subscribe request clears any held book and logs the
-venue's reason and the next request time at error level. The rejection counts as one
-failed request, so the next attempt follows after 20 seconds. Four more rejections
-exhaust the allowance in about five minutes. A transient rejection can therefore
-recover on the next attempt after 20 seconds. Rejections of superseded requests are ignored.
+หากต้องการปิดการตรวจสอบ checksum ของ L2 ให้ตั้ง `validate_l2_checksum=False` ใน `KrakenDataClientConfig`
 
-On reconnect, the adapter retires its recorded subscribes and replays each subscribe
-with its original request ID. Replay responses match no active request. If Kraken
-rejects a replay, the watchdog detects the missing snapshot within its base wait of
-10 seconds.
+## L3 order book (market-by-order) {#l3-order-book-market-by-order}
 
-#### Repeated checksum mismatches
+Kraken เปิดข้อมูล book ราย order ของ Spot ผ่าน WebSocket v2
+[`level3` channel](https://docs.kraken.com/exchange/api-reference/spot-websocket-v2/level3) ที่
+`wss://ws-l3.kraken.com/v2` ซึ่งให้ venue order ID, quantity ราย order
+และ event แบบ incremental จริง (`add`, `modify`, `delete`) adapter จะ hash
+venue order ID แต่ละตัวเป็นฟิลด์ `BookOrder.order_id` แบบ `u64` ที่ NautilusTrader ใช้
 
-Three mismatches on one instrument without a valid update between them disable
-validation for that instrument and log an error. The adapter keeps its book as
-received, preventing a resubscription loop when Kraken hashes it differently.
-A valid snapshot does not reset the mismatch count.
+### สิ่งที่ต้องมีก่อน {#prerequisites}
 
-To disable L2 checksum validation:
+subscription แบบ L3 ต้องใช้ credential ของ Spot API ที่มีสิทธิ์ `WebSocket interface - On`
+ซึ่ง adapter ใช้เพื่อขอ
+[authentication token](https://docs.kraken.com/api-reference/trading/get-websockets-token)
+ให้ส่ง credential (`api_key` และ `api_secret`) ไปยัง `KrakenDataClientConfig`
 
-```python
-config = KrakenDataClientConfig(
-    validate_l2_checksum=False,
-)
-```
+จากนั้น subscribe order book delta ด้วย book type `L3_MBO`
 
-## L3 order book (market-by-order)
+depth ที่ใช้ได้คือ `10`, `100` และ `1000` ค่า `depth` เป็น `0` จะใช้ `1000`
 
-Kraken exposes Spot per-order book data via the WebSocket v2
-[`level3` channel](https://docs.kraken.com/exchange/api-reference/spot-websocket-v2/level3) at
-`wss://ws-l3.kraken.com/v2`. This gives venue order IDs, per-order quantities,
-and true incremental events (`add`, `modify`, `delete`). The adapter hashes each
-venue order ID into the `u64` `BookOrder.order_id` field used by NautilusTrader.
+### การตรวจสอบ CRC32 checksum {#crc32-checksum-validation}
 
-### Prerequisites
+โดยค่าเริ่มต้น adapter จะตรวจสอบ CRC32 checksum ของ snapshot และการอัปเดต L3 แต่ละรายการ
+เมื่อ Kraken ส่งมาให้ เมื่อไม่ตรงกัน จะส่ง delta แบบ `Clear` ล้างสถานะ L3
+ในเครื่อง refresh auth token และ resubscribe เพื่อให้ Kraken
+ส่ง snapshot ใหม่มา หากต้องการปิดการตรวจสอบเพื่อทำ benchmark ให้ตั้ง `validate_l3_checksum=False`
+ใน `KrakenDataClientConfig`
 
-L3 subscriptions require Spot API credentials with `WebSocket interface - On`
-permission, which the adapter uses to obtain an
-[authentication token](https://docs.kraken.com/api-reference/trading/get-websockets-token).
-Pass the credentials to `KrakenDataClientConfig`:
+### คำแนะนำในการจัดเก็บ {#storage-recommendations}
 
-```python
-from nautilus_trader.adapters.kraken import KrakenDataClientConfig
+`OrderBookDelta` มี `order_id: u64` ใน Arrow schema ดังนั้น `ParquetDataCatalog`
+จึงเก็บข้อมูล L3 ด้วย schema เดียวกับ L2 L3 สร้าง event ต่อ instrument มากกว่า
 
-config = KrakenDataClientConfig(
-    api_key="YOUR_KEY",
-    api_secret="YOUR_SECRET",
-)
-```
+- ใช้ `chunk_size` ของ query session ที่เล็กลง (เช่น `50_000`) เพื่อให้ได้ streaming batch ที่เล็กลง
+  batch ที่จัดตาม timestamp อาจเกินเป้าหมายนั้นได้ การตั้งค่านี้ไม่ได้ควบคุมขนาดไฟล์หรือการอ่านแบบขนาน
+- ตั้ง `compression="zstd"` ใน `DataCatalogConfig` เพื่อบีบอัดข้อมูลที่จัดเก็บ
+- Parquet catalog แบ่ง partition ของข้อมูลตาม instrument เป็นค่าเริ่มต้น
 
-Then subscribe with `book_type=BookType.L3_MBO`:
+## ความสามารถด้าน order {#order-capabilities}
 
-```python
-from nautilus_trader.model import BookType
+### ประเภทของ order {#order-types}
 
-# Inside a registered strategy or data actor:
-self.subscribe_book_deltas(
-    instrument_id=instrument_id,
-    book_type=BookType.L3_MBO,
-    depth=1000,  # valid: 10, 100, 1000
-)
-```
-
-Valid depths are `10`, `100`, and `1000`. A `depth` of `0` uses `1000`.
-
-### CRC32 checksum validation
-
-By default, the adapter validates the CRC32 checksum on each L3 snapshot and
-update when Kraken provides one. On mismatch, it emits a `Clear` delta, clears
-local L3 state, refreshes the auth token, and resubscribes so Kraken
-sends a fresh snapshot. To disable validation for benchmarking:
-
-```python
-config = KrakenDataClientConfig(
-    api_key="...",
-    api_secret="...",
-    validate_l3_checksum=False,
-)
-```
-
-### Storage recommendations
-
-`OrderBookDelta` carries `order_id: u64` in its Arrow schema, so `ParquetDataCatalog`
-stores L3 data with the same schema as L2. L3 produces more events per instrument.
-
-- Use a smaller query-session `chunk_size` (for example, `50_000`) to target smaller streaming batches.
-  Timestamp-aligned batches can exceed that target. The setting does not control file size or parallel reads.
-- Set `compression="zstd"` in `DataCatalogConfig` to compress stored data.
-- The Parquet catalog partitions data by instrument by default.
-
-## Order capabilities
-
-### Order types
-
-| Order type             | Spot | Futures | Notes                                                                 |
+| ประเภทของ order         | Spot | Futures | หมายเหตุ                                                                |
 | ---------------------- | ---- | ------- | --------------------------------------------------------------------- |
-| `MARKET`               | ✓    | ✓       | Immediate execution at market price.                                  |
-| `LIMIT`                | ✓    | ✓       | Execution at specified price or better.                               |
-| `STOP_MARKET`          | ✓    | ✓       | Conditional market order (stop-loss).                                 |
-| `MARKET_IF_TOUCHED`    | ✓    | ✓       | Conditional market order (take-profit).                               |
-| `STOP_LIMIT`           | ✓    | ✓       | Conditional limit order (stop-loss-limit).                            |
-| `LIMIT_IF_TOUCHED`     | ✓    | ✓       | Spot: `take-profit-limit`; Futures: `take_profit` with `limit_price`. |
-| `TRAILING_STOP_MARKET` | ✓    | -       | Trailing stop with `trailing_offset`.                                 |
-| `TRAILING_STOP_LIMIT`  | ✓    | -       | Trailing stop-limit with `limit_offset`.                              |
+| `MARKET`               | ✓    | ✓       | execute ทันทีที่ราคาตลาด                                                 |
+| `LIMIT`                | ✓    | ✓       | execute ที่ราคาที่ระบุหรือดีกว่า                                            |
+| `STOP_MARKET`          | ✓    | ✓       | market order แบบมีเงื่อนไข (stop-loss)                                   |
+| `MARKET_IF_TOUCHED`    | ✓    | ✓       | market order แบบมีเงื่อนไข (take-profit)                                 |
+| `STOP_LIMIT`           | ✓    | ✓       | limit order แบบมีเงื่อนไข (stop-loss-limit)                              |
+| `LIMIT_IF_TOUCHED`     | ✓    | ✓       | Spot: `take-profit-limit`; Futures: `take_profit` พร้อม `limit_price` |
+| `TRAILING_STOP_MARKET` | ✓    | -       | trailing stop พร้อม `trailing_offset`                                  |
+| `TRAILING_STOP_LIMIT`  | ✓    | -       | trailing stop-limit พร้อม `limit_offset`                               |
 
-### Time in force
+### Time in force {#time-in-force}
 
-| Time in force | Spot | Futures | Notes                                               |
-| ------------- | ---- | ------- | --------------------------------------------------- |
-| `GTC`         | ✓    | ✓       | Good Till Canceled.                                 |
-| `GTD`         | ✓    | -       | Good Till Date (Spot only, requires `expire_time`). |
-| `IOC`         | ✓    | ✓       | Immediate or Cancel.                                |
-| `FOK`         | ✓    | -       | Spot limit orders only.                             |
+| Time in force | Spot | Futures | หมายเหตุ                                                     |
+| ------------- | ---- | ------- | ---------------------------------------------------------- |
+| `GTC`         | ✓    | ✓       | Good Till Canceled                                         |
+| `GTD`         | ✓    | -       | Good Till Date (เฉพาะ Spot ต้องระบุ `expire_time`)           |
+| `IOC`         | ✓    | ✓       | Immediate or Cancel                                        |
+| `FOK`         | ✓    | -       | เฉพาะ limit order ของ Spot                                  |
 
 :::note
-**Market orders** are inherently immediate and do not support time-in-force.
-`IOC` only applies to limit-type orders.
+**Market order** execute ทันทีโดยธรรมชาติและไม่รองรับ time-in-force
+`IOC` ใช้กับ order ประเภท limit เท่านั้น
 :::
 
-### Execution instructions
+### คำสั่งการ execute {#execution-instructions}
 
-| Instruction      | Spot | Futures | Notes                                                      |
+| คำสั่ง            | Spot | Futures | หมายเหตุ                                                              |
+| ---------------- | ---- | ------- | ------------------------------------------------------------------- |
+| `post_only`      | ✓    | ✓       | ใช้ได้กับ limit order                                                 |
+| `reduce_only`    | ✓    | ✓       | Spot ต้องมี margin account และ leverage ที่ resolve แล้ว                  |
+| `quote_quantity` | ✓    | -       | เฉพาะ Spot ปริมาณเป็น quote currency (`viqc`); ส่งผ่าน REST              |
+| `display_qty`    | ✓    | -       | เฉพาะ Spot iceberg order (`displayvol`)                               |
+
+### ประเภทของ trigger {#trigger-types}
+
+order แบบมีเงื่อนไขรองรับราคาอ้างอิงของ trigger ต่อไปนี้:
+
+| ประเภทของ trigger | Spot | Futures | หมายเหตุ                         |
+| --------------- | ---- | ------- | ------------------------------ |
+| `LAST_PRICE`    | ✓    | ✓       | ค่าเริ่มต้น ราคาที่ซื้อขายล่าสุด       |
+| `INDEX_PRICE`   | ✓    | ✓       | ราคา index ของตลาดในวงกว้าง       |
+| `MARK_PRICE`    | -    | ✓       | เฉพาะ Futures                  |
+
+:::note
+adapter จะปฏิเสธประเภทของ trigger ที่ไม่รองรับ (เช่น `BID_ASK`) ตอนส่ง order
+แทนที่จะแปลงเป็นค่าอื่นแบบเงียบๆ
+:::
+
+### การดำเนินการแบบ batch {#batch-operations}
+
+| การดำเนินการ   | Spot | Futures | หมายเหตุ                                                     |
+| ------------ | ---- | ------- | ---------------------------------------------------------- |
+| Batch submit | ✓    | ✓       | Spot แบ่งชุดละ 15 order ส่วน Futures แบ่งชุดละ 10              |
+| Batch modify | -    | ✓       | เฉพาะ HTTP method ของ Futures ฝั่ง execution ส่งทีละคำสั่ง       |
+| Batch cancel | ✓    | ✓       | แบ่งเป็น batch ละ 50 อัตโนมัติ                                 |
+
+:::note
+**ยกเลิก order ทั้งหมด**:
+
+- Spot จะเลือก order ที่เปิดอยู่และที่อยู่ระหว่างดำเนินการ (in-flight) ที่ตรงกับ instrument ที่ร้องขอ ไม่ว่าจะมีตัวกรองฝั่งหรือไม่
+  และยกเลิกด้วย order ID ที่ระบุชัดเจน ดังนั้น request จะไม่ไปถึง instrument อื่นเลย order ที่ in-flight
+  ถูกรวมไว้ด้วยเพราะ venue อาจยอมรับ order ที่ cache ยังบันทึกว่าเป็น submitted อยู่แล้ว
+- Futures ใช้การยกเลิกแบบกลุ่มที่จำกัดตาม symbol ของ venue เมื่อไม่ได้ระบุตัวกรองฝั่ง
+  และเลือก order ที่เปิดอยู่และ in-flight ใน cache ที่ตรงกันด้วย order ID ที่ระบุชัดเจน
+  เมื่อมีการระบุตัวกรองฝั่ง
+- ID ที่เลือกจะส่งผ่าน endpoint batch-cancel และแบ่งเป็น batch ละ 50 อัตโนมัติ Kraken แยก key ของ
+  identifier สองประเภท ดังนั้น venue order ID จะส่งเป็น `orders` และ client order ID เป็น
+  `cl_ord_ids` ขีดจำกัดของ batch นับรวมทั้งสองประเภท การยกเลิกแต่ละรายการจะคง strategy เจ้าของของ order ที่
+  มันมุ่งเป้าไว้ ส่วน response แบบรวมหรือกำกวมจะปล่อยให้ reconciliation จัดการแทนการสร้างผลลัพธ์
+  ราย order
+
+:::
+
+### การแก้ไข order {#order-modification}
+
+quantity ของการ modify คือยอดรวมใหม่ของ order ซึ่งรวม fill ไว้ด้วย ตามที่การแก้ไขของ Kraken
+Spot รับ `order_qty` ส่วน Kraken Futures อ่าน `size` ของการ edit แบบไม่ระบุโหมดว่าเป็นขนาดที่ยังเปิดอยู่
+adapter จึงส่ง `qtyMode=ABSOLUTE` ไปกับการ edit ของ futures ทุกครั้งที่เปลี่ยนขนาด
+order ทั้งแบบเดี่ยวและแบบ batch Kraken Futures ไม่ได้ระบุไว้ในเอกสารว่าจะตอบสนองอย่างไรต่อ
+ยอดรวมที่เท่ากับหรือต่ำกว่า quantity ที่ fill ไปแล้ว
+
+### การจัดการ position {#position-management}
+
+| ฟีเจอร์            | Spot | Futures | หมายเหตุ                                                     |
 | ---------------- | ---- | ------- | ---------------------------------------------------------- |
-| `post_only`      | ✓    | ✓       | Available for limit orders.                                |
-| `reduce_only`    | ✓    | ✓       | Spot requires a margin account and resolved leverage.      |
-| `quote_quantity` | ✓    | -       | Spot only. Volume in quote currency (`viqc`); REST routed. |
-| `display_qty`    | ✓    | -       | Spot only. Iceberg orders (`displayvol`).                  |
+| Query position   | ✓    | ✓       | Spot margin ผ่าน `OpenPositions`; spot cash ต้องเปิดใช้เอง    |
+| Position mode    | -    | -       | position เดียวต่อ instrument                                |
+| การควบคุม leverage | ✓    | -       | ระดับ (tier) ผ่าน REST ของ Spot; ราย order `params={"leverage": N}` |
+| Margin mode      | ✓    | ✓       | cross margin ทั้ง Spot/Futures; ไม่มี isolated margin ของ spot |
 
-### Trigger types
+### การ query order {#order-querying}
 
-Conditional orders support these trigger price references:
+| ฟีเจอร์                 | Spot | Futures | หมายเหตุ                                               |
+| --------------------- | ---- | ------- | ---------------------------------------------------- |
+| Query open order      | ✓    | ✓       | แสดง order ที่ active ทั้งหมด                          |
+| Query ประวัติ order     | ✓    | ✓       | Spot แบ่งหน้า; Futures อ่านประวัติหน้าเดียว               |
+| การอัปเดตสถานะ order    | ✓    | ✓       | การเปลี่ยนสถานะ order แบบ real-time ผ่าน WebSocket     |
+| ประวัติ trade           | ✓    | ✓       | report ของการ execute และ fill                       |
 
-| Trigger type  | Spot | Futures | Notes                       |
-| ------------- | ---- | ------- | --------------------------- |
-| `LAST_PRICE`  | ✓    | ✓       | Default. Last traded price. |
-| `INDEX_PRICE` | ✓    | ✓       | Broader market index price. |
-| `MARK_PRICE`  | -    | ✓       | Futures only.               |
+### Contingent order {#contingent-orders}
 
-:::note
-The adapter rejects unsupported trigger types (e.g., `BID_ASK`) at submission
-time rather than silently coercing them.
-:::
+| ฟีเจอร์              | Spot | Futures | หมายเหตุ                                       |
+| ------------------ | ---- | ------- | -------------------------------------------- |
+| Linked order list  | -    | -       | list ที่ส่งไปประกอบด้วย order ที่เป็นอิสระต่อกัน       |
+| OCO order          | -    | -       | *ไม่รองรับ*                                   |
+| Bracket order      | -    | -       | *ไม่รองรับ*                                   |
+| Conditional order  | ✓    | ✓       | order แบบ stop และ take-profit               |
 
-### Batch operations
+### Maker Protection (Futures) {#maker-protection-futures}
 
-| Operation    | Spot | Futures | Notes                                                  |
-| ------------ | ---- | ------- | ------------------------------------------------------ |
-| Batch submit | ✓    | ✓       | Spot chunks at 15 orders. Futures chunks at 10.        |
-| Batch modify | -    | ✓       | Futures HTTP method only. Execution sends one command. |
-| Batch cancel | ✓    | ✓       | Auto-chunks into batches of 50.                        |
+Kraken Futures ใช้ [Maker Protection](https://docs.kraken.com/exchange/guides/futures/maker-protection) กับ
+ตลาดที่เลือกไว้: การวางและการแก้ไข order ที่อาจกิน liquidity จะถูกพักไว้ตามช่วงเวลาที่ตั้งค่าของตลาดนั้น
+ก่อนไปถึง matching engine การจัดประเภทอิงตามประเภทของ order ดังนั้นการวาง limit order ที่ไม่ใช่ post-only
+จะถูกพักไว้แม้ว่ามันจะไปพักอยู่ใน book ก็ตาม การวาง trigger แบบ stop และ take-profit จะไม่ถูกพัก แต่ order ที่
+มัน trigger ออกมาจะถูกพักเว้นแต่จะเป็น post-only การวางแบบ post-only และการยกเลิกทั้งหมดจะไม่ถูกพักเลย และไม่มี API ใด
+เปิดเผยสถานะของ order ที่ถูกพัก
 
-:::note
-**Cancel all orders**:
+venue ใช้การพักต่อตลาดกับทุก client adapter จะ decode ช่วงเวลาต่อตลาด
+(`makerProtectionMillis`) บน raw instrument model ของ venue และไม่เปิดให้ตั้งค่าใดๆ
 
-- Spot selects matching open and in-flight orders for the requested instrument, with or without a side filter.
-  It cancels them by explicit order ID. Thus, a request never reaches another instrument. In-flight orders are
-  included because the venue can have accepted an order the cache still records as submitted.
-- Futures uses the venue's symbol-scoped bulk cancellation when no side filter is
-  given, and selects matching cached open and in-flight orders by explicit order ID
-  when one is.
-- Selected IDs go through the batch-cancel endpoint and are auto-chunked into batches of 50. Kraken keys the
-  two identifier kinds separately, so venue order IDs are sent as `orders` and client order IDs as
-  `cl_ord_ids`. The batch limit counts both together. Each cancel keeps the owning strategy of the order it
-  targets, and aggregate or ambiguous responses are left to reconciliation rather than producing per-order
-  outcomes.
+การจัดการสถานะของ order คำนึงถึงความหมายของ order ที่ถูกพัก:
 
-:::
+- การยกเลิกที่ได้รับการตอบรับสำหรับการวาง limit order ที่ถูกพักนั้นยังไม่ใช่สถานะสุดท้าย order จะถูก
+  ปล่อยออกไปเป็น IOC และยังอาจ fill ได้ ส่วน market order และ IOC order ที่ถูกพักไม่สามารถเรียกคืนได้:
+  การยกเลิกจะคืน `ORDER_NOT_FOUND` และ order ยังคงไปถึงการ matching เมื่อถูกปล่อย
+  การอัปเดต order จาก venue เป็นตัวขับเคลื่อน fill และสถานะสุดท้าย ไม่ใช่การตอบรับการยกเลิกเอง
+- order ที่ไม่สามารถเทรดได้หลังการปล่อยดังกล่าวจะถูกรายงานด้วยสถานะของ venue
+  `iocWouldNotExecute` บน REST (`IOC_WOULD_ENTER_BOOK` บน market data)
+  ซึ่ง adapter ถือว่าเป็นการปฏิเสธขั้นสุดท้าย บน order-update feed
+  ผลลัพธ์เดียวกันจะมาถึงเป็นการยกเลิกขั้นสุดท้ายโดยที่ adapter คงเหตุผลของ venue
+  ไว้
+- order ที่ถูกปล่อยจะยกเลิก order ที่พักอยู่ใน book ของ account เดียวกันที่มันจะ
+  match ด้วย โดย override self-trade strategy ที่ตั้งค่าไว้ order ที่พักอยู่จะถูก
+  รายงานว่าถูกยกเลิกด้วยเหตุผล `CANCELLED_BY_SELF_TRADE`
 
-### Order modification
+#### Order-update feed {#order-update-feed}
 
-A modify's quantity is the order's new total, fills included, which is how Kraken
-Spot amends take `order_qty`. Kraken Futures reads a bare edit `size` as the open
-size, so the adapter sends `qtyMode=ABSOLUTE` with every futures edit that resizes
-the order, single or batch. Kraken Futures does not document its answer to a
-total at or below the filled quantity.
+การลบที่มี `is_cancel=true` และเหตุผล `partial_fill` จะทิ้งส่วนที่เหลือ
+และเป็นสถานะสุดท้าย (การพักที่ถูกแปลง หรือ order แบบ IOC ใดๆ) delta จะมี
+ยอด fill สะสมของ venue
 
-### Position management
+- สำหรับ order ที่ติดตามอยู่ adapter จะปิดจาก feed เมื่อ fill stream
+  นับ quantity นั้นครบแล้ว fill ที่ยังอยู่ระหว่างทางจะไม่มีวันถูกทิ้งค้าง และ
+  order ที่ติดตามอยู่จะไม่ถูกปล่อยให้เปิดค้างหลังจากนับ fill ครบแล้ว
+- สำหรับการลบที่ไม่สามารถจับคู่ได้ adapter จะข้ามไปและปล่อยให้
+  reconciliation ทำให้สถานะสอดคล้องกัน
 
-| Feature          | Spot | Futures | Notes                                                |
-| ---------------- | ---- | ------- | ---------------------------------------------------- |
-| Query positions  | ✓    | ✓       | Spot margin via `OpenPositions`; spot cash opt-in.   |
-| Position mode    | -    | -       | Single position per instrument.                      |
-| Leverage control | ✓    | -       | Spot REST tiers; per-order `params={"leverage": N}`. |
-| Margin mode      | ✓    | ✓       | Spot/Futures cross margin; no isolated spot margin.  |
+| การลบที่จับคู่ไม่ได้               | เหตุผล                             |
+| ----------------------------- | -------------------------------- |
+| ข้อความที่เป็นการยกเลิกเท่านั้น        | ไม่มียอด fill สะสม                  |
+| ไม่มี client order ID ที่ resolve ได้ | ไม่สามารถจับคู่กับ order ที่ติดตามอยู่ได้ |
 
-### Order querying
+#### Reconciliation {#reconciliation}
 
-| Feature              | Spot | Futures | Notes                                           |
-| -------------------- | ---- | ------- | ----------------------------------------------- |
-| Query open orders    | ✓    | ✓       | List all active orders.                         |
-| Query order history  | ✓    | ✓       | Spot paginates; Futures reads one history page. |
-| Order status updates | ✓    | ✓       | Real-time order state changes via WebSocket.    |
-| Trade history        | ✓    | ✓       | Execution and fill reports.                     |
-
-### Contingent orders
-
-| Feature            | Spot | Futures | Notes                                       |
-| ------------------ | ---- | ------- | ------------------------------------------- |
-| Linked order lists | -    | -       | Submitted lists contain independent orders. |
-| OCO orders         | -    | -       | *Not supported*.                            |
-| Bracket orders     | -    | -       | *Not supported*.                            |
-| Conditional orders | ✓    | ✓       | Stop and take-profit orders.                |
-
-### Maker Protection (Futures)
-
-Kraken Futures applies [Maker Protection](https://docs.kraken.com/exchange/guides/futures/maker-protection) on
-selected markets: placements and edits that could take liquidity are held for the market's configured window
-before reaching the matching engine. The classification is by order type, so a non-post-only limit placement
-is held even when it would have rested. Stop and take-profit trigger placements are not held. The orders they
-fire are held unless post-only. Post-only placements and all cancellations are never held, and no held-order
-state is exposed on any API.
-
-The venue applies the hold per market to every client. The adapter decodes the per-market window
-(`makerProtectionMillis`) on the raw venue instrument model and exposes no configuration for it.
-
-Order-state handling accounts for the held-order semantics:
-
-- A cancel acknowledged for a held limit placement is not terminal. The order is
-  released as IOC and can still fill. Held market and IOC orders cannot be recalled:
-  cancel returns `ORDER_NOT_FOUND`, and the order still reaches matching at release.
-  Venue order updates drive fills and terminal states, never the cancel acknowledgement itself.
-- An order that cannot trade after such a release is reported with the venue
-  status `iocWouldNotExecute` on REST (`IOC_WOULD_ENTER_BOOK` on market data),
-  which the adapter treats as a terminal rejection. On the order-update feed
-  the same outcome arrives as a terminal cancellation whose venue reason the
-  adapter preserves.
-- A released order cancels a resting order of the same account it would
-  match, overriding the configured self-trade strategy. The resting order is
-  reported canceled with reason `CANCELLED_BY_SELF_TRADE`.
-
-#### Order-update feed
-
-A removal with `is_cancel=true` and reason `partial_fill` discards the remainder
-and is terminal (a converted hold, or any IOC-style order). The delta carries
-the venue's cumulative filled.
-
-- For a tracked order, the adapter closes from the feed once the fills stream
-  has accounted that quantity. A fill still in flight is never orphaned, and a
-  tracked order is not left open after its fills are accounted.
-- For a removal it cannot match, the adapter skips and converges through
-  reconciliation.
-
-| Unmatched removal             | Reason                        |
-| ----------------------------- | ----------------------------- |
-| Cancel-only message           | Carries no cumulative filled. |
-| No resolvable client order ID | Cannot match a tracked order. |
-
-#### Reconciliation
-
-A held order never reaches the book, so it is absent from `/openorders`. Mass
-status, open-only report runs, and targeted single-order queries consult
+order ที่ถูกพักจะไม่ไปถึง book จึงไม่ปรากฏใน `/openorders` ทั้ง mass
+status, การรัน report แบบเฉพาะ open และการ query order เดี่ยวแบบเจาะจงจะตรวจสอบ
 [`POST /orders/status`](https://docs.kraken.com/api-reference/order-management/get-specific-orders-status)
-before treating the order as missing. That window reports
-orders that are open or were filled or canceled in the last 5 seconds.
+ก่อนถือว่า order หายไป ช่วงเวลานั้น (window) รายงาน
+order ที่เปิดอยู่ หรือที่ fill หรือถูกยกเลิกภายใน 5 วินาทีที่ผ่านมา
 
-The venue echoes the client order ID an order was sent with, which the window is
-asked about under both forms the venue can hold it under (see
-[Client order IDs](#client-order-ids)). Mass status and open-only report runs map
-each window report to a cached order:
+venue จะส่ง client order ID ที่ order ถูกส่งมาด้วยกลับมา (echo) และจะมีการสอบถาม window
+ด้วยทั้งสองรูปแบบที่ venue อาจเก็บไว้ (ดู
+[Client order ID](#client-order-ids)) mass status และการรัน report แบบเฉพาะ open จะ map
+report แต่ละรายการใน window กับ order ใน cache:
 
-- A cached venue order ID identifies the order directly.
-- Otherwise, exactly one order queried by client order ID must hold the echoed
-  ID, and exactly one report with an unknown venue order ID must carry it. The
-  instrument and side must match, and the venue placement time must be no more
-  than five seconds before the order's creation time, allowing for clock skew.
-  This keeps out an older order whose ID shortens alike or that reused the ID.
-  Two reports that would name one order, one echoing each form, name neither.
+- venue order ID ใน cache ระบุ order ได้โดยตรง
+- มิฉะนั้น ต้องมี order เพียงหนึ่งรายการที่ query ด้วย client order ID ที่ถือ ID ที่ echo กลับมา
+  และต้องมี report เพียงหนึ่งรายการที่มี venue order ID ที่ไม่รู้จักซึ่งมี ID นั้น
+  instrument และฝั่งต้องตรงกัน และเวลาวาง order ของ venue ต้องไม่เกิน
+  ห้าวินาทีก่อนเวลาสร้าง order เพื่อเผื่อ clock skew
+  วิธีนี้กัน order ที่เก่ากว่าซึ่ง ID ถูกย่อให้เหมือนกันหรือนำ ID มาใช้ซ้ำออกไป
+  report สองรายการที่จะระบุ order เดียวกัน โดยแต่ละรายการ echo คนละรูปแบบ จะไม่ระบุ order ใดเลย
 
-The adapter withholds any other window report with a warning naming the reason,
-because it cannot tie that report to exactly one cached order.
+adapter จะกัน report อื่นใน window ไว้พร้อม warning ที่ระบุเหตุผล
+เพราะไม่สามารถผูก report นั้นเข้ากับ order ใน cache เพียงหนึ่งรายการได้
 
-The client order ID request returns every order holding the ID. A window
-report of an order the open-orders or history read already returned names that
-report by the cached order it describes and is then left out, so the order
-reaches reconciliation once with the venue read's fields, such as time in force,
-post-only and trigger fields, which the window lacks. When that report is open
-and the window report is a later update, the report takes the window's status,
-quantities, prices, cancel reason and update time, and the window rules below
-apply to it. A
-closed report keeps its state. A run scoped to one instrument keeps only that
-instrument's window reports.
+request ด้วย client order ID จะคืนทุก order ที่ถือ ID นั้น report ใน window
+ของ order ที่การอ่าน open order หรือประวัติคืนมาแล้ว จะระบุ
+report นั้นด้วย order ใน cache ที่มันอธิบาย แล้วถูกละไว้ ดังนั้น order จะ
+ไปถึง reconciliation เพียงครั้งเดียวด้วยฟิลด์จากการอ่านของ venue เช่น time in force,
+post-only และฟิลด์ของ trigger ซึ่ง window ไม่มี เมื่อ report นั้นเปิดอยู่
+และ report ใน window เป็นการอัปเดตที่ใหม่กว่า report จะรับสถานะ,
+quantity, ราคา, เหตุผลการยกเลิก และเวลาอัปเดตจาก window และกฎของ window ด้านล่าง
+จะใช้กับมัน
+report ที่ปิดแล้วจะคงสถานะของมันไว้ การรันที่จำกัดเฉพาะ instrument เดียวจะเก็บเฉพาะ report ใน window
+ของ instrument นั้น
 
-The venue order ID and client order ID requests run one after the other, so an
-order asked about by venue order ID can come back from the client order ID
-request too, in a different state. The adapter chooses the latest state regardless of
-which request ran later: a closed state over an open one, then the later venue
-update, then the larger filled quantity. The naming rule above and
-the fill-price rule below apply to the report kept.
+request ด้วย venue order ID และ client order ID ทำงานต่อกันทีละตัว ดังนั้น
+order ที่สอบถามด้วย venue order ID อาจกลับมาจาก request ด้วย client order ID
+ด้วย ในสถานะที่ต่างกัน adapter จะเลือกสถานะล่าสุดโดยไม่สนว่า
+request ใดทำงานทีหลัง: สถานะปิดมาก่อนสถานะเปิด จากนั้นคือการอัปเดตของ venue
+ที่ใหม่กว่า แล้วจึงเป็น quantity ที่ fill มากกว่า กฎการระบุชื่อข้างต้นและ
+กฎของราคา fill ด้านล่างจะใช้กับ report ที่เก็บไว้
 
-In those runs, the window carries no fill price. Thus, a fully executed order is left out with a warning. Its
-executions are not inferred at the order price. A targeted single-order query prices it from recent fills
-instead, or fails so reconciliation defers it. Mass status marks the set incomplete when it leaves out a
-window report. A canceled order with executions is reported, since reconciliation waits for its fills rather
-than infer them.
+ในการรันเหล่านั้น window ไม่มีราคา fill ดังนั้น order ที่ execute ครบแล้วจะถูกละไว้พร้อม warning
+การ execute ของมันจะไม่ถูกอนุมานจากราคาของ order การ query order เดี่ยวแบบเจาะจงจะหาราคาจาก fill ล่าสุด
+แทน หรือล้มเหลวเพื่อให้ reconciliation เลื่อนออกไป mass status จะระบุว่าชุดข้อมูลไม่สมบูรณ์เมื่อละ
+report ใน window ไว้ order ที่ถูกยกเลิกแต่มีการ execute จะถูกรายงาน เพราะ reconciliation รอ fill ของมันแทน
+การอนุมาน
 
-A hold that fills after a cancel acknowledgement reconciles to its true
-terminal state with the venue's cumulative filled, not a premature cancellation.
+order ที่ถูกพักแล้ว fill หลังการตอบรับการยกเลิก จะ reconcile ไปยังสถานะสุดท้ายที่แท้จริง
+พร้อมยอด fill สะสมของ venue ไม่ใช่การยกเลิกก่อนเวลาอันควร
 
-## Order routing (Spot)
+## การ routing order (Spot) {#order-routing-spot}
 
-The Spot execution client routes order submission, modification, cancellation,
-and batch cancellation through Kraken's authenticated WebSocket v2 trade
-channel by default. It falls back to REST when the WebSocket is inactive. Set
-`use_ws_trade=False` on `KrakenExecutionClientConfig` to route these operations
-through REST.
+execution client ของ Spot จะ route การส่ง, การแก้ไข, การยกเลิก
+และการยกเลิกแบบ batch ของ order ผ่าน trade channel ของ WebSocket v2 ที่ยืนยันตัวตนแล้วของ Kraken
+เป็นค่าเริ่มต้น และจะถอยกลับไปใช้ REST เมื่อ WebSocket ไม่ active ตั้ง
+`use_ws_trade=False` บน `KrakenExecutionClientConfig` เพื่อ route การดำเนินการเหล่านี้
+ผ่าน REST
 
-### Order shapes routed via REST
+### รูปแบบ order ที่ route ผ่าน REST {#order-shapes-routed-via-rest}
 
-Kraken's [Spot WebSocket v2 `add_order` method](https://docs.kraken.com/exchange/api-reference/spot-websocket-v2/add_order)
-supports these shapes, but the adapter routes them through REST:
+[method `add_order` ของ Spot WebSocket v2](https://docs.kraken.com/exchange/api-reference/spot-websocket-v2/add_order) ของ Kraken
+รองรับรูปแบบเหล่านี้ แต่ adapter route ผ่าน REST:
 
-| Shape                      | Adapter behavior                                                  |
-| -------------------------- | ----------------------------------------------------------------- |
-| `FOK` time in force        | The WebSocket parameter builder does not encode `FOK`.            |
-| Trailing stop / stop-limit | The WebSocket parameter builder does not encode trailing offsets. |
-| Iceberg (`display_qty`)    | The WebSocket parameter builder does not encode iceberg orders.   |
-| Quote-quantity orders      | WS supports non-margin buy market orders; the adapter uses REST.  |
+| รูปแบบ                      | พฤติกรรมของ adapter                                                |
+| -------------------------- | ---------------------------------------------------------------- |
+| time in force แบบ `FOK`     | ตัวสร้างพารามิเตอร์ของ WebSocket ไม่ได้ encode `FOK`                   |
+| Trailing stop / stop-limit | ตัวสร้างพารามิเตอร์ของ WebSocket ไม่ได้ encode trailing offset         |
+| Iceberg (`display_qty`)    | ตัวสร้างพารามิเตอร์ของ WebSocket ไม่ได้ encode iceberg order          |
+| order แบบ quote quantity    | WS รองรับ buy market order ที่ไม่ใช่ margin; adapter ใช้ REST         |
 
-Mixed-symbol order lists also use REST because Kraken's WebSocket `batch_add`
-request requires one shared symbol. Unsupported trigger references fall back to
-the REST path, which rejects them locally before sending a request to Kraken.
-For Spot margin orders, use REST as described under [Spot margin trading](#spot-margin-trading).
+order list ที่มีหลาย symbol ก็ใช้ REST เช่นกัน เพราะ request `batch_add` ของ WebSocket ของ Kraken
+ต้องใช้ symbol เดียวกันทั้งหมด ราคาอ้างอิงของ trigger ที่ไม่รองรับจะถอยกลับไปใช้
+เส้นทาง REST ซึ่งจะปฏิเสธในเครื่องก่อนส่ง request ไปยัง Kraken
+สำหรับ order แบบ Spot margin ให้ใช้ REST ตามที่อธิบายไว้ใน [การเทรดแบบ Spot margin](#spot-margin-trading)
 
-The per-call `params={"use_ws_trade": False}` override forces a single
-command through REST regardless of the configured default. Set it on
-`SubmitOrder`, `ModifyOrder`, `CancelOrder`, `SubmitOrderList`, or
-`BatchCancelOrders`.
+การ override ราย call ด้วย `params={"use_ws_trade": False}` จะบังคับให้
+คำสั่งเดียวผ่าน REST ไม่ว่าค่าเริ่มต้นที่ตั้งไว้จะเป็นอะไร ตั้งได้บน
+`SubmitOrder`, `ModifyOrder`, `CancelOrder`, `SubmitOrderList` หรือ
+`BatchCancelOrders`
 
-### WebSocket request timeout
+### Timeout ของ request ผ่าน WebSocket {#websocket-request-timeout}
 
-When a WebSocket round-trip exceeds `ws_request_timeout_secs` (default `5`),
-the venue outcome remains unknown. Submit, modify, cancel, and batch-add
-requests remain in flight without a terminal rejection. The dispatcher retains
-the request ID so a delayed matching response can still apply the normal
-success or definitive rejection handling.
+เมื่อการรับส่งไปกลับผ่าน WebSocket ใช้เวลาเกิน `ws_request_timeout_secs` (ค่าเริ่มต้น `5`)
+ผลลัพธ์ที่ venue จะยังไม่ทราบ request แบบ submit, modify, cancel และ batch-add
+จะยังคงอยู่ระหว่างดำเนินการ (in flight) โดยไม่มีการปฏิเสธขั้นสุดท้าย dispatcher จะเก็บ
+request ID ไว้ เพื่อให้ response ที่ตรงกันซึ่งมาช้ายังนำไปใช้ในการจัดการแบบปกติได้ ทั้ง
+กรณีสำเร็จหรือการปฏิเสธที่ชัดเจน
 
-Submit and batch-add timeouts also send a best-effort compensating cancel over
-the same WebSocket for every affected client order ID. This cancel limits
-exposure if Kraken accepted the order but delayed its response. It does not
-replace the unknown outcome with local terminal state.
+timeout ของ submit และ batch-add ยังส่งการยกเลิกเพื่อชดเชยแบบ best-effort ผ่าน
+WebSocket เดียวกันสำหรับทุก client order ID ที่ได้รับผลกระทบ การยกเลิกนี้จำกัด
+ความเสี่ยงในกรณีที่ Kraken ยอมรับ order แล้วแต่ตอบกลับช้า แต่ไม่ได้
+แทนที่ผลลัพธ์ที่ไม่ทราบด้วยสถานะสุดท้ายในเครื่อง
 
-Stream updates and the live execution reconciliation engine resolve orders when
-no matching response arrives. Targeted status queries can resolve modify or
-cancel requests that already have a venue order ID. A matching response or
-execution client shutdown retires the retained request correlation.
+การอัปเดตจาก stream และ live execution reconciliation engine จะ resolve order เมื่อ
+ไม่มี response ที่ตรงกันมาถึง การ query สถานะแบบเจาะจงสามารถ resolve request แบบ modify หรือ
+cancel ที่มี venue order ID แล้ว response ที่ตรงกันหรือการปิด execution client
+จะยุติการผูก correlation ของ request ที่เก็บไว้
 
 :::tip
-Set `ws_request_timeout_secs` comfortably above your observed round-trip
-latency. A premature timeout can send a compensating cancel for a submit or
-batch add that Kraken accepted.
+ตั้ง `ws_request_timeout_secs` ให้สูงกว่า latency ไปกลับที่สังเกตได้ค่อนข้างมาก
+timeout ที่เร็วเกินไปอาจส่งการยกเลิกเพื่อชดเชยสำหรับ submit หรือ
+batch add ที่ Kraken ยอมรับไปแล้ว
 :::
 
-### WebSocket order-routing options
+### ตัวเลือกการ routing order ผ่าน WebSocket {#websocket-order-routing-options}
 
-`KrakenExecutionClientConfig` exposes:
+`KrakenExecutionClientConfig` มีตัวเลือก:
 
-| Option                    | Default | Description                                           |
-| ------------------------- | ------- | ----------------------------------------------------- |
-| `use_ws_trade`            | `True`  | Route orders via WS when the trade channel is active. |
-| `ws_request_timeout_secs` | `5`     | Seconds to wait for a Spot WS order response.         |
-
-## Reconciliation
-
-Both execution clients reconcile local orders, fills, positions, and account
-state with Kraken at startup and during operation.
-
-### Bounded reports
-
-When reconciliation supplies a lookback, both execution clients derive one cutoff
-for every historical query and record it on the mass status through `set_report_window`.
-A moving cutoff could combine reports that never existed together at the venue.
-
-Declaring the cutoff enables the engine's bounded-history rules. An incomplete set still reconciles the
-reports received, with a warning. The completeness flag qualifies the set rather than blocking reconciliation.
-
-#### Scope and read failures
-
-An in-scope open order or position that cannot be resolved to an instrument or parsed
-fails the read on both clients. Omitting it would tell reconciliation that the venue
-never held that order or position.
-
-Futures makes one exception: an untouched reduce-only stop or take-profit can have no
-unfilled size until it fires. If its contract has no open position from which to size
-it, the read skips the order and its history rows with a warning and marks the set
-incomplete. A failed open-position read fails the order read too. A single-order status
-lookup for that trigger fails while it is skipped, so reconciliation defers it.
-
-Both clients return no rows for a query scoped to an instrument they do not hold. Spot and Futures share the
-`KRAKEN` venue, so either client can receive a query for an order it did not route. Single-order status
-lookups and `query_order` inspect only the command's instrument. Unresolved or unparsable records on another
-instrument cannot fail that scoped read, though a lookup cannot rule out an order such a record may name.
-
-Other gaps mark the set incomplete: closed or historical orders and fills that cannot be parsed, or whose
-instruments cannot be resolved. Position records do not contribute to the completeness flag. In-scope position
-failures fail the read.
-
-#### Single-order lookups
-
-A single-order status lookup that finds no report tells reconciliation that the venue
-has no such order, and reconciliation resolves the order on that answer. The lookup
-gives that answer only from a read that rules the order out, and otherwise fails, so
-reconciliation defers the order:
-
-- A complete read rules out any order it could have returned. A held futures order
-  shows only in the orders-status window, which the Futures lookup reads for a cached
-  order before answering.
-- A read that skipped a row, including one whose instrument the client cannot
-  resolve, rules out an order with a venue order ID that no skipped row carries. A
-  skipped row that names no order, such as an undocumented history event kind, rules
-  out none.
-- A lookup on an instrument of the other product reads complete, since the other
-  client answers for its orders. One on an instrument of the client's own product
-  that it does not hold reads nothing and rules out none.
-- A read cut short rules out an order placed after the oldest event it holds, by more
-  than a 60-second clock skew allowance, taking the earlier of the order's creation
-  and acceptance times. Futures history pages are newest first, so a page that hands
-  back a continuation token reaches back to its oldest event. A spot closed-order read
-  stopped at its page cap rules out none.
-
-An order a read cannot rule out is deferred again on every open-order check. On Futures each such lookup draws
-one order-history token.
-
-#### Spot pagination limits
-
-Spot closed-order and fill reads advance an offset until Kraken returns an empty
-page, with a cap of 500 pages per read. Reaching the cap logs a warning:
-
-- Startup mass status records the order and fill reads' completeness in its report
-  window, so the engine sees the truncated set as incomplete.
-- `generate_order_status_reports` and `generate_fill_reports` return the records
-  read up to the cap without exposing a completeness flag.
-- A single-order status lookup that finds nothing in a closed-order read cut short
-  by the cap fails, so reconciliation defers the order.
-
-### Spot reconciliation
-
-#### Order status reports
-
-- Open orders: Fetches all currently active orders.
-- Closed orders: Fetches historical orders with pagination support.
-- Time-bounded queries: Supports filtering by start/end timestamps.
-- Startup mass status reads closed orders alongside open ones, so an order that reached a terminal
-  state while the node was down is reconciled. The reconciliation lookback bounds the read, and a
-  closed-order read cut short by the page cap leaves the mass status incomplete.
-- A report carries the order's own prices, not the row's top-level `price`. That field is the average fill
-  price and reads zero on an unfilled order. The report's `avg_px` comes from `cost` and `vol_exec`.
-
-  The limit comes from `descr.price` for a limit order and `descr.price2` for a stop-loss-limit or
-  take-profit-limit order, or a trailing-stop-limit order once `misc` marks it `stopped`. A
-  trailing-stop-limit's `limitprice` holds the peak price, not its limit. A market, settle-position,
-  stop-loss, take-profit or trailing-stop order carries no limit.
-
-  The trigger comes from `stopprice`, which a stop-loss, take-profit, stop-loss-limit or take-profit-limit
-  order fills only once triggered, so `descr.price`, as AddOrder takes it, stands in before. A zero or
-  relative price reads as none.
-- An untriggered trailing-stop-limit order has no absolute limit, so its report carries no price,
-  and an order the cache does not hold cannot be rebuilt from it until it triggers.
-- An executions frame states the order's price only when it carries `limit_price`, never at a
-  fill price.
-
-#### Fill reports
-
-- Trade history: Fetches execution history with pagination.
-- Time-bounded queries: Supports filtering by start/end timestamps.
-- All fill types: Market, limit, and conditional order fills.
-
-#### Pair spelling
-
-- Kraken spells a pair two ways: the `AssetPairs` key (`XXBTZEUR`), used as the instrument
-  `raw_symbol`, and the altname (`XBTEUR`). `OpenPositions` returns the key, while `OpenOrders`
-  and `TradesHistory` return the altname.
-- The adapter resolves both spellings, so an order or fill on a legacy-named pair is reported.
-- A read scoped to one instrument resolves each row and compares instrument IDs instead of the cached
-  `raw_symbol` and venue spelling. Thus, it returns that pair's own records whichever way Kraken spells it.
-- A read scoped to an instrument the client does not hold returns nothing. Spot and futures IDs share the
-  `KRAKEN` venue, so a futures ID can reach the spot client and the reverse. Neither falls back to returning
-  every instrument's records. A single-order lookup on an unheld instrument of the client's own product rules
-  out no order.
-- A spot instrument whose altname differs from its `AssetPairs` key carries the altname in its
-  `info` map, so a client whose instruments arrive through `cache_instrument` or
-  `cache_instruments` resolves altname-spelled records without refetching `AssetPairs`.
-- On an unscoped read, an open order whose pair cannot be resolved to a cached instrument fails the
-  read, rather than being omitted from an otherwise successful one. A scoped read skips a record it
-  cannot resolve, which may be another instrument's, and a single-order lookup cannot rule out the
-  order it names.
-- A closed order or fill that cannot be resolved is logged as a warning and skipped, preserving the
-  records that do resolve. Historical records routinely outlive the loaded instrument set.
-
-#### Account balances
-
-- Wallet balances: Fetched from
-  [`POST /0/private/BalanceEx`](https://docs.kraken.com/api-reference/account-data/get-extended-balance),
-  which reports the total and held (`hold_trade`) amount per asset. The held amount populates
-  `AccountBalance.locked`, so `free` excludes funds Kraken has reserved against
-  resting non-margin Spot orders. For accounts with a credit line, net credit (`credit - credit_used`)
-  is included in `AccountBalance.total`, so `free` matches Kraken's available balance
-  of `balance + credit - credit_used - hold_trade`.
-- Zero balances: An asset Kraken lists at zero is reported at zero rather than omitted,
-  on both spot and futures. The engine only ever inserts balances, so a currency left out
-  of a snapshot keeps its previous value. On futures the zero joins the per-currency sum,
-  so a funded wallet alongside an empty one of the same asset reports the funded amount.
-  An asset Kraken drops from the response entirely still keeps its last reported value.
-
-#### Margin position reports
-
-With `spot_account_type=AccountType.MARGIN`:
-
-- Open positions: Fetched from `POST /0/private/OpenPositions` and aggregated
-  by pair into `PositionStatusReport` entries. Kraken returns one entry per lot,
-  so opposing lots for the same pair net into a single report.
-- Entry average: Each report carries `avg_px_open`, derived from the lot `cost`
-  and `vol` fields and weighted by the volume still open. Long and short lots are
-  averaged separately, so the reported average describes the side that survives
-  netting. Reconciliation needs this value to open a position from a report when
-  the cache holds no order or fill history for it.
-- The average is marked `AvgPxReconciliation::OpeningOnly`, because Kraken closes margin lots
-  FIFO and drops a fully closed one from `OpenPositions`. After a partial close the average
-  therefore describes the lots that remain open rather than the opening fills, and would not match
-  a netting position's average. Reconciliation uses it to open a position from flat and never
-  compares it. Futures keeps the default, since that endpoint reports one netted position whose
-  price Kraken documents as the average entry price.
-- No synthetic FLAT cleanup: `OpenPositions` reports leveraged positions only, so an
-  unleveraged spot holding never appears there and its absence is not evidence that the
-  position is closed. The bulk read reports only what the venue returns.
-- Margin balances: `POST /0/private/TradeBalance` is called alongside the account-state refresh. Used margin
-  populates `MarginBalance.initial`, while equity and free margin populate the summary balance (see Spot
-  margin trading).
-
-:::warning
-A leveraged position closed while the node was down is not recovered from its closing fill when
-`reconciliation_lookback_mins` is set. A fully closed lot is absent from `OpenPositions`, so the instrument
-carries no position report. Thus, the engine projects that order's fill as order-only. The order reaches
-`FILLED`, but the cached position keeps both its quantity and realized PnL. The closing PnL is never recorded.
-
-This is the shared engine's documented behavior for an instrument with no in-scope position report, not a
-Kraken rule. See
-[Order-only fill projection](../concepts/execution/reconciliation.md#order-only-fill-projection). Removing the
-synthetic FLAT is what exposes Kraken spot margin to it, because the sweep previously supplied an explicit
-FLAT.
-
-A periodic position check does not recover it either, since margin mode declares no bulk position
-coverage, and that skip is logged at debug level. The condition also persists across restarts: the
-closing order is then cached as `FILLED` and matches the venue exactly, so reconciliation treats it
-as already in sync.
-
-Leaving `reconciliation_lookback_mins` unset avoids the projection. A closing order already in the cache, such
-as a strategy exit submitted before the outage, then recovers into its position. The fill applies to the
-cached order and closes its position.
-
-It is not a general remedy, because a closing order absent from the cache is attributed to the `EXTERNAL`
-strategy and keys a netting position by instrument and strategy. Unless the cached position is
-`EXTERNAL`-owned or the instrument is claimed through `external_order_claim`, that recovered fill opens a
-second, opposite position. It does not close the cached one. Net exposure reaches zero, but the stale position
-and its realized PnL remain.
-
-Until this is addressed, reconcile a margin position closed during downtime manually, or run
-`spot_account_type=AccountType.CASH` with `use_spot_position_reports=True`, where the wallet read enumerates
-every holding it covers and an absent report is genuine evidence of flat.
-:::
-
-### Futures reconciliation
-
-#### Client order IDs
-
-Futures orders are sent with their full client order ID: Kraken Futures takes
-up to 100 characters, and an order whose ID is longer is denied before it is
-sent, with every other open member of its order list. The venue reports a client
-order ID it already holds, or one too long or otherwise invalid, as a send status
-that rejects the order.
-
-A cancel or edit names the order by one identifier: its venue order ID when
-known, else its full client order ID.
-
-Open-order and fill reports read the client order ID under the documented
-`cliOrdId` key, and under `cli_ord_id` as well. An echoed ID that is empty or not
-a valid client order ID, such as one another tool on the account sent, names no
-order.
-
-A futures order sent with its ID shortened to `O` and its last 17 characters, as
-a spot ID longer than 18 characters is unless it is a UUID, is held under that
-form. Every REST report and fill of an order the cache indexes by venue order ID
-carries the cached client order ID, whatever the venue echoes, and the
-orders-status window is asked about a held order under both forms. A cancel or
-edit of such an order reaches it only by its venue order ID; one sent before a
-report carrying that ID reaches the cache names no order at the venue and is
-rejected.
-
-A targeted single-order query takes the report carrying the order's venue order
-ID when known. Otherwise a row is the order's when it echoes the client order ID
-in either form, on the order's instrument and side, placed no more than five
-seconds before the order's creation; an older row is another order whose ID
-shortens alike or that reused the ID. A fill carries no placement time, so its
-fill time stands in, which rules out only a fill executed before the order's
-creation. A row or fill of a venue order the cache indexes for another order
-never fits, whatever it echoes, since that order's full ID can be this order's
-shortened one. With the venue order ID unknown, the query fails when one read holds
-rows of two venue orders that fit, or a fitting row of a venue order the cache
-indexes for no order that echoes the full ID of another cached order sent without
-a venue order ID, on that order's instrument and side and placed no more than five
-seconds before its creation, or, no row fitting, when the recent fills that fit
-belong to two venue orders, include such a fill, or fall short of the order's
-quantity; with it known,
-the query fails when no row or fill carries it and a fitting row or fill of
-another venue order appears. Either way reconciliation defers the order rather
-than taking a row or reporting the order missing.
-
-#### Order status reports
-
-The adapter returns open orders and, when `open_only=False`, historical closed and
-filled orders. Historical reads have the limits below.
-
-#### Order history and pricing
-
-The adapter reads order lifecycle events from
-[`/api/history/v3/orders`](https://docs.kraken.com/api-reference/account-history/get-order-events). Each read
-takes one page: Kraken `/history` endpoints share a pool of 100 tokens, replenished at 100 every 10 minutes.
-An order-history page costs one token, so a page that hands back a continuation token, in the body or the
-`Next-Continuation-Token` header, logs a warning and leaves the set incomplete rather than reading further. A
-single-order status lookup can still report a cached order absent when it was placed after the page's oldest
-event by more than the clock skew allowance. See [Single-order lookups](#single-order-lookups).
-
-The history lists every lifecycle event. The read returns one report per order: the open-order snapshot if the
-venue still lists it. Otherwise, it returns the latest history state. A closed order is not reopened by an
-open state stamped later, such as a refused edit logged after a cancel.
-
-The contract name is resolved as the venue spells it, exactly first and then case-insensitively. The history
-carries no trigger price. Thus, a stop order is reported as the limit or market order it executes as once
-triggered. Venue-initiated orders (liquidation, assignment, hedge assignment, unwind, block, RFQ) are reported
-as market orders.
-
-The adapter skips unrepresentable rows with a warning and marks the set incomplete:
-
-- An unknown event kind.
-- An order type reported as `Unknown` or omitted.
-- An unknown direction.
-- A timestamp before the epoch.
-
-`OrderNotFound` carries no order state and is skipped without affecting completeness.
-A venue error returned under an HTTP success status fails the read.
-
-A terminal history row with executions carries no average price. The adapter prices
-it from page fills that cover its filled quantity exactly, or from page fills plus
-the fills recorded on a cached order, again requiring exact coverage. A failed fills
-read counts as an empty page. Without exact coverage, a single-order query fails
-and a bulk read withholds the order, so reconciliation defers it instead of inferring
-executions at the limit price.
-
-#### Startup history fallback
-
-Startup mass status reads one history page alongside open orders. This recovers an
-order that reached a terminal state during downtime when that page contains it.
-A venue error body under an HTTP success status, regardless of its code, or HTTP
-429 triggers a warning and fallback to open orders alone, with the set marked incomplete.
-Other HTTP errors, transport failures, and unparsable bodies fail mass status,
-as does a failed open-order read.
-
-#### Startup pricing safeguard
-
-Mass status applies the same exact fill-coverage requirement to terminal history orders with executions. It
-withholds an uncovered order with a warning naming it and marks the set incomplete. Later reads still request
-only the latest fills page. They cannot page back to recover an older missing execution.
-
-A withheld order's page fills remain when the cache holds the order, because the
-engine can reconcile those fills against it without a report. An uncached order's
-fills are withheld with the order.
-
-#### Flat instruments
-
-The position read returns open positions only, so an instrument with no position report is flat at the venue.
-The fills read is one page. A round trip with an opening fill older than that page leaves only its closing
-side. Without `reconciliation_lookback_mins`, the engine applies every kept fill to positions. This can open a
-position the venue does not hold.
-
-To compensate, an unbounded startup read nets the fills of every order on the read pages that the cache does
-not hold on a flat instrument, open orders included. When they do not net to zero and a terminal history order
-is among them, the terminal orders are withheld with their fills, with a warning, and the set is marked
-incomplete.
-
-Open orders stay, so an open order's fill can still open a position. An instrument
-with an open venue position is left to its position report. A bounded lookback leaves
-terminal orders to the engine, which projects fills with no position report onto order state only.
-
-#### Fill reports
-
-- Fill history: Reads the latest
-  [`/fills` page](https://docs.kraken.com/api-reference/historical-data/get-your-fills), the last 100 fills
-  across all futures contracts. Older executions are not returned.
-- Time filtering: Client-side filtering by start/end timestamps (parses
-  RFC3339 timestamps).
-- All fill types: Maker and taker fills with fee information.
-
-#### Position status reports
-
-- Open positions: Fetches all active futures positions.
-- Report fields: Side, average entry price, and position size from the REST snapshot.
-  Kraken also returns unrealized funding, but `PositionStatusReport` does not expose it.
-
-#### Account state
-
-- Balances: One entry per asset across wallets, as described under Currency codes.
-- Margins: One entry per currency, summed across wallets as balances are, at eight decimals. A flex
-  wallet's requirement is in USD, from its `initialMargin` and `maintenanceMargin`. A
-  single-collateral wallet's is in its `currency`, so a `fi_xbtusd` requirement is reported in BTC,
-  and its available funds bound that currency's balance alone. A wallet without a usable
-  `currency` contributes no margin entry, reports none of its assets as locked, and logs a warning.
-
-:::note
-**Futures time filtering**: The Kraken Futures fills endpoint does not support
-server-side time range filtering. The adapter implements client-side filtering
-by parsing `fillTime` fields and comparing against requested start/end
-timestamps.
-:::
-
-### Spot position reports (cash mode)
-
-Set `use_spot_position_reports=True` in cash mode to report wallet balances as
-Spot positions. It defaults to `False`. Margin accounts use `OpenPositions`
-independently of this option (see [Spot margin trading](#spot-margin-trading)).
-
-**How it works**:
-
-- When enabled, wallet balances are converted to `PositionStatusReport` objects.
-- Positive balances are reported as `LONG` positions.
-- Only instruments matching the configured quote currency are reported (default: `USDT`).
-  The same filter decides which instruments the client declares bulk position coverage for,
-  so an instrument quoted in anything else is never reconciled to flat from a missing report.
-- This prevents duplicate reports when the same asset is available with multiple
-  quote currencies (e.g., BTC/USD, BTC/USDT, BTC/EUR).
-
-**Configuration**:
-
-```python
-from nautilus_trader.adapters.kraken import KrakenExecutionClientConfig
-from nautilus_trader.model import AccountId
-
-
-exec_config = KrakenExecutionClientConfig(
-    account_id=AccountId.from_str("KRAKEN-001"),
-    api_key="YOUR_API_KEY",
-    api_secret="YOUR_API_SECRET",
-    use_spot_position_reports=True,
-    spot_positions_quote_currency="USDT",  # Default
-)
-```
-
-:::warning
-A strategy that closes reported Spot positions may sell your wallet holdings.
-Enable wallet-derived position reports only when your strategy handles those holdings.
-:::
-
-## Spot margin trading
-
-Kraken Spot supports leveraged trading on selected pairs. `AssetPairs` advertises
-per-pair tiers in `leverage_buy` and `leverage_sell`. The adapter caches these at
-instrument-load time and validates REST orders against them before submission.
-Enable margin trading with `spot_account_type=AccountType.MARGIN` and set leverage
-through `default_leverage` or per-order submission parameters.
-
-:::warning
-Use `use_ws_trade=False` for Spot margin orders. The adapter's WebSocket path
-forwards numeric `leverage` without checking the pair's cached tiers. Kraken's
-[WebSocket `add_order` schema](https://docs.kraken.com/exchange/api-reference/spot-websocket-v2/add_order)
-instead specifies a boolean `margin` field that selects the pair's maximum leverage.
-REST supports an explicit [leverage parameter](https://docs.kraken.com/api-reference/trading/add-order)
-and the adapter's local tier checks.
-:::
-
-### Configuration
-
-```python
-from nautilus_trader.adapters.kraken import KrakenExecutionClientConfig
-from nautilus_trader.model import AccountId
-from nautilus_trader.model import AccountType
-
-
-exec_config = KrakenExecutionClientConfig(
-    account_id=AccountId.from_str("KRAKEN-001"),
-    api_key="YOUR_API_KEY",
-    api_secret="YOUR_API_SECRET",
-    spot_account_type=AccountType.MARGIN,
-    use_ws_trade=False,
-    default_leverage=3,  # Optional config-level default
-    margin_balance_asset="ZGBP",  # Optional summary-display asset
-)
-```
-
-`margin_balance_asset` controls only the denomination of the account-summary
-metrics returned by Kraken's `TradeBalance` endpoint (equity, free margin,
-used margin, etc.). Per-position figures from `OpenPositions` are always in
-the traded pair's quote currency.
-
-### Per-order leverage
-
-Override the configured default on a single order via `params`:
-
-```python
-from nautilus_trader.model import InstrumentId
-from nautilus_trader.model import OrderSide
-from nautilus_trader.model import Price
-from nautilus_trader.model import Quantity
-
-
-order = strategy.order_factory.limit(
-    instrument_id=InstrumentId.from_str("BTC/USD.KRAKEN"),
-    order_side=OrderSide.BUY,
-    quantity=Quantity.from_str("0.01"),
-    price=Price.from_str("50000.00"),
-)
-strategy.submit_order(order, params={"leverage": 5})
-```
-
-On REST, the adapter validates the tier against the pair's `leverage_buy` or
-`leverage_sell` before sending the order. An unsupported tier produces an
-`OrderRejected` event for a single-order submission without reaching Kraken.
-A malformed per-order leverage parameter, such as a string or a value outside
-`[0, 65535]`, produces `OrderDenied` before submission on either route.
-
-### Reduce-only
-
-Margin orders can carry `reduce_only=True` so they reduce an existing position
-without opening a larger opposite position. Set `spot_account_type=AccountType.MARGIN` and supply
-either `default_leverage` or per-order `params={"leverage": N}`. The adapter denies
-cash orders with `reduce_only` before sending them to Kraken.
-
-### Account state
-
-When `spot_account_type=AccountType.MARGIN`, the execution client calls Kraken's
-`TradeBalance` endpoint during account refreshes. The live account state uses:
-
-- Equity (`e`) and free margin (`mf`) for the balance denominated by
-  `margin_balance_asset`.
-- Used margin (`m`) for `MarginBalance.initial`. Maintenance margin is zero
-  because Kraken does not return a separate maintenance-margin amount.
-
-The lower-level `KrakenSpotHttpClient` methods `request_margin_metrics()` and
-`request_account_state_with_metrics()` return the full `TradeBalance` metrics
-dictionary for direct consumers. The live execution client does not attach
-that dictionary to `AccountState.info`.
-
-### Position reconciliation
-
-Open spot margin positions are surfaced via `POST /0/private/OpenPositions`
-on each `position_check_interval_secs` tick. This path is independent of
-`use_spot_position_reports` (which is wallet-derived, cash-mode-only).
-
-The spot client declares bulk position coverage per instrument, and only for instruments the
-read would actually enumerate: cash mode with `use_spot_position_reports=True`, and the
-instrument quoted in `spot_positions_quote_currency` (see Spot position reports, which applies
-the same filter). Under `spot_account_type=AccountType.MARGIN` the source is `OpenPositions`, which omits
-unleveraged lots, and cash mode without wallet-derived reports returns nothing at all. Wherever
-coverage is not declared, an absent report leaves the cached position untouched instead of
-closing it.
-
-## Funding rates
-
-The adapter receives funding rate data from the
-[Futures ticker](https://docs.kraken.com/exchange/api-reference/futures-websocket/ticker)
-WebSocket feed, which provides `relative_funding_rate` and
-`next_funding_rate_time` for perpetual futures.
-
-The adapter leaves `FundingRateUpdate.interval` as `None` because the ticker feed does not include a funding
-interval field. This does not mean the contract has no defined funding period. Kraken's
-[linear multi-collateral contract specification](https://support.kraken.com/articles/4844359082772-linear-multi-collateral-derivatives-contract-specifications)
-defines hourly funding periods. Accrued funding settles at the end of the hour or when the net position
-changes.
-
-## Rate limiting
-
-Each Kraken HTTP client applies an adapter-side request throttle. The default is
-five requests per second and `max_requests_per_second` can override it. This is
-a request-count throttle, not a complete model of Kraken's endpoint costs or
-account-tier budgets.
-
-Kraken applies different venue limits to Spot and Futures:
-
-- [Spot REST rate limits](https://docs.kraken.com/exchange/guides/rest/ratelimits)
-  use a tier-dependent call counter. Ledger and trade history calls add `2`,
-  most other REST calls add `1`, and order management uses a separate trading
-  limiter.
-- [Derivatives rate limits](https://docs.kraken.com/exchange/guides/futures/ratelimits)
-  use endpoint costs and separate budgets for `/derivatives` and `/history`
-  paths.
-
-Kraken documents these Spot REST call-counter limits:
-
-| Spot tier    | Maximum counter | Counter decay |
-| ------------ | --------------- | ------------- |
-| Starter      | 15              | 0.33/second   |
-| Intermediate | 20              | 0.5/second    |
-| Pro          | 20              | 1/second      |
-
-If the adapter's fixed request rate is too high for the endpoint mix and account
-tier, Kraken can still reject or throttle requests.
-
-### Reconciliation interval guidance
-
-The execution engine's `open_check_interval_secs` and
-`position_check_interval_secs` settings create sustained private REST API load.
-Short intervals can exhaust Kraken's venue budgets even when the adapter stays
-below its configured requests-per-second throttle.
-
-Use conservative intervals as a starting point, especially for a Spot Starter
-account:
-
-```python
-from nautilus_trader.config import LiveExecutionEngineConfig
-
-
-exec_engine = LiveExecutionEngineConfig(
-    reconciliation=True,
-    open_check_interval_secs=30.0,  # Conservative Spot Starter-tier starting point
-    position_check_interval_secs=120.0,
-)
-```
-
-Tune these values for the account tier, enabled reconciliation checks, and other
-clients using the same API key. If Kraken returns `EAPI:Rate limit exceeded`,
-increase the intervals or reduce `max_requests_per_second`.
-
-## Configuration
-
-### Data client configuration options
-
-| Option                    | Default   | Description                                                      |
-| ------------------------- | --------- | ---------------------------------------------------------------- |
-| `product_type`            | `SPOT`    | Product type for this client (`SPOT` or `FUTURES`).              |
-| `environment`             | `LIVE`    | Trading environment (`LIVE` or `DEMO`); demo only for Futures.   |
-| `api_key`                 | `None`    | API key for Spot L3 data.                                        |
-| `api_secret`              | `None`    | API secret for Spot L3 data.                                     |
-| `base_url`                | `None`    | Override for the Kraken REST base URL.                           |
-| `ws_public_url`           | `None`    | Override for the public WebSocket URL.                           |
-| `ws_private_url`          | `None`    | Override for the private WebSocket URL.                          |
-| `ws_l3_url`               | `None`    | Override for the Spot L3 WebSocket URL.                          |
-| `validate_l3_checksum`    | `True`    | Validate Kraken Spot L3 checksums and resync on mismatch.        |
-| `validate_l2_checksum`    | `True`    | Validate Kraken Spot L2 `book` checksums and resync on mismatch. |
-| `proxy_url`               | `None`    | Optional proxy URL for HTTP and WebSocket transports.            |
-| `timeout_secs`            | `30`      | HTTP request timeout in seconds.                                 |
-| `heartbeat_interval_secs` | `30`      | WebSocket heartbeat interval in seconds.                         |
-| `ws_idle_timeout_ms`      | `10,000`  | Data-silence timeout for the Spot v2 WebSocket; `0` disables.    |
-| `max_requests_per_second` | `None`    | Per-client request throttle; default is 5 req/s.                 |
-| `transport_backend`       | `Sockudo` | WebSocket transport backend.                                     |
-
-### Execution client configuration options
-
-| Option                          | Default   | Description                                                           |
-| ------------------------------- | --------- | --------------------------------------------------------------------- |
-| `account_id`                    | required  | Account ID for the Kraken account.                                    |
-| `api_key`                       | required  | Kraken API key.                                                       |
-| `api_secret`                    | required  | Kraken API secret.                                                    |
-| `product_type`                  | `SPOT`    | Product type for this client (`SPOT` or `FUTURES`).                   |
-| `environment`                   | `LIVE`    | Trading environment (`LIVE` or `DEMO`); demo only for Futures.        |
-| `base_url`                      | `None`    | Override for the Kraken REST base URL.                                |
-| `ws_url`                        | `None`    | Override for the Kraken WebSocket URL.                                |
-| `proxy_url`                     | `None`    | Optional proxy URL for HTTP and WebSocket transports.                 |
-| `timeout_secs`                  | `30`      | HTTP request timeout in seconds.                                      |
-| `heartbeat_interval_secs`       | `30`      | WebSocket heartbeat interval in seconds.                              |
-| `auth_timeout_secs`             | `None`    | Futures WebSocket auth timeout; `None` uses the client default.       |
-| `max_requests_per_second`       | `None`    | Per-client request throttle; default is 5 req/s.                      |
-| `max_retries`                   | `3`       | Maximum retry attempts for retryable REST requests.                   |
-| `spot_account_type`             | `CASH`    | Account type for spot trading; `MARGIN` enables leverage and reports. |
-| `default_leverage`              | `None`    | Default Spot margin leverage; REST sends `"N:1"` when set.            |
-| `use_spot_position_reports`     | `False`   | Report wallet balances as positions; cash mode only.                  |
-| `spot_positions_quote_currency` | `"USDT"`  | Quote filter for spot wallet position reports and their coverage.     |
-| `margin_balance_asset`          | `None`    | Summary asset for `TradeBalance`; `None` defaults to `ZUSD`.          |
-| `use_ws_trade`                  | `True`    | Use Spot WebSocket v2 for order operations when active.               |
-| `ws_request_timeout_secs`       | `5`       | Spot WebSocket order response timeout.                                |
-| `transport_backend`             | `Sockudo` | WebSocket transport backend.                                          |
-
-For Spot margin, `default_leverage` applies when an order has no per-order leverage
-parameter. See [Spot margin trading](#spot-margin-trading) for submission and account-state examples.
-
-### Demo environment setup
-
-To test with Kraken Futures demo (paper trading):
-
-1. Sign up at [Kraken Futures demo](https://demo-futures.kraken.com)
-   and generate API credentials.
-1. Set environment variables with your demo credentials:
-   - `KRAKEN_FUTURES_DEMO_API_KEY`
-   - `KRAKEN_FUTURES_DEMO_API_SECRET`
-1. Read the credentials and pass them to `KrakenExecutionClientConfig`, then set
-   `environment=KrakenEnvironment.DEMO` and
-   `product_type=KrakenProductType.FUTURES`.
-
-The [Python examples](https://github.com/nautechsystems/nautilus_trader/tree/develop/examples/live/kraken/)
-show the complete demo and live `LiveNode` configurations.
-
-### Production configuration
-
-Use `KrakenDataClientConfig` with `KrakenDataClientFactory`, and use
-`KrakenExecutionClientConfig` with `KrakenExecutionClientFactory`. The Python
-examples show the complete `LiveNode.builder(...)` configuration for data and
-execution clients.
-
-### API credentials
-
-Live-node configuration objects do not read credential environment variables
-automatically. Pass `api_key` and `api_secret` explicitly to
-`KrakenExecutionClientConfig` and, for Spot L3 data, to
-`KrakenDataClientConfig`. Market data other than Spot L3 does not require credentials.
-
-The lower-level Python HTTP clients load the following variables
-when their credential arguments are omitted. Rust applications can use
-`KrakenCredential::from_env_spot()` or
-`KrakenCredential::from_env_futures(demo)` to load them before constructing
-live-node configs.
-
-| Environment variable             | Description                              |
-| -------------------------------- | ---------------------------------------- |
-| `KRAKEN_SPOT_API_KEY`            | API key for Kraken Spot live trading.    |
-| `KRAKEN_SPOT_API_SECRET`         | API secret for Kraken Spot live trading. |
-| `KRAKEN_FUTURES_API_KEY`         | Kraken Futures live API key.             |
-| `KRAKEN_FUTURES_API_SECRET`      | Kraken Futures live API secret.          |
-| `KRAKEN_FUTURES_DEMO_API_KEY`    | API key for Kraken Futures (demo).       |
-| `KRAKEN_FUTURES_DEMO_API_SECRET` | API secret for Kraken Futures (demo).    |
-
-:::note
-**Demo environment**: Only Kraken Futures offers a demo environment
-(`https://demo-futures.kraken.com`) for testing without real funds. Kraken Spot
-does not have a demo or testnet environment.
-:::
-
-:::tip
-Use environment variables to store credentials, then pass their values into
-live-node configuration at the application boundary.
-:::
-
-Authentication errors are reported when a private client connects or performs a
-private operation. Required permissions depend on the requested data or trading
-operation.
-
-## Contributing
-
-:::info
-To contribute to the Kraken adapter, see the
-[contributing guide](https://github.com/nautechsystems/nautilus_trader/blob/develop/CONTRIBUTING.md).
-:::
+| ตัวเลือก                    | ค่าเริ่มต้น | คำอธิบาย                                                     |
+| ------------------------- | -------- | ---------------------------------------------------------- |
+| `use_ws_trade`            | `True`   | route order ผ่าน WS เมื่อ trade channel active               |
+| `ws_request_timeout_secs` | `5`      | จำนวนวินาทีที่รอ response ของ order ผ่าน Spot WS              |

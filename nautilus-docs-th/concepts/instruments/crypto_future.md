@@ -1,57 +1,56 @@
 # Crypto Future
 
-`CryptoFuture` represents a dated crypto futures contract. It tracks a crypto
-underlying, quotes in a quote currency, settles in a settlement currency, and expires at
-a fixed timestamp.
+`CryptoFuture` แทนสัญญา crypto futures ที่มีวันครบกำหนด โดยอ้างอิง underlying ที่เป็น crypto,
+quote ราคาด้วย quote currency, settle ด้วย settlement currency และหมดอายุ ณ timestamp ที่กำหนดไว้
 
-Examples include dated BTC or ETH futures on crypto derivatives venues.
+ตัวอย่างเช่น futures ของ BTC หรือ ETH แบบมีวันครบกำหนดบน venue ซื้อขาย crypto derivatives
 
-## Fields
+## Fields {#fields}
 
-| Field                 | Rust type          | Python type        | Required/default | Notes                                    |
-| --------------------- | ------------------ | ------------------ | ---------------- | ---------------------------------------- |
-| `instrument_id`       | `InstrumentId`     | `InstrumentId`     | Required         | Stored as `id` in Rust.                  |
-| `raw_symbol`          | `Symbol`           | `Symbol`           | Required         | Native venue symbol.                     |
-| `underlying`          | `Currency`         | `Currency`         | Required         | Crypto asset the contract tracks.        |
-| `quote_currency`      | `Currency`         | `Currency`         | Required         | Currency used to quote the price.        |
-| `settlement_currency` | `Currency`         | `Currency`         | Required         | Currency used to settle PnL and fees.    |
-| `is_inverse`          | `bool`             | `bool`             | Required         | True when sizing/costing is inverse.     |
-| `activation_ns`       | `UnixNanos`        | `int`              | Required         | Contract activation timestamp.           |
-| `expiration_ns`       | `UnixNanos`        | `int`              | Required         | Contract expiration timestamp.           |
-| `price_precision`     | `u8`               | `int`              | Required         | Decimal places allowed for prices.       |
-| `size_precision`      | `u8`               | `int`              | Required         | Decimal places allowed for order sizes.  |
-| `price_increment`     | `Price`            | `Price`            | Required         | Smallest valid price step.               |
-| `size_increment`      | `Quantity`         | `Quantity`         | Required         | Smallest valid size step.                |
-| `multiplier`          | `Quantity`         | `Quantity`         | `1`              | Contract multiplier.                     |
-| `lot_size`            | `Quantity`         | `Quantity`         | `1`              | Rounded lot or board size.               |
-| `max_quantity`        | `Option<Quantity>` | `Quantity \| None` | `None`           | Maximum order quantity.                  |
-| `min_quantity`        | `Option<Quantity>` | `Quantity \| None` | `None`           | Minimum order quantity.                  |
-| `max_notional`        | `Option<Money>`    | `Money \| None`    | `None`           | Maximum order notional value.            |
-| `min_notional`        | `Option<Money>`    | `Money \| None`    | `None`           | Minimum order notional value.            |
-| `max_price`           | `Option<Price>`    | `Price \| None`    | `None`           | Maximum valid quote or order price.      |
-| `min_price`           | `Option<Price>`    | `Price \| None`    | `None`           | Minimum valid quote or order price.      |
-| `margin_init`         | `Option<Decimal>`  | `Decimal \| None`  | `0`              | Initial margin rate.                     |
-| `margin_maint`        | `Option<Decimal>`  | `Decimal \| None`  | `0`              | Maintenance margin rate.                 |
-| `tick_scheme`         | `Option<Ustr>`     | `str \| None`      | `None`           | Registered variable tick scheme name.    |
-| `info`                | `Option<Params>`   | `dict \| None`     | `None`           | Adapter metadata.                        |
-| `ts_event`            | `UnixNanos`        | `int`              | Required         | Event timestamp in nanoseconds.          |
-| `ts_init`             | `UnixNanos`        | `int`              | Required         | Initialization timestamp in nanoseconds. |
+| Field | Rust type | Required/default | หมายเหตุ |
+| --- | --- | --- | --- |
+| `instrument_id` | `InstrumentId` | Required | ใน Rust เก็บไว้ใน field `id` |
+| `raw_symbol` | `Symbol` | Required | symbol ดั้งเดิมของ venue |
+| `underlying` | `Currency` | Required | crypto asset ที่สัญญาอ้างอิง |
+| `quote_currency` | `Currency` | Required | สกุลเงินที่ใช้ quote ราคา |
+| `settlement_currency` | `Currency` | Required | สกุลเงินที่ใช้ settle PnL และค่าธรรมเนียม |
+| `is_inverse` | `bool` | Required | เป็น true เมื่อการคิดขนาด/ต้นทุนเป็นแบบ inverse |
+| `activation_ns` | `UnixNanos` | Required | timestamp ที่สัญญาเริ่มใช้งาน |
+| `expiration_ns` | `UnixNanos` | Required | timestamp ที่สัญญาหมดอายุ |
+| `price_precision` | `u8` | Required | จำนวนทศนิยมที่อนุญาตสำหรับราคา |
+| `size_precision` | `u8` | Required | จำนวนทศนิยมที่อนุญาตสำหรับขนาด order |
+| `price_increment` | `Price` | Required | ขั้นราคาที่เล็กที่สุดที่ใช้ได้ |
+| `size_increment` | `Quantity` | Required | ขั้นขนาดที่เล็กที่สุดที่ใช้ได้ |
+| `multiplier` | `Quantity` | `1` | ตัวคูณของสัญญา |
+| `lot_size` | `Quantity` | `1` | ขนาด lot หรือ board lot |
+| `max_quantity` | `Option<Quantity>` | `None` | ปริมาณ order สูงสุด |
+| `min_quantity` | `Option<Quantity>` | `None` | ปริมาณ order ต่ำสุด |
+| `max_notional` | `Option<Money>` | `None` | มูลค่า notional ของ order สูงสุด |
+| `min_notional` | `Option<Money>` | `None` | มูลค่า notional ของ order ต่ำสุด |
+| `max_price` | `Option<Price>` | `None` | ราคา quote หรือ order สูงสุดที่ใช้ได้ |
+| `min_price` | `Option<Price>` | `None` | ราคา quote หรือ order ต่ำสุดที่ใช้ได้ |
+| `margin_init` | `Option<Decimal>` | `0` | อัตรา initial margin |
+| `margin_maint` | `Option<Decimal>` | `0` | อัตรา maintenance margin |
+| `tick_scheme` | `Option<Ustr>` | `None` | ชื่อ tick scheme แบบแปรผันที่ลงทะเบียนไว้ |
+| `info` | `Option<Params>` | `None` | metadata จาก adapter |
+| `ts_event` | `UnixNanos` | Required | timestamp ของ event หน่วยนาโนวินาที |
+| `ts_init` | `UnixNanos` | Required | timestamp ตอน initialize หน่วยนาโนวินาที |
 
-**Note**: Python constructors use `instrument_id`. Rust stores the same value as `id`.
+**หมายเหตุ**: builder ใช้ชื่อ `instrument_id` แต่ Rust เก็บค่าเดียวกันนี้ไว้ใน field `id`
 
-## Behavior
+## พฤติกรรม {#behavior}
 
-- `CryptoFuture` has asset class `Cryptocurrency` and instrument class `Future`.
-- Prices can be zero or negative, except for inverse futures.
-- Use `CryptoPerpetual` for crypto derivatives with no expiration.
+- `CryptoFuture` มี asset class เป็น `Cryptocurrency` และ instrument class เป็น `Future`
+- ราคาเป็นศูนย์หรือติดลบได้ ยกเว้น inverse futures
+- ใช้ `CryptoPerpetual` สำหรับ crypto derivatives ที่ไม่มีวันหมดอายุ
 
-**Settlement style**: the currency set determines the settlement style.
+**รูปแบบการ settle**: ชุดสกุลเงินที่กำหนดเป็นตัวบอกรูปแบบการ settle
 
-- **Linear**: typically sets `is_inverse=False` and settles in the quote currency.
-- **Inverse**: sets `is_inverse=True` and typically settles in the underlying currency.
-- **Quanto**: settles in a third currency that differs from both underlying and quote.
+- **Linear**: โดยทั่วไปตั้ง `is_inverse=False` และ settle ด้วย quote currency
+- **Inverse**: ตั้ง `is_inverse=True` และโดยทั่วไป settle ด้วยสกุลเงินของ underlying
+- **Quanto**: settle ด้วยสกุลเงินที่สามซึ่งต่างจากทั้ง underlying และ quote
 
-## Example
+## ตัวอย่าง {#example}
 
 ```rust tab="Rust"
 use jiff::Timestamp;
@@ -89,53 +88,16 @@ let btcusdt_future = CryptoFuture::builder()
     .unwrap();
 ```
 
-```python tab="Python"
-import pandas as pd
+## Adapters {#adapters}
 
-from nautilus_trader.model import CryptoFuture
-from nautilus_trader.model import Currency
-from nautilus_trader.model import InstrumentId
-from nautilus_trader.model import Money
-from nautilus_trader.model import Price
-from nautilus_trader.model import Quantity
-from nautilus_trader.model import Symbol
+**adapter ที่สร้างหรือใช้งาน instrument แบบ `CryptoFuture` ได้แก่**:
 
-BTC = Currency.from_str("BTC")
-USDT = Currency.from_str("USDT")
+- [Bybit](../../integrations/bybit.md) สำหรับตลาด crypto futures
+- [Deribit](../../integrations/deribit.md) สำหรับ crypto futures แบบมีวันครบกำหนด
+- [OKX](../../integrations/okx.md) สำหรับ crypto futures แบบมีวันครบกำหนด
+- [Tardis](../../integrations/tardis.md) สำหรับ metadata ของ crypto futures
 
-btcusdt_future = CryptoFuture(
-    instrument_id=InstrumentId.from_str("BTCUSDT-240329.BINANCE"),
-    raw_symbol=Symbol("BTCUSDT-240329"),
-    underlying=BTC,
-    quote_currency=USDT,
-    settlement_currency=USDT,
-    is_inverse=False,
-    activation_ns=pd.Timestamp("2024-01-08", tz="UTC").value,
-    expiration_ns=pd.Timestamp("2024-03-29", tz="UTC").value,
-    price_precision=2,
-    size_precision=6,
-    price_increment=Price.from_str("0.01"),
-    size_increment=Quantity.from_str("0.000001"),
-    max_quantity=Quantity.from_str("9000"),
-    min_quantity=Quantity.from_str("0.000001"),
-    min_notional=Money(10.00, USDT),
-    max_price=Price.from_str("1000000.00"),
-    min_price=Price.from_str("0.01"),
-    ts_event=0,
-    ts_init=0,
-)
-```
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-## Adapters
-
-**Adapters that create or consume `CryptoFuture` instruments include**:
-
-- [Bybit](../../integrations/bybit.md) for crypto futures markets.
-- [Deribit](../../integrations/deribit.md) for dated crypto futures.
-- [OKX](../../integrations/okx.md) for dated crypto futures.
-- [Tardis](../../integrations/tardis.md) for crypto futures metadata.
-
-## Related guides
-
-- [Crypto Perpetual](crypto_perpetual.md) covers perpetual crypto futures.
-- [Futures Contract](futures_contract.md) covers non-crypto futures contracts.
+- [Crypto Perpetual](crypto_perpetual.md) อธิบาย crypto perpetual futures
+- [Futures Contract](futures_contract.md) อธิบายสัญญา futures ที่ไม่ใช่ crypto

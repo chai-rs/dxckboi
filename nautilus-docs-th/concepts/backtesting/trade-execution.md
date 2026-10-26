@@ -1,232 +1,165 @@
-# Trade-Based Execution
+# การ execute ด้วย trade (Trade-Based Execution)
 
-Trade ticks trigger matching by default when a venue has `trade_execution=True`. A trade provides
-evidence that liquidity traded at its price, so it can fill resting orders on the passive side.
+โดยค่าเริ่มต้น trade tick จะกระตุ้นการ matching เมื่อ venue ตั้งค่า `trade_execution=True` เพราะ trade
+เป็นหลักฐานว่ามีสภาพคล่องเกิดการซื้อขายจริงที่ราคานั้น จึงใช้ fill order ที่รออยู่ฝั่ง passive ได้
 
-Set `trade_execution=False` to use trades as strategy data without treating them as execution
-liquidity for ordinary resting orders:
+ตั้ง `trade_execution=False` หากต้องการใช้ trade เป็นข้อมูลให้ strategy เท่านั้น โดยไม่นับเป็นสภาพคล่อง
+สำหรับ execute order ปกติที่รออยู่ในตลาด
 
-```python
-from decimal import Decimal
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-from nautilus_trader.config import BacktestVenueConfig
-from nautilus_trader.execution import MakerTakerFeeModel
-from nautilus_trader.model import AccountType
-from nautilus_trader.model import BookType
-from nautilus_trader.model import OmsType
+เมื่อปิด trade execution พฤติกรรมจะขึ้นกับ book type ของ venue:
 
-venue = BacktestVenueConfig(
-    name="SIM",
-    oms_type=OmsType.NETTING,
-    account_type=AccountType.CASH,
-    book_type=BookType.L1_MBP,
-    starting_balances=["100_000 USD"],
-    trade_execution=False,
-    fee_model=MakerTakerFeeModel(
-        maker_rate=Decimal("0"),
-        taker_rate=Decimal("0"),
-    ),
-)
-```
+- กับข้อมูล L1: trade tick ที่รับเข้ามาจะอัปเดต L1 book แต่ข้ามขั้นตอน matching และ maintenance
+  ไป งานเหล่านั้นจะถูกขับเคลื่อนโดย quote tick หรือ bar ที่ execute ได้ซึ่งตามมาภายหลัง
+- กับข้อมูล L2 หรือ L3: trade tick ที่รับเข้ามาจะขยับ `LastPrice` และรัน maintenance ของ trailing stop
+  สำหรับ trigger type ทุกแบบ และสามารถ trigger stop order แบบ `LastPrice` ซึ่งจะ fill กับสภาพคล่อง
+  ที่มีอยู่ใน book ได้ แต่ tick นั้นจะไม่ match กับ limit order ที่รออยู่ และไม่ trigger stop order ที่ใช้
+  trigger type อื่น นอกจากนี้ยังรันการตรวจ GTD expiry และการหมดอายุของ instrument ที่เปิดใช้อยู่ด้วย
 
-When trade execution is disabled, behavior depends on the venue's book type:
+## การ matching ที่ขับเคลื่อนด้วย trade {#trade-driven-matching}
 
-- With L1 data, accepted trade ticks update the L1 book but skip matching and maintenance. Later
-  quote ticks or executable bars drive that work.
-- With L2 or L3 data, accepted trade ticks advance `LastPrice` and run trailing-stop maintenance
-  for all trigger types. They can trigger `LastPrice` stop orders, which fill against existing book
-  liquidity. The tick does not match resting limits or trigger stop orders that use other trigger
-  types. It also runs enabled GTD expiry and instrument-expiration checks.
+engine จะย้ายราคาอ้างอิงสำหรับ matching ไปที่ราคาของ trade ชั่วคราว:
 
-## Trade-driven matching
+- trade ฝั่ง `SELL` สามารถ match กับ BUY order ที่รออยู่
+- trade ฝั่ง `BUY` สามารถ match กับ SELL order ที่รออยู่
+- trade แบบ `NO_AGGRESSOR` มีผลได้ทั้งสองฝั่ง เพราะไม่รู้ว่าฝั่ง passive คือฝั่งไหน
 
-The engine temporarily moves its matching references to the trade price:
+trade ใน L1 จะอัปเดตระดับ top-of-book จำลองทั้งสองฝั่งเป็นราคาและขนาดของ trade ส่วน depth book ใน
+L2 และ L3 จะไม่เปลี่ยน มีเพียงราคา bid, ask และ last ชั่วคราวของ matching core เท่านั้นที่ขยับในรอบนั้น
 
-- A `SELL` trade can match resting BUY orders.
-- A `BUY` trade can match resting SELL orders.
-- A `NO_AGGRESSOR` trade can affect both sides because the passive side is unknown.
+### การกำหนด fill {#fill-determination}
 
-L1 trades update both simulated top-of-book levels to the trade price and size. L2 and L3 depth books stay
-unchanged. Only the matching core's transient bid, ask, and last prices move for the iteration.
+เมื่อ trade กระตุ้นให้ limit order ถูก fill:
 
-### Fill determination
+- กับข้อมูล L1: engine ใช้ volume ของ trade แม้ book จำลองจะมีราคาของ trade นั้นอยู่ก็ตาม maker
+  order ที่รออยู่จะ fill ที่ราคา limit ของตัวเอง ส่วน taker order จะใช้ราคาของ trade หากราคานั้นเป็นไป
+  ตามเงื่อนไข limit หากไม่เป็นไปตามเงื่อนไข จะยังใช้ราคา limit เป็นค่า fallback
+- กับข้อมูล L2 หรือ L3: engine จะ fill กับระดับราคาใน book ที่ถูก cross หาก book ไม่มีระดับราคาของ
+  trade นั้น ก็สามารถสร้าง fill ที่ขับเคลื่อนด้วย trade ที่ราคา limit ของ order ได้
+- fill ที่ขับเคลื่อนด้วย trade ถูกจำกัดไว้ที่ `min(order.leaves_qty, trade.size)`
 
-When a trade triggers a limit fill:
+การใช้ขนาดของ trade ขึ้นกับ `liquidity_consumption`:
 
-- With L1 data, the engine uses the trade's volume even when the simulated book contains the trade price.
-  Resting maker orders fill at their limit price. Taker orders use the trade price when it satisfies their
-  limit. If the trade price does not satisfy their limit, they keep the limit-price fallback.
-- With L2 or L3 data, the engine fills against crossed book levels. If the book does not represent
-  the trade price, it can create a trade-driven fill at the order's limit price.
-- A trade-driven fill is capped at `min(order.leaves_qty, trade.size)`.
+- เมื่อเป็น `False`: ขนาดของ trade เดียวกันสามารถรองรับได้มากกว่าหนึ่ง order ในรอบเดียว
+- เมื่อเป็น `True`: fill ที่ขับเคลื่อนด้วย trade ใช้ตัวนับการบริโภคร่วมกัน ผลรวมจึงเกินขนาดของ trade
+  ที่ยังไม่ถูกใช้ไม่ได้
 
-Trade-size consumption depends on `liquidity_consumption`:
+**งบของ trade ใน L1**: เมื่อเปิดการบริโภคสภาพคล่อง แต่ละ trade จะได้งบใหม่ รวมถึง trade ที่ตามกันมา
+ซึ่งมีราคาและขนาดเท่ากันด้วย งบนี้ใช้กับ limit fill ทั้งสองฝั่ง และคงอยู่ตลอดรอบ matching และ settlement
+จนกว่าข้อมูลตลาดใหม่จะมาแทนที่ เมื่องบหมดแล้ว fill ใน L1 จะไม่ย้อนกลับไปใช้สภาพคล่องจาก book
 
-- With `False`, the same trade size can support more than one order during an iteration.
-- With `True`, trade-driven fills share a consumption counter, so their total cannot exceed the
-  unconsumed trade size.
+ตัวอย่างเช่น กับข้อมูล L2 หรือ L3 trade ฝั่ง `SELL` ที่ 100.00 สามารถ fill BUY LIMIT ที่ 100.05 ได้
+หากไม่มีระดับราคาใน book ที่รองรับ fill นั้น engine จะใช้ 100.05 แทนที่จะให้ราคา trade ที่ดีกว่า
 
-**L1 trade budget**: With consumption enabled, each trade has a fresh budget, including successive
-trades with the same price and size. The budget applies to limit fills on both sides and persists
-across matching and settlement passes until fresh market data replaces it. Once exhausted, L1
-fills do not fall back to book liquidity.
+### การคืนสถานะ matching {#matching-state-restoration}
 
-For example, with L2 or L3 data, a `SELL` trade at 100.00 can fill a BUY LIMIT at 100.05. If no book
-level represents that fill, the engine uses 100.05 rather than granting the better trade price.
+หลังจบรอบ engine จะคืนราคาอ้างอิงสำหรับ matching จาก baseline ของตลาดที่มีอยู่:
 
-### Matching-state restoration
+- กับข้อมูล L2 หรือ L3: depth book ยังเป็นแหล่งข้อมูลอิสระของสถานะ bid และ ask
+- กับ baseline ที่เป็น quote ใน L1: ฝั่งที่ไม่ใช่ aggressor จะถูกคืนค่าจาก quote ล่าสุด
+- กับข้อมูล L1 ที่มีแต่ trade: ไม่มี quote baseline ให้คืนค่า trade ล่าสุดจึงยังเป็นตัวกำหนดสถานะ
+  top-of-book ที่มีอยู่
 
-After the iteration, the engine restores matching references from the available market baseline:
+ความแตกต่างนี้สำคัญเมื่อตีความสตรีมของ trade ที่ไม่มี quote trade ซ้ำๆ สามารถขยับสถานะ L1 จำลองได้
+แต่การ matching ใน L1 ที่มี quote รองรับจะไม่ค่อยๆ ทิ้งฝั่งที่ไม่ใช่ aggressor ของ quote ล่าสุด
 
-- With L2 or L3 data, the depth book stays the independent source of bid and ask state.
-- With an L1 quote baseline, the non-aggressor side is restored from the latest quote.
-- With trade-only L1 data, no quote baseline exists to restore, so the latest trade continues to define the
-  available top-of-book state.
+## ฝั่ง aggressor {#aggressor-sides}
 
-This distinction matters when interpreting a stream of trades without quotes. Repeated trades can
-move the simulated L1 state, but quote-backed L1 matching does not progressively discard the
-non-aggressor side of the latest quote.
+**aggressor** คือผู้เข้าร่วมตลาดที่ cross spread:
 
-## Aggressor sides
+- `SELL`: ผู้ขายกดขายใส่ bid trade นี้ fill BUY order ที่รออยู่ได้
+- `BUY`: ผู้ซื้อเคาะซื้อจาก ask trade นี้ fill SELL order ที่รออยู่ได้
+- `NO_AGGRESSOR`: ข้อมูลไม่ได้ระบุ aggressor engine จะพิจารณาทั้งสองฝั่งในกรณีที่ฟีเจอร์นั้นต้องใช้ฝั่ง
 
-The **aggressor** is the participant that crossed the spread:
+ฝั่ง aggressor ที่รู้แน่นอนไม่ได้เป็นหลักฐานสำหรับ passive order ที่อยู่ฝั่งเดียวกัน
 
-- `SELL`: A seller hit the bid. The trade can fill a resting BUY order.
-- `BUY`: A buyer lifted the ask. The trade can fill a resting SELL order.
-- `NO_AGGRESSOR`: The data does not identify the aggressor. The engine considers both sides where
-  the feature requires a side.
+## การใช้ข้อมูล book ร่วมกับ trade {#combining-book-and-trade-data}
 
-A known aggressor side does not provide evidence for passive orders on the same side.
+การอัปเดต book กำหนด spread และ depth ที่มองเห็น ส่วน trade tick ให้หลักฐานการ execute ระหว่างการ
+อัปเดตเหล่านั้น ซึ่งมีประโยชน์เมื่อ depth snapshot ถูก throttle และมี trade เกิดขึ้นที่ราคาซึ่ง snapshot
+ล่าสุดไม่มี
 
-## Combining book and trade data
+ควรใช้ข้อมูลทั้งสองแบบอย่างระมัดระวัง:
 
-Book updates establish the spread and visible depth. Trade ticks provide execution evidence between
-those updates. This is useful when depth snapshots are throttled and a trade occurs at a price that
-the latest snapshot does not contain.
+- trade ต้องมีฝั่ง aggressor ตรงข้ามจึงจะ fill order ที่รออยู่ได้
+- การอัปเดต book สามารถ cross order ได้เองโดยไม่ต้องมี trade
+- fill ที่ระดับราคาของ trade ซึ่งไม่มีใน book จะใช้เพดานปริมาณแบบขับเคลื่อนด้วย trade
+- เมื่อเปิดการบริโภคสภาพคล่อง engine จะนับ volume ของ trade ที่ถูกตัดออกจาก book L2 หรือ L3 แล้ว
+  ก่อนที่ order ที่ถูก trigger จะใช้ depth ที่เหลือ
 
-Use the two feeds with care:
+## การติดตามตำแหน่งในคิว {#queue-position-tracking}
 
-- A trade must have the opposite aggressor side to fill a resting order.
-- A book update can cross an order independently of a trade.
-- A fill at a missing trade-price level uses the trade-driven quantity cap.
-- With consumption enabled, the engine accounts for trade volume already removed from an L2 or L3
-  book before triggered orders consume the remaining depth.
+ตั้ง `queue_position=True` ร่วมกับ `trade_execution=True` เพื่อติดตามปริมาณที่แสดงอยู่ข้างหน้าของ
+LIMIT order แต่ละตัว
 
-## Queue position tracking
+### การตั้งค่า sandbox {#sandbox-configuration}
 
-Set `queue_position=True` with `trade_execution=True` to track displayed quantity ahead of each
-LIMIT order:
+paper trading แบบ sandbox ใช้ flag ของ matching engine ชุดเดียวกัน โดยส่งผ่าน
+`SandboxExecutionClientConfig` (ค่าเริ่มต้นปิดไว้ ตรงกับพฤติกรรมของ sandbox ในปัจจุบัน)
 
-```python
-from decimal import Decimal
+`venue` ของ sandbox ต้องตรงกับ venue ของ instrument ใน data client และ strategy ต้อง subscribe trade
+(และ delta ของ L2/L3 เมื่อใช้ depth)
 
-from nautilus_trader.execution import MakerTakerFeeModel
+### วงจรชีวิตของคิว {#queue-lifecycle}
 
-venue = BacktestVenueConfig(
-    name="SIM",
-    oms_type=OmsType.NETTING,
-    account_type=AccountType.MARGIN,
-    book_type=BookType.L2_MBP,
-    starting_balances=["100_000 USD"],
-    trade_execution=True,
-    queue_position=True,
-    fee_model=MakerTakerFeeModel(
-        maker_rate=Decimal("0"),
-        taker_rate=Decimal("0"),
-    ),
-)
-```
+1. เมื่อถูก accept, LIMIT order จะเก็บ snapshot ขนาดที่แสดงอยู่ฝั่งเดียวกันที่ราคาของมัน
+1. trade ฝั่งที่ถูกต้องที่ราคานั้นจะลดปริมาณที่อยู่ข้างหน้า
+1. order จะมีสิทธิ์ถูก fill เมื่อปริมาณข้างหน้าเหลือศูนย์
+1. มีเพียง volume ของ trade ที่เกินจากคิวที่ถูกเคลียร์เท่านั้นที่ใช้ fill ได้ใน tick นั้น
 
-### Sandbox configuration
+ตัวอย่างเช่น:
 
-Sandbox paper trading uses the same matching-engine flags. Pass them on `SandboxExecutionClientConfig`
-(defaults stay off, matching current sandbox behavior):
+1. bid ที่ 100.00 มีอยู่ 100 หน่วย
+1. BUY LIMIT ขนาด 50 หน่วยเข้าคิวโดยมี 100 หน่วยอยู่ข้างหน้า
+1. trade ฝั่ง `SELL` ขนาด 80 หน่วยลดคิวข้างหน้าเหลือ 20
+1. trade ฝั่ง `SELL` ขนาด 30 หน่วยเคลียร์คิวและเหลือ 10 หน่วยให้ fill ได้
+1. trade ฝั่งที่ถูกต้องครั้งถัดไปสามารถ fill ปริมาณที่เหลือของ order ได้
 
-```python
-from decimal import Decimal
+### การเปลี่ยนแปลงของ book {#book-changes}
 
-from nautilus_trader.adapters.sandbox import SandboxExecutionClientConfig
-from nautilus_trader.execution import MakerTakerFeeModel
-from nautilus_trader.model import BookType
-from nautilus_trader.model import Money
-from nautilus_trader.model import Venue
+สำหรับ book แบบ L2 และการอัปเดต L3 แบบรวมระดับ:
 
-config = SandboxExecutionClientConfig(
-    venue=Venue("BINANCE"),
-    starting_balances=[Money.from_str("10_000 USDT")],
-    book_type=BookType.L2_MBP,
-    trade_execution=True,
-    queue_position=True,
-    liquidity_consumption=True,
-    fee_model=MakerTakerFeeModel(
-        maker_rate=Decimal("0.001"),
-        taker_rate=Decimal("0.001"),
-    ),
-)
-```
+- DELETE จะล้างระดับราคานั้นและคิวของมัน
+- UPDATE จะจำกัดปริมาณข้างหน้าไว้ไม่เกินขนาดที่แสดงใหม่ของระดับนั้น
+- book snapshot ที่สมบูรณ์จะ rebase ตำแหน่งในคิวที่ติดตามอยู่แต่ละตัวเทียบกับปริมาณที่มองเห็นใหม่ที่ราคานั้น
+  ปริมาณข้างหน้าถูกจำกัดไว้ที่ขนาดใน snapshot สภาพคล่องที่เพิ่มเข้ามาใหม่จะไม่ดัน order จำลองที่มีอยู่
+  ให้ถอยไปข้างหลัง batch ของ snapshot อาจเริ่มด้วยการล้างแบบ `F_SNAPSHOT` และจบด้วย delta ที่มี
+  `F_LAST` ในภายหลัง
+- การแทนที่ด้วย `BookDepth` ใช้กฎ rebase เดียวกันหลังการแทนที่ depth ทั้งหมด
 
-The sandbox `venue` must match the data client's instrument venue, and the
-strategy must subscribe to trades (and L2/L3 deltas when using depth).
+สำหรับ book แบบ L3 MBO:
 
-### Queue lifecycle
+- DELETE ราย order จะขยับคิวไปข้างหน้าเท่ากับขนาดที่เหลือซึ่งติดตามไว้ของ order นั้น
+- การลดขนาดจะขยับคิวไปข้างหน้าเท่ากับส่วนต่าง
+- การเพิ่มขนาดจะยังคง order ที่ใหญ่ขึ้นไว้ข้างหน้า
+- การเปลี่ยนราคาจะนำ order นั้นออกจากคิวที่ติดตาม
+- book snapshot ที่สมบูรณ์จะเก็บไว้ข้างหน้าเฉพาะ order ID ที่ติดตามและยังอยู่ โดยแต่ละตัวถูกจำกัดไว้ที่
+  ปริมาณก่อนหน้า
 
-1. On acceptance, a LIMIT order snapshots same-side displayed size at its price.
-1. Correct-side trades at that price reduce the quantity ahead.
-1. The order becomes fill-eligible when the quantity ahead reaches zero.
-1. Only trade volume beyond the cleared queue is available to fill on that tick.
+การเปลี่ยนราคาของ order จำลองจะรีเซ็ตตำแหน่งในคิวที่ระดับราคาใหม่ ส่วนการเปลี่ยนแค่ปริมาณจะคง
+ความคืบหน้าที่ทำได้แล้วไว้
 
-For example:
+### การติดตามคิวใน L1 {#l1-queue-tracking}
 
-1. The bid at 100.00 contains 100 units.
-1. A BUY LIMIT for 50 units joins with 100 units ahead.
-1. A `SELL` trade for 80 units reduces the queue ahead to 20.
-1. A `SELL` trade for 30 units clears the queue and leaves 10 units available to fill.
-1. The next correct-side trade can fill the remaining order quantity.
+เมื่อใช้ `BookType.L1_MBP`, trade tick จะลดปริมาณข้างหน้า ส่วน quote ให้หลักฐานเรื่องการขยับของราคา
+และขนาดที่แสดง:
 
-### Book changes
+- ราคาที่ขยับออกไปผ่านราคาของ order จะเคลียร์คิว
+- ราคาที่ขยับเข้าหา order จะคงคิวไว้
+- การกลับมาที่ระดับราคาที่เคยมองเห็นจะจำกัดปริมาณข้างหน้าไว้ที่ขนาดที่แสดงใหม่
+- quote ที่ราคาของ order จะจำกัดปริมาณข้างหน้าไว้ที่ขนาดที่แสดงฝั่งเดียวกัน
+- ขนาดที่แสดงเพิ่มขึ้นจะคงความคืบหน้าในคิวไว้
+- order ที่อยู่หลัง BBO จะยังรออยู่จนกว่า quote จะมาถึงราคาของมัน หรือมี trade cross ผ่าน
 
-For L2 books and aggregate L3 updates:
+### ข้อจำกัด {#limitations}
 
-- A DELETE clears the price level and its queue.
-- An UPDATE caps quantity ahead at the level's new displayed size.
-- A completed book snapshot rebases each tracked queue position against the new visible quantity at its price.
-  Quantity ahead is capped at the snapshot size. Newly added liquidity does not move an existing simulated
-  order further back. Snapshot batches may start with a `F_SNAPSHOT` clear and finish with a later `F_LAST`
-  delta.
-- A `BookDepth` replacement applies the same rebase rule after the full depth replacement.
+- การติดตามคิวใช้กับ `LIMIT` order เท่านั้น
+- order จำลองแต่ละตัวมีการประมาณคิวที่เป็นอิสระต่อกัน
+- การประมาณเริ่มต้นจำกัดอยู่ที่สถานะของ book ที่มองเห็นได้ตอนถูก accept
+- ข้อมูลย้อนหลังไม่สามารถเปิดเผย hidden order หรือกฎลำดับความสำคัญเฉพาะของแต่ละ venue ได้ทั้งหมด
 
-For L3 MBO books:
-
-- A per-order DELETE advances the queue by that order's remaining tracked size.
-- A size decrease advances the queue by the difference.
-- A size increase keeps the larger order ahead.
-- A price change removes the book order from the tracked queue.
-- A completed book snapshot keeps only surviving tracked order IDs ahead, each capped at its previous
-  quantity.
-
-Changing a simulated order's price resets its queue position at the new level. A quantity-only change keeps
-the progress already made.
-
-### L1 queue tracking
-
-With `BookType.L1_MBP`, trade ticks reduce quantity ahead while quotes provide price-move and
-displayed-size evidence:
-
-- A move away through the order's price clears the queue.
-- A move toward the order preserves the queue.
-- A return to a previously visible level caps quantity ahead at the new displayed size.
-- A quote at the order's price caps quantity ahead at the same-side displayed size.
-- A displayed-size increase preserves queue progress.
-- An order behind the BBO stays pending until a quote reaches its price or a trade crosses it.
-
-### Limitations
-
-- Queue tracking applies only to `LIMIT` orders.
-- Each simulated order has an independent queue estimate.
-- The initial estimate is limited to book state visible at acceptance.
-- Historical data cannot reveal hidden orders or all venue-specific priority rules.
-
-:::warning[Unknown aggressor side]
-`NO_AGGRESSOR` trades reduce queues on both sides. This can clear a queue and fill an order
-earlier than reality, so it is optimistic from the strategy's execution perspective.
+:::warning[ไม่ทราบฝั่ง aggressor]
+trade แบบ `NO_AGGRESSOR` จะลดคิวทั้งสองฝั่ง ซึ่งอาจเคลียร์คิวและ fill order เร็วกว่าความเป็นจริง
+จึงเป็นการประเมินในแง่ดีเมื่อมองจากมุมการ execute ของ strategy
 :::

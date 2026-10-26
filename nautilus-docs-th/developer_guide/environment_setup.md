@@ -1,34 +1,30 @@
 # Environment Setup
 
-Use an editor with current Rust and Python language support, such as PyCharm or Visual Studio Code.
+ใช้ editor ที่รองรับภาษา Rust เวอร์ชันปัจจุบัน เช่น Visual Studio Code
 
-[uv](https://docs.astral.sh/uv) is the preferred tool for handling all Python virtual environments and dependencies.
+[prek](https://github.com/j178/prek) ใช้รัน pre-commit check, auto-formatter และ linting tool ต่าง ๆ โดยอัตโนมัติตอน commit
 
-[prek](https://github.com/j178/prek) is used to automatically run various pre-commit checks, auto-formatters, and linting tools at commit.
+การ build จาก source และ Rust crate ต้องใช้ [Rust](https://www.rust-lang.org)
+([คู่มือการติดตั้ง](https://www.rust-lang.org/tools/install))
 
-Source builds and the Rust crates require [Rust](https://www.rust-lang.org)
-([installation guide](https://www.rust-lang.org/tools/install)).
-
-[Cap'n Proto](https://capnproto.org) tooling is retained for HyperSync development. Its pinned version
-is specified in `.nautilus-engineering/tools.toml`. Ubuntu's default package is typically too old,
-so you may need to install from source (see below).
+เครื่องมือ [Cap'n Proto](https://capnproto.org) ยังคงไว้สำหรับการพัฒนา HyperSync เวอร์ชันที่ pin ไว้ระบุอยู่ใน
+`.nautilus-engineering/tools.toml` package default ของ Ubuntu มักเก่าเกินไป จึงอาจต้องติดตั้งจาก source (ดูด้านล่าง)
 
 :::info
-NautilusTrader *must* compile and run on **Linux, macOS, and Windows**. Please keep portability in
-mind: use `std::path::Path` in code and follow the
-[shell portability policy](shell.md#define-the-portability-target) for scripts.
+NautilusTrader *ต้อง* compile และรันได้บน **Linux, macOS และ Windows** โปรดคำนึงถึง portability เสมอ: ใช้
+`std::path::Path` ในโค้ด และทำตาม [shell portability policy](shell.md#define-the-portability-target) สำหรับ script
 :::
 
-## Setup
+## การตั้งค่า {#setup}
 
-The following steps are for UNIX-like systems, and only need to be completed once.
+ขั้นตอนต่อไปนี้สำหรับระบบแบบ UNIX และทำเพียงครั้งเดียว
 
-### Quick setup
+### ตั้งค่าแบบเร็ว {#quick-setup}
 
-Use this as a compact setup path for a new Linux or macOS development machine. The detailed
-sections below explain each step and cover alternatives.
+ใช้เส้นทางนี้เป็นการตั้งค่าแบบกระชับสำหรับเครื่องพัฒนา Linux หรือ macOS ใหม่ หัวข้อละเอียดด้านล่างอธิบายแต่ละขั้นตอน
+และทางเลือกอื่น
 
-Install platform tools first:
+ติดตั้งเครื่องมือของ platform ก่อน:
 
 ```bash tab="Ubuntu"
 sudo apt-get update
@@ -39,7 +35,7 @@ sudo apt-get install -y build-essential clang lld curl git make pkg-config
 xcode-select --install
 ```
 
-Then clone the repository and install the pinned project tools:
+จากนั้น clone repository และติดตั้งเครื่องมือของโปรเจกต์ที่ pin เวอร์ชันไว้:
 
 ```bash
 git clone --branch develop https://github.com/nautechsystems/nautilus_trader
@@ -48,408 +44,192 @@ cd nautilus_trader
 curl https://sh.rustup.rs -sSf | sh
 source "$HOME/.cargo/env"
 
-curl -LsSf https://astral.sh/uv/install.sh | sh
-export PATH="$HOME/.local/bin:$PATH"
-
 cargo install cargo-binstall --locked
 make install-tools
 ./scripts/install-capnp.sh
 
-make sync
-source python/.venv/bin/activate
-
-export PYO3_PYTHON="$PWD/python/.venv/bin/python"
-
-if [ "$(uname -s)" = "Linux" ]; then
-  PYTHON_LIB_DIR="$("$PYO3_PYTHON" -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')"
-  export LD_LIBRARY_PATH="$PYTHON_LIB_DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-fi
-
-export PYTHONHOME="$("$PYO3_PYTHON" -c 'import sys; print(sys.base_prefix)')"
-
 prek install
-make build-debug
 ```
 
-Windows users should follow the source installation steps in the
-[installation guide](../getting_started/installation.md#from-source), then use the relevant commands
-from this guide.
+ผู้ใช้ Windows ควรทำตามขั้นตอนการติดตั้งจาก source ใน
+[คู่มือการติดตั้ง](../getting_started/installation.md#from-source) แล้วใช้คำสั่งที่เกี่ยวข้องจากคู่มือนี้
 
-### 1. Install dependencies
+### 1. ติดตั้ง dependency {#1-install-dependencies}
 
-Follow the [installation guide](../getting_started/installation.md), then sync the development and
-test dependencies from the repository root:
+ทำตาม[คู่มือการติดตั้ง](../getting_started/installation.md)
 
-```bash
-make sync
-```
+### 2. ติดตั้งเครื่องมือพัฒนา {#2-install-development-tools}
 
-For frequent development, install a debug build of the package into `python/.venv`:
-
-```bash
-make install-debug
-```
-
-### 2. Install development tools
-
-NautilusTrader pins every development tool so that all contributors and CI run identical versions.
-A single Makefile target installs the full set:
+NautilusTrader pin เวอร์ชันของเครื่องมือพัฒนาทุกตัว เพื่อให้ contributor ทุกคนและ CI ใช้เวอร์ชันเดียวกัน
+Makefile target เดียวติดตั้งได้ครบชุด:
 
 ```bash
 make install-tools
 ```
 
-This installs:
+สิ่งที่ติดตั้ง:
 
-- **Shared Cargo CLIs** pinned in `.nautilus-engineering/tools.toml`: `cargo-audit`, `cargo-deny`,
-  `cargo-edit`, `cargo-llvm-cov`, `cargo-nextest`, and `cargo-vet`.
-- **NautilusTrader Cargo CLIs** pinned in `Cargo.toml` under `[workspace.metadata.tools]`:
-  `cargo-codspeed`, `cargo-fuzz`, `cargo-hawk`, `cargo-machete`, `cbindgen`, `flamegraph`, and
-  `lychee`.
-- **NautilusTrader Cargo CLI** pinned in `tools.toml`: `tokei` (line counter).
-- **Prebuilt binaries** pinned in `.nautilus-engineering/tools.toml`: `prek` (pre-commit runner) and
-  `osv-scanner` (vulnerability scanner).
-- **uv**, installed at the shared pinned version. The supported local uv minor series is defined in
-  `python/pyproject.toml`.
+- **Shared Cargo CLI** ที่ pin ไว้ใน `.nautilus-engineering/tools.toml`: `cargo-audit`, `cargo-deny`,
+  `cargo-edit`, `cargo-llvm-cov`, `cargo-nextest` และ `cargo-vet`
+- **NautilusTrader Cargo CLI** ที่ pin ไว้ใน `Cargo.toml` ใต้ `[workspace.metadata.tools]`:
+  `cargo-codspeed`, `cargo-fuzz`, `cargo-hawk`, `cargo-machete`, `cbindgen`, `flamegraph` และ `lychee`
+- **NautilusTrader Cargo CLI** ที่ pin ไว้ใน `tools.toml`: `tokei` (ตัวนับบรรทัด)
+- **Prebuilt binary** ที่ pin ไว้ใน `.nautilus-engineering/tools.toml`: `prek` (ตัวรัน pre-commit) และ
+  `osv-scanner` (ตัวสแกนช่องโหว่)
+- **uv** ที่เวอร์ชัน pin ร่วม
 
-Cap'n Proto is also pinned in `.nautilus-engineering/tools.toml` but installs separately. See the
-[Cap'n Proto](#capn-proto) section below.
+Cap'n Proto ก็ pin ไว้ใน `.nautilus-engineering/tools.toml` เช่นกัน แต่ติดตั้งแยก ดูหัวข้อ
+[Cap'n Proto](#capn-proto) ด้านล่าง
 
-Fuzz targets also require a Rust nightly toolchain at runtime because `cargo-fuzz` uses
-`libfuzzer-sys` and unstable compiler flags:
+fuzz target ยังต้องใช้ Rust nightly toolchain ตอนรัน เพราะ `cargo-fuzz` ใช้ `libfuzzer-sys` และ compiler flag ที่ยัง
+unstable:
 
 ```bash
 rustup toolchain install nightly
 ```
 
-The docs.rs compatibility check uses the dated nightly pinned in `tools.toml`:
+การตรวจความเข้ากันได้กับ docs.rs ใช้ nightly แบบระบุวันที่ที่ pin ไว้ใน `tools.toml`:
 
 ```bash
 rustup toolchain install "$(bash scripts/tool-version.sh nightly)" --profile minimal
 ```
 
-#### One-off prerequisite: cargo-binstall
+#### สิ่งที่ต้องติดตั้งครั้งเดียว: cargo-binstall {#one-off-prerequisite-cargo-binstall}
 
-`make install-tools` uses [`cargo-binstall`](https://github.com/cargo-bins/cargo-binstall) to fetch
-`prek` as a prebuilt binary instead of compiling it from source. Install `cargo-binstall` once per
-machine:
+`make install-tools` ใช้ [`cargo-binstall`](https://github.com/cargo-bins/cargo-binstall) ดึง `prek` มาเป็น
+prebuilt binary แทนการ compile จาก source ติดตั้ง `cargo-binstall` ครั้งเดียวต่อเครื่อง:
 
 ```bash
 cargo install cargo-binstall --locked
 ```
 
-This is a one-time step. Subsequent runs of `make install-tools` reuse the installed `cargo-binstall`.
+ขั้นตอนนี้ทำครั้งเดียว การรัน `make install-tools` ครั้งต่อไปจะใช้ `cargo-binstall` ที่ติดตั้งไว้แล้ว
 
-#### Single source of truth for versions
+#### แหล่งความจริงเดียวของเวอร์ชัน {#single-source-of-truth-for-versions}
 
-The repository manifests are the canonical source for dependency and tool versions. If a manifest-backed way
-to read current version numbers exists, do not copy them into docs, runner images, or scripts.
+manifest ของ repository คือแหล่งอ้างอิงหลักของเวอร์ชัน dependency และเครื่องมือ ถ้ามีวิธีอ่านเวอร์ชันปัจจุบันจาก
+manifest ได้ อย่าคัดลอกเลขเวอร์ชันไปใส่ใน docs, runner image หรือ script
 
-| Source file or section                    | Defines                                                  |
+| ไฟล์หรือ section ต้นทาง                       | นิยามอะไร                                                  |
 | ----------------------------------------- | -------------------------------------------------------- |
-| `rust-toolchain.toml`                     | Rust toolchain.                                          |
-| `Cargo.toml` and `Cargo.lock`             | Rust workspace dependencies and exact resolution.        |
-| `Cargo.toml` `[workspace.metadata.tools]` | NautilusTrader-specific Cargo tools.                     |
-| `python/pyproject.toml`                   | Python dependencies and supported Python and uv ranges.  |
-| `python/uv.lock`                          | Exact Python dependency resolution.                      |
-| `.nautilus-engineering/tools.toml`        | Shared engineering tools.                                |
-| `tools.toml`                              | NautilusTrader-specific tools without a native manifest. |
+| `rust-toolchain.toml`                     | Rust toolchain                                           |
+| `Cargo.toml` และ `Cargo.lock`              | dependency ของ Rust workspace และการ resolve ที่แน่นอน         |
+| `Cargo.toml` `[workspace.metadata.tools]` | Cargo tool เฉพาะของ NautilusTrader                         |
+| `.nautilus-engineering/tools.toml`        | เครื่องมือ engineering ที่ใช้ร่วมกัน                              |
+| `tools.toml`                              | เครื่องมือเฉพาะของ NautilusTrader ที่ไม่มี native manifest        |
 
-The shared catalog includes uv, `prek`, `pip-audit`, `osv-scanner`, Cap'n Proto, and common Cargo
-tools. The local catalog retains the docs.rs nightly, Miri toolchain, and `pypi-attestations` pins.
+catalog ที่ใช้ร่วมกันประกอบด้วย uv, `prek`, `pip-audit`, `osv-scanner`, Cap'n Proto และ Cargo tool ทั่วไป ส่วน
+catalog ภายในเก็บ pin ของ docs.rs nightly, Miri toolchain และ `pypi-attestations`
 
-The Makefile reads these via `scripts/cargo-tool-version.sh`, `scripts/tool-version.sh`, and
-`scripts/uv-version.sh`, so bumping a version in the source file is the only required version
-change. To check the pinned cargo tool versions against crates.io, run:
+Makefile อ่านค่าเหล่านี้ผ่าน `scripts/cargo-tool-version.sh`, `scripts/tool-version.sh` และ
+`scripts/uv-version.sh` ดังนั้นการเปลี่ยนเวอร์ชันในไฟล์ต้นทางจึงเป็นการเปลี่ยนเวอร์ชันเพียงจุดเดียวที่ต้องทำ ตรวจ
+เวอร์ชัน cargo tool ที่ pin ไว้เทียบกับ crates.io ได้ด้วย:
 
 ```bash
 make outdated
 ```
 
-### 3. Set up Git hooks
+### 3. ตั้งค่า Git hook {#3-set-up-git-hooks}
 
-Set up the file and commit-message hooks, which run automatically when committing:
+ตั้งค่า hook ของไฟล์และ commit message ซึ่งจะรันอัตโนมัติตอน commit:
 
 ```bash
 prek install
 ```
 
-Rerun `prek install` after pulling a change to the configured hook types.
+ให้รัน `prek install` ใหม่หลัง pull การเปลี่ยนแปลงที่กระทบชนิดของ hook ที่ตั้งค่าไว้
 
-The Dockerfile hook installs native Hadolint in its isolated environment; it does not require Docker.
+hook ของ Dockerfile ติดตั้ง Hadolint แบบ native ใน environment แยกของมันเอง ไม่ต้องใช้ Docker
 
-Before opening a pull-request run the formatting and lint suite locally so that CI passes on the
-first attempt:
+ก่อนเปิด pull request ให้รันชุด formatting และ lint ในเครื่อง เพื่อให้ CI ผ่านตั้งแต่ครั้งแรก:
 
 ```bash
 make format
 make pre-commit
 ```
 
-Make sure the Rust compiler reports **zero errors** -- broken builds slow everyone down.
+ตรวจให้แน่ใจว่า Rust compiler รายงาน **error เป็นศูนย์** -- build ที่พังทำให้ทุกคนช้าลง
 
-### 4. Configure environment variables
+## การจัดการ dependency {#dependency-management}
 
-NautilusTrader keeps its uv-managed environment at `python/.venv`, beside `python/pyproject.toml`.
-This follows [uv's default project environment layout](https://docs.astral.sh/uv/concepts/projects/layout/#the-project-environment),
-where uv and Python editors expect to discover the environment.
+### Rust dependency cooldown {#rust-dependency-cooldown}
 
-Run direct uv project commands from `python/` or pass `--project python` from the repository root.
-Make targets and CI select the project themselves.
+การตรวจ cooldown ของ Cargo จะปฏิเสธเวอร์ชันจาก registry ที่ resolve แล้วซึ่ง publish ภายในช่วงเวลาที่ตั้งโดย
+`[workspace.metadata.cooldown]` ใน `Cargo.toml` โดยตรวจทุกไฟล์ `Cargo.lock` ที่ track ไว้ รวมถึงเวอร์ชันที่ commit
+แล้วหรือ pull มาจาก branch อื่น ก่อนที่ build script หรือ procedural macro ของ dependency จะได้รัน
 
-:::warning
-If this checkout previously used the root `.venv`, update your shell startup files and current shell. Complete
-these changes before you run Make or uv:
+การตรวจรันที่จุดต่อไปนี้:
 
-- Remove any `UV_PROJECT_ENVIRONMENT` export. This override takes precedence over uv's project discovery.
-- Replace any `PYO3_PYTHON` export pointing to the root `.venv/bin/python` with this checkout's
-  `python/.venv/bin/python`.
+- **Build**: ทุก Make target ที่ compile Rust ได้ depend on `check-cargo-cooldown` ครอบคลุม target สำหรับ build,
+  stub, check, Clippy, test, coverage, documentation, benchmark, Docker และการติดตั้ง CLI ในเครื่อง การ compile
+  จะรอการตรวจ แม้ใช้ Make แบบ parallel
+- **Pre-commit**: hook `cargo-cooldown` จะรันเมื่อ commit มีการ stage ไฟล์ `Cargo.toml` หรือ `Cargo.lock`,
+  `.supply-chain/crate-dates.json` หรือ `scripts/check-cargo-cooldown.sh`
+- **CI**: job pre-commit รัน `prek run --all-files` และ job ที่ build ผ่าน Make target จะรันการตรวจก่อน
+- **ตามต้องการ**: `make check-cargo-cooldown` รันการตรวจแบบเต็มชุดเดียวกัน
+- **การอัปเดต dependency**: `make cargo-update` จะคืนเวอร์ชันก่อนหน้าของการ upgrade ใหม่แต่ละตัวที่ไม่อนุญาต
 
-Editing a startup file does not update existing shells or running applications. Repeat the exports
-in each shell and restart applications that inherited the old environment.
-:::
+Make target ที่ compile ยังส่ง `--locked` ด้วย ดังนั้น Cargo จะล้มเหลวแทนที่จะ resolve เวอร์ชันที่การตรวจยังไม่เคยเห็น
 
-**Required for Rust/PyO3 (Linux and macOS)**:
+เวอร์ชันที่อยู่ในช่วง cooldown ต้องมีทั้ง entry ที่ตรงกันพอดีใน `[workspace.metadata.cooldown.allow]` และ cargo-vet
+audit ที่ตรงกัน registry ที่ไม่รองรับจะทำให้การตรวจล้มเหลว วันที่ publish มาจาก database ที่ commit ไว้ที่
+`.supply-chain/crate-dates.json` วันที่ที่บันทึกไว้ถือว่าเชื่อถือได้แบบ offline เวอร์ชันที่ไม่มีใน database จะถูก
+ค้นหาบน crates.io และจะล้มเหลวแบบ fail closed เมื่อติดต่อ registry ไม่ได้ Git diff ที่สะอาดไม่ได้พิสูจน์ว่า dependency
+เก่าพอ
 
-If `uv` installed Python on Linux or macOS, run `make sync` first. Then set these environment variables from
-the repository root:
+branch หนึ่งอาจเพิ่ม entry ใน database ที่ย้อนวันที่ไว้ข้างเวอร์ชันที่มันนำเข้ามา การตั้งค่า
+`trusted-base = "origin/develop"` ปิดช่องโหว่นี้: การตรวจจะยืนยันซ้ำกับ crates.io สำหรับแต่ละ entry ใน database ที่
+`origin/develop` ไม่มี แล้ว cache ผลที่ผ่าน branch จะส่ง request เหล่านั้นซ้ำเฉพาะเมื่อตัวมันเองหรือ `origin/develop`
+เปลี่ยน ไม่ใช่ทุกครั้งที่ build
 
-Use the commands for your shell. Bash and Zsh use `export` and `activate`. Fish uses `set -gx` and
-`activate.fish`. Source Fish scripts only from Fish.
+- **Clone ที่ไม่มี `origin/develop`**: การตรวจจะล้มเหลวจนกว่าคุณจะ fetch มา
+- **CI checkout แบบ shallow**: การตรวจ resolve trusted base ไม่ได้ จึงเชื่อวันที่ที่บันทึกไว้แทน
+- **Job pre-commit แบบ full history**: การตรวจยืนยันกับ trusted base
 
-```bash tab="Bash / Zsh"
-# Set the Python executable path for PyO3
-export PYO3_PYTHON="$PWD/python/.venv/bin/python"
+`make cargo-update` บันทึกวันที่ของแต่ละการเปลี่ยนแปลงที่ยอมรับ หลังแก้ lockfile ด้วยมือ ให้รัน
+`bash scripts/check-cargo-cooldown.sh --update-db` เพื่อ reconcile database ซึ่งจะลบ entry ที่ไม่มี lock ที่ track ไว้
+resolve ถึงด้วย คำสั่งอัปเดต dependency จะยืนยันวันที่ที่เพิ่มใหม่กับ crates.io แยกต่างหาก ส่วน pre-commit และการตรวจ
+แบบเต็มตามปกติใช้ database ที่ commit ไว้แบบ offline
 
-# Linux only: Set the library path for the uv-managed Python runtime
-PYTHON_LIB_DIR="$("$PYO3_PYTHON" -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')"
-export LD_LIBRARY_PATH="$PYTHON_LIB_DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+hook pre-commit และ `make check-cargo-cooldown` cache ผลการตรวจแบบเต็มที่สำเร็จไว้เป็น `.cargo-cooldown.json` ใน
+`CARGO_TARGET_DIR` เมื่อไม่ได้ตั้ง Cargo target directory hook จะใช้ `target/` ที่ root ของ repository และ Make
+ใช้ `TARGET_DIR` ของมัน CI ใช้ Cargo target directory ที่ตั้งค่าไว้ เพื่อให้ runner แบบถาวรเก็บ cache ไว้ข้าม job
 
-# Set the Python home path (required for Rust tests)
-export PYTHONHOME="$("$PYO3_PYTHON" -c 'import sys; print(sys.base_prefix)')"
-```
+การเปลี่ยนแปลงของ lockfile ที่ตรวจ, policy, audit, database, check script หรือ database และ lockfile ของ trusted base
+จะทำให้ cache ใช้ไม่ได้ การตรวจที่ล้มเหลวจะไม่ถูก cache ให้ถือว่าไฟล์นี้เป็น state การตรวจสอบในเครื่อง อย่า restore
+จากแหล่งที่ไม่น่าเชื่อถือ
 
-```fish tab="Fish"
-set -gx PYO3_PYTHON "$PWD/python/.venv/bin/python"
+**ข้อจำกัดของ gate**: cooldown ลดความเสี่ยงจาก release ที่เป็นอันตรายซึ่งเพิ่ง publish บน registry แต่ไม่ได้พิสูจน์ว่า
+release ที่เก่ากว่าปลอดภัย ไม่ได้ sandbox build script และไม่ได้ตรวจ dependency แบบ Git และ local path คำสั่ง bootstrap
+ของเครื่องมือพัฒนาอย่าง `make install-tools` ติดตั้ง package ภายนอกด้วยการ resolve dependency แยกต่างหาก และอยู่นอก
+gate ของ lockfile ใน repository นี้
 
-if test (uname -s) = Linux
-    set -l python_lib_dir ("$PYO3_PYTHON" -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')
-    set -gx LD_LIBRARY_PATH "$python_lib_dir" (string match -v "" -- $LD_LIBRARY_PATH)
-end
+การเรียก Cargo โดยตรงจะข้าม Make ไป editor integration อย่าง rust-analyzer อาจรัน build script ทันทีที่ lockfile
+เปลี่ยน ก่อนเปิด branch ที่ไม่น่าเชื่อถือใน editor ให้รัน `make check-cargo-cooldown` ส่ง `--locked` เมื่อ build โค้ด
+ของ repository โดยตรง และอย่าเปลี่ยน manifest หรือ lockfile ระหว่างการตรวจกับการ compile
 
-set -gx PYTHONHOME ("$PYO3_PYTHON" -c 'import sys; print(sys.base_prefix)')
-```
+## การ build {#builds}
 
-:::note
-The `LD_LIBRARY_PATH` export is Linux-specific and not needed on macOS or Windows.
+Nautilus CLI แบบ standalone เป็น build artifact แยกต่างหาก ดู
+[คู่มือนักพัฒนา Nautilus CLI](#nautilus-cli-developer-guide) เมื่อต้องการแก้ไขหรือใช้ CLI
 
-- `PYO3_PYTHON` tells PyO3 which Python interpreter to use, reducing unnecessary recompilation.
-- `PYTHONHOME` is required when running `make cargo-test` with a `uv`-installed Python.
-  Without it, tests that depend on PyO3 may fail to locate the Python runtime.
+### Refresh หลัง pull การเปลี่ยนแปลง {#refresh-after-pulling-changes}
 
-:::
+ใช้คำสั่งที่อัปเดต artifact ที่ได้รับผลกระทบ
 
-To verify your environment is configured correctly:
-
-```bash
-python -c "import sys; print('Python:', sys.executable, sys.version)"
-echo "PYO3_PYTHON: $PYO3_PYTHON"
-echo "PYTHONHOME: $PYTHONHOME"
-```
-
-## Dependency management
-
-Python dependencies are managed by [uv](https://docs.astral.sh/uv). The `[tool.uv]` section in
-`python/pyproject.toml` enforces these supply chain safety settings:
-
-- **`required-version`**: local uv commands accept any patch release in the supported minor series. If your
-  local uv is outside that range, `uv lock` and `uv sync` fail with a version mismatch.
-  `.nautilus-engineering/tools.toml` separately pins the exact version used by CI, Docker, pre-commit, and
-  `make install-uv`. The stub targets run through `make sync`, so they enforce the same supported range. See
-  [Generated Python artifacts](rust.md#generated-python-artifacts).
-- **`exclude-newer = "7 days"`**: `uv lock` ignores package versions published within the last 7 days. This
-  gives the community time to detect and quarantine compromised releases before they enter the lockfile. The
-  value accepts these forms:
-
-  - An RFC 3339 timestamp (`"2026-03-30T00:00:00Z"`).
-  - A friendly duration (`"7 days"`, `"1 week"`, `"24 hours"`).
-  - An ISO 8601 duration (`"P7D"`, `"P1W"`, `"PT24H"`).
-
-  uv 0.11.8+ stores the friendly/ISO form as `exclude-newer-span` inside `python/uv.lock`. It emits a sentinel
-  `exclude-newer` timestamp alongside that field for backwards compatibility. `python/uv.lock` uses that
-  format.
-- **`exclude-newer-package = { ruff = "3 days" }`**: Ruff uses the shared three-day native-tool cooldown.
-- **`no-build-package`**: explicit list of all third-party packages locked in `python/uv.lock`. `uv` refuses
-  to build any of them from source. In normal operation, uv prefers wheels, so the setting is a no-op. It
-  triggers only if a listed package stops publishing wheels for the target platform. In that case, `uv lock`
-  fails. It does not silently build from an sdist.
-
-  The local workspace package is intentionally not in the list because it must be built by the workspace's own
-  build backend. The list is kept in sync with `python/uv.lock` by `scripts/check-no-build-packages.sh`, which
-  also runs as a pre-commit hook on changes to the lockfile or manifest.
-
-### Bypassing the cooldown
-
-A security patch or critical bug fix can need an immediate update. For this case, review the release. Override
-`exclude-newer` for that lock operation. Prefer a package-scoped override so unrelated packages stay subject
-to the 7-day default. Do not add persistent package overrides to `python/pyproject.toml`.
-
-All forms accept a timestamp, friendly duration, or ISO duration. Package overrides additionally accept
-`false` to exempt a package from the cooldown entirely.
-
-```bash
-# Shorten the cooldown for a single package (friendly duration)
-uv lock --project python --exclude-newer-package "somepackage=1 day"
-
-# Pin a single package to an absolute cutoff
-uv lock --project python --exclude-newer-package "somepackage=2026-03-30T00:00:00Z"
-
-# Exempt a single package from the cooldown entirely
-uv lock --project python --exclude-newer-package "somepackage=false"
-
-# Disable the cooldown for the whole resolution after reviewing every newly eligible package
-uv lock --project python --exclude-newer "0 seconds"
-```
-
-The CLI flag overrides the `python/pyproject.toml` value for that invocation only. The config
-remains unchanged for subsequent runs.
-
-### Updating uv
-
-To support a new uv minor series, change `required-version` in `python/pyproject.toml`. To update the exact
-project version within that range:
-
-1. Update Nautilus Engineering's `[uv].version`.
-1. Sync the shared catalog.
-1. Update the `rev` in `.pre-commit-config.yaml`.
-1. Update each digest-pinned uv Docker image.
-1. Run `make install-uv` to install the project version locally.
-
-### Rust dependency cooldown
-
-The Cargo cooldown check rejects resolved registry versions published within the window set by
-`[workspace.metadata.cooldown]` in `Cargo.toml`. It checks every tracked `Cargo.lock` file,
-including versions already committed or pulled from another branch, before dependency build scripts
-or procedural macros can run.
-
-The check runs at these points:
-
-- **Builds**: every Make target that can compile Rust depends on `check-cargo-cooldown`. That
-  covers the build, stub, check, Clippy, test, coverage, documentation, benchmark, Docker, and
-  local CLI install targets. Compilation waits for the check, including under parallel Make.
-- **Pre-commit**: the `cargo-cooldown` hook runs when a commit stages a `Cargo.toml` or
-  `Cargo.lock` file, `.supply-chain/crate-dates.json`, or `scripts/check-cargo-cooldown.sh`.
-- **CI**: the pre-commit job runs `prek run --all-files`, and jobs that build through Make targets
-  run the check first.
-- **On demand**: `make check-cargo-cooldown` runs the same full check.
-- **Dependency updates**: `make cargo-update` restores the prior version of each fresh upgrade that
-  is not allowed.
-
-Make compilation targets also pass `--locked`, so Cargo fails rather than resolve versions the
-check has not seen.
-
-A version inside the cooldown window requires both an exact entry in `[workspace.metadata.cooldown.allow]` and
-a matching cargo-vet audit. Unsupported registries fail the check. Publication dates come from the committed
-database at `.supply-chain/crate-dates.json`. Recorded dates are trusted offline. Versions missing from the
-database are looked up on crates.io and fail closed when the registry is unreachable. A clean Git diff does
-not establish that dependencies are old enough.
-
-A branch could add a backdated database entry beside the version it introduces. The
-`trusted-base = "origin/develop"` setting closes that gap: the check re-verifies against crates.io
-each database entry that `origin/develop` lacks, then caches the pass. A branch repeats those requests
-only when it or `origin/develop` changes, not on every build.
-
-- **Clone without `origin/develop`**: The check fails until you fetch it.
-- **Shallow CI checkout**: The check cannot resolve the trusted base and trusts recorded dates instead.
-- **Full-history pre-commit job**: The check verifies against the trusted base.
-
-`make cargo-update` records dates for each change it accepts. After a manual lockfile edit, run
-`bash scripts/check-cargo-cooldown.sh --update-db` to reconcile the database, which also prunes entries no
-tracked lock resolves. The dependency-update command separately re-verifies newly added dates against
-crates.io. Routine pre-commit and full checks use the committed database offline.
-
-The pre-commit hook and `make check-cargo-cooldown` cache successful full checks as
-`.cargo-cooldown.json` in `CARGO_TARGET_DIR`. When no Cargo target directory is set, the hook uses
-`target/` at the repository root and Make uses its `TARGET_DIR`. CI uses its configured Cargo target
-directory so persistent runners retain the cache between jobs.
-
-Changes to any checked lockfile, the policy, audits, database, check script, or the trusted base's database
-and lockfiles invalidate the cache. Failed checks are not cached. Treat this file as local verification state.
-Do not restore it from an untrusted source.
-
-**Gate limits**: The cooldown reduces exposure to newly published malicious registry releases. It
-does not establish that older releases are safe, sandbox build scripts, or vet Git and local path
-dependencies. Development-tool bootstrap commands such as `make install-tools` install external
-packages with separate dependency resolutions and stay outside this repository-lockfile gate.
-
-Direct Cargo and Maturin invocations bypass Make. Editor integrations such as rust-analyzer can run
-build scripts as soon as a lockfile changes. Before opening an untrusted branch in an editor, run
-`make check-cargo-cooldown`. Pass `--locked` when building repository code directly, and keep manifests
-and lockfiles unchanged between the check and compilation.
-
-## Builds
-
-The Python package and the standalone Nautilus CLI are separate build artifacts. `make build-debug` and
-`make build` install the Python package into `python/.venv`. Neither command updates the `nautilus` binary in
-Cargo's binary directory. See the
-[Nautilus CLI developer guide](#nautilus-cli-developer-guide) when changing or using the CLI.
-
-After changing Rust bindings or Python package code, use a debug build for normal development. It
-skips release optimization and LTO, which reduces build time and peak memory use:
-
-```bash
-make build-debug
-```
-
-Use `make build` when you need an optimized build. The release profile uses fat LTO and one code
-generation unit, which increases peak memory use. Fat LTO can complete on a 16 GB machine when the
-build has access to the full memory allocation and sufficient swap. Check VM or container memory
-limits when applicable.
-
-If the linker runs out of memory, use ThinLTO for an optimized local build:
-
-```bash
-CARGO_PROFILE_RELEASE_LTO=thin make build
-```
-
-This override applies only to that command. Use the default fat LTO profile for performance
-measurements.
-
-### Refresh after pulling changes
-
-Use the command that updates the affected artifact. The build targets call their prerequisites, so
-`make build-debug` also syncs Python dependencies and regenerates Python type stubs.
-
-| Changed input                                       | Command                      | Updated artifact                                  |
+| input ที่เปลี่ยน                                       | คำสั่ง                        | artifact ที่อัปเดต                                     |
 | --------------------------------------------------- | ---------------------------- | ------------------------------------------------- |
-| `python/pyproject.toml` or `python/uv.lock`         | `make sync`                  | Dependencies in `python/.venv`.                   |
-| Rust bindings, Python package code, or stub sources | `make build-debug`           | Debug Python package and generated type stubs.    |
-| CLI code, SQL initialization code, or `schema/sql`  | `make install-cli`           | Standalone `nautilus` binary in Cargo's bin path. |
-| Cargo, uv, `prek`, or OSV Scanner tool pins         | `make install-tools`         | Pinned development tools.                         |
-| Cap'n Proto version in the shared catalog           | `./scripts/install-capnp.sh` | Cap'n Proto compiler.                             |
+| โค้ด CLI, โค้ด SQL initialization หรือ `schema/sql`   | `make install-cli`           | binary `nautilus` แบบ standalone ใน bin path ของ Cargo |
+| pin ของ Cargo, uv, `prek` หรือ OSV Scanner           | `make install-tools`         | เครื่องมือพัฒนาที่ pin ไว้                               |
+| เวอร์ชัน Cap'n Proto ใน catalog ที่ใช้ร่วมกัน               | `./scripts/install-capnp.sh` | Cap'n Proto compiler                              |
 
-The environment variables in [Configure environment variables](#4-configure-environment-variables)
-contain checkout-specific paths. After switching checkouts, changing the selected Python version,
-or recreating `python/.venv`, activate that checkout's environment and export the variables again.
-Verify that the shell resolves Python from the expected checkout:
+## Cap'n Proto {#capn-proto}
 
-```bash
-source python/.venv/bin/activate
-command -v python
-python --version
-```
+เครื่องมือ [Cap'n Proto](https://capnproto.org) ยังมีให้ใช้สำหรับการพัฒนา HyperSync dependency ของ HyperSync
+ที่ pin ไว้มาพร้อม Rust binding ที่ generate แล้ว ดังนั้น build ปกติจะไม่ generate schema ใหม่ NautilusTrader ไม่มี
+Cap'n Proto codec ให้ เวอร์ชันที่ต้องใช้นิยามไว้ใน `.nautilus-engineering/tools.toml`
 
-In Fish, use `source python/.venv/bin/activate.fish` for activation. Activation alone does not refresh
-`PYO3_PYTHON`. Repeat the environment variable commands above for the selected checkout.
-
-## Cap'n Proto
-
-[Cap'n Proto](https://capnproto.org) tooling remains available for HyperSync development. The pinned
-HyperSync dependencies ship generated Rust bindings, so normal builds do not regenerate their schemas.
-NautilusTrader does not provide Cap'n Proto codecs.
-The required version is defined in `.nautilus-engineering/tools.toml`.
-
-Install the correct version for your platform:
+ติดตั้งเวอร์ชันที่ถูกต้องสำหรับ platform ของคุณ:
 
 ```bash tab="Script (Linux/macOS)"
 ./scripts/install-capnp.sh
@@ -475,30 +255,28 @@ sudo ldconfig
 choco install capnproto
 ```
 
-Verify the installed version matches the shared catalog:
+ตรวจว่าเวอร์ชันที่ติดตั้งตรงกับ catalog ที่ใช้ร่วมกัน:
 
 ```bash
 capnp --version
 ```
 
-The install script ensures the pinned version is installed. If Homebrew or Chocolatey provides
-an older version, install from source or see the
-[Cap'n Proto installation guide](https://capnproto.org/install.html).
+install script จะรับประกันว่าเวอร์ชันที่ pin ไว้ถูกติดตั้ง ถ้า Homebrew หรือ Chocolatey ให้เวอร์ชันที่เก่ากว่า ให้ติดตั้ง
+จาก source หรือดู [คู่มือการติดตั้ง Cap'n Proto](https://capnproto.org/install.html)
 
-## Faster builds
+## Build ให้เร็วขึ้น {#faster-builds}
 
-The Cranelift code generation backend can reduce local build time for development, tests, and IDE
-checks. It requires the nightly Rust toolchain and local changes to `Cargo.toml`:
+codegen backend Cranelift ช่วยลดเวลา build ในเครื่องสำหรับการพัฒนา, test และการตรวจของ IDE ได้ ต้องใช้ Rust
+nightly toolchain และแก้ `Cargo.toml` ในเครื่อง:
 
 ```bash
 rustup toolchain install nightly --component rust-analyzer
 ```
 
-Save the patch below, then apply it with `git apply <patch>`. Remove it with
-`git apply -R <patch>` before pushing changes.
+บันทึก patch ด้านล่าง แล้ว apply ด้วย `git apply <patch>` และถอดออกด้วย `git apply -R <patch>` ก่อน push
 
 :::warning
-Do not commit these changes. The cranelift patch is for local development only and will break CI if pushed.
+ห้าม commit การเปลี่ยนแปลงเหล่านี้ patch cranelift มีไว้สำหรับการพัฒนาในเครื่องเท่านั้น และจะทำให้ CI พังถ้า push ขึ้นไป
 :::
 
 ```diff
@@ -537,131 +315,123 @@ diff --git a/Cargo.toml b/Cargo.toml
  inherits = "test"
 ```
 
-Run local build commands with `RUSTUP_TOOLCHAIN=nightly`, for example:
+รันคำสั่ง build ในเครื่องด้วย `RUSTUP_TOOLCHAIN=nightly` เช่น:
 
 ```bash
 RUSTUP_TOOLCHAIN=nightly make build-debug
 ```
 
-Set the same toolchain in your [rust-analyzer settings](#rust-analyzer-settings) when using this
-local patch.
+ตั้ง toolchain เดียวกันใน [การตั้งค่า rust-analyzer](#rust-analyzer-settings) ด้วยเมื่อใช้ patch ในเครื่องนี้
 
-## Services
+## Services {#services}
 
-The Compose file pins PostgreSQL 18, Redis, and pgAdmin images. Before starting PostgreSQL 18
-with an existing volume from an earlier major version, back up the database and migrate it using
-[dump/restore or `pg_upgrade`](https://www.postgresql.org/docs/18/upgrading.html). Changing the
-image does not upgrade the stored data.
+ไฟล์ Compose pin image ของ PostgreSQL 18, Redis และ pgAdmin ก่อนเริ่ม PostgreSQL 18 กับ volume ที่มีอยู่จาก major
+version ก่อนหน้า ให้ backup database และ migrate ด้วย
+[dump/restore หรือ `pg_upgrade`](https://www.postgresql.org/docs/18/upgrading.html) การเปลี่ยน image ไม่ได้ upgrade
+ข้อมูลที่เก็บไว้
 
-For Debian-to-Alpine migration, back up and dump/restore the database even when the PostgreSQL major
-version is unchanged. The images use different libc collation rules, so reusing the old data directory
-can invalidate indexes.
+สำหรับการ migrate จาก Debian ไป Alpine ให้ backup และ dump/restore database แม้ major version ของ PostgreSQL
+จะไม่เปลี่ยน เพราะ image ทั้งสองใช้กฎ collation ของ libc ต่างกัน การใช้ data directory เดิมซ้ำอาจทำให้ index ใช้ไม่ได้
 
-Initialize PostgreSQL, Redis, and pgAdmin from the repository root:
+initialize PostgreSQL, Redis และ pgAdmin จาก root ของ repository:
 
 ```bash
 make init-services
 ```
 
-This starts the containers and initializes the NautilusTrader database schema. To start the
-containers without reinitializing the schema, run `make start-services`. To start one service, use
-the Compose file directly:
+คำสั่งนี้จะเริ่ม container และ initialize database schema ของ NautilusTrader ถ้าต้องการเริ่ม container โดยไม่
+initialize schema ใหม่ ให้รัน `make start-services` ถ้าต้องการเริ่ม service เดียว ให้ใช้ไฟล์ Compose โดยตรง:
 
 ```bash
 docker compose -f .docker/docker-compose.yml up -d postgres
 ```
 
-The development services are:
+service สำหรับการพัฒนาได้แก่:
 
-- `postgres`: PostgreSQL with `POSTGRES_USER=nautilus`, `POSTGRES_PASSWORD=pass`, and
-  `POSTGRES_DB=nautilus` by default.
-- `redis`: Redis server.
-- `pgadmin`: pgAdmin 4 for database management and administration.
+- `postgres`: PostgreSQL ที่โดย default มี `POSTGRES_USER=nautilus`, `POSTGRES_PASSWORD=pass` และ
+  `POSTGRES_DB=nautilus`
+- `redis`: Redis server
+- `pgadmin`: pgAdmin 4 สำหรับจัดการและดูแล database
 
 :::info
-Please use this as development environment only. For production, use a proper and more secure setup.
+โปรดใช้สิ่งนี้เป็น environment สำหรับการพัฒนาเท่านั้น สำหรับ production ให้ใช้การตั้งค่าที่เหมาะสมและปลอดภัยกว่านี้
 :::
 
-Use `make stop-services` to stop the containers without removing their data. Use
-`make purge-services` only when you intend to delete the development volumes.
+ใช้ `make stop-services` เพื่อหยุด container โดยไม่ลบข้อมูล ใช้ `make purge-services` เฉพาะเมื่อตั้งใจจะลบ volume
+ของการพัฒนา
 
-PostgreSQL-backed tests can each maintain several connections. On a high-core workstation, the
-local nextest concurrency can exceed the development container's connection limit. Use the CI
-profile to match CI's lower concurrency:
+test ที่ใช้ PostgreSQL แต่ละตัวอาจเปิดหลาย connection บน workstation ที่มี core จำนวนมาก concurrency ของ nextest
+ในเครื่องอาจเกินขีดจำกัด connection ของ container สำหรับการพัฒนา ให้ใช้ profile ของ CI เพื่อให้ concurrency ต่ำเท่ากับ CI:
 
 ```bash
 NEXTEST_PROFILE=ci make cargo-test-extras
 ```
 
-To retain more local parallelism, set an explicit bounded worker count, for example:
+ถ้าต้องการคง parallelism ในเครื่องไว้มากกว่านั้น ให้ตั้งจำนวน worker แบบมีขอบเขตอย่างชัดเจน เช่น:
 
 ```bash
 NEXTEST_TEST_THREADS=8 make cargo-test-extras
 ```
 
-## Nautilus CLI developer guide
+## คู่มือนักพัฒนา Nautilus CLI {#nautilus-cli-developer-guide}
 
-The Nautilus CLI is a standalone Rust binary for PostgreSQL administration and other repository
-operations. It is independent from the Python package installed by `make build-debug` or
-`make build`.
+Nautilus CLI คือ Rust binary แบบ standalone สำหรับดูแล PostgreSQL และงานอื่น ๆ ของ repository
 
-### Build and select the CLI
+### Build และเลือก CLI {#build-and-select-the-cli}
 
-Install the CLI from the current checkout with:
+ติดตั้ง CLI จาก checkout ปัจจุบันด้วย:
 
 ```bash
 make install-cli
 ```
 
-This target runs `cargo install --locked --force` and places `nautilus` in Cargo's binary directory,
-normally `~/.cargo/bin`. Reinstall it after pulling changes to `crates/cli`, SQL initialization code,
-or `schema/sql`. An installed CLI can otherwise remain older than the checkout while reading newer
-schema files from it.
+target นี้รัน `cargo install --locked --force` และวาง `nautilus` ไว้ในไดเรกทอรี binary ของ Cargo ซึ่งปกติคือ
+`~/.cargo/bin` ให้ติดตั้งใหม่หลัง pull การเปลี่ยนแปลงใน `crates/cli`, โค้ด SQL initialization หรือ `schema/sql`
+มิฉะนั้น CLI ที่ติดตั้งไว้อาจเก่ากว่า checkout ขณะที่อ่านไฟล์ schema ที่ใหม่กว่าจาก checkout นั้น
 
-Before running repository-dependent commands, check which binary the shell resolves and its version:
+ก่อนรันคำสั่งที่ขึ้นกับ repository ให้ตรวจว่า shell resolve ไปที่ binary ตัวไหนและเป็นเวอร์ชันใด:
 
 ```bash
 command -v nautilus
 nautilus --version
 ```
 
-To build and run the CLI directly from the checkout without replacing the installed binary, use:
+ถ้าต้องการ build และรัน CLI จาก checkout โดยตรงโดยไม่แทนที่ binary ที่ติดตั้งไว้ ให้ใช้:
 
 ```bash
 cargo run --locked --package nautilus-cli --bin nautilus -- --help
 ```
 
 :::warning
-On Linux systems with GNOME, `/usr/bin/nautilus` is normally the GNOME file manager. Select the
-NautilusTrader CLI with one of these methods:
+บนระบบ Linux ที่ใช้ GNOME `/usr/bin/nautilus` ปกติคือ file manager ของ GNOME ให้เลือก CLI ของ NautilusTrader
+ด้วยวิธีใดวิธีหนึ่งต่อไปนี้:
 
-- Put `~/.cargo/bin` before `/usr/bin` in `PATH`.
-- Run `~/.cargo/bin/nautilus` explicitly.
-- Add `alias nautilus="$HOME/.cargo/bin/nautilus"` to the shell configuration.
+- วาง `~/.cargo/bin` ไว้ก่อน `/usr/bin` ใน `PATH`
+- รัน `~/.cargo/bin/nautilus` โดยระบุ path ตรง ๆ
+- เพิ่ม `alias nautilus="$HOME/.cargo/bin/nautilus"` ลงในการตั้งค่า shell
 
 :::
 
-Windows source installs require GNU Make through MSYS2 or WSL. The nightly workflow also publishes
-a Windows x86-64 CLI archive.
+การติดตั้งจาก source บน Windows ต้องใช้ GNU Make ผ่าน MSYS2 หรือ WSL workflow แบบ nightly ยัง publish archive
+ของ CLI สำหรับ Windows x86-64 ด้วย
 
-Run `nautilus --help` to view the available command groups.
+รัน `nautilus --help` เพื่อดูกลุ่มคำสั่งที่มี
 
-### Database commands
+### คำสั่ง database {#database-commands}
 
-The database commands accept connection settings as command-line arguments or through a `.env` file
-in the current working directory or one of its parents. The CLI also accepts the corresponding
-environment variables.
+คำสั่ง database รับการตั้งค่า connection เป็น argument บน command line หรือผ่านไฟล์ `.env` ใน working directory
+ปัจจุบันหรือไดเรกทอรีแม่ CLI ยังรับ environment variable ที่ตรงกันด้วย
 
-| Flag         | Environment variable | Purpose                                                       |
+| Flag         | Environment variable | หน้าที่                                                           |
 | ------------ | -------------------- | ------------------------------------------------------------- |
-| `--host`     | `POSTGRES_HOST`      | Database host.                                                |
-| `--port`     | `POSTGRES_PORT`      | Database port.                                                |
-| `--username` | `POSTGRES_USERNAME`  | Connecting administrator, normally the `postgres` role.       |
-| `--password` | `POSTGRES_PASSWORD`  | Administrator password and password for the application role. |
-| `--database` | `POSTGRES_DATABASE`  | Database name and application role created during `init`.     |
-| `--schema`   | `SCHEMA_DIR`         | Directory containing the SQL schema files.                    |
+| `--host`     | `POSTGRES_HOST`      | host ของ database                                             |
+| `--port`     | `POSTGRES_PORT`      | port ของ database                                             |
+| `--username` | `POSTGRES_USERNAME`  | administrator ที่ใช้เชื่อมต่อ ปกติคือ role `postgres`               |
+| `--password` | `POSTGRES_PASSWORD`  | password ของ administrator และ password ของ application role   |
+| `--database` | `POSTGRES_DATABASE`  | ชื่อ database และ application role ที่สร้างระหว่าง `init`          |
+| `--schema`   | `SCHEMA_DIR`         | ไดเรกทอรีที่มีไฟล์ SQL schema                                    |
 
-For example:
+ตัวอย่าง:
 
 ```dotenv
 POSTGRES_HOST=localhost
@@ -671,38 +441,35 @@ POSTGRES_PASSWORD=pass
 POSTGRES_DATABASE=nautilus
 ```
 
-`nautilus database init` creates or updates the roles and schema from the SQL files. Pass the schema
-directory explicitly so renamed clones and worktrees do not depend on checkout path detection:
+`nautilus database init` สร้างหรืออัปเดต role และ schema จากไฟล์ SQL ให้ระบุไดเรกทอรี schema อย่างชัดเจน เพื่อให้
+clone ที่เปลี่ยนชื่อและ worktree ไม่ต้องพึ่งการตรวจหา path ของ checkout:
 
 ```bash
 nautilus database init --schema "$PWD/schema/sql"
 ```
 
-Use a CLI built from the same checkout as these schema files. The initialization is designed to be
-re-run, including after an earlier run stopped partway through.
+ให้ใช้ CLI ที่ build จาก checkout เดียวกับไฟล์ schema เหล่านี้ การ initialize ออกแบบให้รันซ้ำได้ รวมถึงหลังจากการรัน
+ครั้งก่อนหยุดกลางคัน
 
-`nautilus database assign-account` assigns account events persisted before trader-scoped caching to
-a trader. A Postgres cache refuses to connect while such events exist, so run it for each account
-listed in that error:
+`nautilus database assign-account` assign account event ที่ persist ไว้ก่อนมี trader-scoped caching ให้กับ trader
+Postgres cache จะปฏิเสธการเชื่อมต่อขณะที่ยังมี event แบบนั้นอยู่ ดังนั้นให้รันคำสั่งนี้กับทุก account ที่แสดงใน error นั้น:
 
 ```bash
 nautilus database assign-account --account-id SIM-001 --trader-id TRADER-001
 ```
 
 :::danger
-`nautilus database drop` removes the target schema, privileges, role, and stored data. Use it only
-for a disposable database or after confirming that the data can be deleted.
+`nautilus database drop` จะลบ schema, privilege, role และข้อมูลที่เก็บไว้ของเป้าหมาย ใช้เฉพาะกับ database ที่ทิ้งได้
+หรือหลังยืนยันแล้วว่าลบข้อมูลได้
 :::
 
-Run `nautilus database --help` for the complete command syntax.
+รัน `nautilus database --help` เพื่อดู syntax ของคำสั่งทั้งหมด
 
-## Rust analyzer settings
+## การตั้งค่า Rust analyzer {#rust-analyzer-settings}
 
-Rust analyzer is a popular language server for Rust and integrates with many IDEs. Configure its
-`VIRTUAL_ENV` to use `python/.venv`. If PyO3 analysis cannot locate Python, also provide the
-`PYO3_PYTHON` and `PYTHONHOME` values from [Configure environment variables](#4-configure-environment-variables).
-The examples below cover VS Code and AstroNvim. For other settings, see the
-[rust-analyzer configuration](https://rust-analyzer.github.io/book/configuration.html).
+Rust analyzer เป็น language server ที่นิยมสำหรับ Rust และทำงานร่วมกับ IDE ได้หลายตัว ตัวอย่างด้านล่างครอบคลุม
+VS Code และ AstroNvim สำหรับการตั้งค่าอื่น ดู
+[rust-analyzer configuration](https://rust-analyzer.github.io/book/configuration.html)
 
 ```json tab="VSCode"
 {

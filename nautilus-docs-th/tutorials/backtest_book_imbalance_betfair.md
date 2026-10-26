@@ -1,32 +1,29 @@
-# Book Imbalance Backtest (Betfair)
+# Backtest Book Imbalance (Betfair)
 
 :::note
-This **Rust-only** tutorial sends raw Betfair streaming data directly to the Rust `BacktestEngine`.
-It does not use Python or Parquet.
+tutorial นี้เป็นแบบ **Rust เท่านั้น** โดยส่งข้อมูล streaming ดิบของ Betfair เข้า `BacktestEngine` ของ Rust โดยตรง
+ไม่ได้ใช้ Python หรือ Parquet
 :::
 
-This tutorial backtests a `BookImbalanceActor` on a Betfair MATCH_ODDS market.
-It loads a raw historical streaming `.gz` file, feeds it through the Rust
-`BacktestEngine`, and tracks the bid/ask quoted-volume imbalance per runner.
+tutorial นี้ทำ backtest `BookImbalanceActor` บนตลาด MATCH_ODDS ของ Betfair โดยโหลดไฟล์ `.gz` ข้อมูล streaming
+ย้อนหลังแบบดิบ ป้อนผ่าน `BacktestEngine` ของ Rust และติดตาม imbalance ของปริมาณที่เสนอฝั่ง bid/ask ของแต่ละ runner
 
-## Introduction
+## บทนำ {#introduction}
 
-Betfair is a sports betting exchange where participants back (bid) and lay
-(ask) outcomes at decimal odds. Each runner has its own L2 order book that
-behaves like a financial order book.
+Betfair เป็น exchange สำหรับเดิมพันกีฬา ที่ผู้เข้าร่วมทำการ back (bid) และ lay (ask) ผลลัพธ์ต่าง ๆ ที่ odds แบบทศนิยม
+runner แต่ละตัวมี order book ระดับ L2 ของตัวเองที่ทำงานเหมือน order book ในตลาดการเงิน
 
-The actor reads `OrderBookDeltas` for every runner. It keeps batch and cumulative totals for bid volume (back
-orders) and ask volume (lay orders). It calculates batch and cumulative imbalance as follows:
+actor อ่าน `OrderBookDeltas` ของทุก runner และเก็บยอดรวมราย batch และยอดสะสมของปริมาณฝั่ง bid (order แบบ back)
+และฝั่ง ask (order แบบ lay) แล้วคำนวณ imbalance ราย batch และแบบสะสมดังนี้:
 
 ```text
 imbalance = (bid_volume - ask_volume) / (bid_volume + ask_volume)
 ```
 
-A positive value indicates more backing volume than lay volume for the outcome. Sports traders use this as an
-initial signal, often with price momentum or market-wide features.
+ค่าบวกแสดงว่าผลลัพธ์นั้นมีปริมาณ back มากกว่าปริมาณ lay นักเทรดกีฬาใช้ค่านี้เป็นสัญญาณเบื้องต้น โดยมักใช้ร่วมกับ
+momentum ของราคาหรือ feature ระดับตลาด
 
-A release build processes about three million data points per second with
-full order book maintenance in the matching engine.
+release build ประมวลผลได้ราวสามล้าน data point ต่อวินาที พร้อมการดูแล order book เต็มรูปแบบใน matching engine
 
 ```mermaid
 flowchart LR
@@ -62,30 +59,29 @@ flowchart LR
     AC --> SUM --> IMB
 ```
 
-## Prerequisites
+## สิ่งที่ต้องมี {#prerequisites}
 
-- A working Rust toolchain ([rustup.rs](https://rustup.rs)).
-- The NautilusTrader repository cloned and building.
-- A Betfair historical `.gz` file containing MCM (Market Change Message)
-  data. Source it from
-  [Betfair historic data](https://historicdata.betfair.com/), a third-party
-  archive, or by recording the Exchange Streaming API yourself.
+- Rust toolchain ที่ใช้งานได้ ([rustup.rs](https://rustup.rs))
+- repository ของ NautilusTrader ที่ clone และ build ได้แล้ว
+- ไฟล์ `.gz` ข้อมูลย้อนหลังของ Betfair ที่มีข้อมูล MCM (Market Change Message) หาได้จาก
+  [Betfair historic data](https://historicdata.betfair.com/), archive ของบุคคลที่สาม หรือบันทึกจาก
+  Exchange Streaming API ด้วยตนเอง
 
-Place the file at:
+วางไฟล์ไว้ที่:
 
 ```text
 test_data/local/betfair/1.253378068.gz
 ```
 
-The example's `DATA_FILE` constant points to this gitignored path. The results below use a self-recorded
-football MATCH_ODDS market with 3 runners and approximately 82,000 MCM lines over 18 days. The repository does
-not include that file. To run without it, pass a bundled sample from `test_data/betfair/`, such as
-`test_data/betfair/1-166811431.bz2`. The loader also reads `.bz2` files.
+ค่าคงที่ `DATA_FILE` ในตัวอย่างชี้ไปที่ path นี้ซึ่งอยู่ใน gitignore ผลลัพธ์ด้านล่างใช้ตลาด MATCH_ODDS ฟุตบอลที่
+บันทึกเอง มี 3 runner และราว 82,000 บรรทัด MCM ตลอด 18 วัน repository ไม่ได้รวมไฟล์นั้นไว้ หากต้องการรันโดยไม่มี
+ไฟล์ดังกล่าว ให้ส่งไฟล์ตัวอย่างที่มากับ `test_data/betfair/` เช่น `test_data/betfair/1-166811431.bz2` loader
+อ่านไฟล์ `.bz2` ได้ด้วย
 
-## Loading the data
+## การโหลดข้อมูล {#loading-the-data}
 
-`BetfairDataLoader` reads gzip-compressed Betfair Exchange Streaming API
-files and parses each line into Nautilus domain objects:
+`BetfairDataLoader` อ่านไฟล์ของ Betfair Exchange Streaming API ที่บีบอัดด้วย gzip และ parse แต่ละบรรทัดเป็น
+domain object ของ Nautilus:
 
 ```rust
 use nautilus_betfair::loader::{BetfairDataItem, BetfairDataLoader};
@@ -95,25 +91,24 @@ let mut loader = BetfairDataLoader::new(Currency::GBP(), None);
 let items = loader.load(&filepath)?;
 ```
 
-The loader returns a `Vec<BetfairDataItem>`:
+loader คืนค่าเป็น `Vec<BetfairDataItem>`:
 
-| Variant             | Description                                     | Maps to `Data` enum?          |
+| Variant             | คำอธิบาย                                          | map ไปยัง enum `Data` หรือไม่?  |
 | :------------------ | :---------------------------------------------- | :---------------------------- |
-| `Instrument`        | Runner definition from market definition.       | No (added separately)         |
-| `Status`            | Market status transition (PreOpen, Trading...). | Yes, `Data::InstrumentStatus` |
-| `Deltas`            | Order book snapshot or delta update.            | Yes, `Data::BookDeltas`       |
-| `Trade`             | Incremental trade tick from cumulative volumes. | Yes, `Data::Trade`            |
-| `Ticker`            | Last traded price, volume, BSP near/far.        | -                             |
-| `StartingPrice`     | Betfair Starting Price for a runner.            | -                             |
-| `BspBookDelta`      | BSP-specific book delta.                        | -                             |
-| `InstrumentClose`   | Settlement event.                               | Yes, `Data::InstrumentClose`  |
-| `SequenceCompleted` | Batch completion marker.                        | -                             |
-| `RaceRunnerData`    | GPS tracking data (horse/greyhound racing).     | -                             |
-| `RaceProgress`      | Race-level progress data.                       | -                             |
-| `CricketMatch`      | Cricket match data (from CCM).                  | -                             |
+| `Instrument`        | นิยาม runner จาก market definition               | ไม่ (เพิ่มแยกต่างหาก)             |
+| `Status`            | การเปลี่ยนสถานะตลาด (PreOpen, Trading...)        | ใช่, `Data::InstrumentStatus`  |
+| `Deltas`            | snapshot ของ order book หรือการอัปเดตแบบ delta     | ใช่, `Data::BookDeltas`        |
+| `Trade`             | trade tick แบบส่วนเพิ่มที่คำนวณจากปริมาณสะสม        | ใช่, `Data::Trade`             |
+| `Ticker`            | ราคาที่ซื้อขายล่าสุด, ปริมาณ, BSP near/far          | -                             |
+| `StartingPrice`     | Betfair Starting Price ของ runner                | -                             |
+| `BspBookDelta`      | book delta เฉพาะของ BSP                          | -                             |
+| `InstrumentClose`   | event การ settle                                 | ใช่, `Data::InstrumentClose`   |
+| `SequenceCompleted` | ตัวบอกว่า batch เสร็จสมบูรณ์                         | -                             |
+| `RaceRunnerData`    | ข้อมูลติดตาม GPS (แข่งม้า/สุนัขเกรย์ฮาวด์)             | -                             |
+| `RaceProgress`      | ข้อมูลความคืบหน้าระดับการแข่งขัน                     | -                             |
+| `CricketMatch`      | ข้อมูลการแข่งขันคริกเก็ต (จาก CCM)                   | -                             |
 
-The backtest engine accepts the `Data` enum. The example converts the required variants and skips `Status` and
-the Betfair-specific types:
+backtest engine รับ enum `Data` ตัวอย่างนี้แปลง variant ที่จำเป็น และข้าม `Status` กับ type เฉพาะของ Betfair:
 
 ```rust
 use nautilus_model::data::Data;
@@ -140,25 +135,22 @@ for item in items {
 }
 ```
 
-`Data::BookDeltas` boxes its `OrderBookDeltas` payload to keep the enum small.
+`Data::BookDeltas` ห่อ payload `OrderBookDeltas` ไว้ใน box เพื่อให้ enum มีขนาดเล็ก
 
-The loader emits instruments on every market definition update. The map removes duplicates and keeps the
-latest version of each instrument.
+loader จะ emit instrument ทุกครั้งที่ market definition อัปเดต map จะตัดตัวซ้ำออกและเก็บ instrument แต่ละตัว
+เวอร์ชันล่าสุดไว้
 
 :::warning
-The `Status` variant carries market status transitions (PreOpen, Trading,
-Suspended, Closed). This example skips it, so it does not replay status
-transitions. If you extend this into a strategy that places orders, add a
-`BetfairDataItem::Status(s) => data.push(Data::InstrumentStatus(s))` arm.
-The engine routes `Data::InstrumentStatus` to the matching engine, which
-then sees market suspensions and closures from the stream.
+variant `Status` บรรจุการเปลี่ยนสถานะของตลาด (PreOpen, Trading, Suspended, Closed) ตัวอย่างนี้ข้าม variant นี้
+จึงไม่ replay การเปลี่ยนสถานะ หากต่อยอดเป็น strategy ที่ส่ง order ให้เพิ่ม arm
+`BetfairDataItem::Status(s) => data.push(Data::InstrumentStatus(s))`
+engine จะ route `Data::InstrumentStatus` ไปยัง matching engine ซึ่งจะเห็นการระงับและการปิดตลาดจาก stream
 :::
 
-## The actor
+## Actor {#the-actor}
 
-NautilusTrader ships `BookImbalanceActor` in the trading crate's examples
-module. The example wires it up with a per-runner instrument list and a
-log interval:
+NautilusTrader มี `BookImbalanceActor` มาให้ใน module examples ของ crate trading ตัวอย่างนี้ต่อ actor เข้ากับ
+list ของ instrument ราย runner และ interval ของ log:
 
 ```rust
 use nautilus_trading::examples::actors::BookImbalanceActor;
@@ -167,40 +159,38 @@ let actor = BookImbalanceActor::new(instrument_ids, 5000, None);
 engine.add_actor(actor)?;
 ```
 
-The second argument sets the log interval: one progress line every 5,000 updates per runner. The example sets
-this interval through the `LOG_INTERVAL` constant. For more detailed panel data, change the constant to `200`
-and rebuild the example.
+argument ตัวที่สองกำหนด interval ของ log: หนึ่งบรรทัดความคืบหน้าทุก 5,000 การอัปเดตต่อ runner ตัวอย่างกำหนด
+interval นี้ผ่านค่าคงที่ `LOG_INTERVAL` หากต้องการข้อมูล panel ที่ละเอียดขึ้น ให้เปลี่ยนค่าคงที่เป็น `200` แล้ว
+build ตัวอย่างใหม่
 
-The full source is at
-[`crates/trading/src/examples/actors/imbalance/actor.rs`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/trading/src/examples/actors/imbalance/actor.rs).
+source ฉบับเต็มอยู่ที่
+[`crates/trading/src/examples/actors/imbalance/actor.rs`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/trading/src/examples/actors/imbalance/actor.rs)
 
-### How it works
+### วิธีการทำงาน {#how-it-works}
 
-A `DataActor` in Rust needs three pieces:
+`DataActor` ใน Rust ต้องมีสามส่วน:
 
-1. A struct with a `DataActorCore` field and your own state.
-1. `nautilus_actor!(YourType)` to connect the core, plus a `Debug`
-   implementation.
-1. The `DataActor` trait implementation with your callbacks.
+1. struct ที่มีฟิลด์ `DataActorCore` และ state ของคุณเอง
+1. `nautilus_actor!(YourType)` เพื่อเชื่อมต่อ core พร้อม implementation ของ `Debug`
+1. implementation ของ trait `DataActor` พร้อม callback ของคุณ
 
-The framework provides blanket `Actor` and `Component` implementations for runtime actors. For a struct with a
-`DataActorCore`, the `nautilus_actor!` macro supplies the native runtime connections. Actor code only
-implements the callbacks it needs.
+framework มี blanket implementation ของ `Actor` และ `Component` สำหรับ actor ใน runtime สำหรับ struct ที่มี
+`DataActorCore` นั้น macro `nautilus_actor!` จะจัดการการเชื่อมต่อกับ runtime แบบ native ให้ โค้ดของ actor
+จึง implement เฉพาะ callback ที่ต้องใช้
 
-At startup, the actor subscribes to `OrderBookDeltas` for each instrument. On each update, it sums volume from
-the individual deltas for each side and updates the totals. On stop, it prints a summary for each instrument.
+ตอนเริ่มทำงาน actor จะ subscribe `OrderBookDeltas` ของแต่ละ instrument ทุกครั้งที่มีการอัปเดต จะรวมปริมาณจาก
+delta แต่ละตัวของแต่ละฝั่งและอัปเดตยอดรวม เมื่อหยุดทำงานจะพิมพ์สรุปของแต่ละ instrument
 
-With `managed: false` in `subscribe_book_deltas`, the data engine does not keep a separate order book in the
-cache for the actor. The exchange matching engine still maintains its own book through `book.apply_delta()` on
-every delta. If your actor needs the full book state from `self.cache().order_book(&instrument_id)`, set
-`managed: true`.
+เมื่อใช้ `managed: false` ใน `subscribe_book_deltas` นั้น data engine จะไม่เก็บ order book แยกไว้ใน cache สำหรับ actor
+แต่ matching engine ของ exchange ยังคงดูแล book ของตัวเองผ่าน `book.apply_delta()` ทุก delta หาก actor ต้องการ
+state ของ book เต็มจาก `self.cache().order_book(&instrument_id)` ให้ตั้ง `managed: true`
 
-## Backtest engine setup
+## การ setup backtest engine {#backtest-engine-setup}
 
-### Create the engine and venue
+### สร้าง engine และ venue {#create-the-engine-and-venue}
 
-Betfair is a cash-settled betting exchange. The venue uses
-`AccountType::Cash`, `OmsType::Netting`, and `BookType::L2_MBP`:
+Betfair เป็น exchange เดิมพันที่ settle เป็นเงินสด venue จึงใช้ `AccountType::Cash`, `OmsType::Netting` และ
+`BookType::L2_MBP`:
 
 ```rust
 let mut engine = BacktestEngine::new(BacktestEngineConfig::default())?;
@@ -217,7 +207,7 @@ engine.add_venue(
 )?;
 ```
 
-### Add instruments, actor, and data
+### เพิ่ม instrument, actor และข้อมูล {#add-instruments-actor-and-data}
 
 ```rust
 for instrument in instruments.values() {
@@ -230,37 +220,35 @@ engine.add_actor(actor)?;
 engine.add_data(data, None, true, true)?;
 ```
 
-The `add_data` parameters are `(data, client_id, validate, sort)`. With `validate: true`, the engine checks
-that the first element's instrument is registered. It assumes that the batch is homogeneous. With `sort:
-true`, it sorts the data by timestamp.
+พารามิเตอร์ของ `add_data` คือ `(data, client_id, validate, sort)` เมื่อ `validate: true` engine จะตรวจสอบว่า
+instrument ของ element แรกลงทะเบียนไว้แล้ว โดยสันนิษฐานว่า batch เป็นข้อมูลชนิดเดียวกันทั้งหมด เมื่อ `sort: true`
+จะเรียงข้อมูลตาม timestamp
 
-### Run
+### รัน {#run}
 
 ```rust
 engine.run(None, None, None, false)?;
 ```
 
-The four parameters are `(start, end, run_config_id, streaming)`. With `None` for `start` and `end`, the
-engine uses the full time range of the loaded data.
+พารามิเตอร์ทั้งสี่คือ `(start, end, run_config_id, streaming)` เมื่อใช้ `None` สำหรับ `start` และ `end` engine
+จะใช้ช่วงเวลาทั้งหมดของข้อมูลที่โหลดไว้
 
-## What happens during the run
+## สิ่งที่เกิดขึ้นระหว่างการรัน {#what-happens-during-the-run}
 
-For each data point in timestamp order the engine:
+สำหรับ data point แต่ละตัวตามลำดับ timestamp นั้น engine จะ:
 
-1. Advances the clock to the data timestamp.
-1. Routes the data to the simulated exchange, which applies each delta to
-   the per-instrument `OrderBook` and runs the matching engine cycle.
-1. Publishes the data through the data engine and message bus, which calls
-   the actor's `on_book_deltas` callback.
-1. Drains command queues and settles venues (processes any pending orders).
+1. เลื่อน clock ไปยัง timestamp ของข้อมูล
+1. route ข้อมูลไปยัง exchange จำลอง ซึ่งจะนำ delta แต่ละตัวไปใช้กับ `OrderBook` ราย instrument และรันรอบของ
+   matching engine
+1. publish ข้อมูลผ่าน data engine และ message bus ซึ่งจะเรียก callback `on_book_deltas` ของ actor
+1. ระบาย command queue และ settle venue (ประมวลผล order ที่ค้างอยู่)
 
-The matching engine maintains a full order book for each instrument. The example has no orders to match. If
-you replace the actor with a `Strategy`, the strategy can use that book state.
+matching engine ดูแล order book เต็มของแต่ละ instrument ตัวอย่างนี้ไม่มี order ให้ match หากเปลี่ยน actor เป็น
+`Strategy` strategy ก็จะใช้ state ของ book นั้นได้
 
-## Results
+## ผลลัพธ์ {#results}
 
-The self-recorded MATCH_ODDS dataset has three runners and 143,098 data points. A release build completes the
-run in approximately 48 ms:
+ชุดข้อมูล MATCH_ODDS ที่บันทึกเองมีสาม runner และ 143,098 data point release build รันเสร็จในราว 48 ms:
 
 ```text
 --- Book imbalance summary ---
@@ -269,50 +257,40 @@ run in approximately 48 ms:
   1.253378068-58805.BETFAIR  updates: 25426  bid_vol:  24295351.82  ask_vol:  25692733.11  imbalance: -0.0280
 ```
 
-Runner `2426` (the eventual winner, settled at BSP 2.22) ends at +0.288. Backing flow exceeds lay flow
-throughout the market. Runner `48783` has stronger backing pressure (+0.466) over fewer updates. Runner
-`58805` ends close to neutral (-0.028).
+runner `2426` (ผู้ชนะในที่สุด settle ที่ BSP 2.22) จบที่ +0.288 โดยปริมาณ back มากกว่าปริมาณ lay ตลอดทั้งตลาด
+runner `48783` มีแรง back ที่แรงกว่า (+0.466) จากจำนวนการอัปเดตที่น้อยกว่า ส่วน runner `58805` จบใกล้เป็นกลาง (-0.028)
 
-![Cumulative imbalance per runner](./assets/backtest_book_imbalance_betfair/panel_a_imbalance_lines.png)
+![Imbalance สะสมของแต่ละ runner](./assets/backtest_book_imbalance_betfair/panel_a_imbalance_lines.png)
 
-**Figure 1.** *Cumulative `(bid - ask) / (bid + ask)` per runner across the
-~143k updates of the market lifetime. Dashed lines mark each runner's final
-imbalance.*
+**รูปที่ 1.** *ค่า `(bid - ask) / (bid + ask)` สะสมของแต่ละ runner ตลอดการอัปเดตราว 143k ครั้งตลอดอายุของตลาด
+เส้นประแสดง imbalance สุดท้ายของแต่ละ runner*
 
-![Per-batch signed flow distribution](./assets/backtest_book_imbalance_betfair/panel_b_batch_distribution.png)
+![การกระจายของ signed flow ราย batch](./assets/backtest_book_imbalance_betfair/panel_b_batch_distribution.png)
 
-**Figure 2.** *Distribution of per-batch signed flow ratio
-`(bid - ask) / (bid + ask)` over `LOG_INTERVAL = 200` batches per
-runner. The shape of each runner's batch distribution is a sharper signal
-than the cumulative imbalance.*
+**รูปที่ 2.** *การกระจายของอัตราส่วน signed flow ราย batch `(bid - ask) / (bid + ask)` เมื่อใช้ batch ขนาด
+`LOG_INTERVAL = 200` ต่อ runner รูปร่างการกระจายราย batch ของแต่ละ runner เป็นสัญญาณที่คมกว่า imbalance สะสม*
 
-![Cumulative bid and ask volume](./assets/backtest_book_imbalance_betfair/panel_c_cumulative_volume.png)
+![ปริมาณ bid และ ask สะสม](./assets/backtest_book_imbalance_betfair/panel_c_cumulative_volume.png)
 
-**Figure 3.** *Cumulative back (bid) and lay (ask) volume per runner. Both
-sides are non-monotonic: lay flow occasionally outpaces back flow within
-short bursts even when cumulative imbalance stays positive.*
+**รูปที่ 3.** *ปริมาณ back (bid) และ lay (ask) สะสมของแต่ละ runner ทั้งสองฝั่งไม่ได้เพิ่มขึ้นอย่างเดียว: ในช่วงสั้น ๆ
+ปริมาณ lay บางครั้งแซงปริมาณ back แม้ imbalance สะสมจะยังเป็นบวก*
 
-### Regenerate the panels
+### สร้าง panel ใหม่ {#regenerate-the-panels}
 
-The actor logs `[runner] update #N: batch bid=B ask=A cumulative imbalance=I`
-on every Nth update. The renderer parses those lines and writes static PNGs
-using the `nautilus_dark` tearsheet theme.
+actor จะ log `[runner] update #N: batch bid=B ask=A cumulative imbalance=I` ทุกการอัปเดตครั้งที่ N
+ตัว renderer จะ parse บรรทัดเหล่านั้นและเขียนไฟล์ PNG แบบ static โดยใช้ theme tearsheet `nautilus_dark`
 
-Set the `LOG_INTERVAL` constant in `betfair_backtest.rs` to `200` first.
-After building NautilusTrader from source, run these commands from the repository root:
+ตั้งค่าคงที่ `LOG_INTERVAL` ใน `betfair_backtest.rs` เป็น `200` ก่อน หลัง build NautilusTrader จาก source แล้ว
+ให้รันคำสั่งนี้จาก root ของ repository เพื่อเก็บ log:
 
 ```bash
-make sync
-
 cargo run -p nautilus-betfair --features examples --release \
     --example betfair-backtest > /tmp/betfair.log 2>&1
-
-BETFAIR_LOG=/tmp/betfair.log \
-    uv run --project python --no-sync \
-        python docs/tutorials/assets/backtest_book_imbalance_betfair/render_panels.py
 ```
 
-## Running the example
+> หมายเหตุ: ขั้นตอน render panel ในต้นฉบับใช้สคริปต์ Python (`render_panels.py`) จึงตัดออก
+
+## การรันตัวอย่าง {#running-the-example}
 
 ```bash
 # Debug build
@@ -328,19 +306,15 @@ cargo run -p nautilus-betfair --features examples --release --example betfair-ba
 cargo run -p nautilus-betfair --features examples --release --example betfair-backtest -- test_data/betfair/1-166811431.bz2
 ```
 
-## Complete source
+## Source ฉบับเต็ม {#complete-source}
 
-The complete example is at
-[`crates/adapters/betfair/examples/betfair_backtest.rs`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/betfair/examples/betfair_backtest.rs).
+ตัวอย่างฉบับเต็มอยู่ที่
+[`crates/adapters/betfair/examples/betfair_backtest.rs`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/betfair/examples/betfair_backtest.rs)
 
-## Next steps
+## ขั้นตอนถัดไป {#next-steps}
 
-- **Strategy**: Replace the actor with a `Strategy` implementation
-  that places back/lay orders based on the imbalance signal. See the
-  `EmaCross` example in
-  `crates/trading/src/examples/strategies/ema_cross/strategy.rs` for the
-  pattern.
-- **Managed books**: Set `managed: true` in `subscribe_book_deltas`.
-  Read the full book through `self.cache().order_book(&id)` for top-of-book spread, depth ratios, or weighted mid-price.
-- **Multiple markets**: Load several `.gz` files and run them through the
-  same engine to test cross-market signals.
+- **Strategy**: เปลี่ยน actor เป็น implementation ของ `Strategy` ที่ส่ง order แบบ back/lay ตามสัญญาณ imbalance
+  ดูรูปแบบได้จากตัวอย่าง `EmaCross` ใน `crates/trading/src/examples/strategies/ema_cross/strategy.rs`
+- **Managed book**: ตั้ง `managed: true` ใน `subscribe_book_deltas` แล้วอ่าน book เต็มผ่าน
+  `self.cache().order_book(&id)` เพื่อหา spread ที่ top-of-book, อัตราส่วนความลึก หรือ weighted mid-price
+- **หลายตลาด**: โหลดไฟล์ `.gz` หลายไฟล์และรันผ่าน engine เดียวกันเพื่อทดสอบสัญญาณข้ามตลาด

@@ -1,105 +1,58 @@
 # Configuration
 
-NautilusTrader uses typed configuration objects for data clients, execution clients, engines, and strategies.
-Higher-level configs compose these component configs. For example, `LiveNodeConfig` owns the node's core
-component settings. Register adapter clients through `LiveNode.builder(...)`. Adapters keep separate data and
-execution client configs when their capabilities or credentials differ.
+NautilusTrader ใช้ config object แบบมี type สำหรับ data client, execution client, engine และ strategy
+config ระดับสูงจะประกอบขึ้นจาก config ของ component เหล่านี้ ตัวอย่างเช่น `LiveNodeConfig` เป็นเจ้าของการตั้งค่า
+component หลักของ node ส่วน adapter client ให้ลงทะเบียนผ่าน `LiveNode.builder(...)` adapter จะแยก config
+ของ data client และ execution client ออกจากกันเมื่อความสามารถหรือ credential ของทั้งสองแตกต่างกัน
 
-## Design principles
+## หลักการออกแบบ {#design-principles}
 
-### Concrete fields carry resolved values
+### ฟิลด์แบบ concrete เก็บค่าที่ resolve แล้ว {#concrete-fields-carry-resolved-values}
 
-Rust config fields normally carry concrete values when the component requires a resolved setting.
-For example, adapter timeouts, retry counts, backoff delays, and heartbeat intervals often use
-plain types such as `u64` or `u32`. Construction resolves these fields before the component starts,
-so downstream code can consume them without repeating defaulting logic.
+ฟิลด์ config ใน Rust โดยปกติจะเก็บค่าแบบ concrete เมื่อ component ต้องการค่าที่ resolve แล้ว
+ตัวอย่างเช่น timeout ของ adapter, จำนวนครั้งที่ retry, ระยะเวลา backoff และ heartbeat interval มักใช้
+type พื้นฐานอย่าง `u64` หรือ `u32` ขั้นตอนการสร้าง (construction) จะ resolve ฟิลด์เหล่านี้ก่อน component เริ่มทำงาน
+ทำให้โค้ดที่อยู่ปลายทางใช้ค่าได้ทันทีโดยไม่ต้องเขียน logic การกำหนดค่าเริ่มต้นซ้ำ
 
-### Option semantics are field-specific
+### ความหมายของ Option ขึ้นกับแต่ละฟิลด์ {#option-semantics-are-field-specific}
 
-In a stored Rust config, `Option<T>` contains either `Some(value)` or `None`. The stored value does
-not record whether a caller omitted an input. A component may interpret `None` as disabling a
-feature, leaving a lookback window unbounded, falling back to the runtime environment, or applying
-an internal default. The **field documentation defines its meaning**.
+ใน config ของ Rust ที่เก็บไว้แล้ว `Option<T>` จะมีค่าเป็น `Some(value)` หรือ `None` อย่างใดอย่างหนึ่ง ค่าที่เก็บไว้
+ไม่ได้บันทึกว่าผู้เรียกละเว้น input นั้นหรือไม่ component อาจตีความ `None` ว่าเป็นการปิดฟีเจอร์,
+ปล่อยให้ช่วงย้อนหลัง (lookback window) ไม่มีขอบเขต, ถอยกลับไปใช้ค่าจาก runtime environment หรือใช้
+ค่าเริ่มต้นภายใน **เอกสารของแต่ละฟิลด์เป็นตัวกำหนดความหมาย**
 
-This distinction makes config semantics visible in the type. A plain `u64` always has a value, while
-the code consuming an `Option<u64>` handles the absent case.
+ความแตกต่างนี้ทำให้ความหมายของ config ปรากฏอยู่ใน type เลย `u64` ธรรมดาจะมีค่าเสมอ ในขณะที่
+โค้ดที่ใช้ `Option<u64>` ต้องจัดการกรณีที่ไม่มีค่าเอง
 
-### Defaults are type-specific
+### ค่าเริ่มต้นขึ้นกับแต่ละ type {#defaults-are-type-specific}
 
-Rust config types define defaults through `#[builder(default = value)]` annotations, a custom
-`Default` implementation, or both. PyO3 constructors generally resolve omitted concrete parameters
-from the Rust `Default` implementation instead of maintaining separate Python defaults.
+type ของ config ใน Rust กำหนดค่าเริ่มต้นผ่าน annotation `#[builder(default = value)]`, implementation
+ของ `Default` ที่เขียนเอง หรือทั้งสองอย่าง
 
-Container-level `#[serde(default)]` on a config struct fills its missing serialized fields from that
-config's `Default` implementation. Field-level `#[serde(default)]` instead uses the field type's
-default, unless the attribute names another function.
+`#[serde(default)]` ระดับ container บน config struct จะเติมฟิลด์ที่ขาดหายไปตอน deserialize จาก
+implementation `Default` ของ config นั้น ส่วน `#[serde(default)]` ระดับฟิลด์จะใช้ค่าเริ่มต้นของ type ของฟิลด์แทน
+เว้นแต่ attribute จะระบุฟังก์ชันอื่น
 
-`Type::default()` and `Type::builder().build()` are separate construction paths. A custom `Default`
-implementation may delegate part of its construction to the builder, but this is type-specific. Do
-not assume that the two paths are interchangeable unless the implementation or documentation
-guarantees it.
+`Type::default()` และ `Type::builder().build()` เป็นเส้นทางการสร้างที่แยกจากกัน implementation `Default`
+ที่เขียนเองอาจมอบหมายการสร้างบางส่วนให้ builder ก็ได้ แต่ขึ้นกับแต่ละ type อย่าทึกทักเอาว่าสองเส้นทางนี้
+ใช้แทนกันได้ เว้นแต่ implementation หรือเอกสารจะรับประกันไว้
 
-### Unknown-field handling depends on the construction path
+### การจัดการฟิลด์ที่ไม่รู้จักขึ้นกับเส้นทางการสร้าง {#unknown-field-handling-depends-on-the-construction-path}
 
-Rust deserialization and Python constructor binding enforce unknown fields independently:
+แต่ละเส้นทางการสร้างบังคับใช้กฎเรื่องฟิลด์ที่ไม่รู้จักแยกกัน:
 
-- **Rust**: `BybitDataClientConfig`, for example, uses `#[serde(deny_unknown_fields)]` and rejects extra
-  serialized keys. A Rust type without that attribute may accept them.
-- **Python**: fixed config constructors raise `TypeError` for unsupported keywords. `DataActorConfig`,
-  `StrategyConfig`, and `ExecutionAlgorithmConfig` accept additional keywords for Python subclasses.
+- **Rust**: ตัวอย่างเช่น `BybitDataClientConfig` ใช้ `#[serde(deny_unknown_fields)]` และปฏิเสธ key ส่วนเกิน
+  ตอน deserialize ส่วน type ใน Rust ที่ไม่มี attribute นี้อาจยอมรับ key เหล่านั้น
 
-Do not infer one construction path's strictness from another.
+อย่าอนุมานความเข้มงวดของเส้นทางการสร้างหนึ่งจากอีกเส้นทางหนึ่ง
 
-## Python configs
+## Config ใน Rust {#rust-configs}
 
-Import core config types from `nautilus_trader.config`. Import adapter configs from the adapter's
-public module, such as `nautilus_trader.adapters.bybit`.
+config struct ใน Rust จำนวนมาก derive [`bon::Builder`](https://bon-rs.com) ซึ่งสร้าง builder แบบ type-safe
+ที่ตรวจสอบฟิลด์ที่จำเป็นได้ตั้งแต่ตอน compile builder สามารถละเว้นฟิลด์ที่ประกาศค่าเริ่มต้นของ builder ไว้ได้
 
-Most runtime config classes are PyO3 wrappers around Rust config structs. In a Python constructor,
-omitting a parameter whose signature default is `None` is equivalent to passing `None` explicitly.
-The wrapper then either selects the Rust default or preserves an absent optional value, depending on
-the field. Check the field documentation rather than inferring its behavior from the Python
-annotation.
-
-Properties expose selected config values. Configs that hold secrets can omit their values or expose only
-presence checks. Consult the config API before displaying or logging a config.
-
-Mutability is type-specific: many configs expose only read-only getters, while extensible component configs
-and some adapter configs expose documented setters. `DataActorConfig`, `StrategyConfig`, and
-`ExecutionAlgorithmConfig` also accept extra fields for Python subclasses. Python-owned analysis configs keep
-their documented dataclass behavior.
-
-```python
-from nautilus_trader.adapters.bybit import BybitDataClientConfig
-
-omitted = BybitDataClientConfig()
-explicit_none = BybitDataClientConfig(
-    http_timeout_secs=None,
-    base_url_http=None,
-)
-assert omitted.http_timeout_secs == explicit_none.http_timeout_secs == 60
-assert omitted.base_url_http is explicit_none.base_url_http is None
-
-# Override the timeout
-config = BybitDataClientConfig(http_timeout_secs=30)
-
-# Read the resolved value
-assert config.http_timeout_secs == 30
-```
-
-When a wrapper maps `None` to a non-`None` Rust default, Python cannot use that parameter to store Rust
-`None`. For example, passing `instrument_status_poll_secs=None` to `BybitDataClientConfig` keeps its 60-second
-default. Rust callers can set `instrument_poll_interval_secs` to `None` to disable periodic instrument and
-status polling.
-
-## Rust configs
-
-Many Rust config structs derive [`bon::Builder`](https://bon-rs.com), which generates a type-safe
-builder with compile-time checks for required fields. A builder can omit fields that declare a
-builder default.
-
-Use the construction style documented for the config type. For `DataEngineConfig`, the builder and struct
-update forms below both enable delta buffering and keep the declared defaults for other fields:
+ให้ใช้รูปแบบการสร้างตามที่เอกสารของ config type นั้นระบุ สำหรับ `DataEngineConfig` ทั้งแบบ builder และแบบ
+struct update ด้านล่างจะเปิด delta buffering และคงค่าเริ่มต้นที่ประกาศไว้สำหรับฟิลด์อื่น:
 
 ```rust
 use nautilus_data::engine::config::DataEngineConfig;
@@ -114,68 +67,55 @@ let with_struct_update = DataEngineConfig {
 };
 ```
 
-Use `DataEngineConfig::default()` when no fields need an override.
+ใช้ `DataEngineConfig::default()` เมื่อไม่ต้องการ override ฟิลด์ใดเลย
 
-## Adapter config fields
+## ฟิลด์ config ของ adapter {#adapter-config-fields}
 
-Names recur across adapter configs, but their types and defaults depend on the adapter and client.
-For example, `BybitDataClientConfig` defines the fields below. The `Default` column shows the values
-from `BybitDataClientConfig::default()`:
+ชื่อฟิลด์มักซ้ำกันในหลาย adapter config แต่ type และค่าเริ่มต้นขึ้นกับ adapter และ client
+ตัวอย่างเช่น `BybitDataClientConfig` กำหนดฟิลด์ดังด้านล่าง คอลัมน์ `Default` แสดงค่าจาก
+`BybitDataClientConfig::default()`:
 
-| Rust field                      | Rust type     | Default    | Purpose                        |
-| ------------------------------- | ------------- | ---------- | ------------------------------ |
-| `http_timeout_secs`             | `u64`         | `60`       | REST request timeout.          |
-| `max_retries`                   | `u32`         | `3`        | Maximum retry attempts.        |
-| `retry_delay_initial_ms`        | `u64`         | `1_000`    | Initial backoff delay.         |
-| `retry_delay_max_ms`            | `u64`         | `10_000`   | Maximum backoff delay.         |
-| `heartbeat_interval_secs`       | `u64`         | `20`       | WebSocket keepalive interval.  |
-| `recv_window_ms`                | `u64`         | `5_000`    | Signed request expiry window.  |
-| `instrument_poll_interval_secs` | `Option<u64>` | `Some(60)` | Instrument and status polling. |
+| ฟิลด์ Rust                       | Type ใน Rust   | Default    | วัตถุประสงค์                         |
+| ------------------------------- | ------------- | ---------- | --------------------------------- |
+| `http_timeout_secs`             | `u64`         | `60`       | timeout ของ REST request          |
+| `max_retries`                   | `u32`         | `3`        | จำนวนครั้งสูงสุดที่ retry              |
+| `retry_delay_initial_ms`        | `u64`         | `1_000`    | ระยะเวลา backoff เริ่มต้น            |
+| `retry_delay_max_ms`            | `u64`         | `10_000`   | ระยะเวลา backoff สูงสุด             |
+| `heartbeat_interval_secs`       | `u64`         | `20`       | interval ของ WebSocket keepalive  |
+| `recv_window_ms`                | `u64`         | `5_000`    | ช่วงเวลาหมดอายุของ signed request   |
+| `instrument_poll_interval_secs` | `Option<u64>` | `Some(60)` | การ poll instrument และสถานะ       |
 
-Python exposes `instrument_poll_interval_secs` as `instrument_status_poll_secs`.
+ในทางกลับกัน `BybitDataClientConfig::builder().build()` จะปล่อยให้
+`instrument_poll_interval_secs` เป็น `None` ซึ่งจะปิดการ poll instrument และสถานะเป็นระยะ
+นี่คือกรณีหนึ่งที่ **เส้นทาง default และ builder ของ type ให้ผลต่างกัน** ผู้เรียกฝั่ง Rust สามารถตั้ง
+`instrument_poll_interval_secs` เป็น `None` เพื่อปิดการ poll instrument และสถานะเป็นระยะได้
 
-`BybitDataClientConfig::builder().build()` instead leaves
-`instrument_poll_interval_secs` as `None`, which disables periodic instrument and status polling.
-This is one case where the type's **default and builder paths differ**.
+ฟิลด์เฉพาะของแต่ละ adapter เช่น rate limit, polling interval และ margin mode มีอธิบายไว้ใน
+[คู่มือ integration](../integrations/index.md)
 
-Adapter-specific fields such as rate limits, polling intervals, and margin modes are documented in
-the [integration guides](../integrations/index.md).
+## Config ของ engine {#engine-configs}
 
-## Engine configs
+config ของ engine ใช้แนวทางฟิลด์แบบมี type เช่นเดียวกัน ใน `LiveExecutionEngineConfig` ฟิลด์อย่าง
+`reconciliation`, `inflight_check_interval_ms` และ `open_check_threshold_ms` มีค่าเริ่มต้นแบบ concrete:
 
-Engine configs use the same typed-field approach. In `LiveExecutionEngineConfig`, fields such as
-`reconciliation`, `inflight_check_interval_ms`, and `open_check_threshold_ms` have concrete defaults:
+| ฟิลด์                         | Default | วัตถุประสงค์                                                 |
+| ---------------------------- | ------- | ---------------------------------------------------------- |
+| `reconciliation`             | `True`  | รัน reconciliation ระหว่าง startup                          |
+| `inflight_check_interval_ms` | `2_000` | ตรวจสอบว่า order ที่อยู่ระหว่างดำเนินการ (in-flight) เกิน threshold หรือไม่ |
+| `open_check_threshold_ms`    | `5_000` | รอก่อนดำเนินการเมื่อพบความไม่ตรงกันของ open order              |
 
-| Field                        | Default | Purpose                                                |
-| ---------------------------- | ------- | ------------------------------------------------------ |
-| `reconciliation`             | `True`  | Run reconciliation during startup.                     |
-| `inflight_check_interval_ms` | `2_000` | Check whether in-flight orders exceed their threshold. |
-| `open_check_threshold_ms`    | `5_000` | Wait before acting on an open-order discrepancy.       |
+ฟิลด์แบบ optional อย่าง `open_check_interval_secs` และ `position_check_interval_secs` ใช้เปิดหรือ
+ปิดการตรวจสอบเป็นระยะของแต่ละอย่าง โดย `position_check_interval_secs` ปิดอยู่เป็นค่าเริ่มต้น
 
-Optional fields such as `open_check_interval_secs` and `position_check_interval_secs` enable or
-disable their periodic checks:
+ตัวอย่างเช่น config ที่ตั้ง `open_check_interval_secs` เป็น 30 และ `open_check_lookback_mins` เป็น 60
+จะทำให้หลัง startup เมื่อมี execution client พร้อมใช้งาน ระบบจะตั้งเวลาขอ report ของ open order ทุก 30
+วินาที แต่ละ request ครอบคลุมเฉพาะช่วง 60 นาทีก่อนหน้า และจะไม่ตั้งเวลาขอ report ของ position เป็นระยะ
+interval ที่กำหนดสำหรับการตรวจสอบเป็นระยะต้องเป็นค่าบวกที่จำกัด (finite) และมีค่าอย่างน้อยหนึ่งนาโนวินาที
 
-```python
-from nautilus_trader.config import LiveExecutionEngineConfig
+ฟิลด์ `reconciliation` ที่แยกต่างหากใช้เปิด reconciliation ตอน startup และมีค่าเริ่มต้นเป็น `True` ฟิลด์ interval
+ควบคุมการตรวจสอบเป็นระยะอย่างอิสระ เมื่อเปิด reconciliation ตอน startup ไว้
+`reconciliation_startup_delay_secs` จะหน่วงการตรวจสอบเป็นระยะครั้งแรกหลัง startup ด้วย ค่าหน่วงนี้ต้อง
+เป็นค่าจำกัดและอยู่ในช่วง [0, 86400] วินาที
 
-config = LiveExecutionEngineConfig(
-    open_check_interval_secs=30.0,  # Enable open order polling
-    open_check_lookback_mins=60,  # Look back 60 minutes
-)
-
-assert config.open_check_interval_secs == 30.0
-assert config.open_check_lookback_mins == 60
-assert config.position_check_interval_secs is None  # Disabled by default
-```
-
-After startup, an available execution client lets this config schedule open-order report requests each 30
-seconds. Each request covers only the previous 60 minutes. It does not schedule periodic position report
-requests. Supplied periodic intervals must be positive, finite values of at least one nanosecond.
-
-The separate `reconciliation` field enables startup reconciliation and defaults to `True`. The interval fields
-control periodic checks independently. When startup reconciliation is enabled,
-`reconciliation_startup_delay_secs` also delays the first periodic check after startup. The delay must be
-finite and in [0, 86400] seconds.
-
-For the full set of live engine options, see
-[ExecutionEngine configuration](../how_to/configure_live_trading.md#executionengine-configuration).
+ดูตัวเลือกทั้งหมดของ live engine ได้ที่
+[การตั้งค่า ExecutionEngine](../how_to/configure_live_trading.md#executionengine-configuration)

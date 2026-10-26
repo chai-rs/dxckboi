@@ -1,73 +1,64 @@
-# Hurst/VPIN Directional Strategy (Kraken Futures)
+# Strategy เชิงทิศทางด้วย Hurst/VPIN (Kraken Futures)
 
 :::note
-This **Rust-only** tutorial uses a strategy, backtest setup, and tests from the compiled core.
+tutorial นี้เป็นแบบ **Rust เท่านั้น** โดยใช้ strategy, การ setup backtest และ test จาก core ที่คอมไพล์แล้ว
 :::
 
-This tutorial backtests a directional strategy on **PF_XBTUSD**, the USD-margined Bitcoin perpetual on [Kraken
-Futures](https://futures.kraken.com). The strategy combines a **Hurst-exponent regime filter** with a **VPIN**
-(Volume-synchronized Probability of Informed Trading) flow signal. The Rust `BacktestEngine` replays
-historical trades and quotes from [Tardis.dev](https://tardis.dev).
+tutorial นี้ทำ backtest strategy เชิงทิศทางบน **PF_XBTUSD** ซึ่งเป็น perpetual ของ Bitcoin ที่ใช้ USD เป็น margin บน
+[Kraken Futures](https://futures.kraken.com) strategy นี้รวม **ตัวกรอง regime ด้วย Hurst exponent** เข้ากับสัญญาณ
+flow แบบ **VPIN** (Volume-synchronized Probability of Informed Trading) โดย `BacktestEngine` ของ Rust จะ replay
+trade และ quote ย้อนหลังจาก [Tardis.dev](https://tardis.dev)
 
-## Introduction
+## บทนำ {#introduction}
 
-The strategy combines a slow regime filter from bars and a fast informed-flow signal from trades. Quote-driven
-entry occurs only when both signals agree.
+strategy นี้รวมตัวกรอง regime แบบช้าจาก bar เข้ากับสัญญาณ informed flow แบบเร็วจาก trade การเข้า position
+ที่ขับเคลื่อนด้วย quote จะเกิดขึ้นเฉพาะเมื่อสัญญาณทั้งสองสอดคล้องกัน
 
-- **Hurst exponent**: Sampled on constant-notional (value)
-  bars, following Lopez de Prado (*Advances in Financial Machine
-  Learning*, Chapter 2). A rescaled-range (R/S) estimate greater than `0.55` indicates persistent, trending behavior.
-  An estimate less than `0.50` indicates mean reversion or noise.
+- **Hurst exponent**: สุ่มตัวอย่างบน bar แบบ notional คงที่ (value) ตามแนวทางของ Lopez de Prado
+  (*Advances in Financial Machine Learning*, บทที่ 2) ค่าประมาณแบบ rescaled-range (R/S) ที่มากกว่า `0.55`
+  บ่งชี้พฤติกรรมแบบต่อเนื่องเป็น trend ค่าที่น้อยกว่า `0.50` บ่งชี้การกลับสู่ค่าเฉลี่ย (mean reversion) หรือ noise
 
-- **VPIN**: Each completed dollar bar is one volume bucket.
-  VPIN is the average absolute imbalance between aggressive buy and aggressive sell volume over the last fifty buckets.
-  The signed imbalance gives the net informed direction.
+- **VPIN**: dollar bar ที่ปิดแล้วแต่ละแท่งคือ volume bucket หนึ่ง bucket VPIN คือค่าเฉลี่ยของ imbalance สัมบูรณ์
+  ระหว่างปริมาณซื้อเชิงรุกและปริมาณขายเชิงรุกในห้าสิบ bucket ล่าสุด ส่วน imbalance แบบมีเครื่องหมายบอกทิศทาง
+  สุทธิของ informed flow
 
-- **Quote-driven entry**: Once both signals agree, the strategy opens a
-  position on the next quote tick. Entry timing stays tied to the live
-  top of book rather than to bar closes.
+- **การเข้า position ที่ขับเคลื่อนด้วย quote**: เมื่อสัญญาณทั้งสองสอดคล้องกัน strategy จะเปิด position ใน quote tick
+  ถัดไป จังหวะการเข้าจึงผูกกับ top of book แบบ live แทนที่จะผูกกับการปิด bar
 
-The strategy closes the position when the Hurst estimate decreases through a lower threshold or the
-holding-time cap is reached.
+strategy จะปิด position เมื่อค่าประมาณ Hurst ลดลงต่ำกว่าเกณฑ์ล่าง หรือเมื่อถือครบระยะเวลาสูงสุดที่กำหนด
 
-The strategy is shipped as
+strategy นี้มีมาให้ในชื่อ
 [`HurstVpinDirectional`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/trading/src/examples/strategies/hurst_vpin_directional)
-in the `nautilus_trading::examples::strategies` module. As with all
-shipped example strategies, it is intentionally simple and has no alpha
-advantage.
+ใน module `nautilus_trading::examples::strategies` เช่นเดียวกับ strategy ตัวอย่างอื่น ๆ ที่มีมาให้ มันถูกออกแบบให้
+เรียบง่ายโดยตั้งใจ และไม่มีความได้เปรียบเชิง alpha
 
-### Why Kraken Futures
+### ทำไมต้อง Kraken Futures {#why-kraken-futures}
 
-Kraken Futures lists perpetuals on Bitcoin and Ether in two forms:
+Kraken Futures มี perpetual ของ Bitcoin และ Ether สองรูปแบบ:
 
-- **`PI_` inverse perpetuals**: quoted in USD, margined and settled in
-  the underlying.
-- **`PF_` linear perpetuals**: quoted in USD, margined and settled in
-  USD (through multi-collateral).
+- **perpetual แบบ inverse `PI_`**: quote เป็น USD แต่ใช้สินทรัพย์อ้างอิงเป็น margin และ settle
+- **perpetual แบบ linear `PF_`**: quote เป็น USD ใช้ USD เป็น margin และ settle (ผ่าน multi-collateral)
 
-The tutorial uses **`PF_XBTUSD`** so the account currency, quote
-currency, and dollar-bar sampling frame are all USD.
+tutorial นี้ใช้ **`PF_XBTUSD`** เพื่อให้สกุลเงินของ account, สกุลเงินที่ quote และกรอบการสุ่มตัวอย่าง dollar bar
+เป็น USD ทั้งหมด
 
-### Why dollar bars and VPIN together
+### ทำไมต้องใช้ dollar bar คู่กับ VPIN {#why-dollar-bars-and-vpin-together}
 
-VPIN is defined on *volume* buckets rather than *time* buckets. Dollar bars (`VALUE` aggregation in
-NautilusTrader) close after a fixed notional has traded, so the sampling frame adapts to market activity. Each
-VPIN bucket is one dollar bar, and Hurst uses the same bars. Thus, both signals use the same clock and
-sampling frame.
+VPIN นิยามบน bucket ของ *ปริมาณ* แทน bucket ของ *เวลา* dollar bar (การ aggregate แบบ `VALUE` ใน NautilusTrader)
+จะปิดหลังจากมีการซื้อขายครบ notional ที่กำหนด กรอบการสุ่มตัวอย่างจึงปรับตามกิจกรรมของตลาด VPIN bucket แต่ละ
+bucket คือ dollar bar หนึ่งแท่ง และ Hurst ก็ใช้ bar ชุดเดียวกัน สัญญาณทั้งสองจึงใช้ clock และกรอบการสุ่มตัวอย่างเดียวกัน
 
-## Prerequisites
+## สิ่งที่ต้องมี {#prerequisites}
 
-- A working Rust toolchain (see [rustup.rs](https://rustup.rs)).
-- The NautilusTrader repository cloned and building.
-- Internet access to download a free Tardis sample (no API key required
-  for the first day of each month).
+- Rust toolchain ที่ใช้งานได้ (ดู [rustup.rs](https://rustup.rs))
+- repository ของ NautilusTrader ที่ clone และ build ได้แล้ว
+- การเข้าถึงอินเทอร์เน็ตเพื่อดาวน์โหลดตัวอย่างฟรีของ Tardis (ไม่ต้องใช้ API key สำหรับวันแรกของแต่ละเดือน)
 
-## Data preparation
+## การเตรียมข้อมูล {#data-preparation}
 
-Kraken Futures is published by Tardis under the historical slug `cryptofacilities`. The first day of each
-month is free without an API key. This sample is sufficient for a single-day setup check. A full backtest
-needs at least two sessions to fill the 128-bar Hurst window. Those historical ranges require a paid Tardis
-API key (see the tip below).
+Tardis เผยแพร่ข้อมูล Kraken Futures ภายใต้ slug ย้อนหลังชื่อ `cryptofacilities` วันแรกของแต่ละเดือนใช้ได้ฟรีโดยไม่ต้อง
+มี API key ตัวอย่างนี้เพียงพอสำหรับตรวจสอบการ setup แบบวันเดียว backtest เต็มรูปแบบต้องใช้อย่างน้อยสอง session
+เพื่อเติม Hurst window ขนาด 128 bar ให้เต็ม ช่วงข้อมูลย้อนหลังเหล่านั้นต้องใช้ API key ของ Tardis แบบเสียเงิน (ดู tip ด้านล่าง)
 
 ```bash
 mkdir -p /tmp/tardis_kraken
@@ -79,17 +70,17 @@ curl -L -o /tmp/tardis_kraken/PF_XBTUSD_quotes.csv.gz \
   https://datasets.tardis.dev/v1/cryptofacilities/quotes/2024/01/01/PF_XBTUSD.csv.gz
 ```
 
-The runnable example binary reads from `/tmp/tardis_kraken/` by default. If you download into that directory,
-`cargo run` works without changes to the example's path constants.
+binary ตัวอย่างที่รันได้จะอ่านจาก `/tmp/tardis_kraken/` เป็นค่าเริ่มต้น หากดาวน์โหลดไว้ในไดเรกทอรีนั้น `cargo run`
+จะทำงานได้โดยไม่ต้องแก้ค่าคงที่ของ path ในตัวอย่าง
 
 :::tip
-Full historical ranges require a paid Tardis API key. Use the
-[Tardis download utility](https://docs.tardis.dev/downloadable-csv-files)
-for bulk downloads beyond single-day samples.
+ช่วงข้อมูลย้อนหลังเต็มต้องใช้ API key ของ Tardis แบบเสียเงิน ใช้
+[เครื่องมือดาวน์โหลดของ Tardis](https://docs.tardis.dev/downloadable-csv-files)
+สำหรับการดาวน์โหลดจำนวนมากที่เกินตัวอย่างแบบวันเดียว
 :::
 
-The Rust Tardis loader parses `.csv.gz` directly and assigns the supplied instrument ID to each record. The
-strategy therefore needs no symbology mapping:
+loader Tardis ของ Rust parse ไฟล์ `.csv.gz` ได้โดยตรง และกำหนด instrument ID ที่ส่งให้กับทุก record strategy
+จึงไม่ต้องมีการ map symbology:
 
 ```rust
 use nautilus_model::identifiers::InstrumentId;
@@ -112,16 +103,15 @@ let quotes = load_quotes(
 )?;
 ```
 
-Pass the instrument's `price_precision` and `size_precision` explicitly. The loader otherwise infers precision
-from the first few records. For a sample day without fractional prices, it can infer `0`. The matching engine
-rejects a quote tick whose precision does not match the instrument's declared precision.
+ส่ง `price_precision` และ `size_precision` ของ instrument อย่างชัดเจน มิฉะนั้น loader จะอนุมาน precision จาก
+record แรก ๆ สำหรับวันตัวอย่างที่ไม่มีราคาเป็นเศษทศนิยม อาจอนุมานได้เป็น `0` และ matching engine จะปฏิเสธ
+quote tick ที่ precision ไม่ตรงกับ precision ที่ instrument ประกาศไว้
 
-## Instrument definition
+## การนิยาม instrument {#instrument-definition}
 
-This tutorial loads CSV data directly, without the live Kraken adapter. It therefore defines `PF_XBTUSD`
-manually as a
-[`CryptoPerpetual`](https://github.com/nautechsystems/nautilus_trader/blob/develop/crates/model/src/instruments/crypto_perpetual.rs).
-Linear perpetuals on Kraken Futures are quoted and margined in USD:
+tutorial นี้โหลดข้อมูล CSV โดยตรงโดยไม่ใช้ adapter Kraken แบบ live จึงต้องนิยาม `PF_XBTUSD` เองเป็น
+[`CryptoPerpetual`](https://github.com/nautechsystems/nautilus_trader/blob/develop/crates/model/src/instruments/crypto_perpetual.rs)
+perpetual แบบ linear บน Kraken Futures จะ quote และใช้ margin เป็น USD:
 
 ```rust
 use nautilus_model::{
@@ -150,20 +140,18 @@ let instrument = CryptoPerpetual::builder()
     .unwrap();
 ```
 
-Margin and fee rates are explicit backtest assumptions. This example uses a
-maker/taker fee model with 0.02% maker and 0.05% taker rates. Check the
-[Kraken Futures fee schedule](https://futures.kraken.com/features/fee-schedule)
-for current rates.
+อัตรา margin และค่าธรรมเนียมเป็นสมมติฐานของ backtest ที่กำหนดไว้อย่างชัดเจน ตัวอย่างนี้ใช้ fee model แบบ
+maker/taker ที่อัตรา maker 0.02% และ taker 0.05% ตรวจสอบอัตราปัจจุบันได้ที่
+[ตารางค่าธรรมเนียมของ Kraken Futures](https://futures.kraken.com/features/fee-schedule)
 
-## Dollar-bar sampling
+## การสุ่มตัวอย่างด้วย dollar bar {#dollar-bar-sampling}
 
-NautilusTrader ships all the information-driven bar aggregators from AFML Chapter 2: tick, volume, value
-(dollar), plus imbalance and runs variants for each. This tutorial uses plain `VALUE` bars, which close after
-a fixed notional has traded on the tape.
+NautilusTrader มี bar aggregator แบบขับเคลื่อนด้วยข้อมูล (information-driven) ครบทุกแบบจาก AFML บทที่ 2 ได้แก่
+tick, volume, value (dollar) รวมถึง variant แบบ imbalance และ runs ของแต่ละแบบ tutorial นี้ใช้ bar แบบ `VALUE`
+ธรรมดา ซึ่งปิดหลังจากมีการซื้อขายครบ notional ที่กำหนดบน tape
 
-The bar type is expressed as a string. The `INTERNAL` suffix tells the
-engine to aggregate inside NautilusTrader from the underlying trade
-stream (price type `LAST`):
+bar type ระบุเป็น string โดย suffix `INTERNAL` บอก engine ให้ aggregate ภายใน NautilusTrader จาก trade stream
+ต้นทาง (price type `LAST`):
 
 ```rust
 use nautilus_model::data::BarType;
@@ -171,23 +159,23 @@ use nautilus_model::data::BarType;
 let bar_type = BarType::from("PF_XBTUSD.KRAKEN-2000000-VALUE-LAST-INTERNAL");
 ```
 
-Each bar closes after **USD 2,000,000** of traded notional. A session typically produces fewer than 150 bars
-and can fall short of the 128-bar Hurst window. Thus, the default configuration needs multiple sessions for
-warmup. For a single-day run, reduce the bar size to **USD 500,000** or reduce `hurst_window` and
-`vpin_window` accordingly. For full multi-day backtests, use the defaults.
+bar แต่ละแท่งปิดหลังจากมี notional ที่ซื้อขายครบ **USD 2,000,000** หนึ่ง session มักให้ bar น้อยกว่า 150 แท่ง และอาจ
+ไม่ถึง Hurst window ขนาด 128 bar ดังนั้น config เริ่มต้นจึงต้องใช้หลาย session ในการ warmup สำหรับการรันวันเดียว
+ให้ลดขนาด bar เป็น **USD 500,000** หรือลด `hurst_window` และ `vpin_window` ตามความเหมาะสม สำหรับ backtest
+หลายวันเต็มรูปแบบให้ใช้ค่าเริ่มต้น
 
 :::note
-`VALUE` bars are a *view* onto the trade tape. The backtest engine
-consumes the same stream that drives VPIN. The bars do not cause double counting.
+bar แบบ `VALUE` เป็น *มุมมอง* หนึ่งของ trade tape backtest engine ใช้ stream เดียวกับที่ขับเคลื่อน VPIN bar จึงไม่ทำให้
+เกิดการนับซ้ำ
 :::
 
-## Strategy overview
+## ภาพรวมของ strategy {#strategy-overview}
 
-The `HurstVpinDirectional` strategy runs three concurrent pipelines that synchronize at bar close:
+strategy `HurstVpinDirectional` รัน pipeline สามชุดพร้อมกัน ซึ่ง synchronize กันตอนปิด bar:
 
-- Trades feed a bucket accumulator.
-- Bar close triggers new signal calculations.
-- Quotes drive entry and timeout checks.
+- trade ป้อนเข้าสู่ตัวสะสม bucket
+- การปิด bar กระตุ้นการคำนวณสัญญาณใหม่
+- quote ขับเคลื่อนการเข้า position และการตรวจ timeout
 
 ```mermaid
 flowchart LR
@@ -238,76 +226,74 @@ flowchart LR
     X -->|yes| Cl
 ```
 
-- **Per trade**: The strategy accumulates aggressive buy and aggressive sell volume
-  for the current dollar-bar bucket through `TradeTick::aggressor_side`.
-- **Per bar** (bucket close): The strategy appends the bar's log return to the Hurst window.
-  It calculates the bucket's signed and absolute imbalance, then resets the accumulators.
-  It estimates rolling Hurst and VPIN again, clears `exit_cooldown`, and checks regime exit.
-- **Per quote**: The Hurst and VPIN signals must agree before a flat strategy can open a market IOC order.
-  Hurst must meet `hurst_enter`, VPIN must meet `vpin_threshold`, and signed imbalance must be nonzero.
-  If a position is already open, it checks the holding-time cap.
+- **ทุก trade**: strategy สะสมปริมาณซื้อเชิงรุกและขายเชิงรุกของ bucket dollar bar ปัจจุบันผ่าน
+  `TradeTick::aggressor_side`
+- **ทุก bar** (ปิด bucket): strategy เพิ่ม log return ของ bar เข้าไปใน Hurst window คำนวณ imbalance แบบมีเครื่องหมาย
+  และแบบสัมบูรณ์ของ bucket แล้ว reset ตัวสะสม จากนั้นประมาณค่า Hurst และ VPIN แบบ rolling ใหม่ ล้าง
+  `exit_cooldown` และตรวจสอบการออกตาม regime
+- **ทุก quote**: สัญญาณ Hurst และ VPIN ต้องสอดคล้องกันก่อนที่ strategy ที่ไม่มี position จะเปิด market order แบบ IOC
+  Hurst ต้องถึง `hurst_enter`, VPIN ต้องถึง `vpin_threshold` และ imbalance แบบมีเครื่องหมายต้องไม่เป็นศูนย์
+  หากมี position เปิดอยู่แล้ว จะตรวจสอบระยะเวลาถือสูงสุด
 
-Regime exit occurs in the bar pipeline when Hurst decreases to less than `hurst_exit`. Holding timeout occurs
-in the quote pipeline when the position has been open longer than `max_holding_secs`.
+การออกตาม regime เกิดใน pipeline ของ bar เมื่อ Hurst ลดลงต่ำกว่า `hurst_exit` ส่วน holding timeout เกิดใน pipeline
+ของ quote เมื่อ position เปิดอยู่นานกว่า `max_holding_secs`
 
-![Signal dashboard during an active trading window](./assets/hurst_vpin_kraken/panel_b_dashboard.png)
+![Signal dashboard ระหว่างช่วงเทรดที่มีความเคลื่อนไหว](./assets/hurst_vpin_kraken/panel_b_dashboard.png)
 
-**Figure 1.** *Signal dashboard for 2024-01-16 14:09-16:15 UTC: close, Hurst, VPIN. Markers show actual fill
-price. The dotted connector shows slippage against the bar-close line.*
+**รูปที่ 1.** *Signal dashboard ของวันที่ 2024-01-16 เวลา 14:09-16:15 UTC: ราคาปิด, Hurst, VPIN marker แสดงราคา
+fill จริง เส้นประเชื่อมแสดง slippage เทียบกับเส้นราคาปิดของ bar*
 
-### Hurst estimator
+### ตัวประมาณค่า Hurst {#hurst-estimator}
 
-The strategy uses classical rescaled-range (R/S) regression. For each lag `k` in `(4, 8, 16, 32)`, it divides
-the return window into non-overlapping chunks of length `k`. It calculates each chunk's rescaled range and
-records the mean R/S. The slope of `log(R/S)` against `log(k)` across the lag set gives the Hurst estimate.
+strategy ใช้ regression แบบ rescaled-range (R/S) แบบคลาสสิก สำหรับแต่ละ lag `k` ใน `(4, 8, 16, 32)` จะแบ่ง
+return window ออกเป็นช่วงที่ไม่ซ้อนทับกันความยาว `k` คำนวณ rescaled range ของแต่ละช่วง และบันทึกค่า R/S เฉลี่ย
+ความชันของ `log(R/S)` เทียบกับ `log(k)` ตลอดชุด lag คือค่าประมาณ Hurst
 
-![Hurst exponent over the full backtest](./assets/hurst_vpin_kraken/panel_e_hurst_only.png)
+![Hurst exponent ตลอดทั้ง backtest](./assets/hurst_vpin_kraken/panel_e_hurst_only.png)
 
-**Figure 2.** *Rolling Hurst across 14 days of PF_XBTUSD (2024-01-15 to
-2024-01-28) with enter 0.55 and exit 0.50 thresholds.*
+**รูปที่ 2.** *Hurst แบบ rolling ตลอด 14 วันของ PF_XBTUSD (2024-01-15 ถึง 2024-01-28) พร้อมเกณฑ์เข้า 0.55
+และเกณฑ์ออก 0.50*
 
-### VPIN estimator
+### ตัวประมาณค่า VPIN {#vpin-estimator}
 
-With explicit trade aggressor side available from the venue feed,
-VPIN collapses to
+เมื่อ feed ของ venue ระบุฝั่ง aggressor ของ trade ไว้อย่างชัดเจน VPIN จะลดรูปเหลือ
 
 ```text
 VPIN = mean_k ( |V_B_k - V_S_k| / (V_B_k + V_S_k) )
 ```
 
-over the last `k` completed dollar-bar buckets. The signed variant retains the sign of `V_B - V_S` and is used
-to choose direction. This is more accurate than the bulk-volume classification in the original Easley/Lopez de
-Prado formulation. That classification was only necessary when aggressor side was not directly observable.
+ตลอด `k` bucket ของ dollar bar ที่ปิดแล้วล่าสุด variant แบบมีเครื่องหมายจะคงเครื่องหมายของ `V_B - V_S` ไว้และใช้เลือก
+ทิศทาง วิธีนี้แม่นยำกว่าการจำแนกแบบ bulk-volume ในสูตรดั้งเดิมของ Easley/Lopez de Prado ซึ่งจำเป็นเฉพาะเมื่อ
+สังเกตฝั่ง aggressor โดยตรงไม่ได้
 
-![VPIN distribution across the backtest](./assets/hurst_vpin_kraken/panel_d_vpin_hist.png)
+![การกระจายของ VPIN ตลอด backtest](./assets/hurst_vpin_kraken/panel_d_vpin_hist.png)
 
-**Figure 3.** *VPIN distribution across all bars with the 0.30 entry threshold.*
+**รูปที่ 3.** *การกระจายของ VPIN ตลอดทุก bar พร้อมเกณฑ์เข้า 0.30*
 
-### Configuration
+### การตั้งค่า {#configuration}
 
-| Parameter          | Value            | Description                                                       |
+| Parameter          | Value            | คำอธิบาย                                                          |
 | ------------------ | ---------------- | ----------------------------------------------------------------- |
-| `bar_type`         | `2M-VALUE-LAST`  | Dollar bars closing every USD 2,000,000 of notional.              |
-| `trade_size`       | `0.0100`         | 0.0100 XBT per trade (matches instrument precision).              |
-| `hurst_window`     | `128`            | Rolling window of dollar bar log returns.                         |
-| `hurst_lags`       | `[4, 8, 16, 32]` | Lag set used in the R/S regression.                               |
-| `hurst_enter`      | `0.55`           | Minimum Hurst value for a trending regime.                        |
-| `hurst_exit`       | `0.50`           | Below this, open positions are flattened.                         |
-| `vpin_window`      | `50`             | Completed volume buckets averaged for VPIN.                       |
-| `vpin_threshold`   | `0.30`           | Minimum VPIN for flow to be considered informed.                  |
-| `max_holding_secs` | `1800`           | Seconds a position may be held (default `3600`; overridden here). |
+| `bar_type`         | `2M-VALUE-LAST`  | dollar bar ที่ปิดทุก notional USD 2,000,000                         |
+| `trade_size`       | `0.0100`         | 0.0100 XBT ต่อ trade (ตรงกับ precision ของ instrument)              |
+| `hurst_window`     | `128`            | rolling window ของ log return ของ dollar bar                       |
+| `hurst_lags`       | `[4, 8, 16, 32]` | ชุด lag ที่ใช้ใน R/S regression                                     |
+| `hurst_enter`      | `0.55`           | ค่า Hurst ต่ำสุดสำหรับ regime แบบ trend                             |
+| `hurst_exit`       | `0.50`           | ต่ำกว่าค่านี้ position ที่เปิดอยู่จะถูกปิด                               |
+| `vpin_window`      | `50`             | จำนวน volume bucket ที่ปิดแล้วซึ่งนำมาเฉลี่ยเป็น VPIN                   |
+| `vpin_threshold`   | `0.30`           | VPIN ต่ำสุดที่ถือว่า flow เป็นแบบ informed                            |
+| `max_holding_secs` | `1800`           | จำนวนวินาทีที่ถือ position ได้ (ค่าเริ่มต้น `3600`; override ที่นี่)       |
 
-Set `hurst_window` and `vpin_window` to values in `[1, 16_384]`.
+ตั้ง `hurst_window` และ `vpin_window` เป็นค่าในช่วง `[1, 16_384]`
 
 :::tip
-Dollar-bar size, Hurst lags, and VPIN window are all coupled. Smaller
-bars give faster reaction but noisier Hurst. Larger bars smooth both
-signals but risk too few samples in a single-day backtest.
+ขนาด dollar bar, Hurst lag และ VPIN window เชื่อมโยงกันทั้งหมด bar ที่เล็กลงให้การตอบสนองที่เร็วขึ้นแต่ Hurst มี noise
+มากขึ้น bar ที่ใหญ่ขึ้นทำให้สัญญาณทั้งสองเรียบขึ้น แต่เสี่ยงที่จะมี sample น้อยเกินไปใน backtest แบบวันเดียว
 :::
 
-## Backtest setup
+## การ setup backtest {#backtest-setup}
 
-Configure a `BacktestEngine` with a Kraken venue and a USD starting balance:
+ตั้งค่า `BacktestEngine` ด้วย venue Kraken และ balance เริ่มต้นเป็น USD:
 
 ```rust
 use nautilus_backtest::{
@@ -341,7 +327,7 @@ engine.add_venue(
 engine.add_instrument(&InstrumentAny::CryptoPerpetual(instrument))?;
 ```
 
-Feed the loaded trades and quotes as `Data` enum variants:
+ป้อน trade และ quote ที่โหลดไว้ในรูป variant ของ enum `Data`:
 
 ```rust
 let mut data: Vec<Data> = trades.into_iter().map(Data::Trade).collect();
@@ -349,7 +335,7 @@ data.extend(quotes.into_iter().map(Data::Quote));
 engine.add_data(data, None, true, true)?;
 ```
 
-### Add the strategy
+### เพิ่ม strategy {#add-the-strategy}
 
 ```rust
 use nautilus_model::types::Quantity;
@@ -367,104 +353,90 @@ let config = HurstVpinDirectionalConfig::builder()
 engine.add_strategy(HurstVpinDirectional::new(config))?;
 ```
 
-### Run the backtest
+### รัน backtest {#run-the-backtest}
 
 ```rust
 engine.run(None, None, None, false)?;
 ```
 
-With the default 128/50 windows and USD 2,000,000 bars, a single-day sample stays in warmup for the whole run.
-The engine aggregates dollar bars and drives the strategy on individual trades and quotes. Hurst and VPIN do
-not emit until the windows are full. For signal updates and entries or exits on a single day, reduce the bar
-size or windows as described above. Alternatively, provide two or more sessions of data.
+เมื่อใช้ window เริ่มต้น 128/50 และ bar ขนาด USD 2,000,000 ตัวอย่างแบบวันเดียวจะอยู่ในช่วง warmup ตลอดการรัน
+engine จะ aggregate dollar bar และขับเคลื่อน strategy ด้วย trade และ quote แต่ละตัว Hurst และ VPIN จะไม่ emit
+ค่าจนกว่า window จะเต็ม หากต้องการเห็นการอัปเดตสัญญาณและการเข้าหรือออกภายในวันเดียว ให้ลดขนาด bar หรือ window
+ตามที่อธิบายไว้ด้านบน หรือใช้ข้อมูลตั้งแต่สอง session ขึ้นไป
 
-A 14-day run (2024-01-15 to 2024-01-28) on this configuration prints 1,224 bars and produces only 2 entries, 1
-partial cover, and 1 close. Entries are sparse by design: Hurst and VPIN must meet their respective thresholds
-on the same quote. The remaining size after the partial IOC cover stays open through the rest of the session.
-A Netting OMS leaves this residual position when an exit IOC only fills part of the position.
+การรัน 14 วัน (2024-01-15 ถึง 2024-01-28) ด้วย config นี้พิมพ์ 1,224 bar และเกิดการเข้า position เพียง 2 ครั้ง,
+การปิดบางส่วน 1 ครั้ง และการปิด 1 ครั้ง การเข้าที่ห่างกันมากนี้เป็นไปตามการออกแบบ: Hurst และ VPIN ต้องถึงเกณฑ์
+ของตัวเองใน quote เดียวกัน ขนาดที่เหลือหลังการปิดบางส่วนด้วย IOC จะคงเปิดอยู่ตลอดช่วงที่เหลือของ session
+OMS แบบ Netting จะทิ้ง position ที่เหลือนี้ไว้เมื่อ IOC สำหรับการออกถูก fill เพียงบางส่วน
 
-The wiring above is shipped as a runnable binary:
+การเชื่อมต่อทั้งหมดข้างต้นมีมาให้เป็น binary ที่รันได้:
 
 ```bash
 cargo run -p nautilus-kraken --features examples \
   --example kraken-hurst-vpin-backtest --release
 ```
 
-By default it reads `PF_XBTUSD_trades.csv.gz` and `PF_XBTUSD_quotes.csv.gz`
-from `/tmp/tardis_kraken/`. To read other files, edit the `TRADES_PATH` and
-`QUOTES_PATH` constants in `crates/adapters/kraken/examples/engine_hurst_vpin_backtest.rs`.
+โดยค่าเริ่มต้นจะอ่าน `PF_XBTUSD_trades.csv.gz` และ `PF_XBTUSD_quotes.csv.gz` จาก `/tmp/tardis_kraken/`
+หากต้องการอ่านไฟล์อื่น ให้แก้ค่าคงที่ `TRADES_PATH` และ `QUOTES_PATH` ใน
+`crates/adapters/kraken/examples/engine_hurst_vpin_backtest.rs`
 
-![Trade detail during the active window](./assets/hurst_vpin_kraken/panel_a_price_regime.png)
+![รายละเอียด trade ในช่วงที่มีความเคลื่อนไหว](./assets/hurst_vpin_kraken/panel_a_price_regime.png)
 
-**Figure 4.** *Close price for 2024-01-16 14:09-16:15 UTC. Teal bands mark `Hurst >= 0.55` bars. Gold bands
-mark periods with an open position. Markers sit at actual fill price; dotted connector shows slip against the
-bar-close line.*
+**รูปที่ 4.** *ราคาปิดของวันที่ 2024-01-16 เวลา 14:09-16:15 UTC แถบสีเขียวอมฟ้าแสดง bar ที่ `Hurst >= 0.55`
+แถบสีทองแสดงช่วงที่มี position เปิดอยู่ marker อยู่ที่ราคา fill จริง เส้นประเชื่อมแสดง slippage เทียบกับเส้นราคาปิดของ bar*
 
-![Decision space across every bar](./assets/hurst_vpin_kraken/panel_c_decision_scatter.png)
+![พื้นที่การตัดสินใจตลอดทุก bar](./assets/hurst_vpin_kraken/panel_c_decision_scatter.png)
 
-**Figure 5.** *Per-bar Hurst vs. VPIN across the backtest, colored by signed
-VPIN. Shaded quadrant marks the entry-eligible region.*
+**รูปที่ 5.** *Hurst เทียบกับ VPIN ราย bar ตลอด backtest ระบายสีตาม VPIN แบบมีเครื่องหมาย จตุภาคที่แรเงาแสดง
+บริเวณที่เข้า position ได้*
 
-### Regenerate the panels
+### สร้าง panel ใหม่ {#regenerate-the-panels}
 
-The backtest strategy logs `Hurst=… VPIN=… signed=… bar_close=…` on every bar close. It also logs standard
-`OrderFilled` events on entries and exits. These logs make the panels above fully reproducible from the run's
-stdout.
+strategy ใน backtest จะ log `Hurst=… VPIN=… signed=… bar_close=…` ทุกครั้งที่ bar ปิด และ log event `OrderFilled`
+มาตรฐานเมื่อเข้าและออก position log เหล่านี้ทำให้สร้าง panel ข้างต้นซ้ำได้ทั้งหมดจาก stdout ของการรัน
 
-After building NautilusTrader from source, run these commands from the repository root:
+หลัง build NautilusTrader จาก source แล้ว ให้รันคำสั่งนี้จาก root ของ repository เพื่อเก็บ log:
 
 ```bash
-make sync
-
 RUST_LOG=info cargo run -p nautilus-kraken --features examples \
     --example kraken-hurst-vpin-backtest --release > /tmp/backtest.log 2>&1
-
-BACKTEST_LOG=/tmp/backtest.log \
-    uv run --project python --no-sync \
-        python docs/tutorials/assets/hurst_vpin_kraken/render_panels.py
 ```
 
-The renderer uses the shared `nautilus_dark` tearsheet theme and writes static PNGs through Plotly's Kaleido
-exporter.
+> หมายเหตุ: ขั้นตอน render panel ในต้นฉบับใช้สคริปต์ Python (`render_panels.py`) จึงตัดออก
 
-## Next steps
+## ขั้นตอนถัดไป {#next-steps}
 
-- **Sampling frame**: Try larger or smaller dollar-bar
-  thresholds. The `VALUE_IMBALANCE` and `VALUE_RUNS` aggregators
-  produce bars that close on information arrival. These are alternatives to constant-dollar sampling.
-- **Thresholds**: `hurst_enter`, `hurst_exit`, and
-  `vpin_threshold` all interact: a higher enter threshold makes signals
-  rarer but more specific. A tighter exit shortens average holding
-  time.
-- **Volatility gate**: Add a realized-volatility estimator
-  on the same bars to suppress entries during clearly chaotic
-  sessions.
-- **Live trading**: Once the backtest behaves, drive the
-  same strategy through the Kraken live client factories. A runnable live
-  wiring ships as `kraken-hurst-vpin-live`.
+- **กรอบการสุ่มตัวอย่าง**: ลองใช้เกณฑ์ dollar bar ที่ใหญ่ขึ้นหรือเล็กลง aggregator แบบ `VALUE_IMBALANCE` และ
+  `VALUE_RUNS` สร้าง bar ที่ปิดเมื่อมีข้อมูลใหม่เข้ามา ซึ่งเป็นทางเลือกแทนการสุ่มตัวอย่างแบบ dollar คงที่
+- **เกณฑ์**: `hurst_enter`, `hurst_exit` และ `vpin_threshold` ล้วนส่งผลต่อกัน: เกณฑ์เข้าที่สูงขึ้นทำให้สัญญาณเกิด
+  น้อยลงแต่เฉพาะเจาะจงขึ้น เกณฑ์ออกที่แคบลงทำให้ระยะเวลาถือเฉลี่ยสั้นลง
+- **ตัวกรองความผันผวน**: เพิ่มตัวประมาณ realized volatility บน bar ชุดเดียวกัน เพื่อระงับการเข้า position ในช่วง
+  session ที่ปั่นป่วนอย่างชัดเจน
+- **Live trading**: เมื่อ backtest ทำงานได้ตามต้องการแล้ว ให้ขับเคลื่อน strategy เดียวกันผ่าน factory ของ live client
+  ของ Kraken มีตัวอย่างการเชื่อมต่อแบบ live ที่รันได้มาให้ในชื่อ `kraken-hurst-vpin-live`
 
-The example trades **Kraken Futures production with real funds** by default: both clients use the default
-`KrakenEnvironment::Live`, and it reads `KRAKEN_FUTURES_API_KEY` and `KRAKEN_FUTURES_API_SECRET`. To paper
-trade on [demo-futures.kraken.com](https://demo-futures.kraken.com) instead, first edit
-`crates/adapters/kraken/examples/node_hurst_vpin_live.rs`:
+ตัวอย่างนี้เทรดบน **Kraken Futures production ด้วยเงินจริง** โดยค่าเริ่มต้น: client ทั้งสองใช้ค่าเริ่มต้น
+`KrakenEnvironment::Live` และอ่าน `KRAKEN_FUTURES_API_KEY` และ `KRAKEN_FUTURES_API_SECRET` หากต้องการ
+paper trade บน [demo-futures.kraken.com](https://demo-futures.kraken.com) แทน ให้แก้
+`crates/adapters/kraken/examples/node_hurst_vpin_live.rs` ก่อน:
 
-  1. Pass `true` as the `demo` argument to `KrakenCredential::resolve_futures`.
-  1. Set `environment: KrakenEnvironment::Demo` (from `nautilus_kraken::common::enums`) on both
-     `KrakenDataClientConfig` and `KrakenExecutionClientConfig`.
+  1. ส่ง `true` เป็น argument `demo` ให้ `KrakenCredential::resolve_futures`
+  1. ตั้ง `environment: KrakenEnvironment::Demo` (จาก `nautilus_kraken::common::enums`) บนทั้ง
+     `KrakenDataClientConfig` และ `KrakenExecutionClientConfig`
 
-The example then reads `KRAKEN_FUTURES_DEMO_API_KEY` and `KRAKEN_FUTURES_DEMO_API_SECRET`.
+จากนั้นตัวอย่างจะอ่าน `KRAKEN_FUTURES_DEMO_API_KEY` และ `KRAKEN_FUTURES_DEMO_API_SECRET`
 
   ```bash
   cargo run -p nautilus-kraken --features examples \
     --example kraken-hurst-vpin-live
   ```
 
-## Further reading
+## อ่านเพิ่มเติม {#further-reading}
 
-- [`HurstVpinDirectional` strategy source](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/trading/src/examples/strategies/hurst_vpin_directional)
-- [Data concepts: bar types and aggregation](../concepts/data/index.md#bars-and-aggregation)
-- [Tardis integration guide](../integrations/tardis.md)
-- [Kraken integration guide](../integrations/kraken.md)
-- [Kraken Futures documentation](https://docs.kraken.com/api/docs/futures-api)
+- [source ของ strategy `HurstVpinDirectional`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/trading/src/examples/strategies/hurst_vpin_directional)
+- [แนวคิดด้าน data: bar type และการ aggregate](../concepts/data/index.md#bars-and-aggregation)
+- [คู่มือ integration ของ Tardis](../integrations/tardis.md)
+- [คู่มือ integration ของ Kraken](../integrations/kraken.md)
+- [เอกสาร Kraken Futures](https://docs.kraken.com/api/docs/futures-api)
 - Lopez de Prado, M. (2018). *Advances in Financial Machine Learning*,
-  Wiley. Chapter 2 (information-driven bars) and Chapter 19 (VPIN).
+  Wiley. บทที่ 2 (information-driven bar) และบทที่ 19 (VPIN)

@@ -1,37 +1,35 @@
-# Composite Market Making on Lighter RWA with Databento US Equities NVDA
+# Composite Market Making บน Lighter RWA ด้วยข้อมูล NVDA จาก Databento US Equities
 
-This tutorial runs the shipped [`CompositeMarketMaker`][composite-market-maker] strategy on Lighter's
-`NVDA-PERP.LIGHTER` RWA market with Databento `NVDA.EQUS` quotes as an external signal. The strategy quotes
-one post-only bid and one post-only ask around the Lighter mid. It shifts both sides based on a normalized
-Databento residual and the current Lighter inventory.
+tutorial นี้รัน strategy [`CompositeMarketMaker`][composite-market-maker] ที่มาพร้อมกับ NautilusTrader
+บนตลาด RWA `NVDA-PERP.LIGHTER` ของ Lighter โดยใช้ quote ของ `NVDA.EQUS` จาก Databento เป็น signal ภายนอก
+strategy นี้วาง bid แบบ post-only หนึ่งตัวและ ask แบบ post-only หนึ่งตัวรอบ mid ของ Lighter แล้วเลื่อน
+ทั้งสองฝั่งตาม residual ของ Databento ที่ normalize แล้วและ inventory ปัจจุบันบน Lighter
 
-The setup uses a Rust [`LiveNode`][live-node] and the native Rust `CompositeMarketMaker` strategy. If you are
-new to the Lighter adapter, first complete [Get started with Lighter][lighter-get-started]. That guide covers
-the Rust and Python data-client paths separately. This tutorial then adds Databento signal data and live order
-flow.
+การตั้งค่านี้ใช้ [`LiveNode`][live-node] ของ Rust และ strategy `CompositeMarketMaker` ที่เป็น Rust แบบ native
+หากเพิ่งเริ่มใช้ adapter ของ Lighter ให้ทำ [Get started with Lighter][lighter-get-started] ก่อน
+จากนั้น tutorial นี้จะเพิ่มข้อมูล signal จาก Databento และการส่ง order แบบ live
 
-## Introduction
+## บทนำ {#introduction}
 
-Lighter lists real-world asset (RWA) perpetuals that trade continuously, including
-single-name equity markets. See Lighter's [RWA docs] and [market specifications]
-for current venue details. Databento's [US Equities][Databento US Equities]
-datasets provide US equity top-of-book data for `NVDA`, with `mbp-1` available
-through the Nautilus Databento adapter.
+Lighter มี perpetual ของสินทรัพย์ในโลกจริง (real-world asset หรือ RWA) ที่ซื้อขายต่อเนื่องตลอดเวลา
+รวมถึงตลาดหุ้นรายตัว ดูรายละเอียดล่าสุดของ venue ได้จาก [RWA docs] และ [market specifications]
+ของ Lighter ส่วน dataset [US Equities][Databento US Equities] ของ Databento ให้ข้อมูล top-of-book ของหุ้น
+สหรัฐฯ สำหรับ `NVDA` โดยมี `mbp-1` ให้ใช้ผ่าน adapter Databento ของ Nautilus
 
-`CompositeMarketMaker` is a small two-input market maker:
+`CompositeMarketMaker` เป็น market maker ขนาดเล็กที่มีสอง input:
 
-- The **target instrument** is the Lighter market to quote: `NVDA-PERP.LIGHTER`.
-- The **signal instrument** is the Databento reference feed: `NVDA.EQUS`.
-- The **anchor** is the Lighter mid.
-- The **signal residual** is `(databento_mid / baseline) - 1.0`.
-- The **quote shift** is `signal_skew_factor * residual - inventory_skew_factor * net_position`.
+- **target instrument** คือตลาดบน Lighter ที่จะวาง quote: `NVDA-PERP.LIGHTER`
+- **signal instrument** คือ feed อ้างอิงจาก Databento: `NVDA.EQUS`
+- **anchor** คือ mid ของ Lighter
+- **signal residual** คือ `(databento_mid / baseline) - 1.0`
+- **quote shift** คือ `signal_skew_factor * residual - inventory_skew_factor * net_position`
 
-With no configured baseline, the strategy uses the first valid `NVDA.EQUS` mid as the reference price. The
-residual starts at zero and measures NVDA's move from that first signal mid, not the Lighter/Databento basis.
-For deterministic runs, set the `SIGNAL_BASELINE` constant in the example source to fix the reference price.
+หากไม่ได้ตั้งค่า baseline ไว้ strategy จะใช้ mid ตัวแรกที่ถูกต้องของ `NVDA.EQUS` เป็นราคาอ้างอิง residual
+จึงเริ่มที่ศูนย์และวัดการขยับของ NVDA จาก signal mid ตัวแรกนั้น ไม่ใช่ basis ระหว่าง Lighter กับ Databento
+หากต้องการผลการรันที่ทำซ้ำได้ ให้ตั้งค่าคงที่ `SIGNAL_BASELINE` ในซอร์สของตัวอย่างเพื่อตรึงราคาอ้างอิง
 
-In this setup, the Lighter BBO remains the spread anchor. Databento moves the
-quote center up or down through the normalized residual.
+ในการตั้งค่านี้ BBO ของ Lighter ยังเป็นตัว anchor ของ spread ส่วน Databento จะเลื่อนจุดกึ่งกลางของ quote
+ขึ้นหรือลงผ่าน residual ที่ normalize แล้ว
 
 ```mermaid
 flowchart LR
@@ -65,29 +63,27 @@ flowchart LR
     TH -->|no| LQ
 ```
 
-The tutorial shows how one engine connects a direct US equity feed and a crypto-native RWA venue. Order
-lifecycle, inventory, and quote state remain inside the same event-driven runtime.
+tutorial นี้แสดงให้เห็นว่า engine ตัวเดียวเชื่อม feed หุ้นสหรัฐฯ โดยตรงเข้ากับ venue RWA ที่เป็น crypto-native
+ได้อย่างไร โดยวงจรชีวิตของ order, inventory และสถานะของ quote ยังอยู่ใน runtime แบบ event-driven
+ตัวเดียวกัน
 
-## Prerequisites
+## สิ่งที่ต้องมีก่อน {#prerequisites}
 
-- A Rust toolchain (MSRV 1.99.1 or newer).
-- A Cargo project with the Nautilus, Lighter, and Databento crates as
-  dependencies (see [Project setup](#project-setup)).
-- Python 3.13+ to regenerate the rendered panels.
-- A Databento API key with live access to Databento US Equities Mini
-  (`EQUS.MINI`), the default dataset for the bundled `NVDA.EQUS` route. Higher tiers such as `EQUS.PLUS` need a separate Databento license.
-  When your account has that entitlement, select a tier with `venue_dataset_map`.
-- Lighter API credentials (numeric account index, API key index, and API secret)
-  for the configured environment (testnet by default), required only to connect
-  and submit orders.
-- The Lighter integration guide: [Lighter](../integrations/lighter.md).
-- The Databento integration guide: [Databento](../integrations/databento.md).
+- Rust toolchain (MSRV 1.99.1 หรือใหม่กว่า)
+- Cargo project ที่มี crate ของ Nautilus, Lighter และ Databento เป็น dependency
+  (ดู [การตั้งค่าโปรเจกต์](#project-setup))
+- Databento API key ที่มีสิทธิ์ live สำหรับ Databento US Equities Mini (`EQUS.MINI`) ซึ่งเป็น dataset
+  ค่าเริ่มต้นของเส้นทาง `NVDA.EQUS` ที่มาให้ ระดับที่สูงกว่าเช่น `EQUS.PLUS` ต้องใช้ license ของ Databento
+  แยกต่างหาก เมื่อบัญชีของคุณมีสิทธิ์นั้นแล้ว ให้เลือกระดับด้วย `venue_dataset_map`
+- credential API ของ Lighter (account index แบบตัวเลข, API key index และ API secret) สำหรับ environment
+  ที่ตั้งค่าไว้ (ค่าเริ่มต้นคือ testnet) จำเป็นเฉพาะตอนเชื่อมต่อและส่ง order
+- คู่มือการเชื่อมต่อ Lighter: [Lighter](../integrations/lighter.md)
+- คู่มือการเชื่อมต่อ Databento: [Databento](../integrations/databento.md)
 
-The example reads credentials from environment variables and keeps the strategy
-parameters as editable Rust constants. It defaults to
-`LighterEnvironment::Testnet`, so follow the
-[account and API key setup](../integrations/lighter.md#account-and-api-key-setup) and set the testnet
-Lighter credentials:
+ตัวอย่างนี้อ่าน credential จาก environment variable และเก็บพารามิเตอร์ของ strategy เป็นค่าคงที่ใน Rust
+ที่แก้ไขได้ ค่าเริ่มต้นคือ `LighterEnvironment::Testnet` ดังนั้นให้ทำตาม
+[การตั้งค่า account และ API key](../integrations/lighter.md#account-and-api-key-setup) แล้วตั้ง credential
+ของ Lighter testnet:
 
 ```bash
 export DATABENTO_API_KEY="your-databento-api-key"
@@ -96,16 +92,15 @@ export LIGHTER_TESTNET_API_KEY_INDEX="4"
 export LIGHTER_TESTNET_API_SECRET="your-lighter-api-secret"
 ```
 
-For mainnet, change `LIGHTER_ENVIRONMENT` in the source to
-`LighterEnvironment::Mainnet` and use the mainnet `LIGHTER_*` credential
-variables described in the integration guide. Set `DATABENTO_API_KEY` before
-running the example.
+สำหรับ mainnet ให้เปลี่ยน `LIGHTER_ENVIRONMENT` ในซอร์สเป็น `LighterEnvironment::Mainnet` และใช้
+environment variable credential `LIGHTER_*` ของ mainnet ตามที่อธิบายไว้ในคู่มือการเชื่อมต่อ และตั้ง
+`DATABENTO_API_KEY` ก่อนรันตัวอย่าง
 
-## Project setup
+## การตั้งค่าโปรเจกต์ {#project-setup}
 
-The strategy, node, and adapters ship as crates that your own Cargo project can use. You do not need to work
-inside a NautilusTrader checkout. Add the following to your `Cargo.toml`. Point every Nautilus dependency at
-the same `develop` git source so the crates resolve to one consistent version:
+strategy, node และ adapter มาในรูป crate ที่ Cargo project ของคุณเองนำไปใช้ได้ ไม่จำเป็นต้องทำงานภายใน
+checkout ของ NautilusTrader ให้เพิ่มข้อความต่อไปนี้ลงใน `Cargo.toml` โดยชี้ dependency ของ Nautilus
+ทุกตัวไปที่ git source `develop` เดียวกัน เพื่อให้ crate ทั้งหมด resolve เป็นเวอร์ชันเดียวกัน:
 
 ```toml
 [dependencies]
@@ -120,96 +115,91 @@ nautilus-trading = { git = "https://github.com/nautechsystems/nautilus_trader.gi
 tokio = { version = "1", features = ["full"] }
 ```
 
-The `examples` feature on `nautilus-trading` exposes the `CompositeMarketMaker`
-strategy, and `high-precision` is required for Lighter's crypto-native pricing.
-For the general crate layout, feature flags, and the crates.io alternative to
-the git source, see the Rust [project setup guide][project-setup].
+feature `examples` ของ `nautilus-trading` จะเปิดให้ใช้ strategy `CompositeMarketMaker` และ
+`high-precision` จำเป็นสำหรับการตั้งราคาแบบ crypto-native ของ Lighter สำหรับโครงสร้าง crate โดยรวม,
+feature flag และทางเลือกการใช้ crates.io แทน git source ดู[คู่มือการตั้งค่าโปรเจกต์][project-setup] ของ Rust
 
-The Databento client also needs a publishers file that maps venues to datasets. For your own project, download
-[`publishers.json`][databento-publishers] from the Databento adapter crate. Set `publishers_filepath` to your
-local copy. The shipped example resolves the same file relative to the checkout, so only your own project
-needs this step.
+Databento client ยังต้องใช้ไฟล์ publishers ที่ map venue ไปยัง dataset สำหรับโปรเจกต์ของคุณเอง ให้ดาวน์โหลด
+[`publishers.json`][databento-publishers] จาก crate ของ adapter Databento แล้วตั้ง `publishers_filepath`
+ให้ชี้ไปที่สำเนาในเครื่อง ตัวอย่างที่มาให้จะ resolve ไฟล์เดียวกันโดยอิงจาก checkout จึงมีเพียงโปรเจกต์ของ
+คุณเองที่ต้องทำขั้นตอนนี้
 
-## Why NVDA
+## ทำไมต้อง NVDA {#why-nvda}
 
-`NVDA` is a liquid Nasdaq-listed single-name equity, and Lighter maps its RWA
-perpetual to `NVDA-PERP.LIGHTER`. This pairs a licensed Databento signal with a
-Lighter traded market:
+`NVDA` เป็นหุ้นรายตัวที่มีสภาพคล่องสูงซึ่งจดทะเบียนใน Nasdaq และ Lighter map perpetual แบบ RWA ของหุ้นนี้
+ไปที่ `NVDA-PERP.LIGHTER` ทำให้จับคู่ signal ที่มี license จาก Databento กับตลาดที่ซื้อขายบน Lighter ได้:
 
-| Role              | Instrument ID       | Source    | Notes                                 |
+| บทบาท              | Instrument ID       | แหล่งที่มา  | หมายเหตุ                                 |
 | ----------------- | ------------------- | --------- | ------------------------------------- |
-| Signal instrument | `NVDA.EQUS`         | Databento | EQUS.MINI top-of-book quote updates.  |
-| Target instrument | `NVDA-PERP.LIGHTER` | Lighter   | RWA perpetual traded through Lighter. |
+| Signal instrument | `NVDA.EQUS`         | Databento | การอัปเดต quote แบบ top-of-book ของ EQUS.MINI |
+| Target instrument | `NVDA-PERP.LIGHTER` | Lighter   | RWA perpetual ที่ซื้อขายผ่าน Lighter       |
 
-By default, a subscription to `NVDA.EQUS` requests top-of-book (`mbp-1`) quotes for `NVDA` from Databento's
-`EQUS.MINI` dataset. The adapter delivers these quotes as a single `QuoteTick` stream. The `EQUS.MINI` dataset
-is the lowest-cost consolidated US equities tier. Richer tiers such as `EQUS.PLUS` need a separate Databento
-license. If your account has that entitlement, select the tier with the client's `venue_dataset_map` (for
-example `{"EQUS": "EQUS.PLUS"}`).
+โดยค่าเริ่มต้น การ subscribe `NVDA.EQUS` จะขอ quote แบบ top-of-book (`mbp-1`) ของ `NVDA` จาก dataset
+`EQUS.MINI` ของ Databento และ adapter จะส่ง quote เหล่านี้มาเป็นสตรีม `QuoteTick` เดียว dataset
+`EQUS.MINI` เป็นระดับข้อมูลหุ้นสหรัฐฯ แบบรวมศูนย์ที่ราคาถูกที่สุด ระดับที่ละเอียดกว่าเช่น `EQUS.PLUS` ต้องใช้
+license ของ Databento แยกต่างหาก หากบัญชีของคุณมีสิทธิ์นั้น ให้เลือกระดับด้วย `venue_dataset_map` ของ
+client (เช่น `{"EQUS": "EQUS.PLUS"}`)
 
-The adapter resolves the `EQUS` venue from a publishers file. The example points `DatabentoDataClientConfig`
-at the `publishers.json` bundled with the Databento adapter. See [Instrument IDs and
-symbology][databento-symbology] for the mapping rules.
+adapter จะ resolve venue `EQUS` จากไฟล์ publishers ตัวอย่างนี้ชี้ `DatabentoDataClientConfig` ไปที่
+`publishers.json` ที่มาพร้อมกับ adapter Databento ดูกฎการ map ได้ที่ [Instrument IDs and
+symbology][databento-symbology]
 
-The older Databento Equities Basic (`DBEQ.BASIC`) dataset name appears in some
-grandfathered accounts and historical examples. New Databento subscriptions use
-the Databento US Equities product line, so this tutorial uses the consolidated
-`EQUS` venue. Treat the top-of-book feed as a licensed signal proxy for the
-tutorial wiring, not as a full depth Nasdaq TotalView book.
+ชื่อ dataset แบบเก่าคือ Databento Equities Basic (`DBEQ.BASIC`) ยังปรากฏในบางบัญชีที่ได้รับสิทธิ์ต่อเนื่อง
+และในตัวอย่างเก่า การ subscribe Databento ใหม่จะใช้สายผลิตภัณฑ์ Databento US Equities ดังนั้น tutorial นี้
+จึงใช้ venue `EQUS` แบบรวมศูนย์ ให้มอง feed แบบ top-of-book นี้เป็นตัวแทน signal ที่มี license สำหรับการ
+เดินระบบใน tutorial เท่านั้น ไม่ใช่ book แบบ full depth ของ Nasdaq TotalView
 
-The example starts at `trade_size=0.05`, which matches the Lighter NVDA minimum base amount observed during
-tutorial validation. Before you increase size or change instruments, check the market details endpoint for the
-configured environment:
+ตัวอย่างเริ่มที่ `trade_size=0.05` ซึ่งตรงกับ minimum base amount ของ NVDA บน Lighter ที่พบระหว่างการ
+ตรวจสอบ tutorial ก่อนเพิ่มขนาดหรือเปลี่ยน instrument ให้ตรวจ endpoint รายละเอียดตลาดของ environment
+ที่ตั้งค่าไว้:
 
-- [Testnet][testnet market details], the example default.
-- [Mainnet][market details endpoint].
+- [Testnet][testnet market details] ซึ่งเป็นค่าเริ่มต้นของตัวอย่าง
+- [Mainnet][market details endpoint]
 
-## Session constraint
+## ข้อจำกัดเรื่อง session {#session-constraint}
 
-Lighter RWA markets trade continuously. `NVDA.EQUS` follows the US equity market data session. Run the first
-live test during the regular cash session ([13:30, 20:00] UTC, US daylight time), with special handling for
-holidays and half-days.
+ตลาด RWA ของ Lighter ซื้อขายต่อเนื่อง ขณะที่ `NVDA.EQUS` เป็นไปตาม session ข้อมูลตลาดหุ้นสหรัฐฯ ให้รัน
+การทดสอบ live ครั้งแรกในช่วง regular cash session ([13:30, 20:00] UTC ในช่วง daylight time ของสหรัฐฯ)
+และจัดการวันหยุดกับวันที่ซื้อขายครึ่งวันเป็นพิเศษ
 
-`CompositeMarketMaker` does not include a built-in session gate or signal-age guard. For production use, add
-an actor or strategy variant that cancels quotes when the Databento signal is stale. The tutorial uses the
-shipped strategy, so this operating constraint remains explicit.
+`CompositeMarketMaker` ไม่มีตัวกั้น session หรือตัวตรวจอายุของ signal ในตัว สำหรับการใช้งานจริง ให้เพิ่ม
+actor หรือ strategy รุ่นดัดแปลงที่ยกเลิก quote เมื่อ signal จาก Databento เก่าเกินไป tutorial นี้ใช้
+strategy ที่มาให้ จึงคงข้อจำกัดในการใช้งานนี้ไว้อย่างชัดเจน
 
-## Example node
+## Node ตัวอย่าง {#example-node}
 
-You can run the example in two ways:
+รันตัวอย่างได้สองวิธี:
 
-- From a NautilusTrader checkout, use the shipped [Lighter NVDA composite market maker binary][example-script].
-- In your own project, copy the node setup below into `main` with the crates from [Project setup](#project-setup).
+- จาก checkout ของ NautilusTrader ให้ใช้ [binary composite market maker สำหรับ NVDA บน Lighter][example-script]
+  ที่มาให้
+- ในโปรเจกต์ของคุณเอง ให้คัดลอกการตั้งค่า node ด้านล่างไปไว้ใน `main` พร้อม crate จาก
+  [การตั้งค่าโปรเจกต์](#project-setup)
 
-The Python example at [`examples/live/lighter/nvda_composite_mm.py`][python-example-script] uses the same Rust
-strategy through PyO3.
-
-From a checkout, with the credential variables set, the shipped binary connects
-the data and execution clients. It defaults to `DRY_RUN = false`, which adds the
-order-submitting strategy.
+จาก checkout เมื่อตั้ง environment variable credential แล้ว binary ที่มาให้จะเชื่อมต่อ data client และ
+execution client โดยค่าเริ่มต้นคือ `DRY_RUN = false` ซึ่งจะเพิ่ม strategy ที่ส่ง order ด้วย
 
 :::warning
-This command can submit live orders. Start with the smallest accepted size on a funded test
-account or a mainnet account sized for loss. Confirm the active instrument ID, account ID,
-numeric account index, and Lighter credentials before running it.
+คำสั่งนี้สามารถส่ง order จริงได้ ให้เริ่มจากขนาดเล็กที่สุดที่ยอมรับได้บน test account ที่มีเงิน หรือบัญชี
+mainnet ที่กำหนดขนาดไว้สำหรับรองรับการขาดทุน ยืนยัน instrument ID, account ID, account index แบบตัวเลข
+และ credential ของ Lighter ที่ใช้งานอยู่ก่อนรัน
 :::
 
 ```bash
 cargo run --bin lighter-nvda-composite-mm --package nautilus-tutorials --features examples
 ```
 
-Databento is a multi-venue data client without a fixed venue route, so the engine
-uses it as the default route for `NVDA.EQUS`. Lighter registers with the `LIGHTER`
-venue route and receives `NVDA-PERP.LIGHTER` subscriptions.
+Databento เป็น data client แบบหลาย venue ที่ไม่มีเส้นทาง venue ตายตัว engine จึงใช้เป็นเส้นทางค่าเริ่มต้น
+สำหรับ `NVDA.EQUS` ส่วน Lighter ลงทะเบียนกับเส้นทาง venue `LIGHTER` และรับการ subscribe ของ
+`NVDA-PERP.LIGHTER`
 
-The setup combines a three-client node with `CompositeMarketMaker`. This excerpt is abbreviated. It omits
-these items, among other lines:
+การตั้งค่านี้รวม node ที่มีสาม client เข้ากับ `CompositeMarketMaker` ตัวอย่างโค้ดด้านล่างถูกย่อไว้ โดยละ
+รายการต่อไปนี้ รวมถึงบรรทัดอื่นๆ:
 
-- Source constants.
-- The `publishers_filepath`, `max_position`, and `trade_size` definitions.
-- The final `node.run().await?` call.
+- ค่าคงที่ในซอร์ส
+- การกำหนด `publishers_filepath`, `max_position` และ `trade_size`
+- การเรียก `node.run().await?` ในตอนท้าย
 
-The [example source][example-script] has the complete `main`:
+[ซอร์สของตัวอย่าง][example-script] มี `main` ฉบับสมบูรณ์:
 
 ```rust
 use nautilus_live::node::config::LiveExecutionEngineConfig;
@@ -276,128 +266,110 @@ if !DRY_RUN {
 }
 ```
 
-To connect without adding the order-submitting strategy, edit the constant near the top of the
-example source:
+หากต้องการเชื่อมต่อโดยไม่เพิ่ม strategy ที่ส่ง order ให้แก้ค่าคงที่ใกล้ส่วนบนของซอร์สตัวอย่าง:
 
 ```rust
 const DRY_RUN: bool = true;
 ```
 
-Then run the same command:
+จากนั้นรันคำสั่งเดิม:
 
 ```bash
 cargo run --bin lighter-nvda-composite-mm --package nautilus-tutorials --features examples
 ```
 
-For a testnet smoke run, keep `LIGHTER_ENVIRONMENT` as
-`LighterEnvironment::Testnet` and use the `LIGHTER_TESTNET_*` credential
-variables. If the run is outside the Databento US Equities cash session, it can
-still validate node startup, routing, and Lighter data. The strategy waits for a
-valid `NVDA.EQUS` quote before submitting its first orders, so order lifecycle
-validation requires the Databento signal.
+สำหรับการทดสอบแบบ smoke run บน testnet ให้คง `LIGHTER_ENVIRONMENT` เป็น `LighterEnvironment::Testnet`
+และใช้ environment variable credential `LIGHTER_TESTNET_*` หากรันนอก cash session ของ Databento US
+Equities ก็ยังตรวจสอบการเริ่มต้น node, การ routing และข้อมูลจาก Lighter ได้ strategy จะรอ quote ของ
+`NVDA.EQUS` ที่ถูกต้องก่อนส่ง order แรก ดังนั้นการตรวจสอบวงจรชีวิตของ order จึงต้องมี signal จาก Databento
 
-With reconciliation enabled, both examples reconcile only the configured Lighter target instrument, with a
-60-minute lookback. They skip reports for other Lighter markets on the account. On stop, the strategy cancels
-its own target orders. It submits reduce-only market orders to close its own target positions.
+เมื่อเปิด reconciliation ตัวอย่างทั้งสองแบบจะ reconcile เฉพาะ target instrument บน Lighter ที่ตั้งค่าไว้
+โดยย้อนหลัง 60 นาที และข้าม report ของตลาดอื่นบน Lighter ในบัญชีเดียวกัน เมื่อหยุด strategy จะยกเลิก
+target order ของตัวเอง และส่ง market order แบบ reduce-only เพื่อปิด target position ของตัวเอง
 
-Start with a flat target position on the account. Lighter nets all exposure in a market, while the strategy
-caps and closes only the position it owns. After shutdown, confirm that no orders or positions from the run
-remain. Fills can arrive while cancellation is pending.
+ให้เริ่มด้วย target position ที่เป็นศูนย์ในบัญชี Lighter จะ net exposure ทั้งหมดในตลาดหนึ่งเข้าด้วยกัน
+ขณะที่ strategy จำกัดและปิดเฉพาะ position ที่ตัวเองเป็นเจ้าของ หลัง shutdown ให้ยืนยันว่าไม่มี order หรือ
+position จากการรันครั้งนั้นเหลืออยู่ เพราะ fill อาจมาถึงได้ขณะที่การยกเลิกยังค้างอยู่
 
-## Strategy parameters
+## พารามิเตอร์ของ strategy {#strategy-parameters}
 
-| Parameter               | Value               | Description                                                    |
+| พารามิเตอร์               | ค่า                  | คำอธิบาย                                                        |
 | ----------------------- | ------------------- | -------------------------------------------------------------- |
-| `instrument_id`         | `NVDA-PERP.LIGHTER` | Lighter RWA perpetual to quote.                                |
-| `signal_instrument_id`  | `NVDA.EQUS`         | Databento US Equities Mini signal feed.                        |
-| `trade_size`            | `0.05`              | Size per bid or ask.                                           |
-| `max_position`          | `0.20`              | Hard cap on the strategy's target exposure.                    |
-| `half_spread_bps`       | `25`                | Half-spread around the Lighter anchor.                         |
-| `inventory_skew_factor` | `2.0`               | Price units per unit of net position.                          |
-| `signal_skew_factor`    | `55.0`              | Price units per unit of normalized Databento residual.         |
-| `signal_baseline`       | First valid mid     | Optional reference price for the Databento residual.           |
-| `requote_threshold_bps` | `5`                 | Anchor or signal-impact move that triggers cancel and requote. |
+| `instrument_id`         | `NVDA-PERP.LIGHTER` | RWA perpetual บน Lighter ที่จะวาง quote                          |
+| `signal_instrument_id`  | `NVDA.EQUS`         | feed signal จาก Databento US Equities Mini                      |
+| `trade_size`            | `0.05`              | ขนาดต่อ bid หรือ ask แต่ละตัว                                      |
+| `max_position`          | `0.20`              | เพดานตายตัวของ target exposure ของ strategy                       |
+| `half_spread_bps`       | `25`                | ครึ่งหนึ่งของ spread รอบ anchor ของ Lighter                         |
+| `inventory_skew_factor` | `2.0`               | หน่วยราคาต่อหนึ่งหน่วยของ net position                               |
+| `signal_skew_factor`    | `55.0`              | หน่วยราคาต่อหนึ่งหน่วยของ residual จาก Databento ที่ normalize แล้ว      |
+| `signal_baseline`       | mid ตัวแรกที่ถูกต้อง     | ราคาอ้างอิงสำหรับ residual ของ Databento (ไม่บังคับ)                  |
+| `requote_threshold_bps` | `5`                 | การขยับของ anchor หรือผลกระทบจาก signal ที่กระตุ้นให้ยกเลิกและวาง quote ใหม่ |
 
-With a Lighter mid of `207.00` and `half_spread_bps=25`, the unskewed half
-spread is `0.5175` USD. If Databento is 30 bps above its baseline, a
-`signal_skew_factor` of `55.0` shifts both sides up by `0.165` USD before
-inventory skew. A long position of `0.05` with `inventory_skew_factor=2.0`
-shifts both sides down by `0.10` USD.
+เมื่อ mid ของ Lighter อยู่ที่ `207.00` และ `half_spread_bps=25` ครึ่ง spread ที่ยังไม่ skew คือ `0.5175` USD
+หาก Databento อยู่สูงกว่า baseline 30 bps ค่า `signal_skew_factor` เท่ากับ `55.0` จะเลื่อนทั้งสองฝั่งขึ้น
+`0.165` USD ก่อนคิด inventory skew ส่วน long position ขนาด `0.05` กับ `inventory_skew_factor=2.0`
+จะเลื่อนทั้งสองฝั่งลง `0.10` USD
 
-## Requote behavior
+## พฤติกรรมการวาง quote ใหม่ {#requote-behavior}
 
-Signal ticks update internal state but do not submit orders by themselves. With nonzero `signal_skew_factor`,
-target ticks wait for both of these conditions:
+tick ของ signal จะอัปเดตสถานะภายในแต่ไม่ส่ง order ด้วยตัวเอง เมื่อ `signal_skew_factor` ไม่เป็นศูนย์
+tick ของ target จะรอจนครบทั้งสองเงื่อนไขนี้:
 
-- A signal quote with positive, uncrossed bid and ask prices.
-- A finite, positive baseline.
+- quote ของ signal ที่ราคา bid และ ask เป็นบวกและไม่ cross กัน
+- baseline ที่เป็นค่าจำกัดและเป็นบวก
 
-The first valid signal mid supplies the baseline when `signal_baseline` is unset. An explicit baseline remains
-unchanged and still requires a valid signal quote. An invalid baseline prevents quoting. With
-`signal_skew_factor=0`, the strategy can quote without a signal or baseline.
+signal mid ตัวแรกที่ถูกต้องจะใช้เป็น baseline เมื่อไม่ได้ตั้ง `signal_baseline` ส่วน baseline ที่กำหนดเองจะคงที่
+และยังต้องมี quote ของ signal ที่ถูกต้อง baseline ที่ไม่ถูกต้องจะทำให้ไม่วาง quote และเมื่อ
+`signal_skew_factor=0` strategy จะวาง quote ได้โดยไม่ต้องมี signal หรือ baseline
 
-After readiness, the next Lighter quote tick reads the latest signal residual and checks the quote state. A
-quote cycle occurs when any of these conditions holds:
+เมื่อพร้อมแล้ว quote tick ถัดไปของ Lighter จะอ่าน signal residual ล่าสุดและตรวจสถานะของ quote รอบการวาง
+quote จะเกิดขึ้นเมื่อเงื่อนไขใดเงื่อนไขหนึ่งต่อไปนี้เป็นจริง:
 
-- No target orders are open or in flight.
-- The Lighter anchor moves by at least `requote_threshold_bps`.
-- The price impact of the signal residual change reaches the same threshold.
+- ไม่มี target order ที่เปิดอยู่หรือกำลังส่ง
+- anchor ของ Lighter ขยับอย่างน้อย `requote_threshold_bps`
+- ผลกระทบด้านราคาจากการเปลี่ยนแปลงของ signal residual ถึงเกณฑ์เดียวกัน
 
-The strategy then performs these actions:
+จากนั้น strategy จะทำสิ่งต่อไปนี้:
 
-1. Cancels open orders.
-1. Reads current net position and pending exposure from the cache.
-1. Calculates one bid and one ask.
-1. Removes any side that exceeds `max_position`.
-1. Submits the remaining sides as post-only limits.
+1. ยกเลิก order ที่เปิดอยู่
+1. อ่าน net position ปัจจุบันและ exposure ที่ค้างอยู่จาก cache
+1. คำนวณ bid หนึ่งตัวและ ask หนึ่งตัว
+1. ตัดฝั่งที่จะทำให้เกิน `max_position` ออก
+1. ส่งฝั่งที่เหลือเป็น limit แบบ post-only
 
-## Panels
+## แผงกราฟ {#panels}
 
-The panels below use deterministic replay data. They show the quoting mechanics
-and the cash-session constraint. They are not a captured live Lighter fill trace.
+แผงกราฟด้านล่างใช้ข้อมูล replay ที่กำหนดผลได้แน่นอน แสดงกลไกการวาง quote และข้อจำกัดของ cash session
+ไม่ใช่ trace ของ fill จริงที่บันทึกจาก Lighter
 
 ![NVDA composite quote center against Databento and Lighter mids](./assets/lighter_rwa_composite_mm/panel_a_reference_overlay.png)
 
-**Figure 1.** *Databento `NVDA.EQUS` mid, Lighter `NVDA-PERP.LIGHTER` mid,
-composite bid, composite ask, and quote center.*
+**รูปที่ 1.** *mid ของ `NVDA.EQUS` จาก Databento, mid ของ `NVDA-PERP.LIGHTER` จาก Lighter,
+composite bid, composite ask และจุดกึ่งกลางของ quote*
 
 ![Databento residual, Lighter basis, and quote-center shift](./assets/lighter_rwa_composite_mm/panel_b_signal_basis.png)
 
-**Figure 2.** *Databento residual, Lighter basis, and quote-center shift in bps.*
+**รูปที่ 2.** *residual ของ Databento, basis ของ Lighter และการเลื่อนจุดกึ่งกลางของ quote หน่วย bps*
 
 ![Inventory skew terms for the composite market maker](./assets/lighter_rwa_composite_mm/panel_c_inventory_skew.png)
 
-**Figure 3.** *Net position, signal shift, inventory adjustment, and total shift
-for a `0.05` NVDA trade size and `0.20` NVDA position cap.*
+**รูปที่ 3.** *net position, การเลื่อนจาก signal, การปรับจาก inventory และการเลื่อนรวม สำหรับขนาด trade
+`0.05` NVDA และเพดาน position `0.20` NVDA*
 
 ![Lighter continuous trading and Databento session clock](./assets/lighter_rwa_composite_mm/panel_d_session_clock.png)
 
-**Figure 4.** *Lighter's continuous RWA market clock against the Databento US
-Equities cash-session signal, with signal age after the regular session.*
+**รูปที่ 4.** *นาฬิกาตลาด RWA แบบต่อเนื่องของ Lighter เทียบกับ signal ตาม cash session ของ Databento US
+Equities พร้อมอายุของ signal หลังจบ regular session*
 
-## Regenerate the panels
+## ส่วนขยาย {#extensions}
 
-After building NautilusTrader from source, run these commands from the repository root:
+ตัวกั้นอายุของ signal ทำให้ signal จาก Databento เป็น dependency ในการใช้งานที่ชัดเจน ตัวอย่างเช่น ยกเลิก
+order ทั้งหมดบน Lighter หาก quote ล่าสุดของ `NVDA.EQUS` เก่ากว่า 30 วินาทีในช่วง cash session และยกเลิก
+ทันทีหลัง cash session ปิด
 
-```bash
-make sync
-uv run --project python --no-sync \
-    python docs/tutorials/assets/lighter_rwa_composite_mm/render_panels.py
-```
-
-The renderer writes four PNGs into
-`docs/tutorials/assets/lighter_rwa_composite_mm/`. It uses the
-`nautilus_dark` Plotly theme and deterministic replay data so docs builds do not
-depend on vendor data licenses or live exchange access.
-
-## Extensions
-
-A signal-age gate can make the Databento signal an explicit operating dependency. For example, cancel all
-Lighter orders if the latest `NVDA.EQUS` quote is older than 30 seconds during the cash session. Also cancel
-them immediately after the cash session closes.
-
-For a pure fair-value strategy, use this tutorial's client setup. Write a small variant that anchors bid/ask
-directly on the Databento mid. Then check the Lighter BBO only for post-only and basis limits.
+สำหรับ strategy แบบ fair-value ล้วน ให้ใช้การตั้งค่า client ของ tutorial นี้ แล้วเขียนรุ่นดัดแปลงเล็กๆ ที่
+anchor bid/ask กับ mid ของ Databento โดยตรง จากนั้นตรวจ BBO ของ Lighter เฉพาะสำหรับข้อจำกัด post-only
+และ basis
 
 [composite-market-maker]: https://github.com/nautechsystems/nautilus_trader/blob/develop/crates/trading/src/examples/strategies/composite_market_maker/strategy.rs
 [live-node]: ../how_to/run_rust_live_trading.md
@@ -411,4 +383,3 @@ directly on the Databento mid. Then check the Lighter BBO only for post-only and
 [testnet market details]: https://testnet.zklighter.elliot.ai/api/v1/orderBookDetails
 [Databento US Equities]: https://databento.com/blog/introducing-databento-us-equities
 [example-script]: https://github.com/nautechsystems/nautilus_trader/blob/develop/examples/tutorials/src/bin/lighter_nvda_composite_mm.rs
-[python-example-script]: https://github.com/nautechsystems/nautilus_trader/blob/develop/examples/live/lighter/nvda_composite_mm.py

@@ -1,89 +1,89 @@
 # Event Sourcing
 
-Event sourcing gives NautilusTrader a durable, ordered record of the messages that change engine state. The
-event store records those messages at the system boundary. Readers, replay tools, and verifiers then use the
-same log to reconstruct what happened and to rebuild state.
+Event sourcing ทำให้ NautilusTrader มีบันทึกของ message ที่เปลี่ยนสถานะของ engine อย่างคงทนและเรียงลำดับ
+event store บันทึก message เหล่านั้นที่ขอบเขตของระบบ จากนั้น reader, เครื่องมือ replay และ verifier จะใช้
+log เดียวกันนี้เพื่อสร้างสิ่งที่เกิดขึ้นขึ้นใหม่และ rebuild สถานะ
 
-**Core principles**:
+**หลักการสำคัญ**:
 
-- The event store is the durable authority for state-affecting history.
-- The cache is a write-through projection, not the source of truth.
-- Cache replay rebuilds state by applying captured history to cache-owned state.
-- Market data stays in the data catalog. The event store records the messages that affect state.
-- External I/O becomes replayable only when Nautilus captures it as commands, raw reports, or
-  other state-affecting inputs.
+- event store คือแหล่งอ้างอิงที่คงทนสำหรับประวัติที่มีผลต่อสถานะ
+- cache เป็น projection แบบ write-through ไม่ใช่ source of truth
+- cache replay สร้างสถานะใหม่โดยนำประวัติที่ capture ไว้ไปใช้กับสถานะที่ cache เป็นเจ้าของ
+- market data อยู่ใน data catalog ส่วน event store บันทึก message ที่มีผลต่อสถานะ
+- I/O ภายนอกจะ replay ได้ก็ต่อเมื่อ Nautilus capture มันไว้เป็น command, raw report หรือ
+  input อื่นที่มีผลต่อสถานะ
 
 :::note
-Event-store capture, replay, verification, recovery, and retention planning have targeted test
-coverage, but the API surface is still evolving. Treat this page as the design contract, and the
+การ capture, replay, verification, recovery และการวางแผน retention ของ event store มี test coverage
+ที่เจาะจงแล้ว แต่ API ยังอยู่ระหว่างการพัฒนา ให้ถือหน้านี้เป็น design contract และใช้
 [`nautilus-event-store` README](https://github.com/nautechsystems/nautilus_trader/blob/develop/crates/event_store/README.md)
-plus [docs.rs](https://docs.rs/nautilus-event-store) as the API reference.
+กับ [docs.rs](https://docs.rs/nautilus-event-store) เป็นเอกสารอ้างอิง API
 :::
 
-## Why event sourcing
+## ทำไมต้อง event sourcing {#why-event-sourcing}
 
-The cache answers "what is true now". The event store answers "how did Nautilus get here". It gives readers,
-replay tools, and verifiers a run-scoped history. That history explains past state without strategy logic,
-venue queries, or the live cache.
+cache ตอบคำถามว่า "ตอนนี้อะไรเป็นจริง" ส่วน event store ตอบว่า "Nautilus มาถึงจุดนี้ได้อย่างไร" มันให้
+ประวัติในขอบเขตของ run แก่ reader, เครื่องมือ replay และ verifier ประวัตินี้อธิบายสถานะในอดีตได้โดยไม่ต้องใช้
+logic ของ strategy, การ query venue หรือ live cache
 
-The event store provides a durable basis to:
+event store เป็นพื้นฐานที่คงทนสำหรับ:
 
-- Prove whether a sealed run is clean before replay or archive.
-- Inspect the exact command, report, and event sequence behind an order or component intent.
-- Rebuild cache state from captured history, including a snapshot anchor plus the run tail.
-- Trace an intent through the engine-side messages that followed from it.
-- Seal stale run files before the next run starts after a process exit or writer halt.
+- พิสูจน์ว่า run ที่ seal แล้วสะอาดหรือไม่ก่อน replay หรือ archive
+- ตรวจสอบลำดับที่แน่นอนของ command, report และ event เบื้องหลัง order หรือ intent ของ component
+- สร้างสถานะ cache ขึ้นใหม่จากประวัติที่ capture ไว้ รวมถึง snapshot anchor และส่วนท้ายของ run
+- ติดตาม intent ผ่าน message ฝั่ง engine ที่ตามมาจากมัน
+- seal ไฟล์ run ที่ค้างอยู่ก่อนเริ่ม run ถัดไป หลังจาก process ออกหรือ writer halt
 
-## Terms
+## คำศัพท์ {#terms}
 
-- **Run**: one kernel session for one instance, binary, and config.
-- **Entry**: one captured message plus replay metadata.
-- `seq`: the per-run sequence assigned by the writer and used as replay order.
-- **High-watermark**: the largest `seq` durably acknowledged by the backend.
-- **Snapshot anchor**: the high-watermark recorded with a cache snapshot.
-- **Headers**: correlation and causation metadata propagated with captured messages.
+- **Run**: kernel session หนึ่งครั้งสำหรับ instance, binary และ config หนึ่งชุด
+- **Entry**: message ที่ capture ไว้หนึ่งตัวพร้อม metadata สำหรับ replay
+- `seq`: sequence ต่อ run ที่ writer กำหนดและใช้เป็นลำดับของ replay
+- **High-watermark**: `seq` ที่มากที่สุดซึ่ง backend ยืนยันความคงทนแล้ว
+- **Snapshot anchor**: high-watermark ที่บันทึกไว้พร้อม cache snapshot
+- **Headers**: metadata ด้าน correlation และ causation ที่ส่งต่อไปพร้อมกับ message ที่ capture ไว้
 
-## What the store records
+## สิ่งที่ store บันทึก {#what-the-store-records}
 
-The event store records state-affecting message bus traffic for one trading instance and one run.
-A run starts when the kernel starts and ends when the process stops cleanly or crashes.
+event store บันทึก traffic บน message bus ที่มีผลต่อสถานะสำหรับ trading instance หนึ่งตัวและ run หนึ่งครั้ง
+run เริ่มเมื่อ kernel เริ่ม และจบเมื่อ process หยุดอย่างปกติหรือ crash
 
-**Captured entries include**:
+**Entry ที่ capture ได้แก่**:
 
-- Execution commands such as submit, modify, and cancel.
-- Data subscription commands that define the actor or strategy observation window.
-- Fired time events and generated order, position, and account events.
-- Raw venue execution reports before reconciliation synthesizes derived events.
-- Reconciliation outputs produced from those raw reports.
-- Request and response messages, or their audit-relevant metadata, that cross the bus and affect
-  state.
-- Run lifecycle entries such as `RunStarted` and `RunEnded`.
+- execution command เช่น submit, modify และ cancel
+- data subscription command ที่กำหนดช่วงการสังเกตของ actor หรือ strategy
+- time event ที่ทำงานแล้ว และ order, position, account event ที่ถูกสร้างขึ้น
+- raw venue execution report ก่อนที่ reconciliation จะสังเคราะห์เป็น event ที่ derive มา
+- ผลลัพธ์ของ reconciliation ที่ได้จาก raw report เหล่านั้น
+- request และ response message หรือ metadata ที่เกี่ยวข้องกับการ audit ซึ่งผ่าน bus และมีผลต่อ
+  สถานะ
+- entry ของ lifecycle ของ run เช่น `RunStarted` และ `RunEnded`
 
-Streamed market-data observations stay in the data catalog. The event store records the command
-stream, raw reports, generated events, and metadata needed to replay how the engine reacted to that
-world.
+การสังเกต market data แบบ streaming จะอยู่ใน data catalog ส่วน event store บันทึก command
+stream, raw report, event ที่ถูกสร้าง และ metadata ที่จำเป็นในการ replay ว่า engine ตอบสนองต่อ
+โลกภายนอกนั้นอย่างไร
 
-Two capture rules distinguish data responses and instrument closes from streamed observations:
+กฎการ capture สองข้อแยก data response และ instrument close ออกจากการสังเกตแบบ streaming:
 
-- **Data responses**: each response to an engine request is captured, including book, option-chain reference
-  price, and custom-data responses. Only those listed under [Cache replay](#cache-replay) have rules that
-  apply them back to cache state. The rest are inspection records.
-- **Instrument closes**: each published `InstrumentClose` is captured because contract expiration settles
-  positions.
+- **Data response**: response ทุกตัวต่อ request ของ engine จะถูก capture รวมถึง response ของ book, ราคาอ้างอิงของ
+  option chain และ custom data เฉพาะรายการที่ระบุไว้ใน [Cache replay](#cache-replay) เท่านั้นที่มีกฎ
+  นำกลับไปใช้กับสถานะ cache ส่วนที่เหลือเป็น record สำหรับการตรวจสอบ
+- **Instrument close**: `InstrumentClose` ทุกตัวที่ publish จะถูก capture เพราะการหมดอายุของสัญญาจะ settle
+  position
 
-## Boundaries
+## ขอบเขต {#boundaries}
 
-The event store is intentionally narrow:
+event store ถูกออกแบบให้แคบโดยเจตนา:
 
-- It does not replace the data catalog.
-- It does not provide analytics or OLAP queries.
-- It does not aggregate multiple trader instances into a consensus log.
-- It does not yet define redaction, encryption-at-rest, or tamper evidence.
+- ไม่ได้มาแทน data catalog
+- ไม่มี analytics หรือ OLAP query
+- ไม่ได้รวม trader instance หลายตัวเข้าเป็น consensus log
+- ยังไม่ได้กำหนดเรื่อง redaction, encryption-at-rest หรือ tamper evidence
 
-## Capture flow
+## Flow การ capture {#capture-flow}
 
-Capture happens at the message bus dispatch boundary, so the tap sees each state-affecting message before
-downstream handlers observe it.
+การ capture เกิดขึ้นที่ขอบเขตการ dispatch ของ message bus ดังนั้น tap จะเห็น message ที่มีผลต่อสถานะแต่ละตัว
+ก่อนที่ handler ปลายทางจะเห็น
 
 ```mermaid
 flowchart LR
@@ -96,87 +96,87 @@ flowchart LR
     Backend --> Reader["Reader, replay, verifier"]
 ```
 
-Capture branches off the same dispatch that feeds downstream handlers, and readers only ever reach
-the durable backend.
+การ capture แยกออกมาจาก dispatch เดียวกับที่ป้อน handler ปลายทาง และ reader จะเข้าถึงได้
+เฉพาะ backend ที่คงทนเท่านั้น
 
-Capture is **asynchronous**, not an acceptance gate on dispatch. A successful capture enqueues the
-entry to the writer. The writer thread then assigns the next `seq`, commits a batch, and advances
-the high-watermark once the backend acknowledges durability.
+การ capture เป็นแบบ **asynchronous** ไม่ได้เป็นด่านตรวจรับของ dispatch การ capture ที่สำเร็จจะใส่
+entry เข้าคิวของ writer จากนั้น writer thread จะกำหนด `seq` ถัดไป commit เป็น batch และเลื่อน
+high-watermark เมื่อ backend ยืนยันความคงทนแล้ว
 
-Readers scan sealed or running backends through an interface with no append operations.
+reader สแกน backend ที่ seal แล้วหรือกำลังทำงานผ่าน interface ที่ไม่มี operation สำหรับ append
 
-The writer takes entries over a bounded channel, with two distinct failure paths:
+writer รับ entry ผ่าน bounded channel โดยมีเส้นทางความล้มเหลวสองแบบที่แตกต่างกัน:
 
-- **Backpressure**: a submit that stalls past the configured `halt_threshold` fires the halt
-  signal. Backpressure never silently drops an accepted entry.
-- **Backend commit failure**: the writer fires the halt signal, discards the pending batch, and
-  ends its loop. Those entries never become durable.
+- **Backpressure**: submit ที่ค้างเกิน `halt_threshold` ที่ตั้งไว้จะส่ง halt
+  signal backpressure จะไม่ทิ้ง entry ที่รับไปแล้วอย่างเงียบ ๆ
+- **Backend commit ล้มเหลว**: writer ส่ง halt signal ทิ้ง batch ที่ pending และ
+  จบ loop ของตน entry เหล่านั้นจะไม่มีวันคงทน
 
 :::warning
-**Fail-stop does not interrupt the run**. The tap logs the failure, and the message still reaches
-its handlers. Once halted, the tap stops recording, so the rest of that session runs uncaptured.
+**Fail-stop ไม่ได้ขัดจังหวะ run** tap จะ log ความล้มเหลว และ message ยังคงไปถึง
+handler ของมัน เมื่อ halt แล้ว tap จะหยุดบันทึก ดังนั้นส่วนที่เหลือของ session นั้นจะทำงานโดยไม่ถูก capture
 
-No runtime component polls the halt signal to stop the trader. The recovery sweep on the next boot
-seals the run, using `CrashedRecovered` when its tail is clean.
+ไม่มี component ใดใน runtime ที่ poll halt signal เพื่อหยุด trader การ sweep เพื่อ recovery ในการ boot ครั้งถัดไป
+จะ seal run นั้น โดยใช้ `CrashedRecovered` เมื่อส่วนท้ายสะอาด
 :::
 
-Some messages are expected to cross more than one tap-visible boundary:
+บาง message คาดว่าจะผ่านขอบเขตที่ tap มองเห็นมากกว่าหนึ่งครั้ง:
 
-- The execution engine sends an order event to the portfolio endpoint and publishes the same event
-  on its strategy topic.
-- Trading commands hop from strategy to risk to execution.
+- execution engine ส่ง order event ไปยัง endpoint ของ portfolio และ publish event เดียวกัน
+  บน topic ของ strategy
+- trading command เดินทางจาก strategy ไปยัง risk แล้วไปยัง execution
 
-Duplicate dispatches of one message land within a single engine cycle. Thus, the capture adapter deduplicates
-against a bounded window of recently captured message identities (event id, command id). Each logical message
-becomes one entry, and replay does not apply the same event twice.
+การ dispatch ซ้ำของ message เดียวกันจะเกิดขึ้นภายใน engine cycle เดียว capture adapter จึง deduplicate
+โดยเทียบกับหน้าต่างแบบจำกัดขนาดของ identity ของ message ที่ capture ไปเมื่อเร็ว ๆ นี้ (event id, command id) message
+เชิงตรรกะแต่ละตัวจะกลายเป็น entry เดียว และ replay จะไม่นำ event เดียวกันไปใช้สองครั้ง
 
-## Lifecycle options
+## Lifecycle option {#lifecycle-options}
 
-`EventStoreConfig` is the serializable run policy. Process-local construction policy lives in
-`EventStoreLifecycleOptions`, which advanced callers pass through
-`EventStoreLifecycle::boot_with_options(...)`.
+`EventStoreConfig` คือ run policy ที่ serialize ได้ ส่วน policy การสร้างระดับ process อยู่ใน
+`EventStoreLifecycleOptions` ซึ่งผู้เรียกขั้นสูงส่งผ่าน
+`EventStoreLifecycle::boot_with_options(...)`
 
-By default the lifecycle opens `RedbBackend` and installs the default encoder and data-marker
-extractor registries. Lifecycle options replace any of the three:
+โดย default lifecycle จะเปิด `RedbBackend` และติดตั้ง registry ของ encoder และ data-marker
+extractor แบบ default lifecycle option สามารถแทนที่อย่างใดอย่างหนึ่งในสามอย่างนี้ได้:
 
-- An encoder registry, or a factory that builds one per run, applied before the bus tap starts
-  capture.
-- A backend opener that returns any `EventStore` implementation for the new run.
-- A data-marker extractor registry factory for the configured marker classes.
+- encoder registry หรือ factory ที่สร้าง registry ต่อ run ซึ่งนำไปใช้ก่อนที่ bus tap จะเริ่ม
+  capture
+- backend opener ที่ return implementation ใดก็ได้ของ `EventStore` สำหรับ run ใหม่
+- factory ของ data-marker extractor registry สำหรับ marker class ที่ตั้งค่าไว้
 
-The backend opener is the simulation-safe path for memory capture. A DST harness or focused test can open
-`MemoryBackend` through the normal lifecycle with the same bus tap and writer semantics. It can then read the
-captured entries in-process after seal. With a `MemoryBackend` opener, capture needs no `redb` run file.
+backend opener คือเส้นทางที่ปลอดภัยสำหรับ simulation ในการ capture ลงหน่วยความจำ DST harness หรือ test เฉพาะทางสามารถเปิด
+`MemoryBackend` ผ่าน lifecycle ปกติด้วย bus tap และความหมายของ writer แบบเดียวกัน แล้วอ่าน
+entry ที่ capture ไว้ภายใน process หลัง seal ได้ เมื่อใช้ opener แบบ `MemoryBackend` การ capture ไม่ต้องใช้ไฟล์ run ของ `redb`
 
-Under `cfg(madsim)`, the writer commits each submit synchronously, so the captured `seq` order is
-deterministic.
+ภายใต้ `cfg(madsim)` writer จะ commit แต่ละ submit แบบ synchronous ดังนั้นลำดับ `seq` ที่ capture ได้จึง
+deterministic
 
-## Entry model
+## โมเดลของ entry {#entry-model}
 
-Each event-store entry is one captured message plus metadata:
+entry แต่ละตัวใน event store คือ message ที่ capture ไว้หนึ่งตัวพร้อม metadata:
 
-- `seq`: the per-run replay-order authority.
-- `ts_init`: the domain timestamp on the captured message.
-- `ts_publish`: the bus-accepted or writer-receive timestamp.
-- `topic`: the bus topic or logical endpoint.
-- `payload_type`: the encoded message type.
-- `payload`: the encoded message bytes.
-- `headers`: correlation and causation metadata.
-- `entry_hash`: the canonical hash over the entry content.
+- `seq`: ตัวกำหนดลำดับ replay ต่อ run
+- `ts_init`: domain timestamp บน message ที่ capture ไว้
+- `ts_publish`: timestamp ที่ bus รับหรือที่ writer ได้รับ
+- `topic`: bus topic หรือ endpoint เชิงตรรกะ
+- `payload_type`: ชนิดของ message ที่ encode แล้ว
+- `payload`: byte ของ message ที่ encode แล้ว
+- `headers`: metadata ด้าน correlation และ causation
+- `entry_hash`: canonical hash ของเนื้อหา entry
 
-`seq` orders replay. Timestamps help explain the run, but they do not override `seq`.
+`seq` เป็นตัวกำหนดลำดับ replay timestamp ช่วยอธิบาย run แต่ไม่ได้มีผลเหนือกว่า `seq`
 
-Secondary indices cover lookup by `client_order_id` and `venue_order_id`. A `correlation_id` index can be
-added when a concrete inspection caller needs that lookup pattern. Until then, correlation scans can walk the
-captured stream.
+secondary index รองรับการค้นหาด้วย `client_order_id` และ `venue_order_id` สามารถเพิ่ม index ของ `correlation_id`
+ได้เมื่อมีผู้เรียกเพื่อการตรวจสอบที่ต้องการรูปแบบการค้นหานั้นจริง ๆ ระหว่างนี้การสแกน correlation สามารถไล่ดู
+stream ที่ capture ไว้ได้
 
-## Correlation model
+## โมเดลของ correlation {#correlation-model}
 
-The target model uses three identity levels to distinguish scope, lineage, and message identity:
+โมเดลเป้าหมายใช้ identity สามระดับเพื่อแยกขอบเขต สายเชื้อสาย (lineage) และ identity ของ message:
 
-- `correlation_id`: the logical workflow or chain.
-- `causation_id`: the direct parent message that caused this message.
-- `command_id`, `event_id`, or `report_id`: the identity of this specific message.
+- `correlation_id`: workflow หรือ chain เชิงตรรกะ
+- `causation_id`: message แม่โดยตรงที่ทำให้เกิด message นี้
+- `command_id`, `event_id` หรือ `report_id`: identity ของ message นี้โดยเฉพาะ
 
 ```mermaid
 flowchart TD
@@ -189,72 +189,72 @@ flowchart TD
     Event -. "causation_id" .-> Fill
 ```
 
-One `correlation_id` spans the whole workflow, while `causation_id` links each message to its direct
-parent.
+`correlation_id` หนึ่งตัวครอบคลุมทั้ง workflow ส่วน `causation_id` เชื่อม message แต่ละตัวกับ message แม่
+โดยตรง
 
 :::warning
-**Header propagation is incomplete**, so most captured entries carry empty headers. Treat the
-diagram above as the design contract, not as a description of what a captured run contains.
+**การส่งต่อ header ยังไม่สมบูรณ์** entry ที่ capture ไว้ส่วนใหญ่จึงมี header ว่าง ให้ถือ
+แผนภาพข้างต้นเป็น design contract ไม่ใช่คำอธิบายของสิ่งที่ run ที่ capture ไว้มีอยู่จริง
 
-The default encoder registry registers extractors for trading commands, data commands, and data
-responses. Those extractors forward whatever the message carries. In practice:
+encoder registry แบบ default ลงทะเบียน extractor สำหรับ trading command, data command และ data
+response extractor เหล่านั้นส่งต่อสิ่งที่ message มีอยู่ ในทางปฏิบัติ:
 
-- **Data messages**: only data requests and data responses yield populated headers. A request contributes its
-  `request_id`. A response carries a required `correlation_id`.
-- **Trading commands**: in-tree producers leave `correlation_id` and `causation_id` unset.
-- **Events and reports**: order, position, and account events, execution reports, and time events
-  have no extractor.
+- **Data message**: มีเพียง data request และ data response ที่ให้ header ที่มีค่า request จะให้
+  `request_id` ส่วน response จะมี `correlation_id` ที่จำเป็นต้องมี
+- **Trading command**: producer ภายใน repository ไม่ได้ตั้งค่า `correlation_id` และ `causation_id`
+- **Event และ report**: order, position และ account event, execution report และ time event
+  ไม่มี extractor
 
 :::
 
-Where headers are populated, this lets operators ask two common questions:
+ในกรณีที่ header มีค่า operator จะถามคำถามที่พบบ่อยได้สองข้อ:
 
-- "Show everything in this workflow": filter or scan by `correlation_id`.
-- "Show why this event happened": walk `causation_id` back to the direct parent.
+- "แสดงทุกอย่างใน workflow นี้": กรองหรือสแกนด้วย `correlation_id`
+- "แสดงว่าทำไม event นี้จึงเกิดขึ้น": ไล่ `causation_id` ย้อนกลับไปยัง message แม่โดยตรง
 
-## Run files and manifests
+## ไฟล์ run และ manifest {#run-files-and-manifests}
 
-The default backend is `redb`. It stores one file per run under:
+backend แบบ default คือ `redb` ซึ่งเก็บไฟล์หนึ่งไฟล์ต่อ run ไว้ที่:
 
 ```text
 <base>/<instance_id>/<run_id>.redb
 ```
 
-Each run file contains:
+ไฟล์ run แต่ละไฟล์ประกอบด้วย:
 
-- Entries keyed by `seq`.
-- Secondary indices for order identifiers.
-- A manifest written at run start and sealed at run end.
-- An optional snapshot anchor for cache restore.
+- entry ที่ใช้ `seq` เป็น key
+- secondary index สำหรับ identifier ของ order
+- manifest ที่เขียนตอนเริ่ม run และ seal ตอนจบ run
+- snapshot anchor (optional) สำหรับการกู้คืน cache
 
-The manifest records the run identity and reproducibility inputs:
+manifest บันทึก identity ของ run และ input สำหรับการทำซ้ำ (reproducibility):
 
-- Run identity:
+- Identity ของ run:
   - `run_id`
   - `parent_run_id`
   - `instance_id`
 
-- Build identity:
+- Identity ของ build:
   - `binary_hash`
   - `schema_version`
   - `crate_versions`
   - `feature_flags`
   - `adapter_versions`
 
-- Configuration identity:
+- Identity ของ config:
   - `config_hash`
   - `registered_components`
   - `seed`
 
-- Lifecycle state:
+- สถานะของ lifecycle:
   - `start_ts_init`
   - `end_ts_init`
   - `high_watermark`
   - `status`
 
-Run status is one of `Running`, `Ended`, `CrashedRecovered`, or `Quarantined`.
+สถานะของ run เป็นหนึ่งใน `Running`, `Ended`, `CrashedRecovered` หรือ `Quarantined`
 
-## Run lifecycle
+## Lifecycle ของ run {#run-lifecycle}
 
 ```mermaid
 flowchart TD
@@ -266,24 +266,24 @@ flowchart TD
     RunEnded --> Ended["Ended manifest"]
 ```
 
-A run opens with `RunStarted` and closes with `RunEnded`. Snapshot anchors are optional points recorded while
-the manifest stays `Running`.
+run เปิดด้วย `RunStarted` และปิดด้วย `RunEnded` snapshot anchor เป็นจุด optional ที่บันทึกไว้ระหว่างที่
+manifest ยังเป็น `Running`
 
-- `RunStarted` is the first entry of a fresh run. A repeated `open()` in the same process seals
-  the current session before it starts a new run.
-- While the manifest is `Running`, the bus tap records state-affecting entries and cache snapshots
-  can record anchors against the durable high-watermark.
-- A clean shutdown, kernel drop, or reset/rerun seal appends `RunEnded` and seals the manifest as
-  `Ended`.
-- A fail-stopped (halted) session skips the in-process seal. The recovery sweep on the next boot owns it. The
-  halt signal is scoped to the run that fired it. A later `open()` re-arms a fresh signal, so one halt does
-  not poison subsequent runs in the same process.
+- `RunStarted` คือ entry แรกของ run ใหม่ การเรียก `open()` ซ้ำใน process เดียวกันจะ seal
+  session ปัจจุบันก่อนเริ่ม run ใหม่
+- ขณะที่ manifest เป็น `Running` bus tap จะบันทึก entry ที่มีผลต่อสถานะ และ cache snapshot
+  สามารถบันทึก anchor เทียบกับ high-watermark ที่คงทนได้
+- การ shutdown ปกติ, การ drop kernel หรือการ seal จาก reset/rerun จะ append `RunEnded` และ seal manifest เป็น
+  `Ended`
+- session ที่ fail-stop (halt) จะข้ามการ seal ภายใน process การ sweep เพื่อ recovery ในการ boot ครั้งถัดไปจะรับผิดชอบแทน
+  halt signal มีขอบเขตอยู่ที่ run ที่ส่งมันออกมา การเรียก `open()` ครั้งต่อไปจะตั้ง signal ใหม่ ดังนั้นการ halt หนึ่งครั้ง
+  จะไม่ส่งผลเสียต่อ run ถัด ๆ ไปใน process เดียวกัน
 
-## Recovery sealing
+## การ seal เพื่อ recovery {#recovery-sealing}
 
-A predecessor is an older run file for the same instance whose manifest still says `Running`. This
-means the previous process did not finish the normal lifecycle, or the writer halted before the
-manifest seal completed.
+predecessor คือไฟล์ run ที่เก่ากว่าของ instance เดียวกันซึ่ง manifest ยังระบุว่า `Running` อยู่ ซึ่ง
+หมายความว่า process ก่อนหน้าไม่ได้ทำ lifecycle ปกติจนจบ หรือ writer halt ก่อนที่การ seal
+manifest จะเสร็จ
 
 ```mermaid
 flowchart TD
@@ -301,173 +301,173 @@ flowchart TD
     Quarantined --> NoParent
 ```
 
-Boot recovery scans each `Running` predecessor and chooses a final manifest status from the durable
-tail:
+recovery ตอน boot จะสแกน predecessor ที่เป็น `Running` แต่ละตัว และเลือกสถานะสุดท้ายของ manifest จากส่วนท้าย
+ที่คงทน:
 
-| Durable tail                              | Sealed status      | Eligible parent |
+| ส่วนท้ายที่คงทน                              | สถานะที่ seal      | เป็น parent ได้ |
 | ----------------------------------------- | ------------------ | --------------- |
-| No entries                                | `CrashedRecovered` | Yes             |
-| Clean, without `RunEnded`                 | `CrashedRecovered` | Yes             |
-| Clean, ending in `RunEnded`               | `Ended`            | No              |
-| Hash mismatch, gap, or structural failure | `Quarantined`      | No              |
+| ไม่มี entry                                | `CrashedRecovered` | Yes             |
+| สะอาด ไม่มี `RunEnded`                     | `CrashedRecovered` | Yes             |
+| สะอาด จบด้วย `RunEnded`                    | `Ended`            | No              |
+| hash ไม่ตรง, มีช่องว่าง หรือโครงสร้างผิดพลาด | `Quarantined`      | No              |
 
-The sweep never leaves the trader unbootable because one run file is damaged:
+การ sweep จะไม่ทำให้ trader boot ไม่ได้เพราะไฟล์ run ไฟล์เดียวเสียหาย:
 
-- **Repair**: after a hard kill (SIGKILL, OOM kill, or power loss), redb refuses to open the run
-  file read-only. The listing falls back to a writable open, which performs redb's repair pass
-  before recovery proceeds.
-- **Skip and retry**: if a file still cannot be opened or lacks a manifest, recovery skips it and logs an
-  error. Recovery retries that file on the next boot. Recovery and retention continue over the healthy runs.
+- **ซ่อมแซม**: หลังจาก hard kill (SIGKILL, OOM kill หรือไฟดับ) redb จะปฏิเสธการเปิดไฟล์ run
+  แบบ read-only การ list จะ fallback ไปเปิดแบบเขียนได้ ซึ่งจะทำ repair pass ของ redb
+  ก่อนดำเนินการ recovery ต่อ
+- **ข้ามและลองใหม่**: หากไฟล์ยังเปิดไม่ได้หรือไม่มี manifest recovery จะข้ามไฟล์นั้นและ log
+  error แล้วลองไฟล์นั้นใหม่ในการ boot ครั้งถัดไป recovery และ retention ยังคงทำงานต่อกับ run ที่ปกติ
 
-Only `CrashedRecovered` predecessors become `parent_run_id`. A configured `replay_from_run_id`
-overrides a recovered parent after validation.
+เฉพาะ predecessor ที่เป็น `CrashedRecovered` เท่านั้นที่จะกลายเป็น `parent_run_id` ได้ `replay_from_run_id` ที่ตั้งค่าไว้
+จะมีผลเหนือกว่า parent ที่กู้คืนมาหลังผ่านการตรวจสอบแล้ว
 
-The read-only verifier separately inspects sealed runs without mutating them and reports
-`quarantine=not-performed`.
+verifier แบบ read-only จะตรวจสอบ run ที่ seal แล้วแยกต่างหากโดยไม่แก้ไขมัน และรายงาน
+`quarantine=not-performed`
 
-## Replay inputs
+## Input ของ replay {#replay-inputs}
 
-Replay follows one ordering rule: apply event-store entries in `seq` order. `ts_init` and
-`ts_publish` explain when messages happened, but `seq` is the durable replay order.
+replay ใช้กฎการเรียงลำดับข้อเดียว คือนำ entry ใน event store ไปใช้ตามลำดับ `seq` ส่วน `ts_init` และ
+`ts_publish` อธิบายว่า message เกิดขึ้นเมื่อใด แต่ `seq` คือลำดับ replay ที่คงทน
 
-The Rust replay-input API keeps planning separate from execution:
+API สำหรับ replay input ของ Rust แยกการวางแผนออกจากการ execute:
 
-- Event-store-only replay inputs return entries only.
-- Catalog-joined replay inputs add caller-selected catalog slices for context analysis.
+- replay input ที่ใช้เฉพาะ event store จะ return เฉพาะ entry
+- replay input ที่ join กับ catalog จะเพิ่มส่วนของ catalog ที่ผู้เรียกเลือกไว้เพื่อวิเคราะห์บริบท
 
-Catalog planners take explicit `CatalogSliceSelector` values and a read-only `ReplayCatalog`:
+catalog planner รับค่า `CatalogSliceSelector` ที่ระบุชัดเจนและ `ReplayCatalog` แบบ read-only:
 
-- **Planning**: resolves catalog time bounds from the event-store scan unless the selector supplies explicit
-  bounds. It reports missing catalog slices and preserves `seq` as the entry ordering authority.
-- **Loading**: returns `ReplayInputs` with event-store entries in `seq` order and catalog records
-  grouped under their selected slice.
+- **การวางแผน**: resolve ขอบเขตเวลาของ catalog จากการสแกน event store เว้นแต่ selector จะระบุ
+  ขอบเขตไว้ชัดเจน รายงานส่วนของ catalog ที่ขาดหายไป และคง `seq` ไว้เป็นตัวกำหนดลำดับของ entry
+- **การโหลด**: return `ReplayInputs` ที่มี entry ของ event store ตามลำดับ `seq` และ record ของ catalog
+  ที่จัดกลุ่มไว้ใต้ส่วนที่เลือก
 
-Rust callers can enable the off-by-default `persistence` feature and wrap a `ParquetDataCatalog`
-with `nautilus_event_store::ParquetReplayCatalog` to plan selected catalog files and
-filename-derived intervals. The bridge loads `quotes`, `trades`, and `bars` into typed
-`CatalogReplayRecord` values.
-
-:::note
-The persistence bridge is read-only: it uses catalog discovery and query APIs but **does not write
-to the catalog**. Unsupported catalog classes fail loading until replay adds a typed payload
-contract for that class.
-:::
-
-These APIs **do not**:
-
-- Open live venue clients
-- Run strategies or actors
-- Re-run reconciliation
-- Delete files
-- Replay the clock registration/cancel lifecycle
-
-## Cache replay
-
-Kernel-managed replay uses `EventStoreConfig::replay_from_run_id`. When set, the kernel restores cache state
-from the sealed run and records that run as the parent of the fresh child run. It skips live engines, clients,
-startup, and venue reconciliation.
-
-**Replay requirements**:
-
-- Quarantined runs are rejected.
-- Replay requires `load_state=true`. With it disabled, the kernel logs an error and returns without
-  restoring the cache or opening a child run.
-
-The cache replay loader is **state-only**. It restores the cache-owned snapshot, scans the event-store
-tail in `seq` order, decodes supported cache-affecting payloads, and applies them directly to
-`Cache`. Supported payloads include:
-
-- Synthesized account, order, and position events
-- Captured order lists
-- Complete data responses for instruments, quotes, trades, funding rates, and bars
-- Instrument closes, which settle binary-option positions as live execution does. A replayed fill
-  or fill void after that settlement updates its order but not the settled position
-
-The loader **does not**:
-
-- Publish replayed entries to the live message bus
-- Run strategy or actor code
-- Query venues
-- Run reconciliation
-- Derive identifiers again
-- Re-arm clocks
-
-Fired `TimeEvent`s and raw venue reports are inspection records on this path. Replay applies the synthesized
-order, position, and account events captured later in the run.
-
-## Data marker sidecar
+ผู้เรียกฝั่ง Rust สามารถเปิด feature `persistence` (ปิดอยู่โดย default) และห่อ `ParquetDataCatalog`
+ด้วย `nautilus_event_store::ParquetReplayCatalog` เพื่อวางแผนไฟล์ catalog ที่เลือกและ
+ช่วงเวลาที่ derive จากชื่อไฟล์ bridge นี้โหลด `quotes`, `trades` และ `bars` เป็นค่า
+`CatalogReplayRecord` ที่มี type
 
 :::note
-The marker sidecar is opt-in through `EventStoreConfig.data_markers` and stays off by default.
+persistence bridge เป็นแบบ read-only: ใช้ API สำหรับค้นหาและ query catalog แต่ **ไม่เขียน
+ลง catalog** catalog class ที่ไม่รองรับจะโหลดไม่สำเร็จจนกว่า replay จะเพิ่ม typed payload
+contract สำหรับ class นั้น
 :::
 
-Exact data delivery order is not inferred from catalog timestamps. The marker sidecar records data observed at
-the message-bus dispatch boundary in `<base>/<instance_id>/<run_id>.markers.redb`, beside the event-store run.
-It does not write full market-data payloads into `EventStoreEntry` rows.
+API เหล่านี้ **ไม่**:
 
-The sidecar supports one audit claim. When marker capture is enabled, Nautilus observed data delivery in
-`marker_seq` order at the bus boundary for that run. Each marker carries enough identity to join back to
-candidate catalog rows. It cannot:
+- เปิด live venue client
+- รัน strategy หรือ actor
+- รัน reconciliation ซ้ำ
+- ลบไฟล์
+- replay lifecycle การลงทะเบียน/ยกเลิกของ clock
 
-- Prove that catalog timestamps alone define bus order.
-- Reconstruct a data point when the catalog row is absent or changed.
-- Prove venue send order before Nautilus observed the message.
-- Say anything about runs where marker capture was disabled.
-- Guarantee that each observed data message produced a marker.
+## Cache replay {#cache-replay}
 
-The sidecar trades completeness for isolation from the trading path, so it does not inherit the
-entry writer's backpressure contract. A marker submit that finds the bounded channel full drops the
-marker rather than stalling the caller or halting the run. Its sequence becomes part of a gap record:
+replay ที่ kernel จัดการใช้ `EventStoreConfig::replay_from_run_id` เมื่อตั้งค่านี้ kernel จะกู้คืนสถานะ cache
+จาก run ที่ seal แล้ว และบันทึก run นั้นเป็น parent ของ child run ใหม่ โดยข้าม live engine, client,
+startup และ venue reconciliation
 
-- `Overflow`: a later submit flushes the dropped range.
-- `WriterClosed`: the writer closes while the dropped range is still pending.
+**ข้อกำหนดของ replay**:
 
-### Ordering and identity
+- run ที่ถูก quarantine จะถูกปฏิเสธ
+- replay ต้องใช้ `load_state=true` หากปิดไว้ kernel จะ log error และ return โดยไม่
+  กู้คืน cache หรือเปิด child run
 
-Markers do not consume event-store `seq` values and do not create gaps in the entry table. Each marker has its
-own monotonically increasing `marker_seq` plus `event_seq_before`, the largest event-store `seq` assigned
-before the marker was observed. Event-store `seq` stays the replay-order authority for state-affecting
-entries.
+cache replay loader เป็นแบบ **state-only** มันกู้คืน snapshot ที่ cache เป็นเจ้าของ สแกนส่วนท้ายของ event store
+ตามลำดับ `seq` decode payload ที่มีผลต่อ cache ที่รองรับ แล้วนำไปใช้กับ `Cache` โดยตรง
+payload ที่รองรับได้แก่:
 
-For sealed-run analysis:
+- account, order และ position event ที่สังเคราะห์ขึ้น
+- order list ที่ capture ไว้
+- data response ที่สมบูรณ์สำหรับ instrument, quote, trade, funding rate และ bar
+- instrument close ซึ่ง settle position ของ binary option แบบเดียวกับ live execution โดย fill
+  หรือ fill void ที่ replay หลัง settlement นั้นจะอัปเดต order แต่ไม่อัปเดต position ที่ settle แล้ว
 
-- Derive the next event-store entry after a marker from `event_seq_before + 1`.
-- Order markers that share the same `event_seq_before` by `marker_seq`.
+loader **ไม่**:
 
-The sidecar has two marker kinds:
+- publish entry ที่ replay ไปยัง live message bus
+- รันโค้ดของ strategy หรือ actor
+- query venue
+- รัน reconciliation
+- derive identifier ใหม่
+- ตั้ง clock ใหม่
 
-- **Cursor snapshots**: `DataCursorSnapshot` is the default capture mode. Each snapshot records
-  `marker_seq`, `event_seq_before`, `ts_init`, and the `StreamCursor` entries that advanced since
-  the previous snapshot. A `StreamCursor` carries the stream `slot`, the highest `ts_init` seen
-  in that slot (`ts_init_hi`), and the record `count`. A `StreamDictEntry` maps each `slot` to its
-  `data_cls` (`BookDeltas`, `BookDepth`, `Quote`, `Trade`, `Bar`) and instrument `identifier`.
-- **High-fidelity markers**: `HiFiMarker` is opt-in per instrument through `DataMarkerConfig.high_fidelity`.
-  Each records `marker_seq`, `event_seq_before`, `slot`, `ts_event`, `ts_init`, `same_ts_ordinal`, and a
-  32-byte `record_fingerprint` over the canonical typed row fields.
+`TimeEvent` ที่ทำงานแล้วและ raw venue report เป็นเพียง record สำหรับการตรวจสอบในเส้นทางนี้ replay จะนำ
+order, position และ account event ที่สังเคราะห์และ capture ไว้ภายหลังใน run ไปใช้
 
-`same_ts_ordinal` and `record_fingerprint` disambiguate duplicate same-timestamp data without storing prices,
-quantities, sizes, or MessagePack payloads. Two catalog rows can be byte-identical for the same key and
-timestamp. In this case, the sidecar can prove that Nautilus observed two deliveries in a specific marker
-order. It cannot name a unique physical catalog row after catalog compaction rewrites row order.
+## Data marker sidecar {#data-marker-sidecar}
 
-### Verification and replay boundaries
+:::note
+marker sidecar เป็นแบบ opt-in ผ่าน `EventStoreConfig.data_markers` และปิดอยู่โดย default
+:::
 
-Marker verification proves that the `marker_seq` sequence is fully accounted for, counting recorded
-gaps as coverage. **Read the gap records** to find what was dropped.
+ลำดับการส่งข้อมูลที่แน่นอนไม่ได้อนุมานจาก timestamp ใน catalog marker sidecar บันทึกข้อมูลที่สังเกตได้ที่
+ขอบเขตการ dispatch ของ message bus ไว้ใน `<base>/<instance_id>/<run_id>.markers.redb` ข้างไฟล์ run ของ event store
+โดยไม่เขียน payload market data ทั้งหมดลงในแถวของ `EventStoreEntry`
 
-The stable contract is the marker schema, opt-in capture and reader primitives, marker sequence
-verification, and catalog join rules. Analysis tools can build on that contract to select windows,
-interpret venue-specific data, rank or cluster markers, present reports, and package run bundles.
+sidecar รองรับข้อกล่าวอ้างเพื่อการ audit ข้อเดียว คือเมื่อเปิด marker capture แล้ว Nautilus สังเกตการส่งข้อมูลตามลำดับ
+`marker_seq` ที่ขอบเขตของ bus สำหรับ run นั้น marker แต่ละตัวมี identity เพียงพอที่จะ join กลับไปยัง
+แถวที่เป็นไปได้ใน catalog แต่ไม่สามารถ:
 
-With marker capture disabled, no data marker writer is installed. Cache replay and live restart do not read
-this sidecar. Snapshot-tail replay still applies event-store entries in `seq` order. Live restart still boots
-from cache-owned state plus the event-store parent link.
+- พิสูจน์ว่า timestamp ใน catalog เพียงอย่างเดียวกำหนดลำดับบน bus
+- สร้างข้อมูลขึ้นใหม่เมื่อแถวใน catalog หายไปหรือถูกเปลี่ยน
+- พิสูจน์ลำดับการส่งของ venue ก่อนที่ Nautilus จะสังเกตเห็น message
+- บอกอะไรเกี่ยวกับ run ที่ปิด marker capture ไว้
+- รับประกันว่า data message ที่สังเกตได้ทุกตัวสร้าง marker
 
-## Snapshot-anchored recovery
+sidecar แลกความครบถ้วนกับการแยกตัวออกจากเส้นทางการเทรด จึงไม่ได้รับ backpressure contract แบบเดียวกับ
+entry writer เมื่อ submit marker แล้วพบว่า bounded channel เต็ม จะทิ้ง
+marker แทนที่จะทำให้ผู้เรียกค้างหรือ halt run sequence ของมันจะกลายเป็นส่วนหนึ่งของ gap record:
 
-Cache snapshots are owned by the cache. The event store stores only the snapshot anchor. This contains the
-high-watermark at snapshot time, an opaque cache-owned `blob_ref` naming the snapshot, and the cache-owned
-`content_hash` for that blob.
+- `Overflow`: submit ครั้งถัดไปจะ flush ช่วงที่ถูกทิ้ง
+- `WriterClosed`: writer ปิดขณะที่ช่วงที่ถูกทิ้งยัง pending อยู่
+
+### ลำดับและ identity {#ordering-and-identity}
+
+marker ไม่ได้ใช้ค่า `seq` ของ event store และไม่สร้างช่องว่างในตาราง entry marker แต่ละตัวมี
+`marker_seq` ของตัวเองที่เพิ่มขึ้นเสมอ และ `event_seq_before` ซึ่งคือ `seq` ที่มากที่สุดของ event store ที่ถูกกำหนด
+ก่อนสังเกตเห็น marker `seq` ของ event store ยังคงเป็นตัวกำหนดลำดับ replay สำหรับ entry
+ที่มีผลต่อสถานะ
+
+สำหรับการวิเคราะห์ run ที่ seal แล้ว:
+
+- หา entry ถัดไปของ event store หลัง marker จาก `event_seq_before + 1`
+- เรียง marker ที่มี `event_seq_before` เดียวกันด้วย `marker_seq`
+
+sidecar มี marker สองชนิด:
+
+- **Cursor snapshot**: `DataCursorSnapshot` คือโหมด capture แบบ default snapshot แต่ละตัวบันทึก
+  `marker_seq`, `event_seq_before`, `ts_init` และ entry ของ `StreamCursor` ที่เลื่อนไปตั้งแต่
+  snapshot ก่อนหน้า `StreamCursor` มี `slot` ของ stream, `ts_init` สูงสุดที่เห็น
+  ใน slot นั้น (`ts_init_hi`) และ `count` ของ record ส่วน `StreamDictEntry` จับคู่ `slot` แต่ละตัวกับ
+  `data_cls` (`BookDeltas`, `BookDepth`, `Quote`, `Trade`, `Bar`) และ `identifier` ของ instrument
+- **High-fidelity marker**: `HiFiMarker` เป็นแบบ opt-in ต่อ instrument ผ่าน `DataMarkerConfig.high_fidelity`
+  แต่ละตัวบันทึก `marker_seq`, `event_seq_before`, `slot`, `ts_event`, `ts_init`, `same_ts_ordinal` และ
+  `record_fingerprint` ขนาด 32 byte ที่คำนวณจากฟิลด์ของแถวแบบ typed ในรูปแบบมาตรฐาน
+
+`same_ts_ordinal` และ `record_fingerprint` ช่วยแยกข้อมูลที่ซ้ำกันใน timestamp เดียวกันโดยไม่ต้องเก็บราคา
+จำนวน ขนาด หรือ payload แบบ MessagePack แถวใน catalog สองแถวอาจเหมือนกันทุก byte สำหรับ key และ
+timestamp เดียวกัน ในกรณีนี้ sidecar พิสูจน์ได้ว่า Nautilus สังเกตเห็นการส่งสองครั้งตามลำดับ
+marker ที่เจาะจง แต่ไม่สามารถระบุแถวทางกายภาพที่ไม่ซ้ำใน catalog ได้หลังจากการ compaction ของ catalog เขียนลำดับแถวใหม่
+
+### ขอบเขตของ verification และ replay {#verification-and-replay-boundaries}
+
+marker verification พิสูจน์ว่าลำดับ `marker_seq` ถูกนับครบทั้งหมด โดยนับ gap ที่บันทึกไว้
+เป็นส่วนที่ครอบคลุมด้วย **ให้อ่าน gap record** เพื่อดูว่าอะไรถูกทิ้งไป
+
+contract ที่เสถียรคือ marker schema, primitive สำหรับ capture แบบ opt-in และ reader, verification ของ
+marker sequence และกฎการ join กับ catalog เครื่องมือวิเคราะห์สามารถสร้างต่อจาก contract นี้เพื่อเลือกช่วงเวลา
+ตีความข้อมูลเฉพาะ venue จัดอันดับหรือจัดกลุ่ม marker นำเสนอรายงาน และรวม run เป็น bundle
+
+เมื่อปิด marker capture จะไม่มีการติดตั้ง data marker writer cache replay และ live restart จะไม่อ่าน
+sidecar นี้ snapshot-tail replay ยังคงนำ entry ของ event store ไปใช้ตามลำดับ `seq` live restart ยังคง boot
+จากสถานะที่ cache เป็นเจ้าของบวกกับ parent link ของ event store
+
+## การกู้คืนที่อิงกับ snapshot anchor {#snapshot-anchored-recovery}
+
+cache snapshot เป็นของ cache ส่วน event store เก็บเพียง snapshot anchor ซึ่งประกอบด้วย
+high-watermark ณ เวลาที่ทำ snapshot, `blob_ref` แบบ opaque ที่ cache เป็นเจ้าของซึ่งระบุชื่อ snapshot และ
+`content_hash` ของ blob นั้นที่ cache เป็นเจ้าของ
 
 ```mermaid
 sequenceDiagram
@@ -482,121 +482,121 @@ sequenceDiagram
     Replay->>Replay: Apply tail in seq order
 ```
 
-Recovery loads the snapshot the anchor names, then applies only the entries after the anchor's
-high-watermark.
+recovery จะโหลด snapshot ที่ anchor ระบุ แล้วนำไปใช้เฉพาะ entry หลัง high-watermark
+ของ anchor
 
-Recovery cases are ordered by how far the message progressed:
+กรณีของ recovery เรียงตามว่า message ไปได้ไกลแค่ไหน:
 
-| Failure point                        | Recovery behavior                                                |
+| จุดที่ล้มเหลว                          | พฤติกรรมของ recovery                                              |
 | ------------------------------------ | ---------------------------------------------------------------- |
-| Before enqueue                       | Message never reached writer, so producer retry policy applies.  |
-| After enqueue, before commit         | In-flight batch not durable, so high-watermark does not advance. |
-| After commit, before snapshot anchor | Load prior snapshot and replay tail.                             |
-| After snapshot anchor                | Load latest snapshot and replay entries after anchor.            |
+| ก่อน enqueue                          | message ไม่เคยไปถึง writer จึงใช้ retry policy ของ producer         |
+| หลัง enqueue ก่อน commit              | batch ที่อยู่ระหว่างทางยังไม่คงทน high-watermark จึงไม่เลื่อน         |
+| หลัง commit ก่อน snapshot anchor      | โหลด snapshot ก่อนหน้าแล้ว replay ส่วนท้าย                         |
+| หลัง snapshot anchor                  | โหลด snapshot ล่าสุดแล้ว replay entry หลัง anchor                  |
 
 :::info
-Live restart still uses snapshot-plus-reconcile. Event-store recovery becomes the live restart path only after
-capture coverage and replay rules cover each state-affecting path.
+live restart ยังคงใช้ snapshot-plus-reconcile การกู้คืนด้วย event store จะกลายเป็นเส้นทาง live restart ก็ต่อเมื่อ
+capture coverage และกฎของ replay ครอบคลุมทุกเส้นทางที่มีผลต่อสถานะแล้วเท่านั้น
 :::
 
-Replay correctness depends on four checks:
+ความถูกต้องของ replay ขึ้นกับการตรวจสอบสี่ข้อ:
 
-- Entries are addressed by immutable `seq` values.
-- Writes reject out-of-order commits.
-- Readers detect gaps inside the high-watermark.
-- Snapshot replay plans reject anchors that point past the durable high-watermark.
+- entry ถูกอ้างถึงด้วยค่า `seq` ที่ไม่เปลี่ยนแปลง
+- การเขียนจะปฏิเสธ commit ที่ไม่เรียงลำดับ
+- reader ตรวจพบช่องว่างภายใน high-watermark
+- แผนของ snapshot replay จะปฏิเสธ anchor ที่ชี้เลย high-watermark ที่คงทน
 
-## Retention planning
+## การวางแผน retention {#retention-planning}
 
-Retention uses whole run files as the reclaim unit. The event store exposes a non-destructive planner. It
-lists sealed run manifests, inspects their latest snapshot-anchor status, and returns candidate run files. A
-supervisor or operator process can reclaim those files later.
+retention ใช้ไฟล์ run ทั้งไฟล์เป็นหน่วยของการเรียกคืนพื้นที่ event store มี planner แบบไม่ทำลายข้อมูล ซึ่ง
+list manifest ของ run ที่ seal แล้ว ตรวจสอบสถานะ snapshot anchor ล่าสุด และ return ไฟล์ run ที่เป็นตัวเลือก
+process ของ supervisor หรือ operator สามารถเรียกคืนไฟล์เหล่านั้นภายหลังได้
 
-The planner supports three modes:
+planner รองรับสามโหมด:
 
-- `Full`: keep each sealed run and return no reclaim candidates.
-- `Bounded { keep_last }`: keep the newest sealed runs and also keep at least one known-good
-  restore point.
-- `SnapshotAnchored`: reclaim only sealed runs older than the newest known-good restore point.
+- `Full`: เก็บ run ที่ seal แล้วทุกตัวและไม่ return ตัวเลือกให้เรียกคืน
+- `Bounded { keep_last }`: เก็บ run ที่ seal แล้วล่าสุด และเก็บ restore point ที่ทราบว่าดี
+  อย่างน้อยหนึ่งจุด
+- `SnapshotAnchored`: เรียกคืนเฉพาะ run ที่ seal แล้วซึ่งเก่ากว่า restore point ที่ทราบว่าดีล่าสุด
 
-A known-good restore point is a sealed, non-`Quarantined` run with a valid snapshot anchor whose
-high-watermark does not exceed the run's durable high-watermark. The planner compares against the
-last entry on disk rather than the manifest's recorded value, so a tail-trimmed run cannot qualify
-as a restore point.
+restore point ที่ทราบว่าดีคือ run ที่ seal แล้วและไม่ใช่ `Quarantined` ซึ่งมี snapshot anchor ที่ valid และ
+high-watermark ของ anchor ไม่เกิน high-watermark ที่คงทนของ run planner เปรียบเทียบกับ
+entry สุดท้ายบนดิสก์แทนค่าที่บันทึกใน manifest ดังนั้น run ที่ส่วนท้ายถูกตัดจึงไม่สามารถผ่านเกณฑ์
+เป็น restore point ได้
 
-**Retention safeguards**:
+**มาตรการป้องกันของ retention**:
 
-- `Running` runs are never listed as sealed runs or selected as reclaim candidates.
-- Missing, corrupt, or invalid snapshot anchors do not count as restore points. The planner returns no
-  candidates when it cannot prove that at least one structurally valid restore point stays.
+- run ที่เป็น `Running` จะไม่ถูก list เป็น run ที่ seal แล้วหรือถูกเลือกเป็นตัวเลือกให้เรียกคืน
+- snapshot anchor ที่หายไป เสียหาย หรือ invalid จะไม่นับเป็น restore point planner จะไม่ return
+  ตัวเลือกใดเลยเมื่อพิสูจน์ไม่ได้ว่ายังมี restore point ที่ถูกต้องตามโครงสร้างเหลืออยู่อย่างน้อยหนึ่งจุด
 
-**Validation limit**: the planner never loads the snapshot blob. Its check stops at the anchor, so
-it cannot rule out a restore failure caused by a missing or altered blob.
+**ข้อจำกัดของการตรวจสอบ**: planner ไม่เคยโหลด snapshot blob การตรวจสอบหยุดที่ anchor จึง
+ไม่สามารถตัดความเป็นไปได้ของการกู้คืนล้มเหลวที่เกิดจาก blob ที่หายไปหรือถูกแก้ไข
 
-## Integrity and verification
+## Integrity และ verification {#integrity-and-verification}
 
-Each entry carries a canonical hash over its full content. Readers and verifiers recompute the hash and report
-mismatches. The verifier also checks manifest/high-watermark status and validates secondary indices against
-the entry table. It reports snapshot anchors that fail to decode or point past the durable high-watermark.
+entry แต่ละตัวมี canonical hash ของเนื้อหาทั้งหมด reader และ verifier จะคำนวณ hash ใหม่และรายงาน
+ความไม่ตรงกัน verifier ยังตรวจสอบสถานะของ manifest/high-watermark และตรวจ secondary index เทียบกับ
+ตาราง entry และรายงาน snapshot anchor ที่ decode ไม่ได้หรือชี้เลย high-watermark ที่คงทน
 
 :::warning
-A `clean` verdict proves structural integrity, not restorability or capture completeness:
+ผลการตรวจ `clean` พิสูจน์ความถูกต้องของโครงสร้างเท่านั้น ไม่ได้พิสูจน์ว่ากู้คืนได้หรือ capture ครบถ้วน:
 
-- The verifier checks the snapshot anchor but never loads or hashes the blob it names. Thus, a run whose blob
-  is missing or altered verifies clean and fails at restore. The retention planner picks restore points on the
-  same anchor-only evidence.
-- Marker verification counts recorded gaps as coverage, so a run that dropped markers under
-  backpressure verifies clean.
-- A run that fail-stopped mid-session verifies clean over what it did capture, and says nothing
-  about the messages that followed the halt.
+- verifier ตรวจสอบ snapshot anchor แต่ไม่เคยโหลดหรือ hash blob ที่มันระบุ ดังนั้น run ที่ blob
+  หายไปหรือถูกแก้ไขจะผ่านการตรวจเป็น clean แต่ล้มเหลวตอนกู้คืน retention planner เลือก restore point ด้วย
+  หลักฐานจาก anchor เพียงอย่างเดียวเช่นกัน
+- marker verification นับ gap ที่บันทึกไว้เป็นส่วนที่ครอบคลุม ดังนั้น run ที่ทิ้ง marker ภายใต้
+  backpressure ก็ผ่านการตรวจเป็น clean
+- run ที่ fail-stop กลาง session จะผ่านการตรวจเป็น clean สำหรับสิ่งที่ capture ได้ และไม่บอกอะไร
+  เกี่ยวกับ message ที่ตามมาหลัง halt
 
 :::
 
-Run verification is process-isolated. This matters because some corrupted `redb` files can panic
-on open or first read, and release builds use `panic = "abort"`. The verifier runs the scan in a
-worker subprocess so a bad file aborts the worker, not the caller.
+verification ของ run ทำงานแยก process เรื่องนี้สำคัญเพราะไฟล์ `redb` ที่เสียหายบางไฟล์อาจ panic
+ตอนเปิดหรือตอนอ่านครั้งแรก และ release build ใช้ `panic = "abort"` verifier จึงรันการสแกนใน
+worker subprocess เพื่อให้ไฟล์ที่เสียทำให้ worker abort ไม่ใช่ผู้เรียก
 
-Verify a sealed run file:
+ตรวจสอบไฟล์ run ที่ seal แล้ว:
 
 ```bash
 cargo run -p nautilus-event-store --bin verify -- ./event_store/trader-001/1700000000-cafe0001.redb
 ```
 
-Clean output looks like:
+ผลลัพธ์ที่ clean มีลักษณะดังนี้:
 
 ```text
 clean run_id=1700000000-cafe0001 status=Ended high_watermark=3 entries_scanned=3 markers=absent
 ```
 
-Corrupt output includes `quarantine=not-performed`:
+ผลลัพธ์ที่ corrupt จะมี `quarantine=not-performed`:
 
 ```text
 corrupt run_id=1700000000-cafe0001 status=Ended high_watermark=3 entries_scanned=3 findings=1 marker_findings=0 markers=absent quarantine=not-performed
 - hash mismatch at seq 2
 ```
 
-The `markers=` field reports the sidecar scan:
+ฟิลด์ `markers=` รายงานผลการสแกน sidecar:
 
-| Value                | Meaning                                                                                             |
+| ค่า                  | ความหมาย                                                                                             |
 | -------------------- | --------------------------------------------------------------------------------------------------- |
-| `absent`             | No `<run_id>.markers.redb` beside the run file.                                                     |
-| `clean` or `corrupt` | Sidecar read with counts of scanned snapshots, high-fidelity markers, gaps, and dictionary entries. |
-| `error`              | Sidecar present but could not be opened or scanned.                                                 |
+| `absent`             | ไม่มี `<run_id>.markers.redb` อยู่ข้างไฟล์ run                                                        |
+| `clean` or `corrupt` | อ่าน sidecar แล้ว พร้อมจำนวน snapshot, high-fidelity marker, gap และ dictionary entry ที่สแกน            |
+| `error`              | มี sidecar แต่ไม่สามารถเปิดหรือสแกนได้                                                                 |
 
-Exit codes:
+Exit code:
 
-- `0`: the run is clean.
-- `1`: the run has corrupt findings, or the worker aborted or timed out.
-- `2`: the verifier could not open or run against the requested file.
+- `0`: run สะอาด
+- `1`: run มีสิ่งที่ตรวจพบว่าเสียหาย หรือ worker abort หรือ timeout
+- `2`: verifier ไม่สามารถเปิดหรือทำงานกับไฟล์ที่ระบุได้
 
-Increase the worker timeout for a large sealed run:
+เพิ่ม timeout ของ worker สำหรับ run ที่ seal แล้วขนาดใหญ่:
 
 ```bash
 env NAUTILUS_EVENT_STORE_VERIFY_TIMEOUT_SECS=120 \
     cargo run -p nautilus-event-store --bin verify -- ./event_store/trader-001/1700000000-cafe0001.redb
 ```
 
-Read a sealed run from Rust:
+อ่าน run ที่ seal แล้วจาก Rust:
 
 ```rust
 use nautilus_event_store::{EventStoreReader, RedbBackend, ScanDirection};
@@ -617,46 +617,46 @@ fn inspect_run() -> Result<(), Box<dyn std::error::Error>> {
 ```
 
 :::note
-The verifier reports corruption but does not mutate run files. Quarantine is an operator or
-supervisor policy.
+verifier รายงานความเสียหายแต่ไม่แก้ไขไฟล์ run การ quarantine เป็น policy ของ operator หรือ
+supervisor
 :::
 
-## Verification coverage
+## Verification coverage {#verification-coverage}
 
-The event-store test suite pins these core correctness guarantees for the alpha surface:
+test suite ของ event store ยึดการรับประกันความถูกต้องหลักเหล่านี้สำหรับส่วนที่เป็น alpha:
 
-- The default encoder registry covers the audited state-affecting capture surface.
-- Fired `TimeEvent`s hit the installed event-store tap through `TimeEventHandler::run`.
-- The writer halts under bounded backpressure instead of dropping accepted entries.
-- Entry hash verification detects byte-level payload corruption.
-- Process-isolated verification reports truncated or zero-tailed run files as corrupt.
-- Cache replay reconstructs the same observed account, order, and position state as a live cache
-  for generated captured event streams.
-- The same order event dispatched across multiple bus boundaries is captured once.
-- Snapshot anchors that fail to decode or point past the durable high-watermark surface as
-  verifier findings instead of verifying clean.
-- Catalog-joined replay input planning covers selected slices, missing slices, time bounds, and
-  event-store `seq` ordering.
-- Crash recovery seals `Running` predecessors as `Ended`, `CrashedRecovered`, or `Quarantined`
-  based on the durable tail, and only `CrashedRecovered` runs become parents.
-- Boot recovery repairs hard-crashed run files and skips unreadable ones instead of failing the
-  sweep.
+- encoder registry แบบ default ครอบคลุมส่วนการ capture ที่มีผลต่อสถานะซึ่งผ่านการ audit แล้ว
+- `TimeEvent` ที่ทำงานแล้วจะผ่าน event-store tap ที่ติดตั้งไว้ผ่าน `TimeEventHandler::run`
+- writer จะ halt ภายใต้ bounded backpressure แทนที่จะทิ้ง entry ที่รับแล้ว
+- การตรวจสอบ entry hash ตรวจพบความเสียหายของ payload ในระดับ byte
+- verification แบบแยก process รายงานไฟล์ run ที่ถูกตัดท้ายหรือมีส่วนท้ายเป็นศูนย์ว่า corrupt
+- cache replay สร้างสถานะ account, order และ position ที่สังเกตได้ตรงกับ live cache
+  สำหรับ event stream ที่ capture ไว้ซึ่งสร้างขึ้น
+- order event เดียวกันที่ dispatch ข้ามขอบเขต bus หลายจุดจะถูก capture เพียงครั้งเดียว
+- snapshot anchor ที่ decode ไม่ได้หรือชี้เลย high-watermark ที่คงทนจะปรากฏเป็น
+  สิ่งที่ verifier ตรวจพบ แทนที่จะผ่านเป็น clean
+- การวางแผน replay input ที่ join กับ catalog ครอบคลุมส่วนที่เลือก ส่วนที่ขาดหาย ขอบเขตเวลา และ
+  ลำดับ `seq` ของ event store
+- crash recovery จะ seal predecessor ที่เป็น `Running` เป็น `Ended`, `CrashedRecovered` หรือ `Quarantined`
+  ตามส่วนท้ายที่คงทน และเฉพาะ run ที่เป็น `CrashedRecovered` เท่านั้นที่จะกลายเป็น parent
+- recovery ตอน boot ซ่อมแซมไฟล์ run ที่ crash แบบ hard และข้ามไฟล์ที่อ่านไม่ได้แทนที่จะทำให้
+  การ sweep ล้มเหลว
 
-## Relationship to DST
+## ความสัมพันธ์กับ DST {#relationship-to-dst}
 
-The event store and [deterministic simulation testing](dst.md) (DST) solve different parts of
-replay.
+event store และ [deterministic simulation testing](dst.md) (DST) แก้ปัญหาคนละส่วนของ
+replay
 
-- The event store supplies the captured input history.
-- DST controls scheduling, time, seeded randomness, and other in-scope nondeterminism.
+- event store ให้ประวัติ input ที่ capture ไว้
+- DST ควบคุม scheduling, เวลา, ค่าสุ่มที่มี seed และความไม่ deterministic อื่น ๆ ในขอบเขต
 
-Together they let a run reproduce engine behavior inside the deterministic simulation scope. The
-manifest records the inputs that identify such a run alongside the captured log itself: `seed`,
-`binary_hash`, `config_hash`, and `schema_version`.
+เมื่อใช้ร่วมกันจะทำให้ run สามารถทำซ้ำพฤติกรรมของ engine ได้ภายในขอบเขตของ deterministic simulation
+manifest บันทึก input ที่ระบุตัวตนของ run ดังกล่าวไว้คู่กับ log ที่ capture เอง ได้แก่ `seed`,
+`binary_hash`, `config_hash` และ `schema_version`
 
-Under `cfg(madsim)`, the writer commits synchronously instead of spawning its writer thread. When a simulation
-harness supplies a `MemoryBackend` opener through lifecycle options, capture stays in-process and does not
-require `redb` files. Redb stays the default durable backend outside that advanced options path.
+ภายใต้ `cfg(madsim)` writer จะ commit แบบ synchronous แทนการ spawn writer thread เมื่อ simulation
+harness ส่ง opener แบบ `MemoryBackend` ผ่าน lifecycle option การ capture จะอยู่ภายใน process และไม่
+ต้องใช้ไฟล์ `redb` นอกเส้นทาง option ขั้นสูงนั้น redb ยังคงเป็น backend ที่คงทนแบบ default
 
-Adapter network I/O stays outside bit-identical replay unless Nautilus captures the relevant raw inputs and
-routes them through deterministic interfaces.
+network I/O ของ adapter อยู่นอกขอบเขตของ replay แบบ bit-identical เว้นแต่ Nautilus จะ capture raw input ที่เกี่ยวข้องและ
+route ผ่าน interface ที่ deterministic

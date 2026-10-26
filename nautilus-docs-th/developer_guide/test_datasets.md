@@ -1,179 +1,172 @@
 # Test Datasets
 
-Target standards for curating, storing, and consuming external datasets used as test fixtures.
-New datasets should follow these standards. Existing datasets that predate this
-policy are documented under [legacy datasets](#legacy-datasets).
+มาตรฐานเป้าหมายสำหรับการคัดสรร (curate), จัดเก็บ และใช้งานชุดข้อมูลภายนอกที่ใช้เป็น test fixture
+ชุดข้อมูลใหม่ควรเป็นไปตามมาตรฐานนี้ ส่วนชุดข้อมูลเดิมที่มีอยู่ก่อนนโยบายนี้บันทึกไว้ใน
+[ชุดข้อมูลแบบ legacy](#legacy-datasets)
 
-## Dataset categories
+## ประเภทของชุดข้อมูล {#dataset-categories}
 
-**Small data** (< 1 MB) is checked directly into `test_data/<source>/`
-alongside a `metadata.json` file. These files are always available without network access.
+**ข้อมูลขนาดเล็ก** (< 1 MB) ถูก check in เข้า `test_data/<source>/` โดยตรงพร้อมไฟล์ `metadata.json`
+ไฟล์เหล่านี้ใช้ได้เสมอโดยไม่ต้องเข้าถึงเครือข่าย
 
-**Large data** (> 1 MB) is hosted as Parquet in the R2 test-data bucket.
-A SHA-256 checksum is recorded in `test_data/large/checksums.json`.
-Before running tests that use large data, prepare the fixtures from the repository root:
+**ข้อมูลขนาดใหญ่** (> 1 MB) ถูกเก็บเป็น Parquet ใน bucket test-data ของ R2 โดยบันทึก checksum แบบ SHA-256
+ไว้ใน `test_data/large/checksums.json` ก่อนรัน test ที่ใช้ข้อมูลขนาดใหญ่ ให้เตรียม fixture จาก root ของ repository:
 
 ```bash
 cargo run --locked -p nautilus-testkit --bin prepare-test-data
 ```
 
-This command downloads missing files and verifies every fixture in the tracked checksum manifest.
-It replaces cached files whose checksums differ, leaves the manifest unchanged, and rejects and
-removes downloads with mismatched checksums. CI runs this setup after restoring the test-data cache.
+คำสั่งนี้ดาวน์โหลดไฟล์ที่ขาด และตรวจสอบ fixture ทุกตัวใน checksum manifest ที่ติดตามไว้ มันจะแทนที่ไฟล์ใน cache
+ที่ checksum ไม่ตรง ไม่แก้ไข manifest และจะปฏิเสธพร้อมลบไฟล์ที่ดาวน์โหลดมาแต่ checksum ไม่ตรง CI จะรันขั้นตอนนี้
+หลังจากกู้ cache ของ test-data แล้ว
 
-The `ensure_test_data_exists()` function only checks for a local file. A test that needs a missing
-fixture fails with a message naming the setup command, without downloading data. Setup and tests both
-honor `TEST_DATA_ROOT_PATH`.
+ฟังก์ชัน `ensure_test_data_exists()` ตรวจเพียงว่ามีไฟล์ในเครื่องหรือไม่ test ที่ต้องการ fixture ที่ขาดอยู่จะล้มเหลว
+พร้อมข้อความที่ระบุคำสั่งเตรียมข้อมูล โดยไม่ดาวน์โหลดข้อมูลเอง ทั้งขั้นตอนเตรียมข้อมูลและ test ต่างเคารพ
+`TEST_DATA_ROOT_PATH`
 
-**User-fetched data** applies when a vendor license, entitlement model, or access control does not permit
-public redistribution by NautilusTrader. This restriction covers both the public repo and the public R2 bucket. In
-this model, the repo stores only a manifest, fetch instructions, and the transform code. Each user downloads
-the source data with their own vendor account and converts it locally.
+**ข้อมูลที่ผู้ใช้ดึงเอง (user-fetched)** ใช้ในกรณีที่ license ของผู้ให้บริการ, รูปแบบสิทธิ์การใช้งาน หรือการควบคุม
+การเข้าถึงไม่อนุญาตให้ NautilusTrader เผยแพร่ซ้ำต่อสาธารณะ ข้อจำกัดนี้ครอบคลุมทั้ง repo สาธารณะและ bucket R2
+สาธารณะ ในรูปแบบนี้ repo จะเก็บเพียง manifest, คำแนะนำการดึงข้อมูล และโค้ดสำหรับแปลงข้อมูล ผู้ใช้แต่ละคน
+ดาวน์โหลดข้อมูลต้นทางด้วย account ของผู้ให้บริการของตนเองและแปลงข้อมูลในเครื่อง
 
-Use the user-fetched model when any of the following apply:
+ใช้รูปแบบ user-fetched เมื่อเข้าข่ายข้อใดข้อหนึ่งต่อไปนี้:
 
-- The vendor requires each user to hold their own account, API key, or historical-data license.
-- The license allows internal use but does not clearly allow redistribution of derived fixtures.
-- The dataset is suitable for examples or opt-in integration tests, but not for default CI.
+- ผู้ให้บริการกำหนดให้ผู้ใช้แต่ละคนต้องมี account, API key หรือ license ข้อมูลย้อนหลังของตัวเอง
+- license อนุญาตให้ใช้ภายใน แต่ไม่ได้อนุญาตอย่างชัดเจนให้เผยแพร่ fixture ที่ derive มาซ้ำ
+- ชุดข้อมูลเหมาะกับตัวอย่างหรือ integration test แบบ opt-in แต่ไม่เหมาะกับ CI ค่าเริ่มต้น
 
-## Required metadata
+## Metadata ที่จำเป็น {#required-metadata}
 
-Every curated dataset that stores or redistributes a concrete artifact must include a
-`metadata.json` with at minimum:
+ชุดข้อมูลที่คัดสรรแล้วทุกชุดที่เก็บหรือเผยแพร่ artifact จริงต้องมี `metadata.json` ที่มีอย่างน้อย:
 
-| Field          | Description                                       |
+| Field          | คำอธิบาย                                            |
 | -------------- | ------------------------------------------------- |
-| `file`         | Filename of the dataset.                          |
-| `sha256`       | SHA-256 hash of the file.                         |
-| `size_bytes`   | File size in bytes.                               |
-| `original_url` | Download URL of the original source data.         |
-| `licence`      | License terms and any redistribution constraints. |
-| `added_at`     | ISO 8601 timestamp when the dataset was curated.  |
+| `file`         | ชื่อไฟล์ของชุดข้อมูล                                    |
+| `sha256`       | hash แบบ SHA-256 ของไฟล์                            |
+| `size_bytes`   | ขนาดไฟล์หน่วยไบต์                                      |
+| `original_url` | URL ดาวน์โหลดของข้อมูลต้นทาง                             |
+| `licence`      | เงื่อนไข license และข้อจำกัดการเผยแพร่ซ้ำ (ถ้ามี)              |
+| `added_at`     | timestamp แบบ ISO 8601 ที่คัดสรรชุดข้อมูล                  |
 
-These fields match the output of `scripts/curate-dataset.sh`. Additional recommended
-fields for richer provenance:
+ฟิลด์เหล่านี้ตรงกับ output ของ `scripts/curate-dataset.sh` ฟิลด์เพิ่มเติมที่แนะนำเพื่อให้ข้อมูลที่มา (provenance)
+ครบถ้วนยิ่งขึ้น:
 
-| Field           | Description                                               |
+| Field           | คำอธิบาย                                                    |
 | --------------- | --------------------------------------------------------- |
-| `instrument`    | Instrument symbol(s) covered.                             |
-| `date`          | Trading date(s) covered.                                  |
-| `format`        | Storage format (e.g., "Nautilus OrderBookDelta Parquet"). |
-| `original_file` | Original vendor filename before transformation.           |
-| `parser`        | Parser used for transformation (e.g., "itchy 0.3.4").     |
+| `instrument`    | symbol ของ instrument ที่ครอบคลุม                             |
+| `date`          | วันที่ซื้อขายที่ครอบคลุม                                         |
+| `format`        | รูปแบบการจัดเก็บ (เช่น "Nautilus OrderBookDelta Parquet")       |
+| `original_file` | ชื่อไฟล์เดิมของผู้ให้บริการก่อนแปลง                                 |
+| `parser`        | parser ที่ใช้แปลง (เช่น "itchy 0.3.4")                         |
 
-User-fetched datasets use the same metadata fields where they apply. They should also include:
+ชุดข้อมูลแบบ user-fetched ใช้ฟิลด์ metadata เดียวกันในส่วนที่ใช้ได้ และควรมีฟิลด์ต่อไปนี้ด้วย:
 
-| Field               | Description                                                          |
+| Field               | คำอธิบาย                                                               |
 | ------------------- | -------------------------------------------------------------------- |
-| `distribution`      | Must be `"user-fetch"`.                                              |
-| `fetch_method`      | How the user acquires the source data (API, web portal, CLI, etc.).  |
-| `fetch_reference`   | URL or document reference for the user-facing download flow.         |
-| `auth`              | Required credentials or entitlements, if any.                        |
-| `transform_version` | Version of the local transform pipeline that builds the final files. |
-| `redistribution`    | Short note describing redistribution limits for the dataset.         |
-| `public_mirror`     | Must be `false` for restricted vendor datasets.                      |
+| `distribution`      | ต้องเป็น `"user-fetch"`                                                 |
+| `fetch_method`      | วิธีที่ผู้ใช้ได้ข้อมูลต้นทางมา (API, web portal, CLI ฯลฯ)                        |
+| `fetch_reference`   | URL หรือเอกสารอ้างอิงของขั้นตอนดาวน์โหลดสำหรับผู้ใช้                              |
+| `auth`              | credential หรือสิทธิ์ที่ต้องมี (ถ้ามี)                                         |
+| `transform_version` | เวอร์ชันของ pipeline แปลงข้อมูลในเครื่องที่สร้างไฟล์สุดท้าย                         |
+| `redistribution`    | หมายเหตุสั้น ๆ อธิบายข้อจำกัดการเผยแพร่ซ้ำของชุดข้อมูล                            |
+| `public_mirror`     | ต้องเป็น `false` สำหรับชุดข้อมูลของผู้ให้บริการที่มีข้อจำกัด                         |
 
-For user-fetched datasets:
+สำหรับชุดข้อมูลแบบ user-fetched:
 
-- Without a single committed or mirrored artifact, `file`, `sha256`, and `size_bytes` may be omitted
-  from `metadata.json`. In that case, `target_files` in `manifest.json` is authoritative for local
-  output files.
-- The vendor can generate the exact file per user account or request. In that case, `original_url` can point
-  to the vendor download entry point rather than the exact file URL.
+- หากไม่มี artifact เดียวที่ commit หรือ mirror ไว้ อาจละ `file`, `sha256` และ `size_bytes` ออกจาก
+  `metadata.json` ได้ ในกรณีนั้น `target_files` ใน `manifest.json` เป็นแหล่งอ้างอิงหลักสำหรับไฟล์ output ในเครื่อง
+- ผู้ให้บริการอาจสร้างไฟล์เฉพาะตาม account หรือคำขอของผู้ใช้แต่ละราย ในกรณีนั้น `original_url` อาจชี้ไปยังจุดเริ่มต้น
+  การดาวน์โหลดของผู้ให้บริการแทน URL ของไฟล์จริง
 
-Other metadata fields remain recommended where they apply. In particular, `licence` and `added_at`
-should still be recorded for user-fetched datasets.
+ฟิลด์ metadata อื่น ๆ ยังแนะนำให้ใส่ในส่วนที่ใช้ได้ โดยเฉพาะ `licence` และ `added_at` ควรบันทึกไว้เสมอแม้เป็น
+ชุดข้อมูลแบบ user-fetched
 
-## Storage format
+## รูปแบบการจัดเก็บ {#storage-format}
 
-New datasets should be stored as **Nautilus Parquet** (not raw vendor formats).
-This ensures:
+ชุดข้อมูลใหม่ควรเก็บเป็น **Nautilus Parquet** (ไม่ใช่รูปแบบดิบของผู้ให้บริการ) ซึ่งช่วยให้:
 
-- Consistent data types across all test datasets.
-- No vendor format parsing at test time.
-- Clear derivative-work status for licensing.
+- data type สอดคล้องกันในทุกชุดข้อมูลของ test
+- ไม่ต้อง parse รูปแบบของผู้ให้บริการตอนรัน test
+- สถานะงาน derivative ด้าน license ชัดเจน
 
-Use ZSTD compression (level 3) with 1M row groups.
+ใช้การบีบอัด ZSTD (level 3) กับ row group ขนาด 1M
 
-User-fetched datasets should also end up as Nautilus Parquet after the local transform step.
-Raw vendor files should stay outside the repo and outside the public R2 bucket.
+ชุดข้อมูลแบบ user-fetched ควรได้ผลลัพธ์เป็น Nautilus Parquet เช่นกันหลังขั้นตอนแปลงในเครื่อง ไฟล์ดิบของผู้ให้บริการ
+ควรอยู่นอก repo และนอก bucket R2 สาธารณะ
 
-## Naming convention
+## หลักการตั้งชื่อ {#naming-convention}
 
 ```
 <source>_<instrument>_<date>_<datatype>.parquet
 ```
 
-Examples:
+ตัวอย่าง:
 
 - `itch_AAPL_2019-01-30_deltas.parquet`
 - `tardis_BTCUSDT_2020-09-01_depth10.parquet`
 - `histdata_EURUSD.SIM_2020-01_quotes.parquet`
 
-## Curation workflow
+## Workflow การคัดสรร {#curation-workflow}
 
-### Simple files (single download)
+### ไฟล์ธรรมดา (ดาวน์โหลดครั้งเดียว) {#simple-files-single-download}
 
-Use `scripts/curate-dataset.sh`:
+ใช้ `scripts/curate-dataset.sh`:
 
 ```bash
 scripts/curate-dataset.sh <slug> <filename> <download-url> <license>
 ```
 
-This creates a versioned directory (`v1/<slug>/`) with the file,
-`LICENSE.txt`, and `metadata.json` containing the required fields above.
+คำสั่งนี้สร้าง directory ที่มีเวอร์ชัน (`v1/<slug>/`) พร้อมไฟล์, `LICENSE.txt` และ `metadata.json` ที่มีฟิลด์
+ที่จำเป็นข้างต้น
 
-### Complex pipelines (parse + transform)
+### Pipeline ที่ซับซ้อน (parse + แปลง) {#complex-pipelines-parse--transform}
 
-For datasets requiring format conversion (e.g., binary ITCH to Parquet):
+สำหรับชุดข้อมูลที่ต้องแปลงรูปแบบ (เช่น ITCH แบบ binary เป็น Parquet):
 
-1. Write a curation function in `crates/testkit/src/<source>/` gated behind
-   `#[cfg(test)]` or an `#[ignore]` test.
-2. The function should: download, parse, filter, convert to NautilusTrader types, write Parquet.
-3. Output the Parquet file and `metadata.json` to a local directory.
-4. Upload to R2 manually, then add the checksum to `checksums.json`.
+1. เขียนฟังก์ชันคัดสรรไว้ใน `crates/testkit/src/<source>/` โดยกั้นไว้หลัง `#[cfg(test)]` หรือ test ที่ติด `#[ignore]`
+2. ฟังก์ชันควร: ดาวน์โหลด, parse, กรอง, แปลงเป็น type ของ NautilusTrader และเขียน Parquet
+3. ส่ง output เป็นไฟล์ Parquet และ `metadata.json` ไปยัง directory ในเครื่อง
+4. อัปโหลดไปยัง R2 ด้วยมือ แล้วเพิ่ม checksum ใน `checksums.json`
 
-### User-fetched pipelines (restricted redistribution)
+### Pipeline แบบ user-fetched (จำกัดการเผยแพร่ซ้ำ) {#user-fetched-pipelines-restricted-redistribution}
 
-For datasets that NautilusTrader cannot redistribute:
+สำหรับชุดข้อมูลที่ NautilusTrader เผยแพร่ซ้ำไม่ได้:
 
-1. Commit a manifest and `metadata.json`, but do not commit the real vendor data or derived
-   Parquet output.
-2. Provide a local fetch command or script that uses the user's own vendor credentials,
-   entitlements, or purchased historical files.
-3. Convert the vendor data locally into Nautilus Parquet.
-4. Store the resulting files in a local cache path that is ignored by git.
-5. Make tests and examples opt in. They should skip cleanly when the dataset is missing.
+1. commit manifest และ `metadata.json` แต่ห้าม commit ข้อมูลจริงของผู้ให้บริการหรือ output Parquet ที่ derive มา
+2. จัดเตรียมคำสั่งหรือ script สำหรับดึงข้อมูลในเครื่องที่ใช้ credential, สิทธิ์ หรือไฟล์ข้อมูลย้อนหลังที่ผู้ใช้ซื้อมาเอง
+3. แปลงข้อมูลของผู้ให้บริการในเครื่องให้เป็น Nautilus Parquet
+4. เก็บไฟล์ผลลัพธ์ไว้ใน path cache ในเครื่องที่ git ignore ไว้
+5. ทำให้ test และตัวอย่างเป็นแบบ opt in และควรข้ามอย่างเรียบร้อยเมื่อไม่มีชุดข้อมูล
 
-The default distribution order for new datasets is:
+ลำดับการเผยแพร่ค่าเริ่มต้นสำหรับชุดข้อมูลใหม่คือ:
 
-1. Checked in small data.
-2. Public R2 large data.
-3. User-fetched data.
+1. ข้อมูลขนาดเล็กที่ check in ไว้
+2. ข้อมูลขนาดใหญ่บน R2 สาธารณะ
+3. ข้อมูลแบบ user-fetched
 
-Choose user-fetched only when the first two options are not acceptable under the vendor's terms.
+เลือก user-fetched เฉพาะเมื่อสองทางเลือกแรกไม่เป็นที่ยอมรับตามเงื่อนไขของผู้ให้บริการ
 
-Do not:
+ห้าม:
 
-- Upload restricted vendor datasets to the public R2 bucket.
-- Commit real vendor-derived Parquet files to the repo when redistribution rights are unclear.
-- Make default CI depend on vendor credentials or paid historical-data access.
+- อัปโหลดชุดข้อมูลของผู้ให้บริการที่มีข้อจำกัดขึ้น bucket R2 สาธารณะ
+- commit ไฟล์ Parquet ที่ derive มาจากข้อมูลจริงของผู้ให้บริการเข้า repo เมื่อสิทธิ์ในการเผยแพร่ซ้ำไม่ชัดเจน
+- ทำให้ CI ค่าเริ่มต้นขึ้นกับ credential ของผู้ให้บริการหรือการเข้าถึงข้อมูลย้อนหลังแบบเสียเงิน
 
-You may maintain a private mirror for internal CI or employees when the license permits internal
-sharing. Treat this as a separate operational path, not as part of the public test-data standard.
+สามารถดูแล mirror ส่วนตัวสำหรับ CI ภายในหรือพนักงานได้เมื่อ license อนุญาตให้แชร์ภายใน ให้ถือว่าเป็นเส้นทาง
+การดำเนินงานแยกต่างหาก ไม่ใช่ส่วนหนึ่งของมาตรฐาน test-data สาธารณะ
 
-## Adding a new dataset
+## การเพิ่มชุดข้อมูลใหม่ {#adding-a-new-dataset}
 
-1. Curate the data following the workflow above.
-2. Write `metadata.json` with all required fields.
-3. For small data: commit to `test_data/<source>/`.
-4. For large data: upload Parquet to R2, add checksum to `test_data/large/checksums.json`.
-5. For user-fetched data: commit the manifest and fetch instructions only. Keep the source and
-   derived data out of the repo and out of the public R2 bucket.
-6. Add shared test-data path functions to `crates/testkit/src/common.rs` when needed.
-7. Write tests that consume the dataset.
+1. คัดสรรข้อมูลตาม workflow ข้างต้น
+2. เขียน `metadata.json` ให้มีฟิลด์ที่จำเป็นครบ
+3. สำหรับข้อมูลขนาดเล็ก: commit เข้า `test_data/<source>/`
+4. สำหรับข้อมูลขนาดใหญ่: อัปโหลด Parquet ไปยัง R2 และเพิ่ม checksum ใน `test_data/large/checksums.json`
+5. สำหรับข้อมูลแบบ user-fetched: commit เฉพาะ manifest และคำแนะนำการดึงข้อมูล เก็บข้อมูลต้นทางและข้อมูลที่ derive มา
+   ไว้นอก repo และนอก bucket R2 สาธารณะ
+6. เพิ่มฟังก์ชัน path ของ test-data ที่ใช้ร่วมกันใน `crates/testkit/src/common.rs` เมื่อจำเป็น
+7. เขียน test ที่ใช้ชุดข้อมูลนั้น
 
-For user-fetched data, prefer this layout:
+สำหรับข้อมูลแบบ user-fetched แนะนำโครงสร้างนี้:
 
 ```text
 test_data/<source>/<slug>/
@@ -182,63 +175,54 @@ test_data/<source>/<slug>/
   README.md
 ```
 
-Use `test_data/local/<source>/<slug>/` as the standard local cache path for generated
-artifacts. Keep raw vendor downloads in a sibling `vendor/` directory under the same cache path
-when local retention is needed.
+ใช้ `test_data/local/<source>/<slug>/` เป็น path cache ในเครื่องมาตรฐานสำหรับ artifact ที่สร้างขึ้น และเก็บไฟล์ดิบ
+ที่ดาวน์โหลดจากผู้ให้บริการไว้ใน directory `vendor/` ที่อยู่ระดับเดียวกันภายใต้ path cache เดียวกัน เมื่อจำเป็นต้องเก็บไว้ในเครื่อง
 
-The manifest should be machine-readable and stable. It should capture the minimum information needed
-to reproduce the fetch and transform steps on another machine.
+manifest ควรอ่านได้ด้วยเครื่องและคงที่ โดยเก็บข้อมูลขั้นต่ำที่จำเป็นในการทำซ้ำขั้นตอนดึงและแปลงข้อมูลบนเครื่องอื่น
 
-`metadata.json` is authoritative for provenance, licensing, and redistribution rules.
-`manifest.json` is authoritative for fetch inputs, commands, cache locations, and output files.
+`metadata.json` เป็นแหล่งอ้างอิงหลักสำหรับที่มา, license และกฎการเผยแพร่ซ้ำ
+`manifest.json` เป็นแหล่งอ้างอิงหลักสำหรับ input ของการดึงข้อมูล, คำสั่ง, ตำแหน่ง cache และไฟล์ output
 
-Recommended manifest fields:
+ฟิลด์ของ manifest ที่แนะนำ:
 
-| Field               | Description                                                 |
+| Field               | คำอธิบาย                                                      |
 | ------------------- | ----------------------------------------------------------- |
-| `slug`              | Stable dataset identifier.                                  |
-| `vendor`            | Vendor or venue name.                                       |
-| `source_type`       | `api`, `portal-download`, `purchased-archive`, etc.         |
-| `source_filters`    | Symbols, event IDs, market IDs, date ranges, or file names. |
-| `target_files`      | Output Nautilus Parquet files expected after conversion.    |
-| `cache_dir`         | Local output location relative to `test_data/local/`.       |
-| `fetch_command`     | Suggested command or script entry point.                    |
-| `transform_command` | Suggested local conversion command.                         |
-| `env`               | Required environment variables.                             |
-| `notes`             | Short operational notes for users.                          |
+| `slug`              | identifier ของชุดข้อมูลที่คงที่                                   |
+| `vendor`            | ชื่อผู้ให้บริการหรือ venue                                         |
+| `source_type`       | `api`, `portal-download`, `purchased-archive` ฯลฯ            |
+| `source_filters`    | symbol, event ID, market ID, ช่วงวันที่ หรือชื่อไฟล์                |
+| `target_files`      | ไฟล์ Nautilus Parquet ที่คาดว่าจะได้หลังการแปลง                      |
+| `cache_dir`         | ตำแหน่ง output ในเครื่องเทียบกับ `test_data/local/`               |
+| `fetch_command`     | คำสั่งหรือ entry point ของ script ที่แนะนำ                         |
+| `transform_command` | คำสั่งแปลงข้อมูลในเครื่องที่แนะนำ                                    |
+| `env`               | environment variable ที่ต้องใช้                                 |
+| `notes`             | หมายเหตุสั้น ๆ ด้านการใช้งานสำหรับผู้ใช้                               |
 
-Tests that rely on user-fetched data should:
+test ที่อาศัยข้อมูลแบบ user-fetched ควร:
 
-- Be marked or grouped separately from default CI tests.
-- Skip with a clear message when the local dataset is absent.
-- Avoid network access unless the user explicitly opts in.
-- Reuse a stable local cache path so the fetch happens once per machine.
+- ถูกทำเครื่องหมายหรือจัดกลุ่มแยกจาก test ของ CI ค่าเริ่มต้น
+- ข้ามพร้อมข้อความที่ชัดเจนเมื่อไม่มีชุดข้อมูลในเครื่อง
+- หลีกเลี่ยงการเข้าถึงเครือข่าย เว้นแต่ผู้ใช้จะ opt in อย่างชัดเจน
+- ใช้ path cache ในเครื่องที่คงที่ เพื่อให้ดึงข้อมูลเพียงครั้งเดียวต่อเครื่อง
 
-For pytest-based tests, prefer a guard like:
+หาก CI ค่าเริ่มต้นไม่ได้คาดว่าจะรัน Rust test ที่ต้องเตรียมชุดข้อมูลด้วยมือ ให้ใช้ `#[ignore]`
 
-```python
-if not filepath.exists():
-    pytest.skip(f"User-fetched test data not found: {filepath}")
-```
+## การสร้างชุดข้อมูลใหม่ {#regenerating-datasets}
 
-If default CI is not expected to run a Rust test with manual dataset preparation, prefer `#[ignore]`.
-
-## Regenerating datasets
-
-If a schema change invalidates a large Parquet file, regenerate it from the original source data. Use the
-curation tests below. After regenerating:
+หากการเปลี่ยน schema ทำให้ไฟล์ Parquet ขนาดใหญ่ใช้ไม่ได้ ให้สร้างใหม่จากข้อมูลต้นทางเดิม โดยใช้ curation test ด้านล่าง
+หลังสร้างใหม่แล้ว:
 
 1. `sha256sum /tmp/<output_file>.parquet`
-1. Update `test_data/large/checksums.json` with the new hash.
-1. Update the corresponding `metadata.json` (sha256, size_bytes).
-1. Upload the Parquet file to R2.
-1. Replace the cached file in `test_data/large/` with the regenerated file, then run the
-   preparation command to verify it. Use the corresponding cache under `TEST_DATA_ROOT_PATH` when set.
-1. Commit `checksums.json` and `metadata.json` (this also busts the CI cache).
+1. อัปเดต `test_data/large/checksums.json` ด้วย hash ใหม่
+1. อัปเดต `metadata.json` ที่เกี่ยวข้อง (sha256, size_bytes)
+1. อัปโหลดไฟล์ Parquet ไปยัง R2
+1. แทนที่ไฟล์ใน cache ที่ `test_data/large/` ด้วยไฟล์ที่สร้างใหม่ แล้วรันคำสั่งเตรียมข้อมูลเพื่อตรวจสอบ หากตั้ง
+   `TEST_DATA_ROOT_PATH` ไว้ให้ใช้ cache ที่สอดคล้องกันภายใต้ path นั้น
+1. commit `checksums.json` และ `metadata.json` (ซึ่งจะล้าง cache ของ CI ไปด้วย)
 
-### ITCH AAPL L3 deltas
+### ITCH AAPL L3 deltas {#itch-aapl-l3-deltas}
 
-Source: `01302019.NASDAQ_ITCH50.gz` (~4.4 GB) from NASDAQ EMI.
+ต้นทาง: `01302019.NASDAQ_ITCH50.gz` (~4.4 GB) จาก NASDAQ EMI
 
 ```bash
 # Download source (keep a local copy, this is a large file)
@@ -252,11 +236,10 @@ ln -sf ~/Downloads/01302019.NASDAQ_ITCH50.gz /tmp/01302019.NASDAQ_ITCH50.gz
 cargo test -p nautilus-testkit --lib test_curate_aapl_itch -- --ignored --nocapture
 ```
 
-### Tardis Deribit BTC-PERPETUAL L2 deltas
+### Tardis Deribit BTC-PERPETUAL L2 deltas {#tardis-deribit-btc-perpetual-l2-deltas}
 
-Source: `tardis_deribit_incremental_book_L2_2020-04-01_BTC-PERPETUAL.csv.gz` from
-[Tardis](https://tardis.dev/). First-of-month data is available as free samples
-(no API key required).
+ต้นทาง: `tardis_deribit_incremental_book_L2_2020-04-01_BTC-PERPETUAL.csv.gz` จาก
+[Tardis](https://tardis.dev/) ข้อมูลวันแรกของแต่ละเดือนมีให้เป็นตัวอย่างฟรี (ไม่ต้องใช้ API key)
 
 ```bash
 # Download source (free sample, no API key needed)
@@ -267,13 +250,12 @@ wget -O test_data/large/tardis_deribit_incremental_book_L2_2020-04-01_BTC-PERPET
 cargo test -p nautilus-tardis --features arrow test_curate_deribit_deltas -- --ignored --nocapture
 ```
 
-## Tutorial test data
+## ข้อมูลทดสอบสำหรับ tutorial {#tutorial-test-data}
 
-Several tutorials and guides load user-provided market data. The `NAUTILUS_DATA_DIR` environment
-variable overrides their base data path. Use `test_data/local/` as an ignored repository-local
-location for these files.
+tutorial และคู่มือหลายชิ้นโหลด market data ที่ผู้ใช้จัดหาเอง environment variable `NAUTILUS_DATA_DIR` ใช้ override
+path ฐานของข้อมูลเหล่านี้ ให้ใช้ `test_data/local/` เป็นตำแหน่งใน repository ที่ถูก ignore สำหรับไฟล์เหล่านี้
 
-### Directory layout
+### โครงสร้าง directory {#directory-layout}
 
 ```text
 test_data/local/
@@ -286,49 +268,33 @@ test_data/local/
     DAT_ASCII_EURUSD_T_202001.csv.gz
 ```
 
-The `test_data/local/` directory is gitignored. The tutorial scripts stop with a missing-data
-message when the expected files are absent.
+directory `test_data/local/` ถูก gitignore ไว้ script ของ tutorial จะหยุดพร้อมข้อความแจ้งว่าข้อมูลขาด เมื่อไม่พบไฟล์
+ที่คาดไว้
 
-### Obtaining the data
+### การได้มาซึ่งข้อมูล {#obtaining-the-data}
 
-**Binance depth snapshots** are available from the
-[Binance public data portal](https://data.binance.vision/). Download the BTCUSDT T_DEPTH files
-for 2022-11-01 and place the snap and update CSVs under `test_data/local/Binance/`. For
-testing, a subset of rows (e.g. first 10,000) is sufficient.
+**Depth snapshot ของ Binance** หาได้จาก [Binance public data portal](https://data.binance.vision/) ดาวน์โหลดไฟล์
+BTCUSDT T_DEPTH ของวันที่ 2022-11-01 แล้ววาง CSV ของ snap และ update ไว้ใต้ `test_data/local/Binance/`
+สำหรับการทดสอบ ใช้ข้อมูลเพียงบางส่วน (เช่น 10,000 แถวแรก) ก็เพียงพอ
 
-**Bybit ob500 orderbook data** is available from the Bybit CDN:
+**ข้อมูล orderbook ob500 ของ Bybit** หาได้จาก CDN ของ Bybit:
 
 ```bash
 curl -L "https://quote-saver.bycsi.com/orderbook/linear/XRPUSDT/2024-12-01_XRPUSDT_ob500.data.zip" \
   -o test_data/local/Bybit/2024-12-01_XRPUSDT_ob500.data.zip
 ```
 
-The full file is ~360 MB. For testing, extract the first few hundred lines and repackage as a
-smaller zip.
+ไฟล์เต็มมีขนาดประมาณ 360 MB สำหรับการทดสอบ ให้ดึงออกมาเพียงไม่กี่ร้อยบรรทัดแรกแล้วบีบอัดใหม่เป็น zip ขนาดเล็กลง
 
-**HISTDATA tick data** is available from [histdata.com](https://www.histdata.com/). Download
-EUR/USD ASCII tick data for any month and place the CSV (or `.csv.gz`) under
-`test_data/local/HISTDATA/`.
+**ข้อมูล tick ของ HISTDATA** หาได้จาก [histdata.com](https://www.histdata.com/) ดาวน์โหลดข้อมูล tick แบบ ASCII
+ของ EUR/USD เดือนใดก็ได้ แล้ววาง CSV (หรือ `.csv.gz`) ไว้ใต้ `test_data/local/HISTDATA/`
 
-### Running the tutorials
+## ชุดข้อมูลแบบ legacy {#legacy-datasets}
 
-Build the Python package, then run the source tutorials from the repository root:
+ชุดข้อมูลเหล่านี้มีมาก่อนนโยบายนี้และใช้รูปแบบดิบของผู้ให้บริการ (CSV/CSV.gz) โดยไม่มี `metadata.json`
+ยังใช้ได้กับ test เดิม ส่วนชุดข้อมูลใหม่ควรเป็นไปตามมาตรฐาน Parquet ข้างต้น
 
-```bash
-make build-debug
-NAUTILUS_DATA_DIR="$PWD/test_data/local" \
-  uv run --project python --no-sync python docs/tutorials/backtest_orderbook_binance.py
-NAUTILUS_DATA_DIR="$PWD/test_data/local" \
-  uv run --project python --no-sync python docs/tutorials/backtest_orderbook_bybit.py
-```
-
-## Legacy datasets
-
-These datasets predate this policy and use raw vendor formats (CSV/CSV.gz)
-without `metadata.json`. They remain valid for existing tests. New datasets
-should follow the Parquet standard above.
-
-| Dataset                    | Source   | Format           | Location            | Status   |
+| ชุดข้อมูล                     | ต้นทาง    | รูปแบบ            | ตำแหน่ง              | สถานะ    |
 | -------------------------- | -------- | ---------------- | ------------------- | -------- |
 | Tardis Deribit L2 deltas   | Tardis   | Parquet (large)  | `test_data/large/`  | Curated  |
 | ITCH AAPL L3 deltas        | NASDAQ   | Parquet (large)  | `test_data/large/`  | Curated  |
@@ -337,5 +303,5 @@ should follow the Parquet standard above.
 | Tardis Binance snapshots   | Tardis   | CSV.gz (large)   | `test_data/large/`  | Legacy   |
 | Tardis Bitmex trades       | Tardis   | CSV.gz (large)   | `test_data/large/`  | Legacy   |
 
-The former `nautechsystems/nautilus_data` catalog maps to the HISTDATA EURUSD.SIM Parquet
-files above. Raw HISTDATA CSV files remain user-fetched.
+catalog `nautechsystems/nautilus_data` เดิมสอดคล้องกับไฟล์ Parquet ของ HISTDATA EURUSD.SIM ข้างต้น
+ส่วนไฟล์ CSV ดิบของ HISTDATA ยังเป็นแบบ user-fetched

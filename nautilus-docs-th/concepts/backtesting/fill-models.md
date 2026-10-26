@@ -1,197 +1,105 @@
-# Fill Models
+# Fill model
 
-Historical data cannot show how a simulated order would have interacted with other market
-participants. A **fill model** controls the assumptions NautilusTrader makes about limit-order
-eligibility, one-tick slippage, and optional synthetic liquidity.
+ข้อมูลย้อนหลังไม่สามารถบอกได้ว่า order จำลองจะมีปฏิสัมพันธ์กับผู้เล่นอื่นในตลาดอย่างไร **fill model**
+จึงเป็นตัวควบคุมสมมติฐานที่ NautilusTrader ใช้ในเรื่องสิทธิ์การ fill ของ limit order, slippage หนึ่ง tick
+และสภาพคล่องสังเคราะห์ (ถ้าเปิดใช้)
 
-## Behavior by book type
+## พฤติกรรมตามประเภทของ book {#behavior-by-book-type}
 
-With L2 or L3 data, the recorded book supplies price levels and sizes. The matching engine walks
-those levels, and `prob_fill_on_limit` can model whether a touched limit order fills.
-`prob_slippage` does not apply because the book itself determines price impact.
+เมื่อใช้ข้อมูล L2 หรือ L3, book ที่บันทึกไว้จะเป็นตัวให้ระดับราคาและขนาด matching engine จะไล่ไปตามระดับเหล่านั้น
+และ `prob_fill_on_limit` ใช้จำลองได้ว่า limit order ที่ราคาถูกแตะจะ fill หรือไม่ ส่วน `prob_slippage` ไม่มีผล
+เพราะตัว book เองเป็นตัวกำหนด price impact
 
-With an L1 book, including books updated from quotes, trades, or bars:
+เมื่อใช้ book แบบ L1 รวมถึง book ที่อัปเดตจาก quote, trade หรือ bar:
 
-- `prob_fill_on_limit` controls whether a limit order fills when its price is touched.
-- `prob_slippage` is evaluated for each fill, regardless of order type or liquidity side.
-- A successful slippage draw moves the fill one tick against the order direction.
-- A model may provide a synthetic L2 book to represent liquidity beyond the best bid and ask.
+- `prob_fill_on_limit` ควบคุมว่า limit order จะ fill หรือไม่เมื่อราคาของมันถูกแตะ
+- `prob_slippage` จะถูกประเมินทุกครั้งที่มี fill ไม่ว่าจะเป็น order ประเภทใดหรือฝั่ง liquidity ใด
+- หากการสุ่ม slippage สำเร็จ ราคา fill จะขยับไปหนึ่ง tick ในทิศทางที่เสียเปรียบต่อ order
+- Model อาจสร้าง L2 book สังเคราะห์เพื่อแทนสภาพคล่องที่อยู่ถัดจาก best bid และ best ask
 
-For example, with `prob_slippage=0.5`, each BUY fill has a 50% chance of moving one tick higher.
-Set `random_seed` when a run must reproduce the model's random draws.
+ตัวอย่างเช่น เมื่อ `prob_slippage=0.5` fill ฝั่ง BUY แต่ละครั้งมีโอกาส 50% ที่ราคาจะสูงขึ้นหนึ่ง tick
+ให้ตั้ง `random_seed` เมื่อต้องการให้ run ทำซ้ำผลการสุ่มของ model ได้เหมือนเดิม
 
-If a venue does not specify a fill model, it uses `DefaultFillModel` with:
+หาก venue ไม่ได้ระบุ fill model จะใช้ `DefaultFillModel` ด้วยค่า:
 
-- `prob_fill_on_limit=1.0`: A touched limit order is fill-eligible.
-- `prob_slippage=0.0`: L1 fills receive no probabilistic one-tick slippage.
+- `prob_fill_on_limit=1.0`: limit order ที่ราคาถูกแตะมีสิทธิ์ fill
+- `prob_slippage=0.0`: fill แบบ L1 จะไม่มี slippage หนึ่ง tick แบบสุ่ม
 
-These defaults do not disable the matching engine's separate residual-fill rule for eligible
-market-style orders.
+ค่าเริ่มต้นเหล่านี้ไม่ได้ปิดกฎ residual-fill ที่แยกต่างหากของ matching engine สำหรับ order แบบ market-style
+ที่มีสิทธิ์ fill
 
 :::warning
-Historical order book data stays immutable after a fill. With `liquidity_consumption=False`, the same
-displayed size can support more than one simulated order in an iteration. Set `liquidity_consumption=True` to
-track consumed size per level until fresh data arrives. See
-[order book immutability](fill-prices-and-matching.md#order-book-immutability).
+ข้อมูล order book ย้อนหลังจะไม่เปลี่ยนแปลงหลังเกิด fill เมื่อ `liquidity_consumption=False` ขนาดที่แสดงอยู่
+เดียวกันอาจรองรับ order จำลองได้มากกว่าหนึ่งตัวในรอบเดียวกัน ให้ตั้ง `liquidity_consumption=True` เพื่อติดตาม
+ขนาดที่ถูกใช้ไปในแต่ละระดับจนกว่าจะมีข้อมูลใหม่เข้ามา ดู
+[order book immutability](fill-prices-and-matching.md#order-book-immutability)
 :::
 
-## Available models
+## Model ที่มีให้ใช้ {#available-models}
 
-| Model                        | Liquidity behavior                                      |
-| ---------------------------- | ------------------------------------------------------- |
-| `DefaultFillModel`           | Uses the matching engine's recorded book.               |
-| `BestPriceFillModel`         | Provides unlimited size at the best bid and ask.        |
-| `OneTickSlippageFillModel`   | Provides unlimited size one tick beyond the best price. |
-| `ProbabilisticFillModel`     | Chooses the best price or one tick worse.               |
-| `TwoTierFillModel`           | Places 10 units at best, then the rest one tick worse.  |
-| `ThreeTierFillModel`         | Places 50, 30, and 20 units across three levels.        |
-| `LimitOrderPartialFillModel` | Places 5 units at best, then the rest one tick worse.   |
-| `SizeAwareFillModel`         | Changes the book shape at an order size of 10 units.    |
-| `CompetitionAwareFillModel`  | Exposes a configurable fraction of 1,000 units at best. |
-| `VolumeSensitiveFillModel`   | Places 25% of its internal volume at best.              |
-| `MarketHoursFillModel`       | Uses a normal or one-tick-wider synthetic spread.       |
+| Model                        | พฤติกรรมด้าน liquidity                                      |
+| ---------------------------- | --------------------------------------------------------- |
+| `DefaultFillModel`           | ใช้ book ที่บันทึกไว้ของ matching engine                      |
+| `BestPriceFillModel`         | ให้ขนาดไม่จำกัดที่ best bid และ best ask                       |
+| `OneTickSlippageFillModel`   | ให้ขนาดไม่จำกัดที่ราคาถัดจาก best price ไปหนึ่ง tick              |
+| `ProbabilisticFillModel`     | เลือก best price หรือแย่กว่าหนึ่ง tick                         |
+| `TwoTierFillModel`           | วาง 10 หน่วยที่ best แล้ววางส่วนที่เหลือที่ราคาแย่กว่าหนึ่ง tick    |
+| `ThreeTierFillModel`         | วาง 50, 30 และ 20 หน่วยกระจายไปสามระดับ                     |
+| `LimitOrderPartialFillModel` | วาง 5 หน่วยที่ best แล้ววางส่วนที่เหลือที่ราคาแย่กว่าหนึ่ง tick     |
+| `SizeAwareFillModel`         | เปลี่ยนรูปทรงของ book เมื่อขนาด order ถึง 10 หน่วย              |
+| `CompetitionAwareFillModel`  | เปิดให้เห็นสัดส่วน (ปรับได้) ของ 1,000 หน่วยที่ best            |
+| `VolumeSensitiveFillModel`   | วาง 25% ของ volume ภายในของ model ไว้ที่ best                 |
+| `MarketHoursFillModel`       | ใช้ spread สังเคราะห์แบบปกติ หรือกว้างขึ้นหนึ่ง tick              |
 
-`BestPriceFillModel` also fills a limit order at or inside the spread at the order's own price.
+`BestPriceFillModel` ยัง fill limit order ที่อยู่ที่หรือภายใน spread ด้วยราคาของ order เองด้วย
 
-**Instrument scale**: Tier sizes are model constants expressed in instrument quantity units.
-Confirm that they suit the instrument's scale before using a tiered model.
+**ขนาดตาม instrument**: ขนาดของแต่ละ tier เป็นค่าคงที่ของ model ในหน่วยปริมาณของ instrument
+ควรตรวจสอบว่าเหมาะกับสเกลของ instrument ก่อนใช้ model แบบ tier
 
-Synthetic books omit any level outside the instrument's `min_price` and `max_price`. They also omit zero or
-negative prices when the instrument does not allow them.
+Book สังเคราะห์จะไม่รวมระดับใดที่อยู่นอก `min_price` และ `max_price` ของ instrument และจะไม่รวมราคาที่เป็นศูนย์
+หรือติดลบเมื่อ instrument ไม่อนุญาตราคาเหล่านั้น
 
-`CompetitionAwareFillModel` accepts `liquidity_factor` values in `[0.0, 1.0]`, defaults to `0.3`,
-and clamps the calculated size to at least one instrument quantity unit.
+`CompetitionAwareFillModel` รับค่า `liquidity_factor` ในช่วง `[0.0, 1.0]` ค่าเริ่มต้นคือ `0.3`
+และจะ clamp ขนาดที่คำนวณได้ให้มีอย่างน้อยหนึ่งหน่วยปริมาณของ instrument
 
-**Python state**: The bindings do not expose the state setters for `VolumeSensitiveFillModel` or
-`MarketHoursFillModel`. From Python, these models keep their initial values of 1,000 recent-volume units and
-normal-liquidity mode, respectively.
+## Configuration {#configuration}
 
-## Configuration
+กำหนด fill model ให้ venue ผ่าน option `fill_model` ของ config ของ backtest venue โดย model แบบ synthetic book
+ใช้พารามิเตอร์ constructor ชุดเดียวกัน (`prob_fill_on_limit`, `prob_slippage`, `random_seed`)
 
-Pass a built-in or custom Python model object directly to `BacktestVenueConfig`:
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-```python
-from decimal import Decimal
+## พารามิเตอร์เชิงความน่าจะเป็น {#probabilistic-parameters}
 
-from nautilus_trader.config import BacktestVenueConfig
-from nautilus_trader.execution import DefaultFillModel
-from nautilus_trader.execution import MakerTakerFeeModel
-from nautilus_trader.model import AccountType
-from nautilus_trader.model import BookType
-from nautilus_trader.model import OmsType
+### `prob_fill_on_limit` (ค่าเริ่มต้น: `1.0`) {#prob_fill_on_limit-default-10}
 
-venue = BacktestVenueConfig(
-    name="SIM",
-    oms_type=OmsType.NETTING,
-    account_type=AccountType.CASH,
-    book_type=BookType.L1_MBP,
-    starting_balances=["100_000 USD"],
-    fill_model=DefaultFillModel(
-        prob_fill_on_limit=0.2,
-        prob_slippage=0.5,
-        random_seed=42,
-    ),
-    fee_model=MakerTakerFeeModel(
-        maker_rate=Decimal("0"),
-        taker_rate=Decimal("0"),
-    ),
-)
-```
+ค่านี้ควบคุมว่า limit order จะ fill หรือไม่เมื่อตลาดแตะแต่ไม่ข้ามราคาของมัน:
 
-Synthetic book models use the same constructor parameters:
+- `0.0`: ไม่ fill เมื่อแตะเลย
+- `0.5`: fill โดยเฉลี่ยครึ่งหนึ่งของการแตะที่มีสิทธิ์
+- `1.0`: fill ทุกครั้งที่แตะ
 
-```python
-from decimal import Decimal
+การที่ราคาข้าม limit price เป็นเงื่อนไข matching อีกข้อหนึ่งที่แยกต่างหาก หากต้องการติดตาม volume ในคิวอย่างชัดเจน
+ดู [queue position tracking](trade-execution.md#queue-position-tracking)
 
-from nautilus_trader.execution import MakerTakerFeeModel
-from nautilus_trader.execution import ThreeTierFillModel
+### `prob_slippage` (ค่าเริ่มต้น: `0.0`) {#prob_slippage-default-00}
 
-venue = BacktestVenueConfig(
-    name="SIM",
-    oms_type=OmsType.NETTING,
-    account_type=AccountType.CASH,
-    book_type=BookType.L1_MBP,
-    starting_balances=["100_000 USD"],
-    fill_model=ThreeTierFillModel(
-        prob_fill_on_limit=1.0,
-        prob_slippage=0.0,
-        random_seed=42,
-    ),
-    fee_model=MakerTakerFeeModel(
-        maker_rate=Decimal("0"),
-        taker_rate=Decimal("0"),
-    ),
-)
-```
+สำหรับ book แบบ L1 ค่านี้ควบคุมการขยับราคาไปในทางเสียเปรียบหนึ่ง tick ในแต่ละ fill:
 
-The high-level venue configuration accepts model objects directly. It does not load fill models
-from import-path configuration objects.
+- `0.0`: ไม่เพิ่ม slippage จาก model เลย
+- `0.5`: เพิ่มหนึ่ง tick โดยเฉลี่ยครึ่งหนึ่งของ fill ทั้งหมด
+- `1.0`: เพิ่มหนึ่ง tick ในทุก fill
 
-### Custom fill models
+การสุ่มนี้มีผลทั้งกับ fill ฝั่ง maker และ taker แต่ไม่มีผลกับ book แบบ L2 หรือ L3 หาก slippage จะทำให้ราคาข้าม
+`min_price` หรือ `max_price` ของ instrument จะคงราคา fill เดิมไว้ และจะคงราคาเดิมไว้เช่นกันหากจะทำให้ราคาเป็นศูนย์
+หรือติดลบซึ่ง instrument ไม่อนุญาต
 
-Pass a custom Python object as `fill_model` to `BacktestVenueConfig`, `BacktestEngine.add_venue()`,
-`BacktestEngine.change_fill_model(venue, fill_model)`, or `SandboxExecutionClientConfig`. It must implement:
+## Order book สังเคราะห์ {#synthetic-order-books}
 
-- `is_limit_filled() -> bool`
-- `is_slipped() -> bool`
+ก่อนตัดสินผลการ fill, matching engine จะขอ order book สังเคราะห์ (ถ้ามี) จาก model หาก model คืน book มา
+engine จะ fill กับระดับราคาใน book นั้น หากคืน `None` engine จะใช้ book ที่บันทึกไว้
 
-It may also implement:
-
-- `fill_limit_inside_spread() -> bool`
-- `get_orderbook_for_fill_simulation(instrument, order, best_bid, best_ask) -> OrderBook | None`
-
-Subclassing `nautilus_trader.execution.FillModel` supplies default implementations for these
-methods: limit fills return `True`, slippage and spread fills return `False`, and the liquidity hook
-returns `None`. Compatible objects do not need to inherit `FillModel`; omitted optional methods use
-these same defaults. Objects missing either required method raise `TypeError` during configuration.
-
-Configuration getters and copies retain the supplied Python instance. Callback state is shared with
-runtime copies and persists across backtest runs and resets. Use a fresh model for independent state.
-Callback failures propagate from the Python bridge as errors. Matching logs the error and stops that
-fill attempt; fills already applied in the attempt remain. A failure in `fill_limit_inside_spread()`
-logs the error and disables spread fills. The engine reads this hook when each matching engine is
-created or its fill model is replaced, not for each order.
-
-The liquidity hook receives `None` for a missing historical bid or ask. Custom models must handle
-these optional prices. The return value determines the fill behavior:
-
-- `None` uses the standard fill logic.
-- An `OrderBook` restricts fills to that book's eligible liquidity, even when no fills are available.
-  Partial custom fills are not topped up with historical liquidity or the L1 remainder-fill rule.
-
-## Probabilistic parameters
-
-### `prob_fill_on_limit` (default: `1.0`)
-
-This value controls whether a limit order fills when the market touches, but does not cross, its
-price:
-
-- `0.0`: Never fill on touch.
-- `0.5`: Fill on half of eligible touches on average.
-- `1.0`: Always fill on touch.
-
-Crossing the limit price is a separate matching condition. For explicit queue-volume tracking, see
-[queue position tracking](trade-execution.md#queue-position-tracking).
-
-### `prob_slippage` (default: `0.0`)
-
-For L1 books, this value controls a one-tick adverse move on each fill:
-
-- `0.0`: Never add model slippage.
-- `0.5`: Add one tick on half of fills on average.
-- `1.0`: Add one tick to each fill.
-
-The draw applies to maker and taker fills. It does not apply to L2 or L3 books. A slip keeps the original fill
-price if it would cross the instrument's `min_price` or `max_price`. It also keeps that price if it would
-reach a zero or negative price that the instrument does not allow.
-
-## Synthetic order books
-
-Before determining a fill, the matching engine asks the model for an optional synthetic order book.
-If the model returns a book, the engine fills against its levels. If it returns `None`, the engine
-uses the recorded book.
-
-:::warning[Synthetic book consumption]
-Per-level `liquidity_consumption` tracking does not apply to a synthetic model book. A custom model
-must represent any desired consumption behavior in the books it returns.
+:::warning[การใช้ liquidity ของ book สังเคราะห์]
+การติดตาม `liquidity_consumption` รายระดับไม่มีผลกับ book ที่ model สังเคราะห์ขึ้น custom model ต้องจัดการ
+พฤติกรรมการใช้ liquidity ที่ต้องการเองใน book ที่มันคืนกลับมา
 :::

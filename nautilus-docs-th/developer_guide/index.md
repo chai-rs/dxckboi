@@ -1,35 +1,31 @@
-# Developer Guide
+# คู่มือนักพัฒนา (Developer Guide)
 
-Guidance on developing and extending NautilusTrader, or contributing back to the project.
+แนวทางสำหรับการพัฒนาและต่อยอด NautilusTrader หรือการมีส่วนร่วมกลับไปยังโปรเจกต์
 
-NautilusTrader has a **Rust core with Python bindings**:
+NautilusTrader มี **core เขียนด้วย Rust**:
 
-- **Rust** handles networking, data parsing, order matching, and other performance-critical operations.
-- **Python** provides the user-facing API for strategy development, configuration, and system integration.
-- **PyO3** bridges the two, exposing Rust functionality to Python with minimal overhead.
+- **Rust** รับผิดชอบงาน networking, การ parse ข้อมูล, order matching และงานอื่น ๆ ที่ต้องการประสิทธิภาพสูง
 
-This approach combines Python's simplicity and ecosystem with Rust's performance and memory safety.
+แนวทางนี้ให้ทั้งประสิทธิภาพและความปลอดภัยของหน่วยความจำ (memory safety) ตามแบบของ Rust
 
-## Contents
+## เนื้อหา {#contents}
 
-- [Environment Setup](environment_setup.md)
-- [Design Principles](design_principles.md)
-- [Callback Dispatch Contract](callback_dispatch.md)
-- [Runtime Conformance Contract](runtime_conformance.md)
-- [Coding Standards](coding_standards.md)
+- [การตั้งค่าสภาพแวดล้อม](environment_setup.md)
+- [หลักการออกแบบ](design_principles.md)
+- [ข้อตกลงการ dispatch callback](callback_dispatch.md)
+- [ข้อตกลงความสอดคล้องของ runtime](runtime_conformance.md)
+- [มาตรฐานการเขียนโค้ด](coding_standards.md)
 - [Shell](shell.md)
 - [Rust](rust.md)
-- [Python](python.md)
 - [Testing](testing.md)
 - [Test Datasets](test_datasets.md)
-- [Docs Style](docs.md)
-- [Markdown Style](markdown_style.md)
+- [รูปแบบการเขียนเอกสาร](docs.md)
+- [รูปแบบ Markdown](markdown_style.md)
 - [Release Notes](releases.md)
-- [Security Architecture](security.md)
+- [สถาปัตยกรรมด้านความปลอดภัย](security.md)
 - [Adapters](adapters.md)
-- [Python Adapters](python_adapters.md)
 - [Data Testing Spec](spec_data_testing.md)
 - [Execution Testing Spec](spec_exec_testing.md)
 - [Benchmarking](benchmarking.md)
-- [FFI Memory Contract](ffi.md)
+- [ข้อตกลงหน่วยความจำของ FFI](ffi.md)
 - [Plugins](plugins.md)

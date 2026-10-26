@@ -1,90 +1,75 @@
 # Rust
 
-Nautilus has a complete Rust implementation under the `crates/` directory.
-You can write actors, strategies, run backtests, and trade live without Python.
-The domain model is shared with the Python package, which runs user components
-on the same Rust engine through PyO3.
+Nautilus มี implementation ที่สมบูรณ์ด้วย Rust อยู่ใต้ไดเรกทอรี `crates/`
+คุณเขียน actor, strategy, รัน backtest และทำ live trading ได้โดยไม่ต้องใช้ Python เลย
 
 :::warning
-The Rust API is under active development. Method signatures and trait
-requirements may change between releases.
+Rust API ยังอยู่ระหว่างการพัฒนาอย่างต่อเนื่อง signature ของ method และข้อกำหนดของ trait
+อาจเปลี่ยนแปลงได้ระหว่าง release
 :::
 
-## System implementations
+## ส่วนประกอบของระบบ {#system-implementations}
 
-Nautilus has two paths. Choose the one that matches how you want to author
-and deploy the system.
+implementation แบบ Rust ล้วนอยู่ใต้ `crates/` และรันได้โดยไม่ต้องมี Python runtime ให้ performance แบบ native
+และมีฟังก์ชันการเทรดหลักครบทั้งหมด เหมาะกับ deployment ที่อ่อนไหวต่อ latency หรือทีมที่ชอบภาษาแบบ compile
 
-- **Rust**: Pure Rust under `crates/`. Runs without Python.
-- **Python**: [Python user components](python.md) running on the Rust core through PyO3
-  bindings under `python/nautilus_trader/`.
+### ตารางความสามารถ {#capability-matrix}
 
-### Capability matrix
-
-| Component       | Rust | Python |
-| --------------- | ---- | ------ |
-| Strategy        | ✓    | ✓      |
-| Actor           | ✓    | ✓      |
-| DataEngine      | ✓    | ✓      |
-| ExecutionEngine | ✓    | ✓      |
-| RiskEngine      | ✓    | ✓      |
-| BacktestEngine  | ✓    | ✓      |
-| BacktestNode    | ✓    | ✓      |
-| LiveNode        | ✓    | ✓      |
-| OrderEmulator   | ✓    | ✓      |
-| Matching engine | ✓    | ✓      |
-| Portfolio       | ✓    | ✓      |
-| Accounts        | ✓    | ✓      |
-| Cache           | ✓    | ✓      |
-| MessageBus      | ✓    | ✓      |
-| Data catalog    | ✓    | ✓      |
-| Indicators      | ✓    | ✓      |
-| Exec algorithms | TWAP | TWAP   |
-| Controller      | -    | ✓      |
-| Tearsheets      | -    | ✓      |
+| Component       | Rust |
+| --------------- | ---- |
+| Strategy        | ✓    |
+| Actor           | ✓    |
+| DataEngine      | ✓    |
+| ExecutionEngine | ✓    |
+| RiskEngine      | ✓    |
+| BacktestEngine  | ✓    |
+| BacktestNode    | ✓    |
+| LiveNode        | ✓    |
+| OrderEmulator   | ✓    |
+| Matching engine | ✓    |
+| Portfolio       | ✓    |
+| Accounts        | ✓    |
+| Cache           | ✓    |
+| MessageBus      | ✓    |
+| Data catalog    | ✓    |
+| Indicators      | ✓    |
+| Exec algorithms | TWAP |
+| Controller      | -    |
+| Tearsheets      | -    |
 
 :::note
-The Controller runtime is implemented in Rust and powers the Python `Controller`
-base class. The matrix marks it absent for Rust because the supported
-registration path (importable controller configs) is Python-only.
+runtime ของ Controller เขียนด้วย Rust แต่ตารางระบุว่าไม่มีใน Rust เพราะเส้นทางการลงทะเบียนที่รองรับ
+(controller config ที่ import ได้) ยังใช้จาก Rust ไม่ได้
 :::
 
-### Adapters
+### Adapters {#adapters}
 
-| Adapter             | Rust | Python |
-| ------------------- | ---- | ------ |
-| Architect AX        | ✓    | ✓      |
-| Betfair             | ✓    | ✓      |
-| Binance             | ✓    | ✓      |
-| Blockchain          | ✓    | ✓      |
-| Bybit               | ✓    | ✓      |
-| Coinbase            | ✓    | ✓      |
-| Databento           | ✓    | ✓      |
-| Deribit             | ✓    | ✓      |
-| Derive              | ✓    | ✓      |
-| dYdX                | ✓    | ✓      |
-| Hyperliquid         | ✓    | ✓      |
-| Interactive Brokers | ✓    | ✓      |
-| Kraken              | ✓    | ✓      |
-| Lighter             | ✓    | ✓      |
-| OKX                 | ✓    | ✓      |
-| Polymarket          | ✓    | ✓      |
-| Sandbox             | ✓    | ✓      |
-| Tardis              | ✓    | ✓      |
+| Adapter             | Rust |
+| ------------------- | ---- |
+| Architect AX        | ✓    |
+| Betfair             | ✓    |
+| Binance             | ✓    |
+| Blockchain          | ✓    |
+| Bybit               | ✓    |
+| Coinbase            | ✓    |
+| Databento           | ✓    |
+| Deribit             | ✓    |
+| Derive              | ✓    |
+| dYdX                | ✓    |
+| Hyperliquid         | ✓    |
+| Interactive Brokers | ✓    |
+| Kraken              | ✓    |
+| Lighter             | ✓    |
+| OKX                 | ✓    |
+| Polymarket          | ✓    |
+| Sandbox             | ✓    |
+| Tardis              | ✓    |
 
-### Choosing a path
+## การตั้งค่าโปรเจกต์ {#project-setup}
 
-- **Rust** gives native performance without a Python runtime. All core
-  trading functionality is available. Use it for latency-sensitive
-  deployments or teams that prefer a compiled language.
-- **Python** keeps the Python authoring experience. User components (actors,
-  strategies) run on the Rust core for data processing and execution.
-
-## Project setup
-
-The Nautilus crates are published to
-[crates.io](https://crates.io/crates/nautilus-backtest). Add them to your
-`Cargo.toml`:
+crate ของ Nautilus publish อยู่บน
+[crates.io](https://crates.io/crates/nautilus-backtest) เพิ่มลงใน
+`Cargo.toml` ของคุณ:
 
 ```toml
 [dependencies]
@@ -98,7 +83,7 @@ anyhow = "1"
 log = "0.4"
 ```
 
-For live trading, add the live crate and the adapter for your venue:
+สำหรับ live trading ให้เพิ่ม crate live และ adapter ของ venue ที่ใช้:
 
 ```toml
 [dependencies]
@@ -106,8 +91,8 @@ nautilus-live = "0.66"
 nautilus-okx = "0.66"
 ```
 
-To track the latest development branch, point all Nautilus dependencies at the same git source. This avoids
-type mismatches between crates.io and git versions:
+ถ้าต้องการตาม branch พัฒนาล่าสุด ให้ชี้ dependency ของ Nautilus ทั้งหมดไปที่ git source เดียวกัน เพื่อเลี่ยง
+type ไม่ตรงกันระหว่างเวอร์ชันจาก crates.io กับ git:
 
 ```toml
 [dependencies]
@@ -118,28 +103,27 @@ nautilus-model = { git = "https://github.com/nautechsystems/nautilus_trader.git"
 nautilus-trading = { git = "https://github.com/nautechsystems/nautilus_trader.git", branch = "develop", features = ["examples"] }
 ```
 
-The minimum supported Rust version (MSRV) is **1.99.1**.
+Rust เวอร์ชันต่ำสุดที่รองรับ (MSRV) คือ **1.99.1**
 
-### Feature flags
+### Feature flags {#feature-flags}
 
-| Flag             | Crate               | Effect                                               |
+| Flag             | Crate               | ผล                                                    |
 | ---------------- | ------------------- | ---------------------------------------------------- |
-| `high-precision` | `nautilus-model`    | 16-digit fixed precision (default is 9).             |
-| `test-support`   | `nautilus-model`    | Test fixtures, builders, specs, and defaults.        |
-| `examples`       | `nautilus-trading`  | Example strategies (`EmaCross`, `GridMarketMaker`).  |
-| `streaming`      | `nautilus-backtest` | Catalog-based data streaming through `BacktestNode`. |
-| `defi`           | `nautilus-model`    | DeFi data types. Implies `high-precision`.           |
+| `high-precision` | `nautilus-model`    | fixed precision 16 หลัก (ค่า default คือ 9)            |
+| `test-support`   | `nautilus-model`    | test fixture, builder, spec และค่า default            |
+| `examples`       | `nautilus-trading`  | strategy ตัวอย่าง (`EmaCross`, `GridMarketMaker`)     |
+| `streaming`      | `nautilus-backtest` | การ stream ข้อมูลจาก catalog ผ่าน `BacktestNode`       |
+| `defi`           | `nautilus-model`    | data type สำหรับ DeFi เปิด `high-precision` ให้ด้วย     |
 
 :::tip
-Standard 9-digit precision handles most traditional finance instruments.
-Enable `high-precision` for crypto venues where prices or quantities need more than nine decimal
-places.
+precision มาตรฐาน 9 หลักเพียงพอสำหรับ instrument การเงินแบบดั้งเดิมส่วนใหญ่
+เปิด `high-precision` สำหรับ venue crypto ที่ราคาหรือ quantity ต้องการทศนิยมมากกว่าเก้าตำแหน่ง
 :::
 
-### Memory allocator
+### Memory allocator {#memory-allocator}
 
-The `nautilus` CLI and Python wheels use [mimalloc](https://crates.io/crates/mimalloc) for Rust
-allocations. A Rust binary chooses its own allocator, so add mimalloc to yours to match:
+CLI `nautilus` ใช้ [mimalloc](https://crates.io/crates/mimalloc) สำหรับการจองหน่วยความจำของ Rust
+binary ของ Rust จะเลือก allocator ของตัวเอง ดังนั้นให้เพิ่ม mimalloc ลงใน binary ของคุณเพื่อให้ตรงกัน:
 
 ```toml
 [dependencies]
@@ -158,37 +142,35 @@ fn main() {
 }
 ```
 
-Declaring `GLOBAL` selects mimalloc. Call `register_allocator_mimalloc` at the start of `main`, before
-constructing a Nautilus node, so the version header reports `allocator: mimalloc <version>`. Registration
-**only updates the header metadata**. It does not select the allocator.
+การประกาศ `GLOBAL` คือการเลือกใช้ mimalloc ให้เรียก `register_allocator_mimalloc` ตอนต้นของ `main` ก่อน
+สร้าง Nautilus node เพื่อให้ version header รายงาน `allocator: mimalloc <version>` การลงทะเบียนนี้
+**อัปเดตเฉพาะ metadata ใน header** ไม่ได้เป็นการเลือก allocator
 
-The default system allocator also works. Measure throughput and resident memory on your workload
-and platform when comparing allocator choices.
-See the [architecture guide](architecture.md#memory-allocation) for background.
+system allocator แบบ default ก็ใช้ได้เช่นกัน เมื่อเปรียบเทียบ allocator ให้วัด throughput และ resident memory บน
+workload และ platform ของคุณเอง ดูพื้นหลังเพิ่มเติมได้ที่ [architecture guide](architecture.md#memory-allocation)
 
-## Actors
+## Actors {#actors}
 
-An actor receives market data, custom data/signals, and system events but does not manage orders. Implement
-the `DataActor` trait and use `nautilus_actor!` to wire your `DataActorCore` field into the runtime contract.
-Your type implements or derives `Debug`. The macro supplies the native runtime wiring.
+actor รับ market data, custom data/signal และ system event แต่ไม่จัดการ order ให้ implement trait `DataActor`
+และใช้ `nautilus_actor!` เพื่อเชื่อมฟิลด์ `DataActorCore` ของคุณเข้ากับ runtime contract type ของคุณต้อง implement
+หรือ derive `Debug` ส่วน macro จะจัดการการเชื่อมต่อกับ native runtime ให้
 
-User code normally uses the `DataActor` facade methods for subscriptions, cache access, and clock access.
+โดยปกติโค้ดของผู้ใช้จะใช้ facade method ของ `DataActor` สำหรับการ subscribe, การเข้าถึง cache และ clock
 
-### Handler methods
+### Handler methods {#handler-methods}
 
-Override any handler on the `DataActor` trait to receive the corresponding
-data or event. All handlers have default no-op implementations, so you only
-override what you need.
+override handler ใดก็ได้บน trait `DataActor` เพื่อรับข้อมูลหรือ event ที่ตรงกัน handler ทุกตัวมี implementation
+default ที่ไม่ทำอะไร (no-op) คุณจึง override เฉพาะที่ต้องใช้
 
-| Handler                | Receives                  |
+| Handler                | รับอะไร                    |
 | ---------------------- | ------------------------- |
-| `on_start`             | Actor started.            |
-| `on_stop`              | Actor stopped.            |
+| `on_start`             | actor เริ่มทำงาน            |
+| `on_stop`              | actor หยุดทำงาน            |
 | `on_quote`             | `QuoteTick`               |
 | `on_trade`             | `TradeTick`               |
 | `on_bar`               | `Bar`                     |
 | `on_book_deltas`       | `OrderBookDeltas`         |
-| `on_book`              | `OrderBook` (at interval) |
+| `on_book`              | `OrderBook` (ตาม interval) |
 | `on_instrument`        | `InstrumentAny`           |
 | `on_mark_price`        | `MarkPriceUpdate`         |
 | `on_index_price`       | `IndexPriceUpdate`        |
@@ -198,37 +180,36 @@ override what you need.
 | `on_instrument_status` | `InstrumentStatus`        |
 | `on_time_event`        | `TimeEvent`               |
 
-For a step-by-step walkthrough, see the
-[Write an Actor (Rust)](../how_to/write_rust_actor.md) how-to guide.
-For a complete example, see
-[`BookImbalanceActor`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/trading/src/examples/actors/imbalance).
+ดูคำอธิบายทีละขั้นได้ที่คู่มือ [เขียน Actor (Rust)](../how_to/write_rust_actor.md)
+และดูตัวอย่างที่สมบูรณ์ได้ที่
+[`BookImbalanceActor`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/trading/src/examples/actors/imbalance)
 
-## Strategies
+## Strategies {#strategies}
 
-A strategy extends an actor with order management. Implement `DataActor` for data handling and use
-`nautilus_strategy!` to wire your `StrategyCore` field into the strategy runtime contract. `StrategyCore`
-stores the runtime strategy state. Runtime registration requires the native wiring generated by the macro.
+strategy ขยาย actor ด้วยความสามารถในการจัดการ order ให้ implement `DataActor` สำหรับการจัดการข้อมูล และใช้
+`nautilus_strategy!` เพื่อเชื่อมฟิลด์ `StrategyCore` ของคุณเข้ากับ strategy runtime contract `StrategyCore`
+เก็บ state ของ strategy ตอน runtime และการลงทะเบียนกับ runtime ต้องใช้ native wiring ที่ macro สร้างให้
 
-Normal strategy logic uses `Strategy` methods and facade methods on `self` to reach that state. Strategies
-also override order event handlers on the `Strategy` trait, such as `on_order_filled` (`OrderFilled`) and
-`on_order_canceled` (`OrderCanceled`).
+logic ของ strategy ตามปกติใช้ method ของ `Strategy` และ facade method บน `self` เพื่อเข้าถึง state นั้น
+strategy ยัง override order event handler บน trait `Strategy` ได้ด้วย เช่น `on_order_filled` (`OrderFilled`) และ
+`on_order_canceled` (`OrderCanceled`)
 
-### Order management
+### การจัดการ order {#order-management}
 
-The `Strategy` trait provides order methods through the facade:
+trait `Strategy` มี method สำหรับ order ผ่าน facade:
 
-| Method                | Action                                    |
+| Method                | การทำงาน                                    |
 | --------------------- | ----------------------------------------- |
-| `submit_order`        | Submit a new order to the venue.          |
-| `submit_order_list`   | Submit a list of contingent orders.       |
-| `modify_order`        | Modify price, quantity, or trigger price. |
-| `cancel_order`        | Cancel a specific order.                  |
-| `cancel_orders`       | Cancel a filtered set of orders.          |
-| `cancel_all_orders`   | Cancel all orders for an instrument.      |
-| `close_position`      | Close a position with a market order.     |
-| `close_all_positions` | Close all open positions.                 |
+| `submit_order`        | submit order ใหม่ไปยัง venue               |
+| `submit_order_list`   | submit รายการ contingent order            |
+| `modify_order`        | แก้ไข price, quantity หรือ trigger price    |
+| `cancel_order`        | cancel order ที่ระบุ                        |
+| `cancel_orders`       | cancel ชุด order ที่กรองไว้                  |
+| `cancel_all_orders`   | cancel order ทั้งหมดของ instrument หนึ่ง     |
+| `close_position`      | ปิด position ด้วย market order             |
+| `close_all_positions` | ปิด position ที่เปิดอยู่ทั้งหมด                |
 
-The `OrderApi` (accessed through `self.order()`) builds orders and order lists:
+`OrderApi` (เข้าถึงผ่าน `self.order()`) ใช้สร้าง order และ order list:
 
 - `generate_client_order_id`
 - `generate_order_list_id`
@@ -244,37 +225,36 @@ The `OrderApi` (accessed through `self.order()`) builds orders and order lists:
 - `bracket`
 - `create_list`
 
-### Cache and clock access
+### การเข้าถึง cache และ clock {#cache-and-clock-access}
 
-Cache and clock access report borrow conflicts through different interfaces:
+การเข้าถึง cache และ clock รายงาน borrow conflict ผ่าน interface ที่ต่างกัน:
 
-- The cache facade's `try_*` lookups return a lookup error's `Access` variant for borrow conflicts. `NotFound`
-  still means the requested data is absent.
-- The cache facade's `get()` method and native-backed clock scheduling methods return access errors through
-  `anyhow::Result`.
-- Existing infallible accessors still panic on conflicts.
+- lookup แบบ `try_*` ของ cache facade คืน variant `Access` ของ lookup error เมื่อเกิด borrow conflict ส่วน
+  `NotFound` ยังคงหมายถึงไม่มีข้อมูลที่ร้องขอ
+- method `get()` ของ cache facade และ method ตั้งเวลาของ clock ที่ใช้ native backend คืน access error ผ่าน
+  `anyhow::Result`
+- accessor แบบ infallible ที่มีอยู่เดิมยังคง panic เมื่อเกิด conflict
 
-Release conflicting borrows before retrying. These errors do not defer callbacks or change their delivery
-order.
+ให้ปล่อย borrow ที่ขัดแย้งกันก่อน retry error เหล่านี้ไม่ได้เลื่อน callback หรือเปลี่ยนลำดับการส่ง callback
 
-### Core wiring macros
+### Macro สำหรับเชื่อม core {#core-wiring-macros}
 
-Rust actors, strategies, and execution algorithms keep their runtime core as a
-struct field. The macros tell the traits where that field lives.
+actor, strategy และ execution algorithm ของ Rust เก็บ runtime core ไว้เป็นฟิลด์ของ struct macro จะบอก trait
+ว่าฟิลด์นั้นอยู่ที่ไหน
 
-| Macro                                          | Core field               | Generates                      |
+| Macro                                          | Core field               | สร้างอะไร                       |
 | ---------------------------------------------- | ------------------------ | ------------------------------ |
-| `nautilus_actor!(Type)`                        | `DataActorCore`          | Runtime wiring.                |
-| `nautilus_strategy!(Type)`                     | `StrategyCore`           | Runtime wiring and `Strategy`. |
-| `nautilus_execution_algorithm!(Type, { ... })` | `ExecutionAlgorithmCore` | Runtime wiring and algorithm.  |
+| `nautilus_actor!(Type)`                        | `DataActorCore`          | Runtime wiring                 |
+| `nautilus_strategy!(Type)`                     | `StrategyCore`           | Runtime wiring และ `Strategy`  |
+| `nautilus_execution_algorithm!(Type, { ... })` | `ExecutionAlgorithmCore` | Runtime wiring และ algorithm   |
 
-The macros expect a field named `core`. Pass a field name as the second argument when needed. They do not make
-the actor, strategy, or `StrategyCore` deref to runtime internals. The execution algorithm macro takes an
-`on_order()` implementation block because that method defines the algorithm's required order handling.
+macro คาดหวังฟิลด์ชื่อ `core` ถ้าจำเป็นให้ส่งชื่อฟิลด์เป็น argument ตัวที่สอง macro ไม่ได้ทำให้ actor, strategy
+หรือ `StrategyCore` deref ไปยังส่วนภายในของ runtime macro ของ execution algorithm รับ implementation block
+ของ `on_order()` เพราะ method นั้นนิยามการจัดการ order ที่ algorithm ต้องมี
 
-### Native traits
+### Native trait {#native-traits}
 
-Use facade methods by default:
+โดย default ให้ใช้ facade method:
 
 - `actor_id()`
 - `trader_id()`
@@ -286,89 +266,81 @@ Use facade methods by default:
 - `order()`
 - `portfolio()`
 
-`DataActorNative`, `StrategyNative`, and `ExecutionAlgorithmNative` are for
-native-only access below that facade. This section documents engine, runtime, and explicit
-latency-sensitive native Rust code, not the portable authoring path.
+`DataActorNative`, `StrategyNative` และ `ExecutionAlgorithmNative` มีไว้สำหรับการเข้าถึงแบบ native-only ที่อยู่
+ต่ำกว่า facade หัวข้อนี้อธิบายโค้ด Rust แบบ native สำหรับ engine, runtime และ path ที่อ่อนไหวต่อ latency อย่างชัดเจน
+ไม่ใช่วิธีเขียน component แบบ portable ตามปกติ
 
-| Authoring path            | Native traits?   | Normal API                          |
+| วิธีเขียน                    | ใช้ native trait? | API ปกติ                              |
 | ------------------------- | ---------------- | ----------------------------------- |
-| Native Rust binary        | Only when needed | `Strategy` and `DataActor` facades. |
-| Rust launched from Python | Only when needed | Same as native Rust.                |
-| Python-authored component | No               | Facades only.                       |
+| Native Rust binary        | เฉพาะเมื่อจำเป็น     | facade ของ `Strategy` และ `DataActor` |
 
-Native traits expose borrowed core state, `Rc<RefCell<_>>`, and runtime references. Use them when native Rust
-code intentionally accepts those borrow rules for an explicit latency-sensitive path.
+native trait เปิดให้เข้าถึง core state แบบ borrow, `Rc<RefCell<_>>` และ reference ของ runtime ใช้เมื่อโค้ด Rust
+แบบ native ตั้งใจยอมรับกฎการ borrow เหล่านั้นสำหรับ path ที่อ่อนไหวต่อ latency อย่างชัดเจน
 
-Engine, runtime, registration, PyO3, and testkit code can import `DataActorNative`, `StrategyNative`, or
-`ExecutionAlgorithmNative` when they need actor-core, strategy-core, or execution-algorithm-core access. These
-types do not cross the Python boundary. Do not use them in ordinary portable actor, strategy, or execution
-algorithm logic or Python-authored components.
+โค้ดของ engine, runtime, registration และ testkit สามารถ import `DataActorNative`, `StrategyNative` หรือ
+`ExecutionAlgorithmNative` เมื่อต้องเข้าถึง actor core, strategy core หรือ execution algorithm core อย่าใช้ใน
+logic ทั่วไปของ actor, strategy หรือ execution algorithm แบบ portable
 
-`ExecutionAlgorithmCore` owns a `DataActorCore`, but it does not deref to one.
-Normal execution algorithm logic should use `id()`, `actor_id()`,
-`trader_id()`, `clock()`, and `cache()`. Reach for `ExecutionAlgorithmNative`
-only when the code needs native execution-algorithm state.
+`ExecutionAlgorithmCore` เป็นเจ้าของ `DataActorCore` แต่ไม่ได้ deref ไปยังมัน
+logic ปกติของ execution algorithm ควรใช้ `id()`, `actor_id()`, `trader_id()`, `clock()` และ `cache()`
+ใช้ `ExecutionAlgorithmNative` เฉพาะเมื่อโค้ดต้องการ state ของ execution algorithm แบบ native
 
-Choose the smallest native handle and keep each borrow scoped. Use `order()`
-for normal strategy order construction. Reach for
-`order_factory()` only when native code needs the raw mutable factory borrow.
+ให้เลือก native handle ที่เล็กที่สุดและจำกัดขอบเขตของแต่ละ borrow ใช้ `order()` สำหรับการสร้าง order ตามปกติของ
+strategy และใช้ `order_factory()` เฉพาะเมื่อโค้ด native ต้องการ borrow แบบ mutable ของ factory โดยตรง
 
-#### `DataActorNative` methods
+#### Method ของ `DataActorNative` {#dataactornative-methods}
 
-| Native method | Return shape             | Use when                        |
-| ------------- | ------------------------ | ------------------------------- |
-| `core()`      | `&DataActorCore`         | Read actor internals.           |
-| `core_mut()`  | `&mut DataActorCore`     | Mutate actor internals.         |
-| `clock_mut()` | `RefMut<'_, dyn Clock>`  | Need a mutable clock borrow.    |
-| `clock_rc()`  | `Rc<RefCell<dyn Clock>>` | Store or pass the shared clock. |
-| `cache_ref()` | `Ref<'_, Cache>`         | Need short live-cache reads.    |
-| `cache_rc()`  | `Rc<RefCell<Cache>>`     | Mutate, store, or pass cache.   |
+| Native method | Return shape             | ใช้เมื่อ                                 |
+| ------------- | ------------------------ | --------------------------------------- |
+| `core()`      | `&DataActorCore`         | อ่านส่วนภายในของ actor                   |
+| `core_mut()`  | `&mut DataActorCore`     | แก้ไขส่วนภายในของ actor                  |
+| `clock_mut()` | `RefMut<'_, dyn Clock>`  | ต้องการ borrow clock แบบ mutable         |
+| `clock_rc()`  | `Rc<RefCell<dyn Clock>>` | เก็บหรือส่งต่อ clock ที่ใช้ร่วมกัน             |
+| `cache_ref()` | `Ref<'_, Cache>`         | ต้องการอ่าน live cache แบบสั้น ๆ           |
+| `cache_rc()`  | `Rc<RefCell<Cache>>`     | แก้ไข เก็บ หรือส่งต่อ cache                |
 
-Use `try_cache_ref()` and `try_clock_mut()` to handle failed native borrows without panicking. Import
-`ComponentAccessError` from `nautilus_common::component`:
+ใช้ `try_cache_ref()` และ `try_clock_mut()` เพื่อจัดการ native borrow ที่ล้มเหลวโดยไม่ panic ให้ import
+`ComponentAccessError` จาก `nautilus_common::component`:
 
-- `try_cache_ref()` returns `ComponentAccessError::ReadConflict` when the cache is mutably borrowed.
-- `try_clock_mut()` returns `ComponentAccessError::WriteConflict` when the clock is already borrowed.
-- Both return `ComponentAccessError::NotRegistered` when registration has not supplied the resource.
+- `try_cache_ref()` คืน `ComponentAccessError::ReadConflict` เมื่อ cache ถูก borrow แบบ mutable อยู่
+- `try_clock_mut()` คืน `ComponentAccessError::WriteConflict` เมื่อ clock ถูก borrow อยู่แล้ว
+- ทั้งคู่คืน `ComponentAccessError::NotRegistered` เมื่อการลงทะเบียนยังไม่ได้จัดหา resource นั้นให้
 
-The error identifies the resource and attempted operation. Callback reentry can cause a conflict, but a
-conflict alone does not establish its cause. See [reentrancy
-diagnostics](../developer_guide/callback_dispatch.md#reentrancy-and-dispatch-diagnostics) for message meanings
-and corrective action.
+error จะระบุ resource และการทำงานที่พยายามทำ การ reentry ของ callback อาจทำให้เกิด conflict ได้ แต่ conflict
+เพียงอย่างเดียวไม่ได้บอกสาเหตุ ดูความหมายของข้อความและวิธีแก้ได้ที่ [reentrancy
+diagnostics](../developer_guide/callback_dispatch.md#reentrancy-and-dispatch-diagnostics)
 
-#### `StrategyNative` methods
+#### Method ของ `StrategyNative` {#strategynative-methods}
 
-| Native method         | Return shape                | Use when                         |
-| --------------------- | --------------------------- | -------------------------------- |
-| `strategy_core()`     | `&StrategyCore`             | Read strategy internals.         |
-| `strategy_core_mut()` | `&mut StrategyCore`         | Mutate strategy internals.       |
-| `order_factory()`     | `RefMut<'_, OrderFactory>`  | Need raw mutable factory borrow. |
-| `order_factory_rc()`  | `Rc<RefCell<OrderFactory>>` | Store or pass the factory.       |
-| `portfolio_rc()`      | `Rc<RefCell<Portfolio>>`    | Store or pass the portfolio.     |
+| Native method         | Return shape                | ใช้เมื่อ                                 |
+| --------------------- | --------------------------- | --------------------------------------- |
+| `strategy_core()`     | `&StrategyCore`             | อ่านส่วนภายในของ strategy                |
+| `strategy_core_mut()` | `&mut StrategyCore`         | แก้ไขส่วนภายในของ strategy               |
+| `order_factory()`     | `RefMut<'_, OrderFactory>`  | ต้องการ borrow factory แบบ mutable โดยตรง |
+| `order_factory_rc()`  | `Rc<RefCell<OrderFactory>>` | เก็บหรือส่งต่อ factory                     |
+| `portfolio_rc()`      | `Rc<RefCell<Portfolio>>`    | เก็บหรือส่งต่อ portfolio                   |
 
-#### `ExecutionAlgorithmNative` methods
+#### Method ของ `ExecutionAlgorithmNative` {#executionalgorithmnative-methods}
 
-| Native method               | Return shape                  | Use when                              |
-| --------------------------- | ----------------------------- | ------------------------------------- |
-| `exec_algorithm_core()`     | `&ExecutionAlgorithmCore`     | Read execution algorithm internals.   |
-| `exec_algorithm_core_mut()` | `&mut ExecutionAlgorithmCore` | Mutate execution algorithm internals. |
+| Native method               | Return shape                  | ใช้เมื่อ                                     |
+| --------------------------- | ----------------------------- | ------------------------------------------- |
+| `exec_algorithm_core()`     | `&ExecutionAlgorithmCore`     | อ่านส่วนภายในของ execution algorithm         |
+| `exec_algorithm_core_mut()` | `&mut ExecutionAlgorithmCore` | แก้ไขส่วนภายในของ execution algorithm        |
 
-For a step-by-step walkthrough, see the
-[Write a Strategy (Rust)](../how_to/write_rust_strategy.md) how-to guide.
-For complete examples, see
+ดูคำอธิบายทีละขั้นได้ที่คู่มือ [เขียน Strategy (Rust)](../how_to/write_rust_strategy.md)
+และดูตัวอย่างที่สมบูรณ์ได้ที่
 [`EmaCross`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/trading/src/examples/strategies/ema_cross)
-and
-[`GridMarketMaker`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/trading/src/examples/strategies/grid_mm).
+และ
+[`GridMarketMaker`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/trading/src/examples/strategies/grid_mm)
 
-### Running Rust components
+### การรัน Rust component {#running-rust-components}
 
-Rust strategies and actors can run through two paths. The examples below use strategies, but the same pattern
-applies to bundled actors through `add_actor` (pure Rust) and `add_builtin_actor` (from Python).
+ตัวอย่างด้านล่างใช้ strategy แต่ใช้รูปแบบเดียวกันกับ actor ผ่าน `add_actor`
 
-#### Pure Rust
+#### Rust ล้วน {#pure-rust}
 
-Write your strategy and `main` function in Rust, then build a standalone
-binary with `cargo build`. This path requires no Python runtime.
+เขียน strategy และฟังก์ชัน `main` ด้วย Rust แล้ว build เป็น binary แบบ standalone ด้วย `cargo build`
+วิธีนี้ไม่ต้องมี Python runtime
 
 ```rust
 let strategy = GridMarketMaker::new(config);
@@ -376,61 +348,16 @@ node.add_strategy(strategy)?;
 node.run().await?;
 ```
 
-See [Run Live Trading (Rust)](../how_to/run_rust_live_trading.md) for a
-full walkthrough.
+ดูคำอธิบายฉบับเต็มได้ที่ [Run Live Trading (Rust)](../how_to/run_rust_live_trading.md)
 
-#### Built-in examples from Python
+## Backtesting {#backtesting}
 
-Pass a type name and config to `add_builtin_strategy` to register a
-built-in example strategy from Python. This path exists to single-source
-the bundled example strategy code across Rust and Python docs, examples,
-and tests. It is not a first-class extension path for adding native
-strategies. For custom native components, use pure Rust.
+ดูคำอธิบายพร้อม annotation ของทั้งสอง API ได้ที่คู่มือ
+[Run a Backtest (Rust)](../how_to/run_rust_backtest.md)
 
-```python
-from nautilus_trader.trading import GridMarketMakerConfig
+### `BacktestEngine` (API ระดับล่าง) {#backtestengine-low-level-api}
 
-config = GridMarketMakerConfig(
-    instrument_id=InstrumentId.from_str("BTC-USDT-SWAP.OKX"),
-    max_position=Quantity.from_str("10.0"),
-    trade_size=Quantity.from_str("0.1"),
-    num_levels=5,
-    grid_step_bps=15,
-)
-
-node.add_builtin_strategy("GridMarketMaker", config)
-```
-
-Built-in strategy configs:
-
-| Config                       | Strategy               |
-| ---------------------------- | ---------------------- |
-| `CompositeMarketMakerConfig` | `CompositeMarketMaker` |
-| `DeltaNeutralVolConfig`      | `DeltaNeutralVol`      |
-| `EmaCrossConfig`             | `EmaCross`             |
-| `ExecTesterConfig`           | `ExecTester`           |
-| `GridMarketMakerConfig`      | `GridMarketMaker`      |
-| `HurstVpinDirectionalConfig` | `HurstVpinDirectional` |
-
-`add_builtin_actor` follows the same bundled-only rule for actors used by
-examples and tests.
-
-Built-in actor configs (through `add_builtin_actor`):
-
-| Config                     | Actor                |
-| -------------------------- | -------------------- |
-| `BookImbalanceActorConfig` | `BookImbalanceActor` |
-| `DataTesterConfig`         | `DataTester`         |
-
-## Backtesting
-
-For annotated walkthroughs of both APIs, see the
-[Run a Backtest (Rust)](../how_to/run_rust_backtest.md) how-to guide.
-
-### `BacktestEngine` (low-level API)
-
-Construct the engine, add venues and instruments, load data, register
-strategies, and run. See the full working example:
+สร้าง engine เพิ่ม venue และ instrument โหลดข้อมูล ลงทะเบียน strategy แล้วรัน ดูตัวอย่างที่ใช้งานได้ฉบับเต็ม:
 
 ```bash
 cargo run -p nautilus-backtest --features examples --example engine-ema-cross
@@ -439,11 +366,10 @@ cargo run -p nautilus-backtest --features examples --example engine-ema-cross
 Source:
 [`crates/backtest/examples/engine_ema_cross.rs`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/backtest/examples/engine_ema_cross.rs)
 
-### `BacktestNode` (high-level API)
+### `BacktestNode` (API ระดับสูง) {#backtestnode-high-level-api}
 
-Loads data from a `ParquetDataCatalog` and supports streaming in
-configurable chunk sizes. Requires the `streaming` feature on
-`nautilus-backtest`. See the full working example:
+โหลดข้อมูลจาก `ParquetDataCatalog` และรองรับการ stream เป็น chunk ที่ตั้งขนาดได้ ต้องเปิด feature `streaming`
+บน `nautilus-backtest` ดูตัวอย่างที่ใช้งานได้ฉบับเต็ม:
 
 ```bash
 cargo run -p nautilus-backtest --features examples,streaming --example node-ema-cross
@@ -452,14 +378,13 @@ cargo run -p nautilus-backtest --features examples,streaming --example node-ema-
 Source:
 [`crates/backtest/examples/node_ema_cross.rs`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/backtest/examples/node_ema_cross.rs)
 
-## Live trading
+## Live trading {#live-trading}
 
-For an annotated walkthrough, see the
-[Run Live Trading (Rust)](../how_to/run_rust_live_trading.md) how-to guide.
+ดูคำอธิบายพร้อม annotation ได้ที่คู่มือ
+[Run Live Trading (Rust)](../how_to/run_rust_live_trading.md)
 
-The `LiveNode` connects to real venues and data sources through adapter clients. The builder
-pattern configures data and execution clients, then `run()` starts the async
-event loop. Each adapter provides its own factory and config types.
+`LiveNode` เชื่อมต่อกับ venue และแหล่งข้อมูลจริงผ่าน adapter client โดยใช้ builder pattern ตั้งค่า data client และ
+execution client จากนั้น `run()` จะเริ่ม async event loop adapter แต่ละตัวมี factory และ config type ของตัวเอง
 
 | Adapter             | Example                                         |
 | ------------------- | ----------------------------------------------- |
@@ -482,19 +407,17 @@ event loop. Each adapter provides its own factory and config types.
 | Sandbox             | `crates/adapters/sandbox/examples/`             |
 | Tardis              | `crates/adapters/tardis/examples/`              |
 
-Most adapters include `node_data_tester.rs` and `node_exec_tester.rs`
-examples. These test data requests, streaming, and order execution
-against live venues.
+adapter ส่วนใหญ่มีตัวอย่าง `node_data_tester.rs` และ `node_exec_tester.rs` ซึ่งทดสอบการ request ข้อมูล
+การ stream และการ execute order กับ venue จริง
 
-## Related guides
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-- [Python](python.md) - Python ownership, runtime, and public API boundaries.
-- [Write an Actor (Rust)](../how_to/write_rust_actor.md) - Step-by-step actor walkthrough.
-- [Write a Strategy (Rust)](../how_to/write_rust_strategy.md) - Step-by-step strategy walkthrough.
-- [Run a Backtest (Rust)](../how_to/run_rust_backtest.md) - BacktestEngine and BacktestNode usage.
-- [Run Live Trading (Rust)](../how_to/run_rust_live_trading.md) - LiveNode setup and venue connection.
-- [Architecture](architecture.md) - System design and data/execution flow.
-- [Actors](actors.md) - Actor concepts (applies to both Python and Rust).
-- [Strategies](strategies.md) - Strategy concepts and handler reference.
-- [Events](events/) - Event types and handler dispatch.
-- [Backtesting](backtesting/) - Backtest concepts and matching engine behavior.
+- [เขียน Actor (Rust)](../how_to/write_rust_actor.md) - คำอธิบาย actor ทีละขั้น
+- [เขียน Strategy (Rust)](../how_to/write_rust_strategy.md) - คำอธิบาย strategy ทีละขั้น
+- [Run a Backtest (Rust)](../how_to/run_rust_backtest.md) - การใช้ BacktestEngine และ BacktestNode
+- [Run Live Trading (Rust)](../how_to/run_rust_live_trading.md) - การตั้งค่า LiveNode และการเชื่อมต่อ venue
+- [Architecture](architecture.md) - การออกแบบระบบและ flow ของ data/execution
+- [Actors](actors.md) - แนวคิดของ actor
+- [Strategies](strategies.md) - แนวคิดของ strategy และ reference ของ handler
+- [Events](events/) - ประเภทของ event และการ dispatch handler
+- [Backtesting](backtesting/) - แนวคิดของ backtest และพฤติกรรมของ matching engine

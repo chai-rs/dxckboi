@@ -1,76 +1,69 @@
 # Security Architecture
 
-This page describes the security model for the NautilusTrader release pipeline.
-It explains how release artifacts are built, published, attested, and verified.
+หน้านี้อธิบายโมเดลความปลอดภัยของ release pipeline ของ NautilusTrader
+ว่า artifact ของ release ถูก build, publish, attest และตรวจสอบอย่างไร
 
-Use this page with:
+ใช้หน้านี้ควบคู่กับ:
 
-- [Supply chain policy](https://nautilustrader.io/security/supply-chain/), which states the public
-  dependency and release integrity commitments.
-- [Releases](releases.md), which documents the release workflow and checklist.
-- [Security Policy](../../SECURITY.md), which gives consumer-facing verification commands.
-- [GitHub Actions overview](../../.github/OVERVIEW.md#security), which documents CI/CD controls.
+- [Supply chain policy](https://nautilustrader.io/security/supply-chain/) ซึ่งระบุพันธะสาธารณะเรื่อง
+  dependency และความถูกต้องสมบูรณ์ (integrity) ของ release
+- [Releases](releases.md) ซึ่งอธิบาย workflow และ checklist ของการ release
+- [Security Policy](../../SECURITY.md) ซึ่งให้คำสั่งตรวจสอบสำหรับผู้ใช้งาน
+- [GitHub Actions overview](../../.github/OVERVIEW.md#security) ซึ่งอธิบายการควบคุมใน CI/CD
 
-## Security goals
+## เป้าหมายด้านความปลอดภัย {#security-goals}
 
-The release pipeline has four goals:
+release pipeline มีเป้าหมายสี่ข้อ:
 
-- Build every official artifact from a reviewed repository commit.
-- Publish Python and Rust packages without long-lived package registry tokens.
-- Attach checksums, manifests, and provenance before publishing the GitHub release.
-- Give users enough public data to verify that downloaded artifacts match the release.
+- build artifact ทางการทุกตัวจาก commit ใน repository ที่ผ่านการ review แล้ว
+- publish package (รวมถึง Rust crate) โดยไม่ใช้ token ของ package registry ที่มีอายุยาว
+- แนบ checksum, manifest และ provenance ก่อน publish GitHub release
+- ให้ข้อมูลสาธารณะแก่ผู้ใช้เพียงพอที่จะตรวจสอบได้ว่า artifact ที่ดาวน์โหลดตรงกับ release
 
-The GitHub release anchors package integrity. Stable releases attach wheel and
-sdist assets to a draft GitHub release before any package index publish starts.
-The pipeline publishes package indexes, verifies those indexes against the
-GitHub release assets, attaches final integrity assets, then publishes the
-GitHub release.
+GitHub release เป็นจุดยึด integrity ของ package release แบบ stable จะแนบ artifact ของ package
+ไว้กับ draft GitHub release ก่อนที่จะเริ่ม publish ไปยัง package index ใด ๆ จากนั้น pipeline จะ publish
+ไปยัง package index, ตรวจสอบ index เหล่านั้นเทียบกับ asset ของ GitHub release, แนบ asset ด้าน
+integrity ชุดสุดท้าย แล้วจึง publish GitHub release
 
-## Threat model
+## Threat model {#threat-model}
 
-The pipeline defends against:
+pipeline ป้องกันสิ่งต่อไปนี้:
 
-- Compromised or mutable third-party GitHub Actions, by pinning actions to commit SHAs.
-- Accidental release from the wrong workflow, branch, or environment, by binding OIDC publishers
-  to `nautechsystems/nautilus_trader`, `build.yml`, and the `release` environment.
-- Long-lived package registry token theft, by using PyPI and crates.io Trusted Publishing.
-- Registry propagation lag or partial re-runs, by making publish and verify scripts idempotent
-  and retry-tolerant.
-- Registry substitution or upload drift, by comparing PyPI and crates.io artifacts against
-  release manifests and registry metadata.
-- Silent manual crate recovery, by requiring explicit `CRATES_IO_MANUAL_PUBLISH_EXCEPTIONS`
-  entries and recording those exceptions in `crates-manifest.json`.
+- GitHub Actions ของบุคคลที่สามที่ถูกเจาะหรือเปลี่ยนแปลงได้ โดย pin action ไว้กับ commit SHA
+- การ release โดยไม่ตั้งใจจาก workflow, branch หรือ environment ที่ผิด โดยผูก OIDC publisher
+  ไว้กับ `nautechsystems/nautilus_trader`, `build.yml` และ environment `release`
+- การขโมย token ของ package registry ที่มีอายุยาว โดยใช้ Trusted Publishing ของ PyPI และ crates.io
+- ความล่าช้าในการกระจายข้อมูลของ registry หรือการรันซ้ำบางส่วน โดยทำให้ script สำหรับ publish และ verify
+  เป็นแบบ idempotent และทนต่อการ retry
+- การสลับ artifact ใน registry หรือการ upload ที่คลาดเคลื่อน โดยเปรียบเทียบ artifact บน PyPI และ crates.io
+  กับ release manifest และ metadata ของ registry
+- การกู้คืน crate ด้วยมือแบบเงียบ ๆ โดยบังคับให้ต้องมีรายการ `CRATES_IO_MANUAL_PUBLISH_EXCEPTIONS`
+  ที่ระบุชัดเจน และบันทึกข้อยกเว้นเหล่านั้นไว้ใน `crates-manifest.json`
 
-The pipeline does not defend against:
+pipeline ไม่ได้ป้องกันสิ่งต่อไปนี้:
 
-- A malicious maintainer with permission to change release workflows and approve releases.
-- A compromise of GitHub, PyPI, crates.io, or Sigstore that can forge the trust roots users rely on.
-- A compromised end-user machine before verification runs.
-- Runtime compromise of an exchange, broker, data provider, or user trading strategy.
-- Bit-identical rebuild drift for wheels and sdists. The current guarantee is provenance and
-  digest verification, not reproducible builds.
+- maintainer ที่ประสงค์ร้ายและมีสิทธิ์แก้ไข release workflow และอนุมัติ release
+- การถูกเจาะของ GitHub, PyPI, crates.io หรือ Sigstore ที่สามารถปลอม trust root ที่ผู้ใช้พึ่งพาได้
+- เครื่องของผู้ใช้ปลายทางที่ถูกเจาะก่อนการตรวจสอบจะทำงาน
+- การถูกเจาะขณะ runtime ของ exchange, broker, ผู้ให้บริการข้อมูล หรือ trading strategy ของผู้ใช้
 
-## Trust roots
+## Trust root {#trust-roots}
 
-- GitHub repository rules protect reviewed source, release branches, and release tags.
-  Protected `master` and immutable `v*` release tags are the relevant records.
-- GitHub Actions OIDC issuer provides short-lived workflow identities from
-  `https://token.actions.githubusercontent.com`.
-- GitHub `release` environment gates package publishing and release approvals.
-  The environment restricts deployment to `master` and requires reviewer approval.
-- PyPI Trusted Publishing publishes wheels and sdist without a persistent token.
-  It binds to repository `nautechsystems/nautilus_trader`, workflow `build.yml`,
-  and environment `release`.
-- crates.io Trusted Publishing publishes Rust crates without a persistent token.
-  It binds to owner `nautechsystems`, repository `nautilus_trader`, workflow
-  `build.yml`, and environment `release`.
-- Sigstore Fulcio, Rekor, and TUF bind artifacts to OIDC identities and the
-  transparency log. GitHub artifact attestations, PyPI publish attestations, and
-  Docker cosign signatures rely on this root.
-- GitHub release immutability prevents post-publish asset and tag replacement.
-  Published release assets and the release tag become immutable.
+- กฎของ GitHub repository ปกป้อง source ที่ผ่านการ review, release branch และ release tag
+  โดยมี `master` ที่ถูก protect และ release tag `v*` ที่เปลี่ยนแปลงไม่ได้เป็นบันทึกที่เกี่ยวข้อง
+- OIDC issuer ของ GitHub Actions ให้ identity ของ workflow อายุสั้นจาก
+  `https://token.actions.githubusercontent.com`
+- environment `release` ของ GitHub เป็นด่านควบคุมการ publish package และการอนุมัติ release
+  environment นี้จำกัดการ deploy ไว้ที่ `master` และต้องได้รับการอนุมัติจาก reviewer
+- Trusted Publishing ของ crates.io ใช้ publish Rust crate โดยไม่มี token ถาวร
+  โดยผูกไว้กับ owner `nautechsystems`, repository `nautilus_trader`, workflow
+  `build.yml` และ environment `release`
+- Sigstore Fulcio, Rekor และ TUF ผูก artifact เข้ากับ OIDC identity และ transparency log
+  GitHub artifact attestation และ Docker cosign signature พึ่งพา root นี้
+- ความไม่เปลี่ยนแปลง (immutability) ของ GitHub release ป้องกันการแทนที่ asset และ tag หลัง publish
+  asset ของ release ที่ publish แล้วและ release tag จะเปลี่ยนแปลงไม่ได้
 
-## Release flow
+## ลำดับการ release {#release-flow}
 
 ```mermaid
 flowchart TD
@@ -102,89 +95,34 @@ flowchart TD
     source --> docker
 ```
 
-The Docker workflow is separate from the package release workflow, but uses the same identity model. Image
-signatures and SBOM attestations bind the image digest to the expected GitHub Actions workflow identity.
+Docker workflow แยกจาก package release workflow แต่ใช้โมเดล identity เดียวกัน image signature และ
+SBOM attestation ผูก image digest เข้ากับ identity ของ GitHub Actions workflow ที่คาดหวัง
 
-## Artifact records
+## บันทึกของ artifact {#artifact-records}
 
-| Artifact              | Published to                                                                        | Integrity records                                             | Provenance records                                                                                      |
-| --------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Python wheels         | GitHub Releases, PyPI, and the Nautech Systems index (`packages.nautechsystems.io`) | `SHA256SUMS`, per-asset `.sha256` files, `dist-manifest.json` | GitHub artifact attestations, PyPI publish attestations, `.sigstore` bundles, `.intoto.jsonl` envelopes |
-| Python sdists         | GitHub Releases and PyPI                                                            | Same as wheels                                                | Same as wheels                                                                                          |
-| Rust crates           | crates.io                                                                           | crates.io checksum, `crates-manifest.json`                    | crates.io `trustpub_data`, unless an explicit manual exception is present                               |
-| Docker images         | GitHub Container Registry                                                           | Image digest                                                  | Sigstore cosign signatures, SPDX SBOM attestations                                                      |
-| GitHub release record | GitHub Releases                                                                     | Published release assets, immutable tag                       | GitHub release attestation                                                                              |
+| Artifact              | Publish ไปที่               | บันทึกด้าน integrity                         | บันทึกด้าน provenance                                                       |
+| --------------------- | --------------------------- | -------------------------------------------- | --------------------------------------------------------------------------- |
+| Rust crates           | crates.io                   | checksum ของ crates.io, `crates-manifest.json` | `trustpub_data` ของ crates.io เว้นแต่จะมีข้อยกเว้นแบบ manual ที่ระบุชัดเจน   |
+| Docker images         | GitHub Container Registry   | Image digest                                 | Sigstore cosign signature, SPDX SBOM attestation                            |
+| บันทึก GitHub release  | GitHub Releases             | asset ของ release ที่ publish แล้ว, tag ที่เปลี่ยนแปลงไม่ได้ | GitHub release attestation                                                  |
 
-The Nautech Systems package index publishes wheels only. Sdists are not published there.
+## แผนที่การตรวจสอบสำหรับผู้ใช้ {#consumer-verification-map}
 
-## Consumer verification map
+คำสั่งโดยละเอียดอยู่ใน
+[Verifying releases](https://github.com/nautechsystems/nautilus_trader/blob/develop/SECURITY.md#verifying-releases)
+การตรวจสอบด้านล่างแสดงข้อมูลสาธารณะที่ผู้ใช้แต่ละกลุ่มควรตรวจสอบ
 
-Detailed commands live in
-[Verifying releases](https://github.com/nautechsystems/nautilus_trader/blob/develop/SECURITY.md#verifying-releases).
-The checks below show the public data each consumer should verify.
+### Rust crate {#rust-crates}
 
-### Python wheels and sdist
+ตรวจสอบว่า:
 
-Verify:
+- checksum ของเวอร์ชันบน crates.io ตรงกับไฟล์ `.crate` ที่ดาวน์โหลดมา
+- `trustpub_data.provider` เป็น `github`
+- `trustpub_data.repository` เป็น `nautechsystems/nautilus_trader`
+- `published_by` เป็น `null` เว้นแต่ `crates-manifest.json` จะบันทึกข้อยกเว้น
+  `manual_token_publish` ไว้อย่างชัดเจน
 
-- The artifact digest matches `SHA256SUMS`, the per-asset `.sha256` file, or
-  `dist-manifest.json`.
-- The GitHub artifact attestation identity matches
-  `nautechsystems/nautilus_trader/.github/workflows/build.yml` on `master` or `nightly`.
-- The PyPI publish attestation reports repository `nautechsystems/nautilus_trader`,
-  workflow `build.yml`, and environment `release`.
-
-Example:
-
-```bash
-: "${VERSION:?Set VERSION to the Python package version}"
-: "${ARTIFACT:?Set ARTIFACT to the release asset filename}"
-TAG="v$VERSION"
-REPO=nautechsystems/nautilus_trader
-ISSUER=https://token.actions.githubusercontent.com
-IDENTITY='^https://github\.com/nautechsystems/nautilus_trader/\.github/workflows/build\.yml@refs/heads/(master|nightly)$'
-
-gh release download "$TAG" --repo "$REPO" --pattern "$ARTIFACT" --pattern "$ARTIFACT.sha256"
-sha256sum -c "$ARTIFACT.sha256"
-gh attestation verify "$ARTIFACT" \
-  --repo "$REPO" \
-  --cert-identity-regex "$IDENTITY" \
-  --cert-oidc-issuer "$ISSUER"
-```
-
-### PyPI publish provenance
-
-Verify:
-
-- PyPI file hashes match `dist-manifest.json`.
-- PyPI provenance exposes the expected GitHub publisher identity.
-- `pypi-attestations verify` accepts the downloaded file URL.
-
-Example:
-
-```bash
-: "${VERSION:?Set VERSION to the Python package version}"
-: "${ARTIFACT:?Set ARTIFACT to the release asset filename}"
-PYPI_URL=$(curl -sS "https://pypi.org/pypi/nautilus_trader/$VERSION/json" | \
-  jq -r --arg artifact "$ARTIFACT" '.urls[] | select(.filename == $artifact) | .url')
-
-uv run --no-project --no-build --with pypi-attestations -- \
-  pypi-attestations verify pypi \
-  --repository https://github.com/nautechsystems/nautilus_trader \
-  "$PYPI_URL"
-```
-
-### Rust crates
-
-Verify:
-
-- The crates.io version checksum matches the downloaded `.crate` file.
-- `trustpub_data.provider` is `github`.
-- `trustpub_data.repository` is `nautechsystems/nautilus_trader`.
-- `published_by` is `null`, unless `crates-manifest.json` records an explicit
-  `manual_token_publish` exception.
-
-Example:
+ตัวอย่าง:
 
 ```bash
 CRATE=${CRATE:-nautilus-core}
@@ -200,15 +138,15 @@ curl -sSL "https://static.crates.io/crates/$CRATE/$CRATE-$VERSION.crate" -o "$CR
 test "$(sha256sum "$CRATE-$VERSION.crate" | cut -d ' ' -f 1)" = "$CRATE_SHA256"
 ```
 
-### Docker images
+### Docker image {#docker-images}
 
-Verify:
+ตรวจสอบว่า:
 
-- The mutable tag resolves to the digest you intend to run.
-- The cosign signature identity matches the Docker workflow.
-- The SPDX SBOM attestation is bound to the same image digest.
+- tag ที่เปลี่ยนแปลงได้ resolve ไปยัง digest ที่ต้องการรันจริง
+- identity ของ cosign signature ตรงกับ Docker workflow
+- SPDX SBOM attestation ผูกกับ image digest เดียวกัน
 
-Example:
+ตัวอย่าง:
 
 ```bash
 export IMAGE_BASE=ghcr.io/nautechsystems/nautilus_trader
@@ -225,51 +163,44 @@ cosign verify-attestation \
   --certificate-oidc-issuer "$ISSUER"
 ```
 
-## Manual recovery posture
+## แนวทางการกู้คืนด้วยมือ {#manual-recovery-posture}
 
-Normal releases use Trusted Publishing only. Manual package publishing is a
-last-resort recovery path after a partial release.
+release ตามปกติใช้ Trusted Publishing เท่านั้น การ publish package ด้วยมือเป็นเส้นทางกู้คืน
+ทางเลือกสุดท้ายหลังจากการ release ที่สำเร็จเพียงบางส่วน
 
-Rules for manual recovery:
+กฎสำหรับการกู้คืนด้วยมือ:
 
-- Prefer re-running the failed job or workflow when a registry or Sigstore verifier fails.
-- Do not replace a release tag or GitHub release assets after publication.
-- Do not silently accept manually published crates.
-- If a crate must be recovered with a token, list each `crate@version` in
-  `CRATES_IO_MANUAL_PUBLISH_EXCEPTIONS`.
-- Record the exception in release notes and in `crates-manifest.json` with
-  `release_status: "manual_token_publish"`.
+- เมื่อ registry หรือ Sigstore verifier ล้มเหลว ให้รัน job หรือ workflow ที่ล้มเหลวซ้ำก่อน
+- อย่าแทนที่ release tag หรือ asset ของ GitHub release หลังจาก publish แล้ว
+- อย่ายอมรับ crate ที่ publish ด้วยมือแบบเงียบ ๆ
+- หากจำเป็นต้องกู้คืน crate ด้วย token ให้ระบุ `crate@version` แต่ละตัวไว้ใน
+  `CRATES_IO_MANUAL_PUBLISH_EXCEPTIONS`
+- บันทึกข้อยกเว้นไว้ใน release note และใน `crates-manifest.json` ด้วย
+  `release_status: "manual_token_publish"`
 
-No routine release path depends on a long-lived PyPI or crates.io token.
+ไม่มีเส้นทาง release ตามปกติใดที่พึ่งพา token ของ PyPI หรือ crates.io ที่มีอายุยาว
 
-## Incident response posture
+## แนวทางการรับมือเหตุการณ์ {#incident-response-posture}
 
-- PyPI publisher drift is detected by the PyPI provenance verifier. Stop
-  publishing, fix the PyPI Trusted Publisher, and rerun verification.
-- crates.io publisher drift is detected by the trusted-publishing check or
-  registry verifier. Fix crate publisher settings and rerun. Use a manual
-  exception only for partial recovery.
-- GitHub release asset mismatch is detected by checksum or manifest verification.
-  Stop the release before publication, or publish an advisory if assets already
-  shipped.
-- Sigstore, Rekor, or TUF lag is detected by retryable transparency errors.
-  Retry with bounded backoff, then pause release sealing if lag persists.
-- Sigstore trust root concern appears when attestation verification becomes
-  ambiguous. Pause releases, verify against registry records, and rotate trust
-  roots when supported.
-- Workflow identity mismatch is detected by GitHub, PyPI, or cosign identity
-  checks. Treat it as configuration drift or compromise until reviewed.
-- Manual crate publish exceptions are detected when crates.io shows
-  `published_by` instead of `trustpub_data`. Record the explicit exception,
-  document affected crates, and preserve the audit trail.
+- publisher ของ crates.io ที่คลาดเคลื่อนจะถูกตรวจพบโดยการตรวจ trusted publishing หรือ
+  registry verifier ให้แก้การตั้งค่า publisher ของ crate แล้วรันใหม่ ใช้ข้อยกเว้นแบบ manual
+  เฉพาะสำหรับการกู้คืนบางส่วนเท่านั้น
+- asset ของ GitHub release ที่ไม่ตรงกันจะถูกตรวจพบโดยการตรวจ checksum หรือ manifest
+  ให้หยุดการ release ก่อน publish หรือออก advisory หาก asset ถูกปล่อยออกไปแล้ว
+- ความล่าช้าของ Sigstore, Rekor หรือ TUF จะตรวจพบได้จาก transparency error ที่ retry ได้
+  ให้ retry ด้วย backoff ที่มีขอบเขต แล้วพักการปิดผนึก release หากความล่าช้ายังคงอยู่
+- ข้อกังวลเรื่อง trust root ของ Sigstore จะปรากฏเมื่อผลการตรวจ attestation กำกวม
+  ให้พักการ release, ตรวจสอบเทียบกับบันทึกของ registry และหมุนเวียน trust root เมื่อรองรับ
+- identity ของ workflow ที่ไม่ตรงกันจะถูกตรวจพบโดยการตรวจ identity ของ GitHub, PyPI หรือ cosign
+  ให้ถือว่าเป็นการตั้งค่าที่คลาดเคลื่อนหรือการถูกเจาะจนกว่าจะได้รับการ review
+- ข้อยกเว้นการ publish crate ด้วยมือจะถูกตรวจพบเมื่อ crates.io แสดง `published_by` แทน
+  `trustpub_data` ให้บันทึกข้อยกเว้นอย่างชัดเจน, ระบุ crate ที่ได้รับผลกระทบ และเก็บรักษา audit trail ไว้
 
-## SLSA posture
+## แนวทางด้าน SLSA {#slsa-posture}
 
-Python release artifacts carry build provenance through GitHub artifact attestations
-and PyPI publish attestations. Docker images carry Sigstore signatures and SPDX SBOM
-attestations. Rust crates rely on crates.io Trusted Publishing metadata and the
-release `crates-manifest.json`.
+Docker image มี Sigstore signature และ SPDX SBOM attestation ส่วน Rust crate พึ่งพา
+metadata ของ Trusted Publishing บน crates.io และ `crates-manifest.json` ของ release
 
-This page does not assert a named SLSA level for all artifact classes. A future SLSA level claim must cite
-this architecture and name the artifact classes that it covers. It must also include CI validation that the
-published provenance parses as the claimed predicate type.
+หน้านี้ไม่ได้อ้างระดับ SLSA ที่ระบุชื่อสำหรับ artifact ทุกประเภท การอ้างระดับ SLSA ในอนาคตต้องอ้างอิง
+สถาปัตยกรรมนี้และระบุประเภท artifact ที่ครอบคลุม และต้องมีการตรวจสอบใน CI ว่า provenance ที่ publish
+นั้น parse ได้ตาม predicate type ที่อ้าง

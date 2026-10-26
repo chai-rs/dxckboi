@@ -1,73 +1,69 @@
-# Advanced orders
+# Order ขั้นสูง
 
-Order lists group related orders, while contingency metadata describes how fills, cancellations, or
-updates should affect linked orders. The component that handles the list determines the behavior:
-the backtest matching engine, local order emulator, live adapter and venue, or strategy code.
+Order list ใช้จัดกลุ่ม order ที่เกี่ยวข้องกัน ส่วน contingency metadata อธิบายว่า fill, การยกเลิก หรือการอัปเดต
+ควรส่งผลต่อ order ที่ผูกกันอยู่อย่างไร component ที่จัดการ list นั้นเป็นตัวกำหนดพฤติกรรม ไม่ว่าจะเป็น matching
+engine ของ backtest, order emulator ภายในเครื่อง, live adapter และ venue หรือโค้ดของ strategy
 
 :::warning
-An `OrderList` or `ContingencyType` does not guarantee that all live adapters or venues implement the
-relationship. Check the target integration before relying on native contingency behavior.
+`OrderList` หรือ `ContingencyType` ไม่ได้รับประกันว่า live adapter หรือ venue ทุกตัวจะ implement ความสัมพันธ์นั้น
+ตรวจสอบ integration เป้าหมายก่อนพึ่งพาพฤติกรรม contingency แบบ native
 :::
 
-## Order lists
+## Order list {#order-lists}
 
-An order list groups contingent orders or a larger batch under one `order_list_id`. Orders in the list do not
-need a contingency relationship. Their own metadata defines any relationship.
+Order list จัดกลุ่ม contingent order หรือ batch ที่ใหญ่กว่านั้นไว้ภายใต้ `order_list_id` เดียว order ใน list
+ไม่จำเป็นต้องมีความสัมพันธ์แบบ contingency ต่อกัน ความสัมพันธ์ใด ๆ กำหนดด้วย metadata ของแต่ละ order เอง
 
-Production constructors require each order in a list to use the same venue. Orders may target different
-instruments at that venue, such as pairs, calendar spreads, or multi-leg strategies.
+Constructor สำหรับ production กำหนดให้ order ทุกตัวใน list ต้องใช้ venue เดียวกัน แต่ order อาจมุ่งไปยัง
+instrument ต่างกันใน venue นั้นได้ เช่น pair, calendar spread หรือ strategy แบบหลายขา
 
-The list takes its representative `instrument_id` from the first order. Consumers that need the
-actual instrument must resolve each order individually.
+List จะใช้ `instrument_id` ตัวแทนจาก order ตัวแรก ผู้ใช้ที่ต้องการ instrument จริงต้อง resolve จากแต่ละ order เอง
 
-**Validation failure**: if a member fails per-order risk validation, the risk engine stops submission
-of the list and sends `OrderDenied` events for its [eligible members](../execution/policies.md#command-outcomes).
-The failing member receives its validation-specific reason; other eligible members receive `ORDER_LIST_DENIED`.
-Orders already dispatched by an earlier submission keep their lifecycle.
+**การตรวจสอบไม่ผ่าน**: หากสมาชิกตัวใดไม่ผ่าน risk validation ราย order risk engine จะหยุดการส่ง list นั้น และส่ง
+event `OrderDenied` ให้กับ[สมาชิกที่เข้าเงื่อนไข](../execution/policies.md#command-outcomes) ตัวที่ไม่ผ่านจะได้รับ
+เหตุผลเฉพาะของการตรวจสอบนั้น ส่วนสมาชิกที่เข้าเงื่อนไขตัวอื่นจะได้รับ `ORDER_LIST_DENIED` order ที่ถูก dispatch
+ไปแล้วจากการส่งครั้งก่อนยังคงดำเนินตามวงจรชีวิตของตัวเอง
 
-`DENIED` is terminal. To retry denied orders, create new orders with new client order IDs.
+`DENIED` เป็นสถานะสิ้นสุด หากต้องการลองส่ง order ที่ถูกปฏิเสธใหม่ ให้สร้าง order ใหม่ด้วย client order ID ใหม่
 
-**Mixed-instrument caveats**:
+**ข้อควรระวังสำหรับ list ที่มีหลาย instrument**:
 
-- **Pre-trade checks**: Price precision, quantity precision, and GTD expiry use each order's own
-  instrument.
-- **Cumulative risk check**: Free balance, notional bounds, position-reducing exposure, and market
-  data use the list's representative instrument. For a mixed list, this produces a single-instrument
-  bound rather than per-instrument accuracy.
-- **Cache lookups**: `cache.order_lists(instrument_id=...)` filters against the representative
-  `instrument_id`. Lists containing other instruments will not match queries for those other instruments.
-- **Position IDs**: The execution engine denies mixed-instrument lists when a `position_id` is
-  supplied (a position belongs to a single instrument, regardless of OMS).
-- **Adapter batching**: `submit_order_list` implementations vary. Some iterate orders per leg and resolve each
-  order's own `instrument_id` against the venue API. Others still build the batch request around the list's
-  representative `instrument_id` and will misroute non-first orders. Treat mixed-instrument lists as
-  adapter-specific. Verify the target adapter's behavior before relying on it. Backtesting and
-  strategy-managed routing avoid relying on an adapter's mixed-instrument batch behavior.
+- **Pre-trade check**: price precision, quantity precision และการหมดอายุแบบ GTD ใช้ instrument ของแต่ละ order เอง
+- **Cumulative risk check**: free balance, ขอบเขต notional, exposure ที่ลด position และ market data ใช้
+  instrument ตัวแทนของ list สำหรับ list ที่มีหลาย instrument ผลที่ได้จึงเป็นขอบเขตแบบ instrument เดียว
+  ไม่ได้แม่นยำราย instrument
+- **การค้นหาใน cache**: `cache.order_lists(instrument_id=...)` กรองตาม `instrument_id` ตัวแทน list ที่มี
+  instrument อื่นจะไม่ตรงกับ query ของ instrument อื่นเหล่านั้น
+- **Position ID**: execution engine จะปฏิเสธ list ที่มีหลาย instrument เมื่อมีการระบุ `position_id`
+  (position หนึ่งเป็นของ instrument เดียวเสมอไม่ว่าจะใช้ OMS แบบใด)
+- **การทำ batch ของ adapter**: implementation ของ `submit_order_list` แตกต่างกันไป บางตัววนส่งทีละขาและ resolve
+  `instrument_id` ของแต่ละ order กับ API ของ venue บางตัวยังสร้าง batch request โดยอิง `instrument_id`
+  ตัวแทนของ list ซึ่งจะ route order ที่ไม่ใช่ตัวแรกผิดที่ ให้ถือว่า list ที่มีหลาย instrument ขึ้นกับ adapter
+  และตรวจสอบพฤติกรรมของ adapter เป้าหมายก่อนพึ่งพา ส่วน backtest และการ routing ที่ strategy จัดการเอง
+  ไม่ต้องพึ่งพฤติกรรม batch แบบหลาย instrument ของ adapter
 
-## Contingency types
+## ประเภท contingency {#contingency-types}
 
-- **OTO (One-Triggers-Other)**: A parent order releases one or more child orders after a configured
-  fill condition.
-- **OCO (One-Cancels-Other)**: A fill in one linked order requests cancellation of the others.
-- **OUO (One-Updates-Other)**: A fill in one linked order requests a quantity update for the others.
+- **OTO (One-Triggers-Other)**: parent order ปล่อย child order ตั้งแต่หนึ่งตัวขึ้นไปหลังเข้าเงื่อนไข fill ที่ตั้งไว้
+- **OCO (One-Cancels-Other)**: เมื่อ order ตัวหนึ่งที่ผูกกันเกิด fill จะขอยกเลิกตัวอื่น
+- **OUO (One-Updates-Other)**: เมื่อ order ตัวหนึ่งที่ผูกกันเกิด fill จะขออัปเดตปริมาณของตัวอื่น
 
 :::info
-These types correspond to FIX
-[`ContingencyType <1385>`](https://www.onixs.biz/fix-dictionary/5.0.sp2/tagnum_1385.html).
+Type เหล่านี้ตรงกับ FIX
+[`ContingencyType <1385>`](https://www.onixs.biz/fix-dictionary/5.0.sp2/tagnum_1385.html)
 :::
 
-### Strategy-managed contingencies
+### Contingency ที่ strategy จัดการ {#strategy-managed-contingencies}
 
-Enable `StrategyConfig.manage_contingent_orders` to manage open OTO, OCO, and OUO relationships for
-orders that are not active local. The strategy sends the resulting cancel and quantity-update
-commands through the normal execution path before it calls the specific and aggregate user
-order-event handlers.
+เปิด `StrategyConfig.manage_contingent_orders` เพื่อให้ strategy จัดการความสัมพันธ์ OTO, OCO และ OUO ที่เปิดอยู่
+ของ order ที่ไม่ได้เป็น active local strategy จะส่งคำสั่งยกเลิกและอัปเดตปริมาณที่เกิดขึ้นผ่านเส้นทาง execution ปกติ
+ก่อนเรียก handler ของ order event ทั้งแบบเฉพาะและแบบรวมของผู้ใช้
 
-The `OrderEmulator` always owns active-local orders. Enabling strategy management thus does not make the
-strategy and emulator manage the same order.
+`OrderEmulator` เป็นเจ้าของ order ที่เป็น active local เสมอ ดังนั้นการเปิดให้ strategy จัดการจึงไม่ทำให้ strategy
+และ emulator จัดการ order ตัวเดียวกัน
 
-The option manages non-active-local orders that are already open. It does not add native venue
-support or submit a non-active-local OTO child.
+ตัวเลือกนี้จัดการ order ที่ไม่ได้เป็น active local และเปิดอยู่แล้วเท่านั้น ไม่ได้เพิ่มการรองรับแบบ native ของ venue
+และไม่ได้ส่ง OTO child ที่ไม่ได้เป็น active local
 
 ```mermaid
 sequenceDiagram
@@ -86,244 +82,225 @@ sequenceDiagram
     end
 ```
 
-For strategy-managed open orders, OCO requests cancellation on a partial fill; OUO first requests a
-quantity update and requests cancellation when no quantity remains.
+สำหรับ order ที่เปิดอยู่และ strategy จัดการ OCO จะขอยกเลิกตั้งแต่เกิด partial fill ส่วน OUO จะขออัปเดตปริมาณก่อน
+แล้วขอยกเลิกเมื่อไม่เหลือปริมาณ
 
-### One-Triggers-Other (OTO)
+### One-Triggers-Other (OTO) {#one-triggers-other-oto}
 
-**OTO sequence**: an OTO relationship has two parts.
+**ลำดับของ OTO**: ความสัมพันธ์แบบ OTO มีสองส่วน
 
-1. The parent order enters its execution path.
-1. One or more child orders reference the parent and wait for the configured release condition.
+1. Parent order เข้าสู่เส้นทาง execution
+1. Child order ตั้งแต่หนึ่งตัวขึ้นไปอ้างอิงถึง parent และรอเงื่อนไขการปล่อยที่ตั้งไว้
 
-The handler determines where the children wait. The backtest engine can hold them locally. A live adapter may
-send native venue instructions, submit all legs, reject the list, or require the strategy to manage the
-relationship.
+Handler เป็นผู้กำหนดว่า child จะรออยู่ที่ไหน backtest engine สามารถถือ child ไว้ภายในเครื่องได้ ส่วน live adapter
+อาจส่ง instruction แบบ native ของ venue ส่งทุกขา reject list หรือกำหนดให้ strategy จัดการความสัมพันธ์เอง
 
-#### Child sizing
+#### การกำหนดขนาด child {#child-sizing}
 
-Before the parent's first fill, strategy management propagates parent quantity updates to open,
-non-active-local OTO children.
+ก่อน parent จะ fill ครั้งแรก การจัดการโดย strategy จะส่งต่อการอัปเดตปริมาณของ parent ไปยัง OTO child ที่เปิดอยู่
+และไม่ได้เป็น active local
 
-After filling starts, each parent event starts the child target at the parent's cumulative filled quantity.
-For an execution spawn, this quantity includes fills from each order in the spawn.
+เมื่อเริ่ม fill แล้ว event ของ parent แต่ละครั้งจะตั้งเป้าหมายของ child เริ่มต้นที่ปริมาณที่ fill สะสมของ parent
+สำหรับ execution spawn ปริมาณนี้รวม fill จากทุก order ใน spawn
 
-**Position-linked sizing**: for a parent linked to a position, the manager then adjusts the target
-in order.
+**การกำหนดขนาดที่ผูกกับ position**: สำหรับ parent ที่ผูกกับ position ตัวจัดการจะปรับเป้าหมายต่อตามลำดับดังนี้
 
-1. For a non-spread parent with a reduce-only child, cap the total target at the child's filled
-   quantity plus the current [commission-adjusted](../positions.md#base-currency-commissions)
-   position quantity. This keeps the child's remaining quantity within the open position.
-1. Round the total target down to a multiple of the child instrument's size increment.
-1. When configured, treat a rounded target below the child instrument's minimum quantity as zero.
+1. สำหรับ parent ที่ไม่ใช่ spread และมี child แบบ reduce-only ให้จำกัดเป้าหมายรวมไม่เกินปริมาณที่ child fill แล้ว
+   บวกปริมาณ position ปัจจุบันที่[ปรับด้วย commission แล้ว](../positions.md#base-currency-commissions)
+   เพื่อให้ปริมาณคงเหลือของ child อยู่ภายใน position ที่เปิดอยู่
+1. ปัดเป้าหมายรวมลงให้เป็นผลคูณของ size increment ของ instrument ของ child
+1. หากตั้งค่าไว้ ให้ถือว่าเป้าหมายที่ปัดแล้วซึ่งต่ำกว่า minimum quantity ของ instrument ของ child มีค่าเป็นศูนย์
 
-**Uncovered remainder**: the calculation does not round position or account state. A remaining
-position too small to meet the child instrument's size increment and optional minimum quantity
-stays open without reduce-only child coverage.
+**ส่วนที่เหลือที่ไม่ได้ครอบคลุม**: การคำนวณนี้ไม่ได้ปัดสถานะของ position หรือ account position ที่เหลือซึ่งเล็กเกินกว่า
+size increment และ minimum quantity (ถ้ามี) ของ instrument ของ child จะยังเปิดอยู่โดยไม่มี child แบบ reduce-only คุ้มครอง
 
-Spread parents skip the position cap because the execution engine does not create positions for
-them. Non-reduce-only children also skip the cap. Both still use the child instrument's size rules.
+Parent แบบ spread จะข้ามการจำกัดตาม position เพราะ execution engine ไม่สร้าง position ให้ child ที่ไม่ได้เป็น
+reduce-only ก็ข้ามการจำกัดนี้เช่นกัน แต่ทั้งสองกรณียังใช้กฎขนาดของ instrument ของ child
 
-#### Required sizing state
+#### สถานะที่จำเป็นสำหรับการกำหนดขนาด {#required-sizing-state}
 
-**Sizing prerequisites**: when a fill event, cached parent, or filled execution-spawn sibling
-identifies a position, sizing requires the following.
+**เงื่อนไขก่อนกำหนดขนาด**: เมื่อ fill event, parent ใน cache หรือ sibling ใน execution spawn ที่ fill แล้วระบุ
+position ได้ การกำหนดขนาดต้องมีสิ่งต่อไปนี้
 
-- The parent and child instruments in the cache.
-- A positive size increment for the child instrument.
-- The linked position in the cache for a non-spread parent with a reduce-only child.
-- Matching fill-event and cached position IDs when both are present.
+- Instrument ของ parent และ child อยู่ใน cache
+- Size increment ของ instrument ของ child เป็นค่าบวก
+- Position ที่ผูกอยู่ใน cache สำหรับ parent ที่ไม่ใช่ spread และมี child แบบ reduce-only
+- Position ID ใน fill event และใน cache ตรงกันเมื่อมีทั้งสองค่า
 
-A fill-event position ID that conflicts with cached ownership stops processing for that parent
-event. Other missing sizing state leaves the affected child unchanged, and processing continues
-with the remaining linked children.
+หาก position ID ใน fill event ขัดแย้งกับความเป็นเจ้าของใน cache การประมวลผลของ parent event นั้นจะหยุด ส่วน
+สถานะการกำหนดขนาดอื่นที่ขาดหายจะทำให้ child ที่ได้รับผลกระทบคงเดิม และการประมวลผลจะดำเนินต่อกับ child
+ที่ผูกอยู่ตัวที่เหลือ
 
-#### Child lifecycle
+#### วงจรชีวิตของ child {#child-lifecycle}
 
-**Target application**: parent events apply the validated target according to the child and parent state.
+**การนำเป้าหมายไปใช้**: event ของ parent จะนำเป้าหมายที่ตรวจสอบแล้วไปใช้ตามสถานะของ child และ parent
 
-| Condition                                                 | Action                                                     |
-| --------------------------------------------------------- | ---------------------------------------------------------- |
-| Managed child has a different positive target             | Update its total quantity.                                 |
-| Target is zero and parent or execution spawn stays active | Keep the child unchanged and wait for executable quantity. |
-| Target is zero and parent or execution spawn closes       | Cancel the child.                                          |
-| Child fills meet or exceed the positive target            | Cancel any remaining quantity.                             |
-| Active-local child reaches an executable positive target  | The active-local emulator submits it once.                 |
+| เงื่อนไข                                                         | การดำเนินการ                                                |
+| -------------------------------------------------------------- | --------------------------------------------------------- |
+| Child ที่ถูกจัดการมีเป้าหมายเป็นบวกที่ต่างออกไป                          | อัปเดตปริมาณรวมของ child                                     |
+| เป้าหมายเป็นศูนย์ และ parent หรือ execution spawn ยัง active           | คง child ไว้ตามเดิมและรอจนมีปริมาณที่ execute ได้                   |
+| เป้าหมายเป็นศูนย์ และ parent หรือ execution spawn ปิดแล้ว             | ยกเลิก child                                                |
+| Fill ของ child ถึงหรือเกินเป้าหมายที่เป็นบวก                             | ยกเลิกปริมาณที่เหลือ                                           |
+| Child ที่เป็น active local ถึงเป้าหมายที่เป็นบวกและ execute ได้          | Emulator ของ active local ส่ง child นั้นหนึ่งครั้ง                  |
 
-A child fill or update does not recalculate the target immediately. The next parent event refreshes
-it.
+Fill หรือการอัปเดตของ child ไม่ทำให้คำนวณเป้าหมายใหม่ทันที event ถัดไปของ parent จะเป็นตัว refresh
 
-#### Trigger models
+#### Trigger model {#trigger-models}
 
-| Trigger model | Backtest release condition                                                |
-| ------------- | ------------------------------------------------------------------------- |
-| **Partial**   | Release children after the parent's first partial fill.                   |
-| **Full**      | Release children after the parent's cumulative fill reaches its quantity. |
+| Trigger model | เงื่อนไขการปล่อยใน backtest                                                  |
+| ------------- | ------------------------------------------------------------------------ |
+| **Partial**   | ปล่อย child หลัง parent เกิด partial fill ครั้งแรก                           |
+| **Full**      | ปล่อย child หลังปริมาณ fill สะสมของ parent ถึงปริมาณของ order                 |
 
 :::info
-The default `BacktestVenueConfig` mode is `OtoTriggerMode.PARTIAL`. Set `oto_trigger_mode` to
-`OtoTriggerMode.FULL` to wait for a complete fill. This setting controls release timing. It does not promise
-pro rata child sizing. Verify child quantities when the parent fills partially.
+โหมดเริ่มต้นของ `BacktestVenueConfig` คือ `OtoTriggerMode.PARTIAL` ตั้ง `oto_trigger_mode` เป็น
+`OtoTriggerMode.FULL` เพื่อรอให้ fill ครบ ค่านี้ควบคุมจังหวะการปล่อยเท่านั้น ไม่ได้รับประกันการกำหนดขนาด child
+ตามสัดส่วน ควรตรวจสอบปริมาณของ child เมื่อ parent fill ไม่ครบ
 :::
 
-With `support_contingent_orders` enabled, the backtest venue sizes each child as if it covers the parent's
-whole quantity. When the parent is modified or closes, each child's remaining quantity covers what the parent
-can still hold. This excludes what the children have filled between them.
+เมื่อเปิด `support_contingent_orders` backtest venue จะกำหนดขนาด child แต่ละตัวเสมือนว่าครอบคลุมปริมาณทั้งหมด
+ของ parent เมื่อ parent ถูกแก้ไขหรือปิด ปริมาณคงเหลือของ child แต่ละตัวจะครอบคลุมเท่าที่ parent ยังถือได้
+โดยไม่รวมส่วนที่ child ทั้งหลาย fill ไปแล้ว
 
-**Parent capacity**:
+**ความจุของ parent**:
 
-- Its quantity while it works.
-- Its filled quantity once it is canceled, expires, or is reduced to its filled quantity.
+- ปริมาณของ parent ขณะที่ยัง working อยู่
+- ปริมาณที่ fill แล้ว เมื่อ parent ถูกยกเลิก หมดอายุ หรือถูกลดลงเหลือเท่าปริมาณที่ fill แล้ว
 
-**Child lifecycle**: under the same enabled setting, a modify grows children only when it raises
-the parent's quantity, and closing the parent only shrinks them.
+**วงจรชีวิตของ child**: ภายใต้การตั้งค่าที่เปิดไว้เดียวกัน การ modify จะขยาย child เฉพาะเมื่อเพิ่มปริมาณของ parent
+และการปิด parent จะทำได้เพียงลดขนาด child
 
-- Released children keep working for the parent's filled quantity. A child with nothing left to
-  cover is canceled.
-- Reducing the parent to its filled quantity completes it. Thus, `OtoTriggerMode.FULL` releases held children
-  at that quantity. A child that fills on release leaves the others only what it did not fill.
-- Canceling or expiring the parent cancels held children, so a partially filled parent that closes
-  this way under `OtoTriggerMode.FULL` leaves its fills without children.
+- Child ที่ถูกปล่อยแล้วยังคง working สำหรับปริมาณที่ parent fill แล้ว child ที่ไม่เหลืออะไรให้ครอบคลุมจะถูกยกเลิก
+- การลด parent ลงเหลือเท่าปริมาณที่ fill แล้วถือว่า parent เสร็จสมบูรณ์ ดังนั้น `OtoTriggerMode.FULL` จะปล่อย
+  child ที่ถือไว้ที่ปริมาณนั้น child ที่ fill ตอนถูกปล่อยจะเหลือให้ตัวอื่นเฉพาะส่วนที่ตัวเองไม่ได้ fill
+- การยกเลิกหรือการหมดอายุของ parent จะยกเลิก child ที่ถือไว้ ดังนั้น parent ที่ fill บางส่วนแล้วปิดลงด้วยวิธีนี้
+  ภายใต้ `OtoTriggerMode.FULL` จะเหลือ fill ไว้โดยไม่มี child
 
-**Quantity units**: the venue compares quantities in the parent's units.
+**หน่วยของปริมาณ**: venue เปรียบเทียบปริมาณในหน่วยของ parent
 
-- Under a parent whose quantity is in base, a child that still holds a quote quantity is compared as base
-  quantity. Conversion uses its price, then its trigger price if absent. If neither exists, it uses the best
-  bid for a sell or the best ask for a buy in the parent's book. It holds that base quantity once the venue
-  resizes it, and whenever the parent closes as above. Thus, a later conversion cannot take it past the
-  parent's fills. Without such a price it is not resized.
-- A parent that still holds a quote quantity, such as a stop that converts when it fills, resizes
-  only the children that hold one too.
-- Inverse instruments have no quote conversion, so their quantities compare as they are.
-- A child on another instrument covers the parent's quantity one to one. Once its own instrument's engine
-  matches it, the quantity it still needs to cover is rounded down to that instrument's size precision. At
-  that point, a quote quantity converts by that instrument, at its own price or trigger price only.
+- ภายใต้ parent ที่ปริมาณเป็นหน่วย base child ที่ยังถือปริมาณเป็นหน่วย quote จะถูกเปรียบเทียบเป็นปริมาณ base
+  การแปลงใช้ราคาของ child หากไม่มีจึงใช้ trigger price หากไม่มีทั้งสองอย่าง จะใช้ best bid สำหรับฝั่ง sell หรือ
+  best ask สำหรับฝั่ง buy ใน book ของ parent child จะถือปริมาณ base นั้นไว้เมื่อ venue ปรับขนาดแล้ว และทุกครั้ง
+  ที่ parent ปิดตามที่อธิบายข้างต้น ดังนั้นการแปลงครั้งหลังจะไม่ทำให้เกิน fill ของ parent หากไม่มีราคาดังกล่าว
+  child จะไม่ถูกปรับขนาด
+- Parent ที่ยังถือปริมาณเป็นหน่วย quote เช่น stop ที่จะแปลงตอน fill จะปรับขนาดเฉพาะ child ที่ถือปริมาณ quote เช่นกัน
+- Inverse instrument ไม่มีการแปลง quote จึงเปรียบเทียบปริมาณตามที่เป็น
+- Child บน instrument อื่นครอบคลุมปริมาณของ parent แบบหนึ่งต่อหนึ่ง เมื่อ engine ของ instrument ของ child
+  จับคู่ child แล้ว ปริมาณที่ยังต้องครอบคลุมจะถูกปัดลงตาม size precision ของ instrument นั้น ณ จุดนั้นปริมาณ quote
+  จะแปลงด้วย instrument ของ child เอง โดยใช้ราคาหรือ trigger price ของตัวเองเท่านั้น
 
-Reduce-only children also track the position between these events, as described in
-[Backtest reduce-only resizing](#backtest-reduce-only-resizing).
+Child แบบ reduce-only ยังติดตาม position ระหว่าง event เหล่านี้ด้วย ตามที่อธิบายใน
+[การปรับขนาด reduce-only ใน backtest](#backtest-reduce-only-resizing)
 
-Reduce-only OTO children resize when a parent fill releases them, and again on later parent fills.
-Fills awaiting cache delivery count toward the available position quantity. A released exit can fill
-in the same bar when a later step in the [OHLC price simulation](../backtesting/bar-execution.md#ohlc-price-simulation)
-reaches its matching price.
+OTO child แบบ reduce-only จะปรับขนาดเมื่อ fill ของ parent ปล่อยออกมา และปรับอีกครั้งเมื่อ parent fill ครั้งถัดไป
+fill ที่รอส่งเข้า cache จะนับรวมในปริมาณ position ที่ใช้ได้ด้วย exit ที่ถูกปล่อยสามารถ fill ใน bar เดียวกันได้
+เมื่อขั้นถัดไปของ[การจำลองราคา OHLC](../backtesting/bar-execution.md#ohlc-price-simulation)ไปถึงราคาที่จับคู่ได้
 
-#### Enforcing a full-fill trigger in strategy code
+#### การบังคับ trigger แบบ fill ครบในโค้ด strategy {#enforcing-a-full-fill-trigger-in-strategy-code}
 
-**Full-fill fallback**: if the execution context does not provide the required full-fill behavior,
-follow these steps.
+**ทางเลือกสำรองแบบ fill ครบ**: หาก execution context ไม่มีพฤติกรรม fill ครบตามที่ต้องการ ให้ทำตามขั้นตอนนี้
 
-1. Submit the parent order without contingent children.
-1. Handle `OrderFilled` events for the parent.
-1. Confirm the parent has reached `FILLED` status.
-1. Submit the stop-loss, take-profit, or other child orders.
+1. ส่ง parent order โดยไม่มี contingent child
+1. จัดการ event `OrderFilled` ของ parent
+1. ยืนยันว่า parent อยู่ในสถานะ `FILLED`
+1. ส่ง stop-loss, take-profit หรือ child order อื่น ๆ
 
 :::warning
-Full-fill release leaves a partially filled position without its contingent exits until the parent
-finishes. Partial release reduces that delay. In backtests, reduce-only children with enforcement
-enabled track the available position quantity, subject to parent caps. Other children do not
-automatically track each partial fill. Check quantities and adapter behavior before treating a child
-as complete protection.
+การปล่อยแบบ fill ครบจะทำให้ position ที่ fill บางส่วนไม่มี contingent exit จนกว่า parent จะเสร็จ การปล่อยแบบ
+partial ช่วยลดความล่าช้านี้ ใน backtest child แบบ reduce-only ที่เปิดการบังคับไว้จะติดตามปริมาณ position ที่ใช้ได้
+ภายใต้ขีดจำกัดของ parent แต่ child อื่นจะไม่ติดตาม partial fill แต่ละครั้งโดยอัตโนมัติ ตรวจสอบปริมาณและพฤติกรรม
+ของ adapter ก่อนจะถือว่า child คุ้มครองได้ครบถ้วน
 :::
 
-### One-Cancels-Other (OCO)
+### One-Cancels-Other (OCO) {#one-cancels-other-oco}
 
-**Cancellation ownership**: OCO cancellation depends on the component handling the relationship.
+**ผู้รับผิดชอบการยกเลิก**: การยกเลิกแบบ OCO ขึ้นอยู่กับ component ที่จัดการความสัมพันธ์
 
-- **Backtest local matching**: a full or partial fill in one OCO order causes a best-effort request
-  to cancel its open siblings.
-- **Local order manager**: applies this behavior only while a sibling stays active local.
-- **Strategy management enabled**: the strategy requests cancellation for open, non-active-local
-  siblings. Otherwise, the adapter or venue determines cancellation behavior.
+- **Local matching ใน backtest**: fill เต็มหรือบางส่วนใน OCO order ตัวหนึ่ง จะทำให้เกิดคำขอยกเลิก sibling ที่เปิดอยู่
+  แบบ best-effort
+- **Local order manager**: ใช้พฤติกรรมนี้เฉพาะขณะที่ sibling ยังเป็น active local
+- **เปิดการจัดการโดย strategy**: strategy จะขอยกเลิก sibling ที่เปิดอยู่และไม่ได้เป็น active local หากไม่ได้เปิด
+  adapter หรือ venue จะเป็นผู้กำหนดพฤติกรรมการยกเลิก
 
-Another sibling can fill before cancellation completes.
+Sibling ตัวอื่นอาจ fill ก่อนการยกเลิกจะเสร็จสิ้นได้
 
-### One-Updates-Other (OUO)
+### One-Updates-Other (OUO) {#one-updates-other-ouo}
 
-#### Updates after a sibling fill
+#### การอัปเดตหลัง sibling fill {#updates-after-a-sibling-fill}
 
-**Sibling target**: in backtest local matching, a fill in one OUO order uses that order's remaining
-quantity as the target for each open sibling.
+**เป้าหมายของ sibling**: ใน local matching ของ backtest fill ใน OUO order ตัวหนึ่งจะใช้ปริมาณคงเหลือของ order
+ตัวนั้นเป็นเป้าหมายสำหรับ sibling ที่เปิดอยู่แต่ละตัว
 
-- If the target is zero or the sibling's filled quantity already meets the target, cancel the sibling.
-- Otherwise, update the sibling's quantity when needed.
+- หากเป้าหมายเป็นศูนย์ หรือปริมาณที่ sibling fill แล้วถึงเป้าหมายแล้ว ให้ยกเลิก sibling
+- มิฉะนั้น ให้อัปเดตปริมาณของ sibling ตามความจำเป็น
 
-This behavior suits equal-sized peers and does not preserve a ratio between unequal starting
-quantities. With strategy management enabled, the strategy applies the same update or cancellation
-behavior to open, non-active-local siblings. Otherwise, live behavior depends on adapter and venue
-support.
+พฤติกรรมนี้เหมาะกับ order คู่ที่ขนาดเท่ากัน และไม่ได้รักษาอัตราส่วนระหว่างปริมาณเริ่มต้นที่ไม่เท่ากัน เมื่อเปิดการจัดการ
+โดย strategy strategy จะใช้พฤติกรรมอัปเดตหรือยกเลิกแบบเดียวกันกับ sibling ที่เปิดอยู่และไม่ได้เป็น active local
+มิฉะนั้นพฤติกรรมแบบ live จะขึ้นกับการรองรับของ adapter และ venue
 
-#### Backtest reduce-only resizing
+#### การปรับขนาด reduce-only ใน backtest {#backtest-reduce-only-resizing}
 
-With reduce-only enforcement enabled, a fill can resize resting reduce-only orders to the available
-position quantity, subject to parent caps.
+เมื่อเปิดการบังคับ reduce-only fill หนึ่งครั้งสามารถปรับขนาด reduce-only order ที่ resting อยู่ให้เท่ากับปริมาณ
+position ที่ใช้ได้ ภายใต้ขีดจำกัดของ parent
 
-**Eligible siblings**: when contingent-order support is also enabled, a resized OUO order propagates
-its remaining quantity to siblings that meet both conditions.
+**Sibling ที่เข้าเงื่อนไข**: เมื่อเปิดการรองรับ contingent order ด้วย OUO order ที่ถูกปรับขนาดจะส่งต่อปริมาณคงเหลือ
+ไปยัง sibling ที่ตรงทั้งสองเงื่อนไขนี้
 
-- Open and not active local.
-- Passive orders resting on the same instrument's book.
+- เปิดอยู่และไม่ได้เป็น active local
+- เป็น passive order ที่ resting อยู่บน book ของ instrument เดียวกัน
 
-**Sibling quantities**: siblings do not need to be `reduce_only`. Each sibling's quantity update
-follows these rules.
+**ปริมาณของ sibling**: sibling ไม่จำเป็นต้องเป็น `reduce_only` การอัปเดตปริมาณของ sibling แต่ละตัวทำตามกฎนี้
 
-- Add the sibling's prior fills to the propagated remaining quantity to get its total quantity.
-- Apply the sibling's own cached parent's filled-quantity cap, when available.
-- Never reduce the total below the sibling's prior fills.
+- นำ fill ก่อนหน้าของ sibling บวกกับปริมาณคงเหลือที่ส่งต่อมา เพื่อได้ปริมาณรวม
+- ใช้ขีดจำกัดปริมาณที่ fill แล้วของ parent ใน cache ของ sibling เอง หากมี
+- ห้ามลดปริมาณรวมให้ต่ำกว่า fill ก่อนหน้าของ sibling
 
-The order already being filled keeps its active fill loop's quantity rules. This propagation does not trigger
-matching itself.
+Order ที่กำลังถูก fill อยู่ยังคงใช้กฎปริมาณของ fill loop ที่กำลังทำงาน การส่งต่อนี้ไม่ได้ trigger การ matching เอง
 
-Resized quantities are in base. An order that still holds a quote quantity (such as an untriggered stop) takes
-its resized quantity in base. Thus, its trigger does not convert it again. Inverse instruments have no quote
-conversion, so the order keeps its quantity denomination.
+ปริมาณที่ปรับขนาดแล้วเป็นหน่วย base order ที่ยังถือปริมาณเป็นหน่วย quote (เช่น stop ที่ยังไม่ trigger) จะได้รับ
+ปริมาณที่ปรับขนาดเป็นหน่วย base ดังนั้นเมื่อ trigger จะไม่ถูกแปลงซ้ำอีก inverse instrument ไม่มีการแปลง quote
+order จึงคงหน่วยของปริมาณไว้ตามเดิม
 
-#### Backtest cancellation at zero capacity
+#### การยกเลิกใน backtest เมื่อความจุเป็นศูนย์ {#backtest-cancellation-at-zero-capacity}
 
-**Zero capacity**: with reduce-only enforcement and contingent-order support enabled, apply these rules.
+**ความจุเป็นศูนย์**: เมื่อเปิดการบังคับ reduce-only และการรองรับ contingent order ให้ใช้กฎนี้
 
-- When the reduce-only order has no remaining capacity, cancel it and its eligible siblings without
-  resizing the siblings. This also covers siblings whose acceptance event is still awaiting delivery.
-- When a sibling exhausts only its own parent allowance, resize it to its filled quantity, then cancel it.
+- เมื่อ reduce-only order ไม่เหลือความจุ ให้ยกเลิก order นั้นและ sibling ที่เข้าเงื่อนไขโดยไม่ปรับขนาด sibling
+  รวมถึง sibling ที่ event การ accept ยังรอส่งอยู่ด้วย
+- เมื่อ sibling ใช้โควตาของ parent ตัวเองหมดเพียงอย่างเดียว ให้ปรับขนาดเหลือเท่าปริมาณที่ fill แล้ว แล้วยกเลิก
 
-## Constructing contingent orders
+## การสร้าง contingent order {#constructing-contingent-orders}
 
-Use `OrderFactory.bracket` to construct a bracket's contingency metadata.
+ใช้ `OrderFactory.bracket` เพื่อสร้าง contingency metadata ของ bracket
 
-**Grouping existing orders**:
+**การจัดกลุ่ม order ที่มีอยู่แล้ว**: `self.order().create_list(...)` จะกำหนด `order_list_id` ใหม่ให้กับกลุ่ม
 
-- **Rust**: `self.order().create_list(...)` assigns a fresh `order_list_id` to the group.
-- **Python**: pass a plain list to `self.submit_order_list(...)`, which creates an `OrderList` when
-  needed.
+**ข้อจำกัดของการตรวจสอบ**: เส้นทางการจัดกลุ่มเหล่านี้ไม่ได้สร้างความสัมพันธ์แบบ parent หรือ linked order ส่วน model
+บังคับความสอดคล้องที่เหลือได้เพียงบางส่วน
 
-**Validation limits**: these grouping paths do not create parent or linked-order relationships.
-The model enforces only part of the remaining consistency.
+- Contingent order ต้องมี `linked_order_id` อย่างน้อยหนึ่งตัว
+- Child ระบุ parent ผ่าน `parent_order_id`
+- `create_list` ของ Rust ต้องการ list ที่ไม่ว่างและ order ทั้งหมดใช้ venue เดียว
+- `OrderList.validate` ตรวจว่า client order ID ไม่ว่างและไม่ซ้ำกันเมื่อ strategy ส่ง list
+- `OrderList.validate` ไม่ได้ตรวจค่า `order_list_id` ที่ใช้ร่วมกัน การอ้างอิง parent หรือความสัมพันธ์ข้าม field อื่น ๆ
 
-- A contingent order must have at least one `linked_order_id`.
-- A child identifies its parent through `parent_order_id`.
-- Rust `create_list` requires a non-empty list whose orders use one venue.
-- `OrderList.validate` checks for non-empty, unique client order IDs when a strategy submits the
-  list.
-- `OrderList.validate` does not verify shared `order_list_id` values, parent references, or other
-  cross-field relationships.
-
-Modification, cancellation, and rejection behavior depends on the component managing the contingency. Do not
-assume a parent update or cancellation cascades in all live integrations.
+พฤติกรรมการแก้ไข การยกเลิก และการ reject ขึ้นกับ component ที่จัดการ contingency อย่าเหมาเอาว่าการอัปเดตหรือ
+ยกเลิก parent จะส่งผลต่อเนื่องไปยัง child ในทุก live integration
 
 :::warning
-Handle `OrderDenied` and `OrderRejected` events for each leg. Adapter or venue failures can affect legs
-independently and leave a position without its intended protection.
+จัดการ event `OrderDenied` และ `OrderRejected` ของทุกขา ความล้มเหลวของ adapter หรือ venue อาจกระทบแต่ละขา
+แยกกัน และทำให้ position ไม่มีการคุ้มครองตามที่ตั้งใจไว้
 :::
 
-## Bracket orders
+## Bracket order {#bracket-orders}
 
-Bracket orders combine an entry with take-profit and stop-loss children. By default,
-`OrderFactory.bracket` creates a `MARKET` entry, a `LIMIT` take-profit, and a `STOP_MARKET`
-stop-loss. It marks the entry with an `OTO` contingency, marks both exits `reduce_only`, and links
-the exits with an `OUO` contingency. The default `LIMIT` take-profit is also `post_only`.
+Bracket order รวม entry เข้ากับ child แบบ take-profit และ stop-loss โดยค่าเริ่มต้น `OrderFactory.bracket` จะสร้าง
+entry แบบ `MARKET`, take-profit แบบ `LIMIT` และ stop-loss แบบ `STOP_MARKET` โดยทำเครื่องหมาย entry ด้วย
+contingency แบบ `OTO` ทำเครื่องหมาย exit ทั้งสองเป็น `reduce_only` และผูก exit ทั้งสองด้วย contingency แบบ `OUO`
+ส่วน take-profit แบบ `LIMIT` ที่เป็นค่าเริ่มต้นยังเป็น `post_only` ด้วย
 
-The factory creates the orders and their relationship metadata. The execution context determines
-whether children wait locally, use a native venue instruction, enter the venue with the parent, or
-require manual strategy handling.
+Factory สร้าง order และ metadata ของความสัมพันธ์ ส่วน execution context เป็นผู้กำหนดว่า child จะรออยู่ในเครื่อง
+ใช้ instruction แบบ native ของ venue เข้าสู่ venue พร้อม parent หรือต้องให้ strategy จัดการเอง
 
 ```mermaid
 flowchart TD
@@ -338,15 +315,12 @@ flowchart TD
     entry -->|"OTO children"| exits
 ```
 
-Default bracket metadata connects the entry to both exits with OTO and links the exits to each other
-with OUO.
+Metadata ของ bracket โดยค่าเริ่มต้นเชื่อม entry กับ exit ทั้งสองด้วย OTO และผูก exit ทั้งสองเข้าด้วยกันด้วย OUO
 
-Create brackets with
-[`OrderFactory`](/docs/python-api-latest/common.html#nautilus_trader.common.OrderFactory), which
-also supports different entry and exit types, trigger settings, and execution instructions.
+สร้าง bracket ด้วย `OrderFactory` ซึ่งรองรับประเภท entry และ exit ที่ต่างกัน การตั้งค่า trigger และ execution instruction ด้วย
 
-**Example**: bracket a *Market* entry to BUY 10 ETHUSDT-PERP contracts. Use a take-profit *Limit* at 3,300
-USDT and a stop-loss *Stop-Market* with a trigger at 2,800 USDT.
+**ตัวอย่าง**: bracket entry แบบ *Market* เพื่อ BUY สัญญา ETHUSDT-PERP จำนวน 10 สัญญา โดยใช้ take-profit แบบ
+*Limit* ที่ 3,300 USDT และ stop-loss แบบ *Stop-Market* ที่ trigger ที่ 2,800 USDT
 
 ```rust tab="Rust"
 use nautilus_model::{
@@ -368,28 +342,13 @@ let orders = self
     .call();
 ```
 
-```python tab="Python"
-from nautilus_trader.model import InstrumentId
-from nautilus_trader.model import OrderSide
-from nautilus_trader.model import Price
-from nautilus_trader.model import Quantity
-
-orders = self.order_factory.bracket(
-    instrument_id=InstrumentId.from_str("ETHUSDT-PERP.BINANCE"),
-    order_side=OrderSide.BUY,
-    quantity=Quantity.from_int(10),
-    tp_price=Price.from_str("3300.00"),  # <-- take-profit LIMIT (default)
-    sl_trigger_price=Price.from_str("2800.00"),  # <-- stop-loss STOP_MARKET (default)
-)
-```
-
 :::warning
-Some venues reserve margin for bracket legs. Check the venue's margin rules and handle a child
-rejection after the entry fills.
+บาง venue กันวงเงิน margin ไว้สำหรับขาของ bracket ตรวจสอบกฎ margin ของ venue และจัดการกรณี child ถูก reject
+หลัง entry fill แล้ว
 :::
 
-## Related guides
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-- [Orders](index.md) - Order concepts, execution instructions, and the order factory.
-- [Emulated orders](emulated.md) - Emulating order types on venues without native support.
-- [Execution](../execution/) - Order execution and fill handling.
+- [Orders](index.md) - แนวคิดเรื่อง order, execution instruction และ order factory
+- [Emulated orders](emulated.md) - การ emulate ประเภท order บน venue ที่ไม่รองรับแบบ native
+- [Execution](../execution/) - การ execute order และการจัดการ fill

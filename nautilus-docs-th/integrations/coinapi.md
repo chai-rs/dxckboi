@@ -1,155 +1,146 @@
 # CoinAPI
 
 [CoinAPI](https://www.coinapi.io/products/market-data-api?ref=nautilus)
-by [API Bricks](https://www.apibricks.io/?ref=nautilus) provides real-time and historical cryptocurrency
-market data across multiple exchanges. Its REST and WebSocket APIs expose trades, quotes, order
-books, and OHLCV bars through a common data format.
+โดย [API Bricks](https://www.apibricks.io/?ref=nautilus) ให้บริการ market data ของ cryptocurrency ทั้งแบบ real-time
+และย้อนหลังจากหลาย exchange REST และ WebSocket API ของ CoinAPI ให้ข้อมูล trade, quote, order book และ OHLCV bar
+ในรูปแบบข้อมูลร่วมเดียวกัน
 
-The NautilusTrader adapter supports live market data, historical requests, and loading downloaded
-flat files. It has no execution client, account management, or order routing.
+adapter ของ NautilusTrader รองรับ market data แบบ live, historical request และการโหลด flat file ที่ดาวน์โหลดมา
+ไม่มี execution client, การจัดการ account หรือการ route order
 
-## Overview
+## ภาพรวม {#overview}
 
-The adapter is implemented in Rust with Python bindings and does not require an external CoinAPI
-client library. Configure it through a live node with these Python components:
+adapter นี้ implement ใน Rust และไม่ต้องใช้ client library ของ CoinAPI จากภายนอก ตั้งค่าผ่าน live node ด้วย
+component เหล่านี้:
 
-- `CoinApiDataClientConfig`: Live data client configuration.
-- `CoinApiInstrumentSelection`: Exchanges, instruments, and metadata filters to load.
-- `CoinApiDataClientFactory`: Factory registered with the node builder.
+- `CoinApiDataClientConfig`: config ของ live data client
+- `CoinApiInstrumentSelection`: exchange, instrument และตัวกรอง metadata ที่จะโหลด
+- `CoinApiDataClientFactory`: factory ที่ลงทะเบียนกับ node builder
 
-The Rust crate also exposes `CoinApiHttpClient` and `CoinApiWebSocketClient` for direct API access.
+crate ของ Rust ยังมี `CoinApiHttpClient` และ `CoinApiWebSocketClient` สำหรับเข้าถึง API โดยตรงด้วย
 
-## Examples
+## ตัวอย่าง {#examples}
 
-- [Python examples](https://github.com/nautechsystems/nautilus_trader/tree/develop/examples/live/coinapi/)
-- [Rust examples](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/coinapi/examples/)
+- [ตัวอย่าง Rust](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/coinapi/examples/)
 
-The examples load Coinbase BTC/USD, stream quotes, trades, and one-minute bars, and request recent
-bars. They use a 10-credit REST budget and a price precision override of 3. Edit the instrument and
-subscription settings for your feed, and update the precision override when changing instruments.
-Historical data can lag the live feed, so a request for recent bars may return no records.
+ตัวอย่างจะโหลด BTC/USD ของ Coinbase, stream quote, trade และ bar หนึ่งนาที และ request bar ล่าสุด โดยใช้งบ REST
+10 credit และ override price precision เป็น 3 ให้แก้การตั้งค่า instrument และ subscription ให้ตรงกับ feed ของคุณ
+และอัปเดตค่า override ของ precision เมื่อเปลี่ยน instrument ข้อมูลย้อนหลังอาจช้ากว่า feed แบบ live ดังนั้น request
+bar ล่าสุดอาจไม่ได้ record กลับมาเลย
 
-## CoinAPI documentation
+## เอกสารของ CoinAPI {#coinapi-documentation}
 
-- [Market Data REST API](https://www.coinapi.io/products/market-data-api/docs/rest-api?ref=nautilus).
-- [WebSocket V1 API](https://www.coinapi.io/products/market-data-api/docs/websocket?ref=nautilus).
-- [Flat Files](https://www.coinapi.io/products/flat-files?ref=nautilus).
+- [Market Data REST API](https://www.coinapi.io/products/market-data-api/docs/rest-api?ref=nautilus)
+- [WebSocket V1 API](https://www.coinapi.io/products/market-data-api/docs/websocket?ref=nautilus)
+- [Flat Files](https://www.coinapi.io/products/flat-files?ref=nautilus)
 
-## Supported capabilities
+## ความสามารถที่รองรับ {#supported-capabilities}
 
-| Capability                               | Interface                     | Status                                               |
+| ความสามารถ                                | Interface                     | สถานะ                                                 |
 | ---------------------------------------- | ----------------------------- | ---------------------------------------------------- |
-| Spot, perpetual, and futures instruments | REST metadata                 | Native venue instrument IDs.                         |
-| Order book deltas                        | WebSocket                     | L2 (`book`) and L3 (`book_l3`) with gap recovery.    |
-| Fixed-depth book snapshots               | WebSocket                     | L2 at up to 50 levels (`book5`, `book20`, `book50`). |
-| Current book snapshots                   | REST                          | L2 snapshot requests.                                |
-| Historical book snapshots                | REST                          | Not supported.                                       |
-| Quote ticks                              | WebSocket and historical REST | Live streams and historical requests.                |
-| Trade ticks                              | WebSocket and historical REST | Live streams and historical requests.                |
-| OHLCV bars                               | WebSocket and historical REST | Live streams and historical requests.                |
-| Downloaded flat files                    | S3 CSV exports                | Rust and Python loaders.                             |
-| Execution, orders, and account reports   | None                          | Out of scope.                                        |
+| instrument แบบ spot, perpetual และ futures | REST metadata                 | ใช้ instrument ID ของ venue แบบ native                 |
+| Order book deltas                        | WebSocket                     | L2 (`book`) และ L3 (`book_l3`) พร้อม gap recovery     |
+| book snapshot แบบความลึกคงที่              | WebSocket                     | L2 สูงสุด 50 ระดับ (`book5`, `book20`, `book50`)       |
+| book snapshot ปัจจุบัน                     | REST                          | request snapshot แบบ L2                              |
+| book snapshot ย้อนหลัง                     | REST                          | ไม่รองรับ                                              |
+| Quote ticks                              | WebSocket และ REST ย้อนหลัง     | live stream และ historical request                   |
+| Trade ticks                              | WebSocket และ REST ย้อนหลัง     | live stream และ historical request                   |
+| OHLCV bars                               | WebSocket และ REST ย้อนหลัง     | live stream และ historical request                   |
+| flat file ที่ดาวน์โหลดมา                     | S3 CSV exports                | loader ของ Rust                                       |
+| Execution, order และ account report      | ไม่มี                           | อยู่นอกขอบเขต                                         |
 
-Book types:
+ประเภทของ book:
 
-- L2 market-by-price (MBP): aggregate sizes by price level.
-- L3 market-by-order (MBO): individual orders where the source and protocol expose them.
+- L2 market-by-price (MBP): ขนาดรวมตามระดับราคา
+- L3 market-by-order (MBO): order แต่ละตัว ในกรณีที่แหล่งข้อมูลและ protocol เปิดเผยให้
 
-Fixed-depth subscriptions use the smallest channel that covers the requested depth. L3 requires
-individual order IDs: an aggregated `book_l3` entry without an ID fails conversion and starts
-recovery. An L3 book never syncs for a source that reports only aggregated levels.
+subscription แบบความลึกคงที่จะใช้ channel ที่เล็กที่สุดที่ครอบคลุมความลึกที่ขอ L3 ต้องมี ID ของ order แต่ละตัว:
+entry ของ `book_l3` แบบรวมที่ไม่มี ID จะแปลงไม่สำเร็จและเริ่มการ recovery book แบบ L3 จะไม่ sync เลยสำหรับแหล่ง
+ข้อมูลที่รายงานเฉพาะระดับราคาแบบรวม
 
-Options, funding and open-interest metrics, FIX, flat file downloads, Hyperliquid L4 data, and
-tokenized stocks are outside this adapter's scope. CoinAPI EMS execution is a separate product.
+option, metric ของ funding และ open interest, FIX, การดาวน์โหลด flat file, ข้อมูล L4 ของ Hyperliquid และ tokenized
+stock อยู่นอกขอบเขตของ adapter นี้ ส่วน CoinAPI EMS execution เป็นผลิตภัณฑ์แยกต่างหาก
 
-## Integrator attribution
+## การระบุผู้ integrate {#integrator-attribution}
 
-REST requests and WebSocket connections include the fixed referral header `X-Referrer: nautilus`,
-including retries and reconnects. It has no configuration override and carries no credential or
-account data.
+REST request และการเชื่อมต่อ WebSocket จะใส่ header สำหรับอ้างอิงแบบตายตัว `X-Referrer: nautilus` รวมถึงตอน retry
+และ reconnect ด้วย header นี้ override ผ่าน config ไม่ได้ และไม่มี credential หรือข้อมูล account ใด ๆ
 
-To refer a new account to NautilusTrader, sign up through the
-[API Bricks console](https://console.apibricks.io/?ref=nautilus). Signup referrals and API request referrals
-are separate mechanisms. See the
-[API Bricks referral documentation](https://www.apibricks.io/platform/docs/general/referral?ref=nautilus).
+หากต้องการแนะนำ account ใหม่ให้ NautilusTrader ให้สมัครผ่าน
+[API Bricks console](https://console.apibricks.io/?ref=nautilus) การอ้างอิงตอนสมัครและการอ้างอิงใน API request
+เป็นกลไกที่แยกกัน ดู[เอกสารการอ้างอิงของ API Bricks](https://www.apibricks.io/platform/docs/general/referral?ref=nautilus)
 
-## Authentication and environments
+## การยืนยันตัวตนและ environment {#authentication-and-environments}
 
-Set `api_key` in the data client config, or leave it unset to read `COINAPI_API_KEY`. Construction rejects
-missing keys and keys containing characters outside visible ASCII. REST requests and WebSocket upgrades
-authenticate with `X-CoinAPI-Key`. `hello` frames carry no credential. Credentials remain redacted in logs and
-errors. Importing the Python package neither reads credentials nor connects.
+ตั้ง `api_key` ใน config ของ data client หรือปล่อยว่างไว้เพื่ออ่านจาก `COINAPI_API_KEY` การสร้าง client จะปฏิเสธ
+key ที่ไม่มี และ key ที่มีอักขระนอกช่วง ASCII ที่มองเห็นได้ REST request และการ upgrade WebSocket ยืนยันตัวตนด้วย
+`X-CoinAPI-Key` ส่วน frame `hello` ไม่มี credential credential จะถูกปิดบังใน log และ error เสมอ
 
-Production uses encrypted REST and WebSocket endpoints. Sandbox access is not verified. Use a production
-Market Data API key. No execution account configuration is required.
+production ใช้ endpoint ของ REST และ WebSocket ที่เข้ารหัส ยังไม่ได้ตรวจสอบการเข้าถึง sandbox ให้ใช้ API key ของ
+Market Data API สำหรับ production ไม่ต้องตั้งค่า execution account
 
-| Interface    | Production endpoint               | Role                        |
+| Interface    | Endpoint ของ production            | บทบาท                       |
 | ------------ | --------------------------------- | --------------------------- |
-| REST         | `https://rest.coinapi.io/v1/`     | Primary GeoDNS endpoint.    |
-| REST         | `https://api-emea.coinapi.io/v1/` | Optional regional endpoint. |
-| REST         | `https://api-apac.coinapi.io/v1/` | Optional regional endpoint. |
-| REST         | `https://api-ncsa.coinapi.io/v1/` | Optional regional endpoint. |
-| WebSocket V1 | `wss://ws.coinapi.io/v1/`         | Primary streaming endpoint. |
+| REST         | `https://rest.coinapi.io/v1/`     | endpoint หลักแบบ GeoDNS      |
+| REST         | `https://api-emea.coinapi.io/v1/` | endpoint ตามภูมิภาค (ไม่บังคับ) |
+| REST         | `https://api-apac.coinapi.io/v1/` | endpoint ตามภูมิภาค (ไม่บังคับ) |
+| REST         | `https://api-ncsa.coinapi.io/v1/` | endpoint ตามภูมิภาค (ไม่บังคับ) |
+| WebSocket V1 | `wss://ws.coinapi.io/v1/`         | endpoint หลักสำหรับ streaming |
 
-REST defaults to GeoDNS. Set `base_url_http` to select a regional endpoint. The adapter does not switch
-regions automatically. See CoinAPI's
-[REST availability guide](https://www.coinapi.io/products/market-data-api/docs/rest-api/rest-high-availability?ref=nautilus)
-and
-[WebSocket endpoints](https://www.coinapi.io/products/market-data-api/docs/websocket/endpoints?ref=nautilus).
+REST ใช้ GeoDNS เป็นค่าเริ่มต้น ตั้ง `base_url_http` เพื่อเลือก endpoint ตามภูมิภาค adapter ไม่สลับภูมิภาคให้อัตโนมัติ
+ดู[คู่มือ availability ของ REST](https://www.coinapi.io/products/market-data-api/docs/rest-api/rest-high-availability?ref=nautilus)
+และ[WebSocket endpoints](https://www.coinapi.io/products/market-data-api/docs/websocket/endpoints?ref=nautilus)
+ของ CoinAPI
 
-## Using CoinAPI with native adapters
+## การใช้ CoinAPI ร่วมกับ adapter แบบ native {#using-coinapi-with-native-adapters}
 
-CoinAPI uses native venue instrument IDs, such as `BTCUSDT.BINANCE`, and the data client ID `COINAPI`. Use
-`client_id=COINAPI_CLIENT_ID` for CoinAPI requests and subscriptions when your node has multiple data clients.
-Requests without an explicit client ID use venue or default routing. CoinAPI can be the default data client.
+CoinAPI ใช้ instrument ID ของ venue แบบ native เช่น `BTCUSDT.BINANCE` และใช้ data client ID เป็น `COINAPI`
+ใช้ `client_id=COINAPI_CLIENT_ID` สำหรับ request และ subscription ของ CoinAPI เมื่อ node มี data client หลายตัว
+request ที่ไม่ระบุ client ID อย่างชัดเจนจะใช้การ routing ตาม venue หรือค่าเริ่มต้น CoinAPI เป็น data client เริ่มต้นได้
 
 :::warning
-Each instrument must have one definition source per node. Configure CoinAPI and native adapters
-with disjoint instrument sets, including startup loads and refreshes. Sharing an instrument is
-unsupported even when definitions match. Separate client IDs do not isolate definitions or feeds
-for the same instrument, and the adapter does not detect or resolve these conflicts automatically.
+instrument แต่ละตัวต้องมีแหล่งนิยามเพียงแหล่งเดียวต่อ node ให้ตั้งค่า CoinAPI และ adapter แบบ native ด้วยชุด
+instrument ที่ไม่ซ้อนทับกัน รวมถึงตอนโหลดเริ่มต้นและตอน refresh การใช้ instrument ร่วมกันไม่รองรับแม้นิยามจะตรงกันก็ตาม
+client ID ที่ต่างกันไม่ได้แยกนิยามหรือ feed ของ instrument เดียวกันออกจากกัน และ adapter ไม่ตรวจจับหรือแก้ความขัดแย้ง
+เหล่านี้ให้อัตโนมัติ
 :::
 
-Check native instrument-loading defaults before combining providers. For example, Binance defaults to
-`load_all=True`. Set it to `False` and provide non-overlapping `load_ids`. Keep the native adapter's venue
-route for its other instruments.
+ตรวจสอบค่าเริ่มต้นของการโหลด instrument ใน adapter แบบ native ก่อนใช้ผู้ให้บริการร่วมกัน เช่น Binance มีค่าเริ่มต้น
+`load_all` เป็น true ให้ตั้งเป็น false และระบุ `load_ids` ที่ไม่ซ้อนทับกัน คง route ของ venue ใน adapter แบบ native
+ไว้สำหรับ instrument อื่น ๆ
 
-CoinAPI's price and size resolutions describe its data and can differ from venue trading increments.
-Ticks of `0.1` and `0.5` both use one decimal place but admit different prices. Native definitions
-also carry trading constraints, including quantity and notional limits. Do not replace those
-constraints with CoinAPI metadata.
+resolution ของราคาและขนาดใน CoinAPI อธิบายข้อมูลของ CoinAPI เอง และอาจต่างจาก increment การซื้อขายของ venue
+tick ขนาด `0.1` และ `0.5` ใช้ทศนิยมหนึ่งตำแหน่งเหมือนกันแต่ยอมรับราคาต่างกัน นิยามแบบ native ยังมีข้อจำกัดการซื้อขาย
+รวมถึงขีดจำกัดของปริมาณและ notional ด้วย อย่าแทนที่ข้อจำกัดเหล่านั้นด้วย metadata ของ CoinAPI
 
-## Instruments and symbology
+## Instrument และ symbology {#instruments-and-symbology}
 
-### Supported instruments
+### Instrument ที่รองรับ {#supported-instruments}
 
-The data client loads spot, perpetual, and dated futures instruments from the exchanges listed
-below. Spot instruments become `CurrencyPair`, cryptocurrency perpetuals become `CryptoPerpetual`,
-and cryptocurrency futures become `CryptoFuture` instruments. Binance USD-M commodity and equity
-perpetuals, such as `XAUUSDT`, become `PerpetualContract` instruments.
+data client โหลด instrument แบบ spot, perpetual และ futures ที่มีวันหมดอายุจาก exchange ที่ระบุด้านล่าง instrument
+แบบ spot จะเป็น `CurrencyPair`, perpetual ของ cryptocurrency จะเป็น `CryptoPerpetual` และ futures ของ cryptocurrency
+จะเป็น `CryptoFuture` ส่วน perpetual ของ commodity และหุ้นบน Binance USD-M เช่น `XAUUSDT` จะเป็น `PerpetualContract`
 
-Invalid, unsupported, or ambiguous definitions are skipped. If multiple definitions map
-to the same native instrument ID, all of them are skipped. Selecting an instrument that cannot be
-loaded causes the connection to fail.
+นิยามที่ไม่ถูกต้อง ไม่รองรับ หรือกำกวมจะถูกข้าม หากนิยามหลายตัว map ไปยัง instrument ID แบบ native เดียวกัน
+จะถูกข้ามทั้งหมด การเลือก instrument ที่โหลดไม่ได้จะทำให้การเชื่อมต่อล้มเหลว
 
-### Metadata
+### Metadata {#metadata}
 
-CoinAPI's `price_precision` and `size_precision` metadata values are price and size increments,
-not decimal-place counts or guaranteed venue trading increments. The adapter derives precision
-from these resolutions, with optional [price precision overrides](#price-precision-overrides).
+ค่า metadata `price_precision` และ `size_precision` ของ CoinAPI เป็น increment ของราคาและขนาด ไม่ใช่จำนวนตำแหน่ง
+ทศนิยม หรือ increment การซื้อขายที่ venue รับประกัน adapter คำนวณ precision จาก resolution เหล่านี้ และ
+[override price precision](#price-precision-overrides) ได้ (ไม่บังคับ)
 
-Base and quote currencies use CoinAPI's normalized asset codes. The multiplier comes from
-`future_contract_unit`, and futures expiry comes from `future_delivery_time`. Activation uses
-CoinAPI's `data_start` coverage date, which is not the venue listing time. Currency codes and
-instrument classes can differ from a native adapter's definitions.
+base currency และ quote currency ใช้รหัส asset ที่ CoinAPI normalize แล้ว multiplier มาจาก `future_contract_unit`
+และวันหมดอายุของ futures มาจาก `future_delivery_time` activation ใช้วันที่เริ่มมีข้อมูล `data_start` ของ CoinAPI
+ซึ่งไม่ใช่เวลาที่ venue เริ่ม list รหัสสกุลเงินและ instrument class อาจต่างจากนิยามของ adapter แบบ native
 
-### Symbol mappings
+### การ map symbol {#symbol-mappings}
 
-Use the native `InstrumentId` forms below when configuring selections. Inverse contracts settle in the base
-currency. Linear contracts settle in the quote currency. The adapter determines these properties from the
-venue's product convention rather than CoinAPI's inverse flag.
+ใช้ `InstrumentId` แบบ native ตามรูปแบบด้านล่างเมื่อตั้งค่าการเลือก สัญญาแบบ inverse จะ settle ใน base currency
+สัญญาแบบ linear จะ settle ใน quote currency adapter กำหนดคุณสมบัติเหล่านี้จากแบบแผนผลิตภัณฑ์ของ venue แทน flag
+inverse ของ CoinAPI
 
-| CoinAPI exchange | Symbol type | Exchange symbol form | Native `InstrumentId`          | Contract                     |
+| CoinAPI exchange | Symbol type | รูปแบบ symbol ของ exchange | `InstrumentId` แบบ native      | สัญญา                        |
 | ---------------- | ----------- | -------------------- | ------------------------------ | ---------------------------- |
 | `BINANCE`        | `SPOT`      | `BTCUSDT`            | `BTCUSDT.BINANCE`              | Spot                         |
 | `BINANCEFTS`     | `PERPETUAL` | `BTCUSDT`            | `BTCUSDT-PERP.BINANCE`         | Linear                       |
@@ -160,37 +151,33 @@ venue's product convention rather than CoinAPI's inverse flag.
 | `BYBITINVERSE`   | `PERPETUAL` | `BTCUSD`             | `BTCUSD-INVERSE.BYBIT`         | Inverse                      |
 | `BYBITINVERSE`   | `FUTURES`   | `BTCUSDZ26`          | `BTCUSDZ26-INVERSE.BYBIT`      | Inverse                      |
 | `OKEX`           | `SPOT`      | `BTC-USDT`           | `BTC-USDT.OKX`                 | Spot                         |
-| `OKEX`           | `PERPETUAL` | `BTC-USD-SWAP`       | `BTC-USD-SWAP.OKX`             | Inverse for USD, else linear |
-| `OKEX`           | `FUTURES`   | `BTC-USD-261225`     | `BTC-USD-261225.OKX`           | Inverse for USD, else linear |
+| `OKEX`           | `PERPETUAL` | `BTC-USD-SWAP`       | `BTC-USD-SWAP.OKX`             | Inverse สำหรับ USD, นอกนั้น linear |
+| `OKEX`           | `FUTURES`   | `BTC-USD-261225`     | `BTC-USD-261225.OKX`           | Inverse สำหรับ USD, นอกนั้น linear |
 | `COINBASE`       | `SPOT`      | `BTC-USD`            | `BTC-USD.COINBASE`             | Spot                         |
 | `KRAKEN`         | `SPOT`      | `XBT/USD`            | `BTC/USD.KRAKEN`               | Spot                         |
 | `KRAKENFTS`      | `PERPETUAL` | `PI_XBTUSD`          | `PI_XBTUSD.KRAKEN`             | `PI_` inverse, `PF_` linear  |
 
-Only the listed exchange and product forms are supported. Native symbols must match the provider's
-asset and expiry metadata. For Kraken spot, `XBT` maps to `BTC` and `XDG` maps to `DOGE`.
-The adapter retains the full CoinAPI `symbol_id`, including any disambiguating suffix, for data
-requests and subscriptions.
+รองรับเฉพาะ exchange และรูปแบบผลิตภัณฑ์ที่ระบุไว้เท่านั้น symbol แบบ native ต้องตรงกับ metadata ของ asset และวัน
+หมดอายุของผู้ให้บริการ สำหรับ spot ของ Kraken `XBT` จะ map เป็น `BTC` และ `XDG` จะ map เป็น `DOGE` adapter เก็บ
+`symbol_id` ของ CoinAPI ฉบับเต็ม รวมถึง suffix ที่ใช้แยกความกำกวม ไว้สำหรับ data request และ subscription
 
-### Unsupported contracts
+### สัญญาที่ไม่รองรับ {#unsupported-contracts}
 
-Other exchanges and symbol types are unsupported. This includes Binance COIN-M (`BINANCEFTSC`):
-CoinAPI reports a one-coin contract unit for `BTCUSD_PERP`, while the native Binance contract is
-100 USD.
+exchange และ symbol type อื่น ๆ ไม่รองรับ รวมถึง Binance COIN-M (`BINANCEFTSC`): CoinAPI รายงานหน่วยสัญญาเป็น
+หนึ่งเหรียญสำหรับ `BTCUSD_PERP` ขณะที่สัญญาแบบ native ของ Binance คือ 100 USD
 
-Kraken dated futures (`KRAKENFTS` `FUTURES`) are also unsupported. CoinAPI reports midnight UTC on the
-delivery date. Kraken's last trading time varies by product: 08:00 UTC for `FF_`, for example. For `FI_`
-contracts, it is 15:00 or 16:00 UTC.
+futures แบบมีวันหมดอายุของ Kraken (`KRAKENFTS` `FUTURES`) ก็ไม่รองรับเช่นกัน CoinAPI รายงานเวลาเที่ยงคืน UTC ของ
+วันส่งมอบ ขณะที่เวลาซื้อขายสุดท้ายของ Kraken ต่างกันไปตามผลิตภัณฑ์ เช่น 08:00 UTC สำหรับ `FF_` และสำหรับสัญญา
+`FI_` คือ 15:00 หรือ 16:00 UTC
 
-Other rejected forms include Bybit USDC contracts, OKX USD-margined futures such as
-`BTC-USD_UM-261225`, and ambiguous Binance delivery IDs with a `USD` quote, such as
-`BTCUSD_261225.BINANCE`. A symbol that resembles a supported native ID does not by itself establish
-that its product is supported.
+รูปแบบอื่นที่ถูกปฏิเสธ ได้แก่ สัญญา USDC ของ Bybit, futures แบบ USD-margined ของ OKX เช่น `BTC-USD_UM-261225`
+และ ID การส่งมอบของ Binance ที่กำกวมซึ่ง quote เป็น `USD` เช่น `BTCUSD_261225.BINANCE` symbol ที่ดูคล้าย ID แบบ
+native ที่รองรับ ไม่ได้แปลว่าผลิตภัณฑ์นั้นรองรับ
 
-## Data subscriptions
+## Data subscription {#data-subscriptions}
 
-Subscribing requires a connected client and a loaded instrument, and uses the `symbol_id` loaded by
-`connect`. All subscriptions share the single WebSocket connection described in
-[Raw WebSocket streams](#raw-websocket-streams).
+การ subscribe ต้องมี client ที่เชื่อมต่อแล้วและ instrument ที่โหลดแล้ว และใช้ `symbol_id` ที่โหลดโดย `connect`
+subscription ทั้งหมดใช้การเชื่อมต่อ WebSocket เดียวร่วมกันตามที่อธิบายใน[Raw WebSocket stream](#raw-websocket-streams)
 
 | Subscription   | CoinAPI type                | Event             | `ts_event`        | `ts_init`                   |
 | -------------- | --------------------------- | ----------------- | ----------------- | --------------------------- |
@@ -199,228 +186,201 @@ Subscribing requires a connected client and a loaded instrument, and uses the `s
 | Book depth     | `book5`, `book20`, `book50` | `OrderBookDepth`  | `time_exchange`   | `time_coinapi`              |
 | Quotes         | `quote`                     | `QuoteTick`       | `time_exchange`   | `time_coinapi`              |
 | Trades         | `trade`                     | `TradeTick`       | `time_exchange`   | `time_coinapi`              |
-| Bars           | `ohlcv`                     | `Bar`             | `time_period_end` | Adapter clock when emitted. |
+| Bars           | `ohlcv`                     | `Bar`             | `time_period_end` | clock ของ adapter ตอน emit   |
 
-### Trade aggressor sides
+### ฝั่ง aggressor ของ trade {#trade-aggressor-sides}
 
-A trade's aggressor side is `BUY` or `SELL` only when the exchange reported it. CoinAPI's
-`BUY_ESTIMATED` and `SELL_ESTIMATED` values are its own inferences, so they map to `NoAggressor`
-together with `UNKNOWN` and unrecognized values.
+ฝั่ง aggressor ของ trade จะเป็น `BUY` หรือ `SELL` เฉพาะเมื่อ exchange รายงานมาเท่านั้น ค่า `BUY_ESTIMATED` และ
+`SELL_ESTIMATED` ของ CoinAPI เป็นการอนุมานของ CoinAPI เอง จึง map เป็น `NoAggressor` เช่นเดียวกับ `UNKNOWN`
+และค่าที่ไม่รู้จัก
 
-### Bars
+### Bar {#bars}
 
-Bar subscriptions accept external last-price bar types with these CoinAPI streaming periods:
+subscription ของ bar รับ bar type แบบ external ที่ใช้ราคาล่าสุด ด้วยช่วงเวลา streaming ของ CoinAPI ต่อไปนี้:
 
-- 1, 2, 3, 4, 5, 6, 10, 15, 20, or 30 seconds or minutes.
-- 1, 2, 3, 4, 6, 8, or 12 hours.
-- One day.
+- 1, 2, 3, 4, 5, 6, 10, 15, 20 หรือ 30 วินาทีหรือนาที
+- 1, 2, 3, 4, 6, 8 หรือ 12 ชั่วโมง
+- หนึ่งวัน
 
-The client rejects internal aggregation and other specifications.
+client จะปฏิเสธการ aggregate แบบ internal และรูปแบบอื่น ๆ
 
-CoinAPI sends running OHLCV totals when it sees a timestamp in the next period. It also sends them every five
-seconds during period updates. These totals carry no closed flag. The client retains the latest update for
-each period and emits a bar when an update for a later period arrives. It discards retained periods on
-reconnect, since missed updates can leave them incomplete, and when a bar subscription starts.
+CoinAPI ส่งยอด OHLCV ระหว่างทางเมื่อเห็น timestamp ในช่วงเวลาถัดไป และส่งทุกห้าวินาทีระหว่างการอัปเดตของช่วงเวลา
+ยอดเหล่านี้ไม่มี flag บอกว่าปิดแล้ว client จะเก็บการอัปเดตล่าสุดของแต่ละช่วงเวลาไว้ และ emit bar เมื่อมีการอัปเดตของ
+ช่วงเวลาถัดไปเข้ามา client จะทิ้งช่วงเวลาที่เก็บไว้เมื่อ reconnect (เพราะการอัปเดตที่พลาดไปอาจทำให้ข้อมูลไม่ครบ)
+และเมื่อเริ่ม subscription ของ bar
 
-### Subscription changes
+### การเปลี่ยน subscription {#subscription-changes}
 
-Subscription changes apply in call order and share one WebSocket connection. CoinAPI does not acknowledge
-scope changes. The first matching data confirms that a subscription is active.
+การเปลี่ยน subscription จะมีผลตามลำดับการเรียก และใช้การเชื่อมต่อ WebSocket เดียวร่วมกัน CoinAPI ไม่ตอบรับการเปลี่ยน
+ขอบเขต ข้อมูลแรกที่ตรงกันจะเป็นตัวยืนยันว่า subscription ทำงานแล้ว
 
-Changes are paced at least two seconds apart to meet CoinAPI's subscription limits. Queued changes and book
-recovery can delay them further. Unsubscribing from all streams closes the connection. A later subscription
-opens a new one and retains this pacing.
+การเปลี่ยนจะเว้นระยะห่างกันอย่างน้อยสองวินาทีเพื่อให้เป็นไปตามขีดจำกัด subscription ของ CoinAPI การเปลี่ยนที่รอคิวอยู่
+และการ recovery ของ book อาจทำให้ล่าช้าออกไปอีก การ unsubscribe ทุก stream จะปิดการเชื่อมต่อ subscription ครั้งถัดไป
+จะเปิดการเชื่อมต่อใหม่และยังคงเว้นระยะเช่นเดิม
 
-A failed connection attempt retries after one second, doubling to at most 30 seconds until success or
-disconnect. Later subscription changes wait behind the pending batch. A transport reconnect restores
-subscriptions automatically. A CoinAPI `error` ends the streams without resubscribing. The next subscription
-opens a new connection.
+ความพยายามเชื่อมต่อที่ล้มเหลวจะ retry หลังหนึ่งวินาที และเพิ่มเป็นสองเท่าจนสูงสุด 30 วินาที จนกว่าจะสำเร็จหรือ
+disconnect การเปลี่ยน subscription ที่ตามมาจะรอหลัง batch ที่ค้างอยู่ การ reconnect ของ transport จะคืนค่า subscription
+ให้อัตโนมัติ ส่วน `error` จาก CoinAPI จะยุติ stream โดยไม่ subscribe ใหม่ subscription ครั้งถัดไปจะเปิดการเชื่อมต่อใหม่
 
-## Order books
+## Order book {#order-books}
 
-### Channels and depths
+### Channel และความลึก {#channels-and-depths}
 
-`L2_MBP` delta subscriptions stream CoinAPI `book` and `L3_MBO` subscriptions stream `book_l3`. `L1_MBP` is
-rejected. Both channels send the whole book, so a delta subscription ignores `depth`.
+subscription แบบ delta ของ `L2_MBP` จะ stream `book` ของ CoinAPI และ subscription ของ `L3_MBO` จะ stream `book_l3`
+ส่วน `L1_MBP` จะถูกปฏิเสธ ทั้งสอง channel ส่ง book ทั้งหมด subscription แบบ delta จึงไม่สนใจ `depth`
 
-Depth subscriptions accept only `L2_MBP`. They use the smallest of `book5`, `book20`, and `book50` that covers
-the requested depth (default 10 levels). A depth above 50 is rejected. Each depth message lists complete top
-levels, is flagged `F_SNAPSHOT`, and carries zero order counts, since CoinAPI reports none.
+subscription แบบ depth รับเฉพาะ `L2_MBP` โดยใช้ channel ที่เล็กที่สุดใน `book5`, `book20` และ `book50` ที่ครอบคลุม
+ความลึกที่ขอ (ค่าเริ่มต้น 10 ระดับ) ความลึกมากกว่า 50 จะถูกปฏิเสธ message ของ depth แต่ละตัวมีระดับบนสุดครบถ้วน,
+ถูก flag ด้วย `F_SNAPSHOT` และมีจำนวน order เป็นศูนย์ เพราะ CoinAPI ไม่ได้รายงานค่านี้
 
-### Channel conflicts
+### ความขัดแย้งของ channel {#channel-conflicts}
 
-CoinAPI allows one book type per connection, so every book subscription on a client must use the same channel.
-A second subscription fails if it needs another channel, such as L3 beside L2 deltas or depth 5 beside depth
-20. A second subscription for the same instrument with a different depth also fails. Unsubscribe the active
-books first to switch channels.
+CoinAPI อนุญาตให้มี book type เดียวต่อการเชื่อมต่อ ดังนั้นทุก subscription ของ book บน client เดียวต้องใช้ channel
+เดียวกัน subscription ที่สองจะล้มเหลวหากต้องใช้ channel อื่น เช่น L3 คู่กับ L2 delta หรือ depth 5 คู่กับ depth 20
+subscription ที่สองของ instrument เดียวกันที่ใช้ความลึกต่างกันก็ล้มเหลวเช่นกัน ให้ unsubscribe book ที่ทำงานอยู่ก่อน
+เพื่อเปลี่ยน channel
 
-### Snapshot and delta events
+### Event แบบ snapshot และ delta {#snapshot-and-delta-events}
 
-A delta stream starts with a snapshot: a `Clear` followed by an `Add` per level, all flagged
-`F_SNAPSHOT`, with `F_LAST` on the final delta. Each update becomes one `OrderBookDeltas` event
-ending in `F_LAST`. For L3 books, CoinAPI reports `SUBTRACT` and `MATCH` sizes as the amount
-removed, so the client tracks each order's remaining size and deletes an order once it is
-exhausted.
+stream แบบ delta เริ่มด้วย snapshot: `Clear` ตามด้วย `Add` หนึ่งตัวต่อระดับราคา ทั้งหมดถูก flag ด้วย `F_SNAPSHOT`
+และมี `F_LAST` ที่ delta สุดท้าย การอัปเดตแต่ละครั้งจะเป็น event `OrderBookDeltas` หนึ่งตัวที่ลงท้ายด้วย `F_LAST`
+สำหรับ book แบบ L3 นั้น CoinAPI รายงานขนาดของ `SUBTRACT` และ `MATCH` เป็นปริมาณที่ถูกลบออก client จึงติดตาม
+ขนาดคงเหลือของแต่ละ order และลบ order ออกเมื่อหมด
 
-### Sequence numbers
+### Sequence number {#sequence-numbers}
 
-CoinAPI numbers each book stream from one per connection and restarts that numbering whenever it
-restarts the stream. The data client keeps emitted sequence numbers
-increasing across restarts and reconnects, so a managed `OrderBook` can consume the stream directly.
+CoinAPI นับเลข book stream แต่ละตัวเริ่มจากหนึ่งในแต่ละการเชื่อมต่อ และเริ่มนับใหม่ทุกครั้งที่เริ่ม stream ใหม่
+data client จะทำให้ sequence number ที่ emit ออกไปเพิ่มขึ้นเรื่อย ๆ ข้ามการเริ่มใหม่และการ reconnect เพื่อให้ `OrderBook`
+แบบ managed ใช้ stream ได้โดยตรง
 
-### Recovery
+### การ recovery {#recovery}
 
-Recovery applies to delta subscriptions. A sequence gap, an update before the first snapshot, or
-an invalid level stops book output until the client receives a valid replacement snapshot.
-Updates received while waiting for that snapshot are discarded.
+การ recovery ใช้กับ subscription แบบ delta หากเกิด sequence gap, มีการอัปเดตก่อน snapshot แรก หรือระดับราคาไม่ถูกต้อง
+output ของ book จะหยุดจนกว่า client จะได้รับ snapshot ทดแทนที่ถูกต้อง การอัปเดตที่ได้รับระหว่างรอ snapshot นั้นจะถูกทิ้ง
 
-Depth subscriptions receive complete snapshots. The client drops an invalid depth message with a warning. The
-next valid message replaces it, without a recovery attempt or snapshot deadline.
+subscription แบบ depth ได้รับ snapshot ที่สมบูรณ์ client จะทิ้ง message ของ depth ที่ไม่ถูกต้องพร้อม warning และ
+message ถัดไปที่ถูกต้องจะแทนที่ โดยไม่มีการพยายาม recovery หรือ deadline ของ snapshot
 
-### Snapshot deadlines and retry limits
+### Deadline ของ snapshot และขีดจำกัดการ retry {#snapshot-deadlines-and-retry-limits}
 
-`book_snapshot_timeout_secs` sets the wait for a snapshot after subscribing, reconnecting, or starting
-recovery. It defaults to 10 seconds. `0` disables the deadline. A missing snapshot starts or retries recovery.
-Unsubscribing cancels recovery, and a CoinAPI `error` ends all book streams.
+`book_snapshot_timeout_secs` กำหนดเวลารอ snapshot หลัง subscribe, reconnect หรือเริ่ม recovery ค่าเริ่มต้นคือ 10
+วินาที `0` ปิด deadline นี้ การไม่ได้ snapshot จะเริ่มหรือ retry การ recovery การ unsubscribe จะยกเลิก recovery และ
+`error` จาก CoinAPI จะยุติ book stream ทั้งหมด
 
-Book restarts are at least five seconds apart, and other subscription changes wait while a restart is pending.
-Recovery makes up to eight attempts within 180 seconds, with backoff and jitter. It then retries until it
-accepts a snapshot. The retry interval doubles from one minute to fifteen minutes. Reconnecting waits for
-fresh book snapshots before output resumes.
+การเริ่ม book ใหม่ห่างกันอย่างน้อยห้าวินาที และการเปลี่ยน subscription อื่นจะรอระหว่างที่มีการเริ่มใหม่ค้างอยู่ recovery
+จะพยายามสูงสุดแปดครั้งภายใน 180 วินาที พร้อม backoff และ jitter จากนั้นจะ retry ต่อไปจนกว่าจะยอมรับ snapshot ได้
+โดย interval ของ retry เพิ่มเป็นสองเท่าจากหนึ่งนาทีจนถึงสิบห้านาที การ reconnect จะรอ snapshot ของ book ชุดใหม่ก่อน
+กลับมาส่ง output
 
-### Effects on other streams
+### ผลกระทบต่อ stream อื่น {#effects-on-other-streams}
 
-When other instruments are subscribed, recovering a book pauses every stream for the affected
-instrument for about two seconds. Any retained OHLCV period spanning the pause is discarded to
-avoid publishing an incomplete bar.
+เมื่อมีการ subscribe instrument อื่นอยู่ด้วย การ recovery book จะหยุด stream ทุกตัวของ instrument ที่ได้รับผลกระทบ
+ไว้ราวสองวินาที ช่วงเวลา OHLCV ที่เก็บไว้ซึ่งคร่อมช่วงหยุดนั้นจะถูกทิ้ง เพื่อไม่ให้ publish bar ที่ไม่สมบูรณ์
 
-When the affected instrument is the only subscribed instrument, its quotes, trades, and bars
-continue during book recovery. If the book is the only subscription, recovery keeps the connection
-open without publishing an additional trade stream.
+เมื่อ instrument ที่ได้รับผลกระทบเป็น instrument เดียวที่ subscribe อยู่ quote, trade และ bar ของมันจะทำงานต่อไประหว่าง
+การ recovery book หาก book เป็น subscription เดียว การ recovery จะคงการเชื่อมต่อไว้โดยไม่ publish trade stream เพิ่มเติม
 
-## Historical requests
+## Historical request {#historical-requests}
 
-Historical requests require a connected client and a loaded instrument and use its stored `symbol_id`.
-Responses preserve the correlation ID, requested client ID, instrument or bar type, `start`, `end`, and
-`params`. An absent client ID defaults to the adapter's ID. An absent `end` stays absent.
+historical request ต้องมี client ที่เชื่อมต่อแล้วและ instrument ที่โหลดแล้ว และใช้ `symbol_id` ที่เก็บไว้ของ instrument นั้น
+response จะคง correlation ID, client ID ที่ขอ, instrument หรือ bar type, `start`, `end` และ `params` ไว้ หากไม่ระบุ
+client ID จะใช้ ID ของ adapter เป็นค่าเริ่มต้น หากไม่ระบุ `end` ก็จะไม่มีค่า `end` เช่นเดิม
 
 | Request       | CoinAPI endpoint                  | Response       | `ts_event`        | `ts_init`         |
 | ------------- | --------------------------------- | -------------- | ----------------- | ----------------- |
 | Trades        | `/trades/{symbol_id}/history`     | `TradeTick`s   | `time_exchange`   | `time_exchange`   |
 | Quotes        | `/quotes/{symbol_id}/history`     | `QuoteTick`s   | `time_exchange`   | `time_exchange`   |
 | Bars          | `/ohlcv/{symbol_id}/history`      | `Bar`s         | `time_period_end` | `time_period_end` |
-| Book snapshot | `/orderbooks/{symbol_id}/current` | L2 `OrderBook` | `time_exchange`   | Not applicable.   |
+| Book snapshot | `/orderbooks/{symbol_id}/current` | L2 `OrderBook` | `time_exchange`   | ไม่เกี่ยวข้อง        |
 
-Historical quotes, trades, and bars use their event time for `ts_init` as well as `ts_event`,
-so response filtering preserves the requested exchange-time window.
+quote, trade และ bar ย้อนหลังใช้เวลาของ event เป็นทั้ง `ts_init` และ `ts_event` การกรอง response จึงคงช่วงเวลาตาม
+exchange ที่ขอไว้
 
-### Time windows and limits
+### ช่วงเวลาและขีดจำกัด {#time-windows-and-limits}
 
-Trade, quote, and bar requests require `start` and page through [`start`, `end`), using now when
-`end` is absent. `limit` caps the records returned, counting from `start`. Paging follows
-[Raw HTTP requests](#raw-http-requests), and the client logs a warning when the credit budget
-truncates a response.
+request ของ trade, quote และ bar ต้องมี `start` และจะไล่หน้าไปตลอดช่วง [`start`, `end`) โดยใช้เวลาปัจจุบันเมื่อไม่ระบุ
+`end` ส่วน `limit` จำกัดจำนวน record ที่คืน โดยนับจาก `start` การแบ่งหน้าเป็นไปตาม[Raw HTTP request](#raw-http-requests)
+และ client จะ log warning เมื่องบ credit ทำให้ response ถูกตัด
 
-Request bounds are rounded up to CoinAPI's 100-nanosecond timestamp resolution, preserving the
-selection of records on that time grid.
+ขอบเขตของ request จะถูกปัดขึ้นตาม resolution ของ timestamp ของ CoinAPI ซึ่งละเอียด 100 นาโนวินาที ทำให้การเลือก
+record บน grid เวลานั้นคงเดิม
 
-### History lag
+### ความล่าช้าของข้อมูลย้อนหลัง {#history-lag}
 
-CoinAPI's history endpoints lag the live feed. A recent time window can return no records or an
-incomplete result even when the live stream is active. If this happens, request an earlier window,
-such as the previous day. The adapter uses historical endpoints without falling back to latest-data
-endpoints.
+endpoint ข้อมูลย้อนหลังของ CoinAPI ล่าช้ากว่า feed แบบ live ช่วงเวลาล่าสุดอาจไม่ได้ record กลับมาเลย หรือได้ผลลัพธ์
+ไม่ครบ แม้ live stream จะทำงานอยู่ หากเกิดกรณีนี้ ให้ขอช่วงเวลาที่เก่ากว่า เช่นวันก่อนหน้า adapter ใช้ endpoint
+ย้อนหลังโดยไม่ fallback ไปยัง endpoint ข้อมูลล่าสุด
 
-### Closed bars
+### Bar ที่ปิดแล้ว {#closed-bars}
 
-Bar requests accept the same bar types as bar subscriptions. A response includes only periods that closed by
-`end` and by the time the response arrives. A period still in progress is never returned as a bar. `limit`
-counts CoinAPI periods before that exclusion.
+request ของ bar รับ bar type แบบเดียวกับ subscription ของ bar response จะมีเฉพาะช่วงเวลาที่ปิดภายใน `end` และภายใน
+เวลาที่ response มาถึง ช่วงเวลาที่ยังไม่สิ้นสุดจะไม่ถูกคืนเป็น bar เด็ดขาด `limit` นับช่วงเวลาของ CoinAPI ก่อนการตัดออกนี้
 
-### Current book snapshots
+### Book snapshot ปัจจุบัน {#current-book-snapshots}
 
-Book snapshot requests pass `depth` as `limit_levels`, or omit it to use CoinAPI's default depth.
-A level finer than the instrument precision rejects the whole snapshot rather than returning a
-partial book.
+request ของ book snapshot จะส่ง `depth` เป็น `limit_levels` หรือไม่ระบุเพื่อใช้ความลึกเริ่มต้นของ CoinAPI ระดับราคาที่
+ละเอียดกว่า precision ของ instrument จะทำให้ snapshot ทั้งหมดถูกปฏิเสธ แทนที่จะคืน book บางส่วน
 
-### Failed requests
+### Request ที่ล้มเหลว {#failed-requests}
 
-A failed request logs the error and sends no response.
+request ที่ล้มเหลวจะ log error และไม่ส่ง response
 
-## Precision
+## Precision {#precision}
 
-The client converts prices and sizes at the instrument's price and size precision. These come from
-CoinAPI data resolutions, which can lag the stream, so a value with more decimal places is dropped
-with a warning rather than rounded. Trailing zeros do not count as decimal places. Historical
-responses apply the same rule to each record and log one warning with the dropped count.
+client แปลงราคาและขนาดตาม price precision และ size precision ของ instrument ซึ่งมาจาก resolution ของข้อมูล CoinAPI
+ที่อาจตามหลัง stream ดังนั้นค่าที่มีตำแหน่งทศนิยมมากกว่าจะถูก drop พร้อม warning แทนการปัดเศษ ศูนย์ต่อท้ายไม่นับเป็น
+ตำแหน่งทศนิยม response ย้อนหลังใช้กฎเดียวกันกับทุก record และ log warning หนึ่งครั้งพร้อมจำนวนที่ถูก drop
 
-OHLCV volume has a bounded exception for small numeric tails. The client rounds it half to even at the
-instrument's size precision only if the adjustment meets both limits:
+volume ของ OHLCV มีข้อยกเว้นแบบมีขอบเขตสำหรับเศษตัวเลขเล็ก ๆ client จะปัดแบบ half to even ตาม size precision ของ
+instrument เฉพาะเมื่อการปรับนั้นอยู่ในขีดจำกัดทั้งสองข้อ:
 
-- At most `1e-15` times the reported volume.
-- At most `1e-6` times one unit at that precision.
+- ไม่เกิน `1e-15` เท่าของ volume ที่รายงาน
+- ไม่เกิน `1e-6` เท่าของหนึ่งหน่วยที่ precision นั้น
 
-For size precision 8, the absolute cap is `0.00000000000001`. Negative volumes and larger precision mismatches
-are rejected. Prices keep the exact-conversion rule.
+สำหรับ size precision 8 ขีดจำกัดสัมบูรณ์คือ `0.00000000000001` volume ติดลบและการไม่ตรงกันของ precision ที่มากกว่านี้
+จะถูกปฏิเสธ ส่วนราคายังคงใช้กฎการแปลงแบบ exact
 
-The absolute cap stays fixed as volume grows, so larger aggregate volumes can still be rejected
-even when their tails meet the relative bound.
+ขีดจำกัดสัมบูรณ์คงที่แม้ volume จะเพิ่มขึ้น ดังนั้น volume รวมที่ใหญ่ขึ้นอาจยังถูกปฏิเสธได้ แม้เศษจะอยู่ในขอบเขตสัมพัทธ์
 
-A book level finer than the configured precision rejects the whole message. A delta subscription starts
-recovery. A depth subscription drops the message. If CoinAPI's price resolution is too coarse for the feed,
-set a [price precision override](#price-precision-overrides). Size precision has no override.
+ระดับราคาของ book ที่ละเอียดกว่า precision ที่ตั้งไว้จะทำให้ message ทั้งหมดถูกปฏิเสธ subscription แบบ delta จะเริ่ม
+recovery ส่วน subscription แบบ depth จะ drop message นั้น หาก price resolution ของ CoinAPI หยาบเกินไปสำหรับ feed
+ให้ตั้ง[override price precision](#price-precision-overrides) ส่วน size precision ไม่มีการ override
 
-### Price precision overrides
+### การ override price precision {#price-precision-overrides}
 
-Set `price_precisions` to replace the price precision for a selected instrument. The client
-applies it when it builds the instrument, so the definition, streams, and historical responses all
-use it. An override for an instrument outside the selections, or above the maximum Nautilus
-precision, fails at construction. Size precision has no override.
+ตั้ง `price_precisions` เพื่อแทนที่ price precision ของ instrument ที่เลือก client จะใช้ค่านี้ตอนสร้าง instrument ดังนั้น
+นิยาม, stream และ response ย้อนหลังทั้งหมดจะใช้ค่านี้ override สำหรับ instrument ที่อยู่นอกการเลือก หรือสูงกว่า precision
+สูงสุดของ Nautilus จะล้มเหลวตอนสร้าง size precision ไม่มีการ override
 
-```python
-data_config = CoinApiDataClientConfig(
-    instruments=[
-        CoinApiInstrumentSelection(
-            "COINBASE",
-            [InstrumentId.from_str("LTC-USD.COINBASE")],
-            filter_symbol_id="COINBASE_SPOT_LTC_USD",
-        ),
-    ],
-    price_precisions={InstrumentId.from_str("LTC-USD.COINBASE"): 3},
-)
-```
+ใน Rust ให้ส่ง map จาก instrument ID ไปยัง precision ให้ `CoinApiDataClientConfig::builder().price_precisions(...)`
 
-In Rust, pass the same map to `CoinApiDataClientConfig::builder().price_precisions(...)`.
-
-### OHLCV precision warnings
+### Warning เรื่อง precision ของ OHLCV {#ohlcv-precision-warnings}
 
 :::warning
-CoinAPI OHLCV prices can carry more decimal places than instrument metadata allows, even when
-trade prices fit. For example, a BTC/USD OHLCV price of `84761.955` does not fit a `0.01` resolution.
-Set a suitable `price_precisions` override to avoid missing bars.
+ราคา OHLCV ของ CoinAPI อาจมีตำแหน่งทศนิยมมากกว่าที่ metadata ของ instrument อนุญาต แม้ราคาของ trade จะพอดีก็ตาม
+เช่น ราคา OHLCV ของ BTC/USD ที่ `84761.955` ไม่พอดีกับ resolution `0.01` ให้ตั้ง override `price_precisions`
+ที่เหมาะสมเพื่อไม่ให้ bar หายไป
 
-Historical OHLCV volumes can also contain small numeric tails, such as `1.2582318399999999` for `1.25823184`.
-The client accepts them within the [bounded tolerance](#precision). Larger mismatches still drop the bar.
+volume ของ OHLCV ย้อนหลังอาจมีเศษตัวเลขเล็ก ๆ ด้วย เช่น `1.2582318399999999` สำหรับ `1.25823184` client ยอมรับค่า
+เหล่านี้ภายใน[ค่าความคลาดเคลื่อนที่มีขอบเขต](#precision) การไม่ตรงกันที่มากกว่านี้ยังคงทำให้ bar ถูก drop
 :::
 
-## Connection lifecycle
+## Lifecycle ของการเชื่อมต่อ {#connection-lifecycle}
 
-`disconnect` cancels pending subscriptions and requests before closing the connection. Queued
-subscriptions cannot reopen it, and canceled requests send no response. A later `connect` reloads
-instruments and allows new subscriptions and requests. `stop`, `reset`, and `dispose` cancel pending
-work and drop the connection without waiting.
+`disconnect` จะยกเลิก subscription และ request ที่ค้างอยู่ก่อนปิดการเชื่อมต่อ subscription ที่รอคิวไม่สามารถเปิดการเชื่อมต่อ
+ใหม่ได้ และ request ที่ถูกยกเลิกจะไม่ส่ง response `connect` ครั้งถัดไปจะโหลด instrument ใหม่และอนุญาตให้มี subscription
+และ request ใหม่ ส่วน `stop`, `reset` และ `dispose` จะยกเลิกงานที่ค้างอยู่และทิ้งการเชื่อมต่อโดยไม่รอ
 
-## Usage and access constraints
+## ข้อจำกัดด้านการใช้งานและการเข้าถึง {#usage-and-access-constraints}
 
-### Account limits
+### ขีดจำกัดของ account {#account-limits}
 
-REST usage is subject to concurrency limits and data credits. WebSocket usage is metered by data transfer.
-Check your account's entitlements, connection allowance, and
-[current pricing](https://www.coinapi.io/products/market-data-api/pricing?ref=nautilus) before choosing feeds.
-A plan's transfer allowance does not guarantee access to every channel or source.
+การใช้ REST อยู่ภายใต้ขีดจำกัดการทำงานพร้อมกันและ data credit ส่วนการใช้ WebSocket คิดตามปริมาณการรับส่งข้อมูล
+ตรวจสอบสิทธิ์ของ account, จำนวนการเชื่อมต่อที่อนุญาต และ
+[ราคาปัจจุบัน](https://www.coinapi.io/products/market-data-api/pricing?ref=nautilus) ก่อนเลือก feed ปริมาณการรับส่ง
+ที่แผนให้ ไม่ได้รับประกันการเข้าถึงทุก channel หรือทุกแหล่งข้อมูล
 
-The pricing page lists these daily allowances as of October 2026. Check the linked page for changes
-and overage charges.
+หน้าราคาระบุปริมาณที่ได้ต่อวันดังนี้ ณ เดือนตุลาคม 2026 ตรวจสอบหน้าที่ลิงก์ไว้สำหรับการเปลี่ยนแปลงและค่าใช้จ่ายส่วนเกิน
 
 | Plan          | REST credits | Tier 1 transfer | Tier 2 transfer |
 | ------------- | ------------ | --------------- | --------------- |
@@ -430,148 +390,140 @@ and overage charges.
 | Pro           | 100,000      | 512 GiB         | 64 GiB          |
 | Enterprise    | Custom       | Custom          | Custom          |
 
-CoinAPI classifies trades, quotes, and L2 books as Tier 1, and OHLCV as Tier 2. See the
-[usage FAQ](https://www.coinapi.io/products/market-data-api/faq?ref=nautilus). Its
-[L3 pricing guide](https://www.coinapi.io/blog/tier-1-vs-tier-2-market-data-level-3-order-book?ref=nautilus)
-classifies continuous L3 streams as Tier 2. Confirm billing and access for your chosen feeds.
+CoinAPI จัด trade, quote และ L2 book เป็น Tier 1 และ OHLCV เป็น Tier 2 ดู
+[usage FAQ](https://www.coinapi.io/products/market-data-api/faq?ref=nautilus)
+[คู่มือราคาของ L3](https://www.coinapi.io/blog/tier-1-vs-tier-2-market-data-level-3-order-book?ref=nautilus)
+จัด L3 stream แบบต่อเนื่องเป็น Tier 2 ให้ยืนยันการคิดเงินและการเข้าถึงสำหรับ feed ที่เลือก
 
-Each client uses one WebSocket connection. Other nodes or clients using the same account can occupy
-its available connection slots and cause HTTP 429 responses. Reduce concurrent connections to fit
-your account limit. Exhausting a hard-limited REST quota also returns HTTP 429.
+client แต่ละตัวใช้การเชื่อมต่อ WebSocket หนึ่งการเชื่อมต่อ node หรือ client อื่นที่ใช้ account เดียวกันอาจใช้ช่องการเชื่อมต่อ
+ที่มีอยู่จนหมดและทำให้ได้ response HTTP 429 ให้ลดจำนวนการเชื่อมต่อพร้อมกันให้อยู่ในขีดจำกัดของ account การใช้ REST
+quota แบบ hard limit จนหมดก็จะคืน HTTP 429 เช่นกัน
 
 :::warning
-CoinAPI combines the session's data types, symbols, and bar periods. Trades for ten symbols plus a
-book for one symbol can therefore transfer books for all ten. The adapter filters out unrequested
-pairs, but their transfer is still billable. Consider this when combining feeds on one client.
+CoinAPI รวม data type, symbol และช่วงเวลาของ bar ใน session เข้าด้วยกัน ดังนั้น trade ของสิบ symbol กับ book ของหนึ่ง
+symbol อาจทำให้ต้องรับส่ง book ของทั้งสิบ symbol adapter จะกรองคู่ที่ไม่ได้ขอออก แต่ปริมาณการรับส่งยังคงถูกคิดเงิน
+ควรคำนึงถึงเรื่องนี้เมื่อรวมหลาย feed ไว้บน client เดียว
 :::
 
-### Local credit budget
+### งบ credit ภายใน {#local-credit-budget}
 
-The data client's `credit_budget` caps the credits one client instance may spend and defaults to
-100. Each symbol-metadata attempt costs one local credit, regardless of response size. Use `filter_symbol_id`
-     to reduce transfer and parsing work. Allow for all historical requests: a range request stops at the
-     budget and returns a truncated response. For bulk history, downloaded [flat files](#flat-files) avoid
-     repeated REST requests. Compare their transfer cost with REST credits.
+`credit_budget` ของ data client จำกัดจำนวน credit ที่ client instance หนึ่งใช้ได้ ค่าเริ่มต้นคือ 100 การพยายามดึง metadata
+ของ symbol แต่ละครั้งใช้หนึ่ง credit ภายใน ไม่ว่า response จะใหญ่แค่ไหน ใช้ `filter_symbol_id` เพื่อลดปริมาณการรับส่งและ
+งาน parse เผื่อ credit สำหรับ historical request ทั้งหมดด้วย: range request จะหยุดเมื่อถึงงบและคืน response ที่ถูกตัด
+สำหรับข้อมูลย้อนหลังจำนวนมาก [flat file](#flat-files) ที่ดาวน์โหลดมาช่วยเลี่ยง REST request ซ้ำ ๆ ได้ ให้เปรียบเทียบ
+ค่ารับส่งของไฟล์กับ REST credit
 
-`max_concurrent_requests` bounds simultaneous REST requests. The local credit budget applies throughout the
-client's lifetime and is separate from CoinAPI billing. Each attempt reserves `ceil(limit / 100)` credits for
-historical requests, or one credit for requests without a record limit.
+`max_concurrent_requests` จำกัดจำนวน REST request ที่ทำพร้อมกัน งบ credit ภายในใช้ตลอดอายุของ client และแยกจากการ
+คิดเงินของ CoinAPI การพยายามแต่ละครั้งจะจอง `ceil(limit / 100)` credit สำหรับ historical request หรือหนึ่ง credit
+สำหรับ request ที่ไม่มีขีดจำกัดจำนวน record
 
-CoinAPI bills historical requests per 100 returned records. Thus, a successful historical page refunds the
-unused reservation above `ceil(records / 100)`. The local minimum charge is one credit. Failed, retried, and
-canceled attempts are not refunded. The client backs off on HTTP 429 and fails promptly on HTTP 403. See the
-[API limits reference](https://www.coinapi.io/products/market-data-api/docs/api-limits-and-billing-metrics?ref=nautilus).
+CoinAPI คิดเงิน historical request ต่อทุก 100 record ที่คืนมา ดังนั้นหน้าข้อมูลย้อนหลังที่สำเร็จจะคืน credit ที่จองไว้แต่
+ไม่ได้ใช้ส่วนที่เกิน `ceil(records / 100)` ค่าขั้นต่ำภายในคือหนึ่ง credit การพยายามที่ล้มเหลว, ถูก retry และถูกยกเลิกจะไม่
+ได้รับคืน client จะ back off เมื่อได้ HTTP 429 และล้มเหลวทันทีเมื่อได้ HTTP 403 ดู
+[เอกสารอ้างอิงขีดจำกัดของ API](https://www.coinapi.io/products/market-data-api/docs/api-limits-and-billing-metrics?ref=nautilus)
 
-### Backfills
+### Backfill {#backfills}
 
-Set an explicit record limit and time window for historical requests. Without a record limit, one
-request can reserve the remaining credit budget for its first page and leave none for other
-requests. Each historical page has its own REST retry budget.
+กำหนดขีดจำกัดจำนวน record และช่วงเวลาอย่างชัดเจนสำหรับ historical request หากไม่มีขีดจำกัดจำนวน record request เดียว
+อาจจองงบ credit ที่เหลือทั้งหมดไว้สำหรับหน้าแรก และไม่เหลือให้ request อื่น หน้าข้อมูลย้อนหลังแต่ละหน้ามีงบ retry ของ REST
+เป็นของตัวเอง
 
-For bulk history, compare REST credit costs with downloaded [flat files](#flat-files). Fewer HTTP calls do not
-necessarily mean fewer billable credits. Download files separately before loading them. The adapter does not
-list or download S3 objects.
+สำหรับข้อมูลย้อนหลังจำนวนมาก ให้เปรียบเทียบต้นทุน REST credit กับ[flat file](#flat-files) ที่ดาวน์โหลดมา การเรียก HTTP
+น้อยครั้งลงไม่ได้แปลว่า credit ที่ถูกคิดเงินจะน้อยลงเสมอไป ให้ดาวน์โหลดไฟล์แยกต่างหากก่อนโหลด adapter ไม่ list หรือ
+ดาวน์โหลด object จาก S3
 
-## Raw HTTP requests
+## Raw HTTP request {#raw-http-requests}
 
-For direct Rust access, `CoinApiHttpClient` accepts a `SecretString` API key and `CoinApiHttpConfig`. The base
-URL includes `/v1/`. Authentication uses `X-CoinAPI-Key`. Redirects are rejected. The client ignores system
-proxy environment variables and connects directly unless `proxy_url` is set.
+สำหรับการเข้าถึงโดยตรงจาก Rust `CoinApiHttpClient` รับ API key แบบ `SecretString` และ `CoinApiHttpConfig` base URL
+รวม `/v1/` ไว้แล้ว การยืนยันตัวตนใช้ `X-CoinAPI-Key` redirect จะถูกปฏิเสธ client ไม่สนใจ environment variable ของ proxy
+ในระบบ และเชื่อมต่อโดยตรง เว้นแต่จะตั้ง `proxy_url`
 
-The raw client exposes exchange and active-symbol metadata, historical trades, quotes, and OHLCV, and
-single-symbol current L2 and L3 books. Financial values retain their exact decimal representation. Values
-outside `Decimal` precision fail parsing instead of rounding.
+raw client เปิดเผย metadata ของ exchange และ symbol ที่ active, trade, quote และ OHLCV ย้อนหลัง และ book L2 และ L3
+ปัจจุบันของ symbol เดียว ค่าทางการเงินคงรูปแบบทศนิยมแบบ exact ค่าที่เกิน precision ของ `Decimal` จะ parse ไม่สำเร็จ
+แทนการปัดเศษ
 
-### Single pages and ranges
+### หน้าเดียวและแบบช่วง {#single-pages-and-ranges}
 
-The `get_trades`, `get_quotes`, and `get_ohlcv` methods return one page for an explicit time window and record
-limit in `[1, 100000]`. A full page does not mean the window is complete. The `get_trades_range`,
-`get_quotes_range`, and `get_ohlcv_range` methods page through a whole `HistoryRange`, whose optional limit
-caps the total records and can exceed 100,000.
+เมธอด `get_trades`, `get_quotes` และ `get_ohlcv` คืนหนึ่งหน้าสำหรับช่วงเวลาและขีดจำกัด record ที่ระบุชัดเจนในช่วง
+`[1, 100000]` หน้าที่เต็มไม่ได้แปลว่าช่วงเวลานั้นครบแล้ว ส่วนเมธอด `get_trades_range`, `get_quotes_range` และ
+`get_ohlcv_range` จะไล่หน้าตลอดทั้ง `HistoryRange` ซึ่งมี limit แบบไม่บังคับที่จำกัดจำนวน record รวม และเกิน 100,000 ได้
 
-### Time boundaries
+### ขอบเขตของเวลา {#time-boundaries}
 
-Trade and quote ranges select `[time_start, time_end)` by exchange time. OHLCV ranges select periods by their
-start time. The data client also excludes periods that have not closed. Records outside the requested window
-are filtered out.
+ช่วงของ trade และ quote เลือก `[time_start, time_end)` ตามเวลาของ exchange ช่วงของ OHLCV เลือกช่วงเวลาตามเวลาเริ่มต้น
+ของช่วงนั้น data client ยังตัดช่วงเวลาที่ยังไม่ปิดออกด้วย record ที่อยู่นอกช่วงเวลาที่ขอจะถูกกรองออก
 
-### Pagination
+### การแบ่งหน้า {#pagination}
 
-#### Page sizes and completion
+#### ขนาดหน้าและการจบ {#page-sizes-and-completion}
 
-Each page requests the largest limit that fits the remaining request limit, the 100,000-record
-maximum, and the remaining credit budget. A short page, or a full page reaching the request limit,
-completes the range. With the default 100-credit budget, a page holds at most 10,000 records, so
-continuation beyond one page needs a larger budget.
+แต่ละหน้าจะขอ limit ที่ใหญ่ที่สุดที่ยังพอดีกับ limit ของ request ที่เหลือ, ค่าสูงสุด 100,000 record และงบ credit ที่เหลือ
+หน้าที่สั้น หรือหน้าเต็มที่ถึง limit ของ request แล้ว จะทำให้ช่วงนั้นจบ เมื่อใช้งบเริ่มต้น 100 credit หนึ่งหน้าจะมีได้ไม่เกิน
+10,000 record ดังนั้นการต่อเกินหนึ่งหน้าต้องใช้งบที่ใหญ่ขึ้น
 
-#### Records sharing a timestamp
+#### Record ที่มี timestamp เดียวกัน {#records-sharing-a-timestamp}
 
-Pagination avoids duplicate records at page boundaries by rereading a trailing timestamp group
-when a full page needs continuation. Paging fails if records at one timestamp fill a whole page,
-preventing cursor advancement, or if a page is not in ascending order.
+การแบ่งหน้าหลีกเลี่ยง record ซ้ำที่รอยต่อของหน้า โดยอ่านกลุ่ม timestamp ท้ายหน้าซ้ำเมื่อหน้าเต็มต้องต่อ การแบ่งหน้าจะ
+ล้มเหลวหาก record ที่ timestamp เดียวเต็มทั้งหน้า ซึ่งทำให้เลื่อน cursor ไม่ได้ หรือหากหน้าไม่ได้เรียงจากน้อยไปมาก
 
-#### Records outside the window
+#### Record ที่อยู่นอกช่วงเวลา {#records-outside-the-window}
 
-Records outside the window are dropped. CoinAPI returns nearby OHLCV periods from the same UTC
-date when the window has no trades, and a page holding only such periods completes the range.
+record ที่อยู่นอกช่วงเวลาจะถูก drop CoinAPI จะคืนช่วงเวลา OHLCV ใกล้เคียงจากวันที่ UTC เดียวกันเมื่อช่วงเวลานั้นไม่มี trade
+และหน้าที่มีเฉพาะช่วงเวลาแบบนี้จะทำให้ช่วงนั้นจบ
 
-#### Credit exhaustion and concurrent ranges
+#### Credit หมดและ range ที่ทำพร้อมกัน {#credit-exhaustion-and-concurrent-ranges}
 
-If the credit budget cannot fund the next page, the result carries the records gathered so far and sets
-`is_truncated=true`. The budget can be insufficient after a failed attempt keeps its reservation. Without
-affordable credit for the first page, the request fails. Range requests on one client run one at a time, so
-each sizes its pages after earlier ranges have settled their credits.
+หากงบ credit ไม่พอสำหรับหน้าถัดไป ผลลัพธ์จะมี record ที่รวบรวมได้จนถึงตอนนั้น และตั้ง `is_truncated=true` งบอาจ
+ไม่พอหลังจากการพยายามที่ล้มเหลวยังคงจอง credit ไว้ หากไม่มี credit พอสำหรับหน้าแรก request จะล้มเหลว range request
+บน client เดียวจะทำงานทีละตัว ดังนั้นแต่ละตัวจะกำหนดขนาดหน้าหลังจาก range ก่อนหน้าชำระ credit เรียบร้อยแล้ว
 
-## Raw WebSocket streams
+## Raw WebSocket stream {#raw-websocket-streams}
 
-For direct Rust access, `CoinApiWebSocketClient` takes an API key and `CoinApiWebSocketConfig` and
-returns a message receiver. Its default endpoint is `wss://ws.coinapi.io/v1/`. A `Subscription`
-names a data type, an exact full CoinAPI `symbol_id`, and an OHLCV period where required.
+สำหรับการเข้าถึงโดยตรงจาก Rust `CoinApiWebSocketClient` รับ API key และ `CoinApiWebSocketConfig` และคืนตัวรับ message
+endpoint เริ่มต้นคือ `wss://ws.coinapi.io/v1/` `Subscription` ระบุ data type, `symbol_id` ของ CoinAPI ฉบับเต็มแบบตรงตัว
+และช่วงเวลาของ OHLCV ในกรณีที่จำเป็น
 
-The client decodes `trade`, `quote`, `book`, `book5`, `book20`, `book50`, `book_l3`, and `ohlcv`. It preserves
-decimal values, logs and drops malformed frames, and ignores metadata feeds. Subscription changes return when
-queued. Receiving matching data confirms the subscription. The [subscription pacing](#subscription-changes),
-[book channel limits](#channel-conflicts), and [billable combined scope](#account-limits) apply to this client
-too.
+client decode `trade`, `quote`, `book`, `book5`, `book20`, `book50`, `book_l3` และ `ohlcv` โดยคงค่าทศนิยมไว้, log และ drop
+frame ที่ผิดรูปแบบ และไม่สนใจ feed ของ metadata การเปลี่ยน subscription จะ return เมื่อเข้าคิวแล้ว การได้รับข้อมูลที่ตรงกัน
+เป็นการยืนยัน subscription [การเว้นระยะ subscription](#subscription-changes), [ขีดจำกัดของ book channel](#channel-conflicts)
+และ[ขอบเขตรวมที่ถูกคิดเงิน](#account-limits) ใช้กับ client นี้ด้วย
 
-### Reconnects and errors
+### การ reconnect และ error {#reconnects-and-errors}
 
-Five seconds without a message triggers a reconnect. The first attempt is immediate. Later attempts back off
-from one second to 30 seconds, doubling with up to 500 milliseconds of jitter. On an account with one
-connection slot, reconnects can receive HTTP 429 until CoinAPI releases the old connection.
+หากไม่มี message เป็นเวลาห้าวินาทีจะเกิดการ reconnect ความพยายามแรกเกิดขึ้นทันที ความพยายามถัดไปจะ back off จาก
+หนึ่งวินาทีถึง 30 วินาที โดยเพิ่มเป็นสองเท่าพร้อม jitter ไม่เกิน 500 มิลลิวินาที บน account ที่มีช่องการเชื่อมต่อเดียว
+การ reconnect อาจได้ HTTP 429 จนกว่า CoinAPI จะปล่อยการเชื่อมต่อเก่า
 
-Reconnection restores the scope and emits `CoinApiWsMessage::Reconnected`. Raw book sequences
-restart per connection, so clear your book state after reconnecting. The data client handles book
-state and sequence continuity automatically.
+การ reconnect จะคืนขอบเขต subscription และ emit `CoinApiWsMessage::Reconnected` sequence ของ book แบบ raw จะเริ่มใหม่
+ทุกการเชื่อมต่อ ดังนั้นให้ล้าง state ของ book หลัง reconnect data client จัดการ state ของ book และความต่อเนื่องของ sequence
+ให้อัตโนมัติ
 
-A server `reconnect` notice does not interrupt streaming. The client reconnects when the server closes. A
-CoinAPI `error` emits `CoinApiWsMessage::Error`, clears all subscriptions, and ends the connection without
-reconnecting. The next subscription opens a new connection. Authentication errors can arrive after a
-successful WebSocket upgrade. Closing or dropping the client closes its connection.
+ประกาศ `reconnect` จาก server ไม่ได้ขัดจังหวะการ streaming client จะ reconnect เมื่อ server ปิดการเชื่อมต่อ ส่วน `error`
+จาก CoinAPI จะ emit `CoinApiWsMessage::Error`, ล้าง subscription ทั้งหมด และยุติการเชื่อมต่อโดยไม่ reconnect subscription
+ครั้งถัดไปจะเปิดการเชื่อมต่อใหม่ error ของการยืนยันตัวตนอาจมาหลังการ upgrade WebSocket สำเร็จแล้ว การปิดหรือ drop
+client จะปิดการเชื่อมต่อของมัน
 
-## Flat files
+## Flat file {#flat-files}
 
-CoinAPI [Flat Files](https://www.coinapi.io/products/flat-files?ref=nautilus) are daily or hourly `.csv.gz`
-exports served over an S3-compatible API. The adapter loads downloaded files into Nautilus data. It does not
-list or download them. The loaders follow the Tardis CSV loaders. Each `load_*` function returns a whole file,
-and each `stream_*` function yields it in chunks. Both take optional price and size precisions and a record
-`limit`.
+[Flat Files](https://www.coinapi.io/products/flat-files?ref=nautilus) ของ CoinAPI เป็นไฟล์ export `.csv.gz` รายวันหรือ
+รายชั่วโมงที่ให้บริการผ่าน API ที่เข้ากันได้กับ S3 adapter จะโหลดไฟล์ที่ดาวน์โหลดมาเป็นข้อมูลของ Nautilus แต่ไม่ list หรือ
+ดาวน์โหลดไฟล์ให้ loader ทำตามแบบ CSV loader ของ Tardis ฟังก์ชัน `load_*` แต่ละตัวคืนข้อมูลทั้งไฟล์ และฟังก์ชัน `stream_*`
+แต่ละตัวให้ข้อมูลเป็น chunk ทั้งสองแบบรับ price precision และ size precision แบบไม่บังคับ และ `limit` ของจำนวน record
 
-| Schema                        | Load                           | Stream                  | Output           |
-| ----------------------------- | ------------------------------ | ----------------------- | ---------------- |
-| `T-TRADES`                    | `load_coinapi_trades`          | `stream_coinapi_trades` | `TradeTick`      |
-| `T-QUOTES`                    | `load_coinapi_quotes`          | `stream_coinapi_quotes` | `QuoteTick`      |
-| `T-LIMITBOOK_FULL`            | `load_coinapi_deltas`          | `stream_coinapi_deltas` | `OrderBookDelta` |
-| `T-OHLCV_ACTIVE_CONSOLIDATED` | `CoinApiOhlcvLoader.load_bars` | None                    | `Bar`            |
+| Schema                        | Load                            | Stream                       | Output           |
+| ----------------------------- | ------------------------------- | ---------------------------- | ---------------- |
+| `T-TRADES`                    | `csv::load_trades`              | `csv::stream_trades`         | `TradeTick`      |
+| `T-QUOTES`                    | `csv::load_quotes`              | `csv::stream_quotes`         | `QuoteTick`      |
+| `T-LIMITBOOK_FULL`            | `csv::load_deltas`              | `csv::stream_deltas`         | `OrderBookDelta` |
+| `T-OHLCV_ACTIVE_CONSOLIDATED` | `CoinApiOhlcvLoader::load_bars` | ไม่มี                          | `Bar`            |
 
-In Rust, the same functions are `nautilus_coinapi::csv::{load_trades, stream_trades, ...}` and
-`CoinApiOhlcvLoader::load_bars`.
+ฟังก์ชันเหล่านี้อยู่ใน `nautilus_coinapi::csv`
 
-### Order book example
+### ตัวอย่าง order book {#order-book-example}
 
-The load call derives the date from `D-20250901`. The stream reads a renamed file, so it passes
-`date` explicitly and sets precisions for the instrument's increments instead of inferring them.
-These precisions must fit every value: finer values fail the stream rather than being rounded.
+การเรียก load จะดึงวันที่จาก `D-20250901` ส่วน stream อ่านไฟล์ที่เปลี่ยนชื่อแล้ว จึงส่ง `date` อย่างชัดเจน และตั้ง precision
+ตาม increment ของ instrument แทนการอนุมาน precision เหล่านี้ต้องรองรับทุกค่า: ค่าที่ละเอียดกว่าจะทำให้ stream ล้มเหลว
+แทนการปัดเศษ
 
 ```rust tab="Rust"
 use jiff::civil::date;
@@ -598,33 +550,11 @@ for chunk in chunks {
 }
 ```
 
-```python tab="Python"
-import datetime
+### ตัวอย่าง bar {#bars-example}
 
-from nautilus_trader.adapters.coinapi import load_coinapi_deltas
-from nautilus_trader.adapters.coinapi import stream_coinapi_deltas
-from nautilus_trader.model import InstrumentId
-
-instrument_id = InstrumentId.from_str("BTC-USD.COINBASE")
-
-path = "T-LIMITBOOK_FULL/D-20250901/E-COINBASE/IDDI-27576+SC-COINBASE_SPOT_BTC_USD+S-BTC__002DUSD.csv.gz"
-deltas = load_coinapi_deltas(path, instrument_id)
-
-for chunk in stream_coinapi_deltas(
-    "coinbase_btc_usd_book.csv.gz",
-    instrument_id,
-    date=datetime.date(2025, 9, 1),
-    price_precision=2,
-    size_precision=8,
-):
-    ...
-```
-
-### Bars example
-
-`CoinApiOhlcvLoader` maps numeric `symbol_id` values to instruments. `27576` is the REST `symbol_id_int` of
-`COINBASE_SPOT_BTC_USD`. It reads the period from `TP-1MIN` and skips unmapped symbols. Rust also provides
-`CoinApiOhlcvLoader::from_symbols` to build the map from metadata.
+`CoinApiOhlcvLoader` map ค่า `symbol_id` แบบตัวเลขไปยัง instrument โดย `27576` คือ `symbol_id_int` ใน REST ของ
+`COINBASE_SPOT_BTC_USD` loader อ่านช่วงเวลาจาก `TP-1MIN` และข้าม symbol ที่ไม่ได้ map ไว้ นอกจากนี้ยังมี
+`CoinApiOhlcvLoader::from_symbols` สำหรับสร้าง map จาก metadata
 
 ```rust tab="Rust"
 use nautilus_coinapi::csv::CoinApiOhlcvLoader;
@@ -638,214 +568,152 @@ let bars = loader.load_bars(
 )?;
 ```
 
-```python tab="Python"
-from nautilus_trader.adapters.coinapi import CoinApiOhlcvLoader
-from nautilus_trader.model import InstrumentId
+### โครงสร้างไฟล์ {#file-layout}
 
-loader = CoinApiOhlcvLoader({27576: InstrumentId.from_str("BTC-USD.COINBASE")})
-bars = loader.load_bars("T-OHLCV_ACTIVE_CONSOLIDATED/D-20250911/E-COINBASE/TP-1MIN.csv.gz")
-```
+#### ไฟล์ราย symbol {#symbol-files}
 
-### File layout
+loader รับไฟล์ที่คั่นด้วยเครื่องหมาย semicolon และมีแถว header ไฟล์ trade, quote และ book เก็บข้อมูลหนึ่ง symbol ไว้ใต้
+`T-{SCHEMA}/D-{YYYYMMDD|YYYYMMDDHH}/E-{EXCHANGE}/IDDI-{ID}+SC-{SYMBOL_ID}+S-{EXCHANGE_SYMBOL}.csv.gz`
+ให้ส่ง `instrument_id` อย่างชัดเจนสำหรับแต่ละไฟล์
 
-#### Symbol files
+CoinAPI ยังระบุ export แบบอื่นที่คั่นด้วย comma, ใช้ timestamp ของ book แบบวันเวลาเต็ม หรือใช้ประเภทการอัปเดต book
+แบบตัวเลข loader เหล่านี้ต้องใช้ตัวคั่น semicolon, timestamp ของ book แบบเวลาในวัน และการอัปเดต book แบบมีชื่อ เช่น
+`SNAPSHOT`, `ADD` และ `SET` ให้แปลงรูปแบบอื่นก่อนโหลด ดู
+[คู่มือชุดข้อมูล full-book](https://www.coinapi.io/products/flat-files/docs/datasets/limitbook?ref=nautilus)
 
-The loaders accept semicolon-delimited files with a header row. Trade, quote, and book files
-hold one symbol under
-`T-{SCHEMA}/D-{YYYYMMDD|YYYYMMDDHH}/E-{EXCHANGE}/IDDI-{ID}+SC-{SYMBOL_ID}+S-{EXCHANGE_SYMBOL}.csv.gz`.
-Pass an explicit `instrument_id` for each file.
+#### Bucket และระยะเวลาการเก็บ {#buckets-and-retention}
 
-CoinAPI also documents export variants with comma delimiters, full date-time book timestamps, or numeric book
-update types. These loaders require semicolon delimiters, time-of-day book timestamps, and named book updates
-such as `SNAPSHOT`, `ADD`, and `SET`. Convert other layouts before loading them. See the
-[full-book dataset guide](https://www.coinapi.io/products/flat-files/docs/datasets/limitbook?ref=nautilus).
+bucket `coinapi` เก็บข้อมูลย้อนหลัง: partition รายวันก่อนวันที่ 2026-06-09 และ partition รายชั่วโมงของ trade, quote และ
+full-book ตั้งแต่วันนั้น ส่วน bucket `coinapi-daily-tail` เก็บเฉพาะไฟล์รายวันของ trade, quote และ full-book ของวันก่อนหน้า
+โดยเก็บไว้ 24 ชั่วโมง bucket นี้ไม่ใช่ archive และไม่มี OHLCV ดู
+[โครงสร้างไฟล์](https://www.coinapi.io/products/flat-files/docs/datasets?ref=nautilus)
 
-#### Buckets and retention
+#### ไฟล์ OHLCV {#ohlcv-files}
 
-The `coinapi` bucket holds historical data: daily partitions before 2026-06-09 and hourly
-trade, quote, and full-book partitions from that date. The `coinapi-daily-tail` bucket holds only
-the previous day's daily trade, quote, and full-book files, retained for 24 hours. It is not an
-archive and contains no OHLCV. See the
-[file structure](https://www.coinapi.io/products/flat-files/docs/datasets?ref=nautilus).
+[คู่มือชุดข้อมูล OHLCV](https://www.coinapi.io/products/flat-files/docs/datasets/ohlcv?ref=nautilus)
+ระบุไฟล์รายวันระดับ exchange ใน bucket `coinapi` ภายใต้
+`T-OHLCV_ACTIVE_CONSOLIDATED/D-{YYYYMMDD}/E-{EXCHANGE}/TP-{PERIOD}.csv.gz` หนึ่งไฟล์ต่อช่วงเวลา `1SEC`, `1MIN`,
+`1HRS` หรือ `1DAY` ค่า `symbol_id` แบบตัวเลขของแต่ละแถวคือ `symbol_id_int` ใน REST loader จะ map ค่านี้ไปยัง
+instrument, ข้ามแถวที่ไม่ได้ map และอ่านช่วงเวลาจาก `TP-` เว้นแต่จะระบุ `period_id` หน้าโครงสร้างไฟล์ทั่วไปยังระบุ path
+ของ OHLCV รายชั่วโมงด้วย ให้ยืนยัน object ที่มีอยู่จริงตอนดาวน์โหลด loader อ่าน timestamp จากแถวได้ทั้งสองรูปแบบ
 
-#### OHLCV files
+### ข้อมูล order book {#order-book-data}
 
-The [OHLCV dataset guide](https://www.coinapi.io/products/flat-files/docs/datasets/ohlcv?ref=nautilus)
-documents exchange-wide daily files in the `coinapi` bucket under
-`T-OHLCV_ACTIVE_CONSOLIDATED/D-{YYYYMMDD}/E-{EXCHANGE}/TP-{PERIOD}.csv.gz`, one file per period of `1SEC`,
-`1MIN`, `1HRS`, or `1DAY`. Each row's numeric `symbol_id` is the REST `symbol_id_int`. The loader maps it to
-an instrument, skips unmapped rows, and reads the period from `TP-` unless `period_id` is given. The general
-file-structure page also lists hourly OHLCV paths. Confirm available objects when downloading. The loader
-reads the timestamps from the rows for either layout.
+ไฟล์ book ที่มี order ID จะให้ delta แบบ L3 market-by-order ไฟล์ที่ไม่มีจะให้ delta แบบ L2 market-by-price เช่น ไฟล์ spot
+ของ Coinbase มี order ID ขณะที่ไฟล์ spot ของ Binance อธิบายระดับราคา ให้ใช้ `BookType` ที่ตรงกันเมื่อนำ delta ไปใช้
 
-### Order book data
+snapshot เริ่มต้นจะ emit `Clear` ตามด้วย delta แบบ `Add` ทั้งหมดถูก flag ด้วย `F_SNAPSHOT` การอัปเดตที่ตามมาซึ่งอยู่ที่
+timestamp ของ exchange เดียวกันจะรวมเป็นหนึ่ง event ที่ลงท้ายด้วย `F_LAST` chunk ของ streaming ปกติจะจบที่ขอบเขตของ
+event และอาจเกิน `chunk_size` ได้ `limit` ของจำนวน record อาจตัด event สุดท้ายให้สั้นลง delta สุดท้ายยังคงมี `F_LAST`
+ดังนั้นการโหลดแบบจำกัดจำนวนอาจได้ book ที่ไม่สมบูรณ์
 
-Book files with order IDs produce L3 market-by-order deltas. Files without them produce L2 market-by-price
-deltas. For example, Coinbase spot files contain order IDs, while Binance spot files describe price levels.
-Use the corresponding `BookType` when applying the deltas.
+การอัปเดต fill ของ L3 จะลดขนาดคงเหลือของ order และลบ order ออกเมื่อเหลือศูนย์ การ add ภายหลังอาจใช้ order ID ซ้ำ
+หลังการลบได้ การอัปเดตของ order ที่ไม่รู้จัก ยกเว้นการลบ จะถูก log และข้าม
 
-The initial snapshot emits a `Clear` followed by `Add` deltas, all flagged `F_SNAPSHOT`. Subsequent updates at
-one exchange timestamp form one event ending in `F_LAST`. Streaming chunks normally end at event boundaries
-and can exceed `chunk_size`. A record `limit` can cut the final event short. Its last delta still carries
-`F_LAST`, so a limited load can leave an incomplete book.
+### Timestamp {#timestamps}
 
-L3 fill updates reduce an order's remaining size and remove it at zero. A later add can reuse an
-order ID after deletion. Updates to unknown orders, other than deletes, are logged and skipped.
+แถวของ trade, quote และ OHLCV มีวันเวลา UTC แบบไม่มี zone เช่น `2025-09-01T00:00:00.1780000` ส่วนแถวของ book มีเพียง
+เวลาในวัน เช่น `00:00:00.0140000` loader ของ book จึงกำหนดวันที่ของแต่ละแถวจาก partition `D-` ของไฟล์ สำหรับไฟล์ที่อยู่นอก
+partition `D-` จะใช้ `date` snapshot ที่มีเวลาช้ากว่าการอัปเดตแรกจะเป็นเวลาปิดของวันก่อนหน้าและถูกเลื่อนกลับหนึ่งวัน
+`time_coinapi` ที่ต่ำกว่า `time_exchange` เกินครึ่งวันถือว่าอยู่หลังเที่ยงคืนและถูกเลื่อนไปข้างหน้าหนึ่งวัน
 
-### Timestamps
+`ts_event` คือ `time_exchange` และ `ts_init` คือ `time_coinapi` ส่วน bar ใช้ `time_period_end` สำหรับทั้งสองค่า
 
-Trade, quote, and OHLCV rows carry zone-less UTC date-times such as `2025-09-01T00:00:00.1780000`. Book rows
-carry only a time of day, such as `00:00:00.0140000`. Thus, the book loaders date each row from the file's
-`D-` partition. For a file outside a `D-` partition, they use `date`. A snapshot stamped later than the first
-update carries the previous day's closing time and moves back one day. A `time_coinapi` more than half a day
-below its `time_exchange` falls after midnight and moves forward one day.
+### Precision {#precision-1}
 
-`ts_event` is `time_exchange` and `ts_init` is `time_coinapi`. Bars take `time_period_end` for
-both.
+ราคาและขนาดแปลงจากข้อความแบบ exact `load_*` จะอนุมาน precision ที่ไม่ได้ระบุจากทุกแถวที่อ่าน โดยหยุดที่ `limit`
+หากตั้งไว้ `stream_*` จะสุ่มตัวอย่าง 10,000 แถวแรก และคืน error หากค่าที่ตามมาต้องปัดเศษ ให้ส่ง precision อย่างชัดเจน
+เมื่อไม่ทราบ precision ของไฟล์ loader ของ OHLCV จะอนุมาน precision ราย instrument โดยมีข้อยกเว้นเรื่อง volume ด้านล่าง
 
-### Precision
+CoinAPI ใช้[โหมด high-precision](../getting_started/installation.md#precision-mode) เป็นค่าเริ่มต้น: ทศนิยม 16 ตำแหน่ง
+แทน 9 ตำแหน่ง เพื่อให้รองรับขนาดของ cryptocurrency และ volume ของ CoinAPI `sx_sum` ของ OHLCV อาจมีเศษตัวเลขที่สอดคล้อง
+กับ noise ของ floating-point เช่น `689.5507347100003` loader จะปัด volume แบบ half to even ที่ precision สูงสุดของ build
+โดยเปลี่ยนเฉพาะค่าที่เกิน precision นั้น เช่นตัวอย่างนี้ใน build แบบ standard-precision loader จะปฏิเสธ volume ต้นทางที่ติดลบ
+และ volume บวกที่ปัดแล้วเป็นศูนย์ ส่วน volume ต้นทางที่เป็นศูนย์ยังใช้ได้
 
-Prices and sizes convert exactly from text. `load_*` infers unspecified precisions from all rows read,
-stopping at `limit` if set. `stream_*` samples the first 10,000 rows and raises if a later value needs
-rounding. Pass explicit precisions when the file's precision is unknown. The OHLCV loader infers precisions
-per instrument, with the volume exception below.
+## การตั้งค่า {#configuration}
 
-CoinAPI uses [high-precision mode](../getting_started/installation.md#precision-mode) by default: 16 decimal
-places rather than 9, to fit cryptocurrency sizes and CoinAPI volumes. OHLCV `sx_sum` can carry numeric tails
-consistent with floating-point noise, such as `689.5507347100003`. The loader rounds volumes half to even at
-the build's maximum precision, changing only values that exceed it, such as this example in a
-standard-precision build. It rejects negative source volumes and positive volumes that round to zero. Zero
-source volumes remain valid.
+ลงทะเบียน `CoinApiDataClientFactory` และ `CoinApiDataClientConfig` กับ node builder client ID เริ่มต้นคือ `COINAPI`
+ชื่อ client ที่กำหนดเองจะกลายเป็น client ID
 
-## Configuration
-
-Register `CoinApiDataClientFactory` and `CoinApiDataClientConfig` with the node builder. The default client ID
-is `COINAPI`. A custom client name becomes its client ID.
-
-| Field                        | Default   | Purpose                                                     |
+| Field                        | Default   | วัตถุประสงค์                                                    |
 | ---------------------------- | --------- | ----------------------------------------------------------- |
-| `api_key`                    | `None`    | API key; `None` reads `COINAPI_API_KEY`.                    |
-| `base_url_http`              | `None`    | REST URL override, including `/v1/`.                        |
-| `base_url_ws`                | `None`    | WebSocket URL override.                                     |
-| `proxy_url`                  | `None`    | Explicit HTTP(S) proxy for REST and WebSocket.              |
-| `instruments`                | Empty     | Instrument selections loaded on connect.                    |
-| `credit_budget`              | `100`     | Local lifetime REST credit allowance for this client.       |
-| `max_retries`                | `3`       | Maximum retries for a failed REST request.                  |
-| `http_timeout_secs`          | `30`      | Per-attempt REST timeout, including concurrency admission.  |
-| `max_concurrent_requests`    | `1`       | Maximum simultaneous REST requests.                         |
-| `retry_delay_initial_ms`     | 1,000     | Initial REST retry delay.                                   |
-| `retry_delay_max_ms`         | 10,000    | Maximum REST backoff; provider retry delays can exceed it.  |
-| `retry_max_elapsed_ms`       | 120,000   | Total budget per REST GET, including admission and retries. |
-| `transport_backend`          | `Sockudo` | Shared WebSocket backend; `Tungstenite` is also available.  |
-| `book_snapshot_timeout_secs` | `10`      | Seconds to wait for a book snapshot; `0` disables.          |
-| `price_precisions`           | Empty     | Price precision overrides by instrument ID.                 |
+| `api_key`                    | `None`    | API key; `None` จะอ่านจาก `COINAPI_API_KEY`                  |
+| `base_url_http`              | `None`    | override URL ของ REST รวม `/v1/`                            |
+| `base_url_ws`                | `None`    | override URL ของ WebSocket                                  |
+| `proxy_url`                  | `None`    | HTTP(S) proxy แบบระบุชัดเจนสำหรับ REST และ WebSocket           |
+| `instruments`                | Empty     | การเลือก instrument ที่โหลดตอน connect                         |
+| `credit_budget`              | `100`     | จำนวน REST credit ภายในตลอดอายุของ client นี้                  |
+| `max_retries`                | `3`       | จำนวน retry สูงสุดของ REST request ที่ล้มเหลว                   |
+| `http_timeout_secs`          | `30`      | timeout ของ REST ต่อการพยายามหนึ่งครั้ง รวมการรอคิวการทำงานพร้อมกัน |
+| `max_concurrent_requests`    | `1`       | จำนวน REST request พร้อมกันสูงสุด                              |
+| `retry_delay_initial_ms`     | 1,000     | delay เริ่มต้นของการ retry REST                                |
+| `retry_delay_max_ms`         | 10,000    | backoff สูงสุดของ REST; delay ที่ผู้ให้บริการกำหนดอาจเกินค่านี้ได้     |
+| `retry_max_elapsed_ms`       | 120,000   | งบเวลารวมต่อ REST GET รวมการรอคิวและการ retry                  |
+| `transport_backend`          | `Sockudo` | backend ของ WebSocket ที่ใช้ร่วมกัน; มี `Tungstenite` ให้เลือกด้วย   |
+| `book_snapshot_timeout_secs` | `10`      | จำนวนวินาทีที่รอ book snapshot; `0` คือปิด                      |
+| `price_precisions`           | Empty     | override price precision ตาม instrument ID                   |
 
-Configuration rejects unknown fields. Unset URL overrides use the production endpoints. Sockudo is the default
-WebSocket backend. Set `transport_backend=TransportBackend.TUNGSTENITE` to use Tungstenite instead, importing
-`TransportBackend` from `nautilus_trader.network`.
+config จะปฏิเสธฟิลด์ที่ไม่รู้จัก URL override ที่ไม่ได้ตั้งจะใช้ endpoint ของ production Sockudo เป็น backend ของ WebSocket
+เริ่มต้น ตั้ง `transport_backend` เป็น Tungstenite หากต้องการใช้แทน
 
-`proxy_url` routes both transports through an explicit HTTP(S) proxy. Ambient system proxies remain disabled.
-The URL must include `http://` or `https://`. SOCKS URLs fail at client construction. Proxy credentials stay
-redacted in Rust debug output and are not exposed by Python getters. The Python `has_proxy_url` property
-reports whether an explicit proxy is configured.
+`proxy_url` route ทั้งสอง transport ผ่าน HTTP(S) proxy ที่ระบุอย่างชัดเจน proxy ของระบบยังคงถูกปิดไว้ URL ต้องมี
+`http://` หรือ `https://` URL แบบ SOCKS จะล้มเหลวตอนสร้าง client credential ของ proxy จะถูกปิดบังใน debug output ของ Rust
 
-`credit_budget`, `max_concurrent_requests`, `retry_max_elapsed_ms`, and `http_timeout_secs` must be positive.
-Each historical page has its own REST retry budget. The initial retry delay must be positive, and the maximum
-must be at least the initial delay. Invalid backoff settings fail at client construction. The per-attempt
-timeout includes waiting for concurrency admission and does not include retry delays. The total elapsed budget
-includes both.
+`credit_budget`, `max_concurrent_requests`, `retry_max_elapsed_ms` และ `http_timeout_secs` ต้องเป็นค่าบวก หน้าข้อมูล
+ย้อนหลังแต่ละหน้ามีงบ retry ของ REST เป็นของตัวเอง delay เริ่มต้นของการ retry ต้องเป็นค่าบวก และค่าสูงสุดต้องไม่น้อยกว่า
+delay เริ่มต้น การตั้งค่า backoff ที่ไม่ถูกต้องจะล้มเหลวตอนสร้าง client timeout ต่อการพยายามหนึ่งครั้งรวมการรอคิวการทำงาน
+พร้อมกัน แต่ไม่รวม delay ของการ retry ส่วนงบเวลารวมนั้นรวมทั้งสองอย่าง
 
-### Python configuration
+factory จะสร้าง client ระหว่าง `build` ซึ่ง credential, URL ของ endpoint หรือ proxy ที่ไม่ถูกต้อง, ค่าการทำงานพร้อมกัน, งบเวลารวม
+หรือ timeout ต่อการพยายามที่เป็นศูนย์ และการตั้งค่า retry backoff ที่ไม่ถูกต้องจะทำให้เกิด error ตัวอย่างอ่าน key จาก
+`COINAPI_API_KEY` และ override price precision ของ BTC/USD เพื่อรองรับราคา OHLCV ที่มีทศนิยมสามตำแหน่ง ดู
+[Precision](#precision) สำหรับการ setup node ทั่วไป ดู[การรัน Live Trading (Rust)](../how_to/run_rust_live_trading.md)
 
-The `nautilus_trader.adapters.coinapi` package exports `CoinApiDataClientConfig`,
-`CoinApiInstrumentSelection`, `CoinApiDataClientFactory`, and the `COINAPI` and `COINAPI_CLIENT_ID` constants.
-The config takes the fields above as keyword arguments. It exposes each field except `api_key` and `proxy_url`
-as a read-only property. Its representation omits every value. A selection takes the exchange, the instrument
-IDs, and the optional `filter_symbol_id` and `filter_asset_id` filters.
+### การเลือก instrument {#instrument-selections}
 
-```python
-from nautilus_trader.adapters.coinapi import CoinApiDataClientConfig
-from nautilus_trader.adapters.coinapi import CoinApiDataClientFactory
-from nautilus_trader.adapters.coinapi import CoinApiInstrumentSelection
-from nautilus_trader.common import Environment
-from nautilus_trader.live import LiveNode
-from nautilus_trader.model import InstrumentId
-from nautilus_trader.model import TraderId
+`CoinApiInstrumentSelection` แต่ละตัวระบุ exchange ของ CoinAPI, instrument ID แบบ native ที่จะโหลด และตัวกรอง metadata
+แบบไม่บังคับ `filter_symbol_id` และ `filter_asset_id` การสร้างจะปฏิเสธ list ของ ID ที่ว่าง, ID ที่ map ไปยัง exchange อื่นของ
+CoinAPI และ ID ที่ถูกเลือกมากกว่าหนึ่งครั้ง ใช้ `filter_symbol_id` เพื่อจำกัดการรับส่งและการ parse metadata การพยายาม
+request แต่ละครั้งใช้หนึ่ง credit ภายใน ไม่ว่า response จะใหญ่แค่ไหน
 
-instrument_id = InstrumentId.from_str("BTC-USD.COINBASE")
+การเชื่อมต่อจะโหลดแต่ละการเลือกหนึ่งครั้ง และล้มเหลวหาก instrument ที่เลือกไว้ตัวใดหายไป จะ publish เฉพาะ instrument
+ที่เลือกไว้ ใช้การเลือกแบบระบุชัดเจนเพื่อให้ CoinAPI และ adapter แบบ native[ไม่ซ้อนทับกัน](#using-coinapi-with-native-adapters)
 
-data_config = CoinApiDataClientConfig(
-    instruments=[
-        CoinApiInstrumentSelection(
-            "COINBASE",
-            [instrument_id],
-            filter_symbol_id="COINBASE_SPOT_BTC_USD",
-        ),
-    ],
-    price_precisions={instrument_id: 3},
-)
+request ของ instrument จะดึงข้อมูลจาก CoinAPI เสมอ และ refresh นิยามที่ใช้แปลง stream รวมถึงค่า `symbol_id` ที่ใช้ใน
+REST request ส่วน subscription จะคง ID ที่โหลดโดย `connect` ไว้ แม้หลังการ reconnect ของ transport ให้ disconnect
+แล้ว reconnect data client เพื่อใช้ ID ที่ refresh แล้วสำหรับ subscription
 
-node = (
-    LiveNode.builder("COINAPI-001", TraderId("TESTER-001"), Environment.LIVE)
-    .add_data_client(None, CoinApiDataClientFactory(), data_config)
-    .build()
-)
-```
+- `request_instrument` รับเฉพาะ ID ที่ตั้งค่าไว้ และคืน error สำหรับ ID อื่น
+- `request_instruments` คืน instrument ที่ตั้งค่าไว้ของ venue ที่ขอ หาก request ไม่ระบุ venue จะคืน instrument ที่ตั้งค่าไว้
+  ทั้งหมด response ที่ไม่มี venue ที่ขอจะใช้ venue `COINAPI`
+- request สำหรับ venue ที่ไม่มี instrument ตั้งค่าไว้จะคืน response ว่างโดยไม่เรียก REST
 
-The factory creates the client during `build`, where invalid credentials, endpoint or proxy URLs, zero
-concurrency, elapsed budgets, or attempt timeouts, and invalid retry backoff settings raise an error. The
-example reads its key from `COINAPI_API_KEY`. It overrides BTC/USD price precision to admit three-decimal
-OHLCV prices. See [Precision](#precision). For general node setup, see
-[Configure live trading](../how_to/configure_live_trading.md).
+## การแก้ปัญหา {#troubleshooting}
 
-### Instrument selections
-
-Each `CoinApiInstrumentSelection` names a CoinAPI exchange, the native instrument IDs to load, and optional
-`filter_symbol_id` and `filter_asset_id` metadata filters. Construction rejects empty ID lists, IDs mapped to
-another CoinAPI exchange, and IDs selected more than once. Use `filter_symbol_id` to limit metadata transfer
-and parsing. Each request attempt costs one local credit regardless of response size.
-
-Connecting loads each selection once and fails if any selected instrument is missing. Only selected
-instruments are published. Use explicit selections to keep CoinAPI and native adapters
-[disjoint](#using-coinapi-with-native-adapters).
-
-Instrument requests always fetch from CoinAPI and refresh the definitions used for stream conversion
-and the `symbol_id` values used for REST requests. Subscriptions retain the IDs loaded by `connect`,
-including after a transport reconnect. Disconnect and reconnect the data client to use refreshed
-IDs for subscriptions.
-
-- `request_instrument` accepts only a configured ID and returns an error for any other.
-- `request_instruments` returns the configured instruments for the requested venue. If the request names no
-  venue, it returns all configured instruments. A response without a requested venue carries the `COINAPI`
-  venue.
-- A request for a venue without configured instruments returns an empty response without a REST
-  call.
-
-## Troubleshooting
-
-| Symptom                                              | Likely cause                                                                                         | Action                                                                                        |
+| อาการ                                                 | สาเหตุที่เป็นไปได้                                                                                      | สิ่งที่ควรทำ                                                                                     |
 | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `CoinAPI API key not configured` at build            | Neither `api_key` nor `COINAPI_API_KEY` is set.                                                      | Set one of them.                                                                              |
-| `subscription change failed, retrying` with HTTP 429 | Another client or node holds the account's only connection.                                          | Stop the other connection; the client retries until CoinAPI frees the slot.                   |
-| `WsHelloPerIp` error, then no data                   | Too many `hello` messages from this IP, including other clients.                                     | Reduce subscription churn on the IP; the next subscription reconnects.                        |
-| `Conflicting CoinAPI book subscription`              | The instrument already streams another book channel or depth.                                        | Unsubscribe its book first, or request the same channel and depth.                            |
-| `CoinAPI streams one book channel per connection`    | Another instrument streams a different book channel.                                                 | Use the active channel, or unsubscribe every book first.                                      |
-| Repeated `Invalid book message` warnings             | Book levels exceed instrument precision, or L3 entries lack order IDs.                               | Override price precision if needed, or use L2 for a source without order IDs.                 |
-| `Dropping CoinAPI` quote, trade, or bar warnings     | Prices or sizes exceed the instrument's precision; OHLCV volume needs rounding beyond its tolerance. | Override price precision if needed; size precision and the volume tolerance have no override. |
-| Historical request for the last hour returns empty   | History can lag live data; recent history may not be available yet.                                  | Request an earlier window.                                                                    |
-| `credit budget truncated` history warning            | The credit budget ran out partway through a range request.                                           | Raise `credit_budget` or narrow the window.                                                   |
+| `CoinAPI API key not configured` ตอน build            | ไม่ได้ตั้งทั้ง `api_key` และ `COINAPI_API_KEY`                                                           | ตั้งค่าใดค่าหนึ่ง                                                                                 |
+| `subscription change failed, retrying` พร้อม HTTP 429 | client หรือ node อื่นใช้การเชื่อมต่อเดียวของ account อยู่                                                   | หยุดการเชื่อมต่ออื่น; client จะ retry จนกว่า CoinAPI จะปล่อยช่องการเชื่อมต่อ                          |
+| error `WsHelloPerIp` แล้วไม่มีข้อมูล                     | มี message `hello` จาก IP นี้มากเกินไป รวมถึงจาก client อื่น                                             | ลดการเปลี่ยน subscription บน IP นั้น; subscription ครั้งถัดไปจะ reconnect                         |
+| `Conflicting CoinAPI book subscription`              | instrument นั้น stream book channel หรือความลึกอื่นอยู่แล้ว                                               | unsubscribe book ของมันก่อน หรือขอ channel และความลึกเดียวกัน                                   |
+| `CoinAPI streams one book channel per connection`    | instrument อื่น stream book channel ที่ต่างออกไป                                                       | ใช้ channel ที่ทำงานอยู่ หรือ unsubscribe ทุก book ก่อน                                           |
+| warning `Invalid book message` ซ้ำ ๆ                   | ระดับราคาของ book เกิน precision ของ instrument หรือ entry ของ L3 ไม่มี order ID                          | override price precision หากจำเป็น หรือใช้ L2 สำหรับแหล่งข้อมูลที่ไม่มี order ID                      |
+| warning `Dropping CoinAPI` ของ quote, trade หรือ bar   | ราคาหรือขนาดเกิน precision ของ instrument; volume ของ OHLCV ต้องปัดเกินค่าความคลาดเคลื่อนที่ยอมรับได้          | override price precision หากจำเป็น; size precision และค่าความคลาดเคลื่อนของ volume override ไม่ได้ |
+| historical request ของชั่วโมงล่าสุดคืนค่าว่าง             | ข้อมูลย้อนหลังอาจช้ากว่าข้อมูล live; ข้อมูลย้อนหลังล่าสุดอาจยังไม่พร้อม                                       | ขอช่วงเวลาที่เก่ากว่า                                                                            |
+| warning ข้อมูลย้อนหลัง `credit budget truncated`        | งบ credit หมดระหว่าง range request                                                                   | เพิ่ม `credit_budget` หรือแคบช่วงเวลาลง                                                          |
 
-## Limitations
+## ข้อจำกัด {#limitations}
 
-- Historical book snapshots and automatic regional REST failover are not supported.
-- Sandbox access is not verified.
-- Size precision comes only from CoinAPI metadata and has no override.
-- Automatic instrument updates, status events, metrics, and options are not supported.
-- The adapter loads downloaded flat files but does not list or download them from S3.
+- ไม่รองรับ book snapshot ย้อนหลังและการ failover REST ข้ามภูมิภาคอัตโนมัติ
+- ยังไม่ได้ตรวจสอบการเข้าถึง sandbox
+- size precision มาจาก metadata ของ CoinAPI เท่านั้นและไม่มีการ override
+- ไม่รองรับการอัปเดต instrument อัตโนมัติ, status event, metric และ option
+- adapter โหลด flat file ที่ดาวน์โหลดมาได้ แต่ไม่ list หรือดาวน์โหลดจาก S3
 
-## Contributing
+## การมีส่วนร่วม {#contributing}
 
 :::info
-To contribute to the CoinAPI adapter, see the
-[contributing guide](https://github.com/nautechsystems/nautilus_trader/blob/develop/CONTRIBUTING.md).
+หากต้องการมีส่วนร่วมพัฒนา adapter ของ CoinAPI ดู
+[คู่มือการมีส่วนร่วม](https://github.com/nautechsystems/nautilus_trader/blob/develop/CONTRIBUTING.md)
 :::

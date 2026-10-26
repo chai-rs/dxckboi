@@ -1,119 +1,115 @@
 # Positions
 
-This guide explains how NautilusTrader creates and updates positions from order fills and calculates profit
-and loss (PnL). It also explains how NautilusTrader preserves closed cycles under `NETTING` order management
-system (OMS) configurations.
+คู่มือนี้อธิบายว่า NautilusTrader สร้างและอัปเดต position จาก order fill อย่างไร และคำนวณกำไรขาดทุน (PnL)
+อย่างไร รวมถึงอธิบายว่า NautilusTrader เก็บรักษารอบ (cycle) ที่ปิดไปแล้วอย่างไรภายใต้การตั้งค่า order management
+system (OMS) แบบ `NETTING`
 
-## Overview
+## ภาพรวม {#overview}
 
-A position records exposure to an instrument during an open-close cycle. It aggregates the fills
-assigned to one position ID and tracks its quantity, average prices, realized PnL, commissions, and
-related identifiers. Use a market price with the position's methods to calculate unrealized PnL and
-notional value.
+Position บันทึก exposure ต่อ instrument หนึ่งในช่วงรอบเปิด-ปิด โดยรวบรวม fill ที่ถูกกำหนดให้กับ position ID เดียว
+และติดตามปริมาณ ราคาเฉลี่ย realized PnL, commission และ identifier ที่เกี่ยวข้อง ใช้ราคาตลาดร่วมกับ method ของ
+position เพื่อคำนวณ unrealized PnL และมูลค่า notional
 
-The execution engine creates positions when orders fill and tracks them from open to close. OMS configuration
-determines whether fills share a net position or stay in separate hedged positions.
+Execution engine สร้าง position เมื่อ order ถูก fill และติดตามตั้งแต่เปิดจนปิด การตั้งค่า OMS เป็นตัวกำหนดว่า fill
+จะใช้ net position ร่วมกัน หรือแยกอยู่ใน position แบบ hedged ต่างหาก
 
-## Position lifecycle
+## วงจรชีวิตของ position {#position-lifecycle}
 
-### Creation
+### การสร้าง {#creation}
 
-The system opens a position on the first fill:
+ระบบจะเปิด position เมื่อเกิด fill แรก:
 
-- **NETTING OMS**: Opens on the first fill for an instrument and strategy. The position uses the
-  deterministic ID `{instrument_id}-{strategy_id}`.
-- **HEDGING OMS**: Opens on first fill for a new `position_id` (multiple positions per instrument).
+- **NETTING OMS**: เปิดเมื่อเกิด fill แรกของ instrument และ strategy นั้น position จะใช้ ID แบบ deterministic
+  `{instrument_id}-{strategy_id}`
+- **HEDGING OMS**: เปิดเมื่อเกิด fill แรกของ `position_id` ใหม่ (มีได้หลาย position ต่อ instrument)
 
-A position tracks:
+Position ติดตามข้อมูลต่อไปนี้:
 
-- Opening order and fill details.
-- Entry side (`BUY` or `SELL`).
-- Quantity and average entry price after applying the opening fill.
-- Timestamps for initialization and opening.
+- รายละเอียดของ order และ fill ที่เปิด position
+- ฝั่งของการเข้า (`BUY` หรือ `SELL`)
+- ปริมาณและราคาเข้าเฉลี่ยหลังนำ fill ที่เปิดมาคำนวณ
+- Timestamp ของการ initialize และการเปิด
 
 :::tip
-You can access positions through the Cache using `self.cache.position(position_id)` or
-`self.cache.positions(instrument_id=instrument_id)` from within your actors/strategies.
+คุณเข้าถึง position ได้ผ่าน Cache ด้วย method `position(position_id)` หรือ `positions(...)` (กรองด้วย
+`instrument_id` ได้) จากภายใน actor หรือ strategy
 :::
 
-### Updates
+### การอัปเดต {#updates}
 
-As additional fills occur, the position:
+เมื่อเกิด fill เพิ่มเติม position จะ:
 
-- Aggregates quantities from buy and sell fills.
-- Recalculates average entry and exit prices.
-- Updates peak quantity for the current cycle.
-- Tracks the current cycle's order IDs and trade IDs.
-- Accumulates commissions by currency.
+- รวมปริมาณจาก fill ฝั่ง buy และ sell
+- คำนวณราคาเข้าและราคาออกเฉลี่ยใหม่
+- อัปเดต peak quantity ของรอบปัจจุบัน
+- ติดตาม order ID และ trade ID ของรอบปัจจุบัน
+- สะสม commission แยกตามสกุลเงิน
 
-### Closure
+### การปิด {#closure}
 
-A position closes when the **net quantity becomes zero** (`FLAT`). At closure:
+Position จะปิดเมื่อ **net quantity เป็นศูนย์** (`FLAT`) เมื่อปิด:
 
-- The closing order ID is recorded. A settlement at contract expiration leaves it empty.
-- Duration is calculated from open to close.
-- Final realized PnL is computed.
-- In either OMS type, when the position later reopens under the same ID, the engine snapshots
-  the closed state to preserve historical PnL (see [Position snapshotting](#position-snapshotting)).
+- บันทึก closing order ID ไว้ หากเป็นการ settle ตอนสัญญาหมดอายุ ค่านี้จะว่าง
+- คำนวณระยะเวลาตั้งแต่เปิดจนปิด
+- คำนวณ realized PnL สุดท้าย
+- ไม่ว่าจะใช้ OMS แบบใด เมื่อ position เปิดใหม่ภายหลังด้วย ID เดิม engine จะทำ snapshot สถานะที่ปิดไว้เพื่อเก็บ
+  PnL ย้อนหลัง (ดู [Position snapshotting](#position-snapshotting))
 
-### Settlement at contract expiration
+### การ settle ตอนสัญญาหมดอายุ {#settlement-at-contract-expiration}
 
-In a live node, an `InstrumentClose` of type `CONTRACT_EXPIRED` settles binary option positions only on venues
-served by the node's execution clients. Under that condition, it settles each open position in that instrument
-at the close price (such as `1` for a winning outcome and `0` for a losing one). For each position, the
-execution engine:
+ใน live node `InstrumentClose` ประเภท `CONTRACT_EXPIRED` จะ settle position ของ binary option เฉพาะบน venue
+ที่ execution client ของ node ให้บริการอยู่เท่านั้น ภายใต้เงื่อนไขนั้น ระบบจะ settle position ที่เปิดอยู่ทุกตัวของ
+instrument นั้นที่ราคาปิด (เช่น `1` สำหรับผลลัพธ์ที่ชนะ และ `0` สำหรับผลลัพธ์ที่แพ้) สำหรับแต่ละ position
+execution engine จะ:
 
-- Closes the current cycle at the close price without creating an order or fill.
-- Books realized PnL for the settled quantity. Fill quantities and commissions stay as filled, so opening fees
-  stay in realized PnL.
-- Emits one `PositionClosed` with no closing order ID.
+- ปิดรอบปัจจุบันที่ราคาปิดโดยไม่สร้าง order หรือ fill
+- บันทึก realized PnL สำหรับปริมาณที่ settle ส่วนปริมาณ fill และ commission คงเดิมตามที่ fill ดังนั้นค่าธรรมเนียม
+  ตอนเปิดยังคงอยู่ใน realized PnL
+- ปล่อย `PositionClosed` หนึ่งครั้งโดยไม่มี closing order ID
 
-The first close applied to an instrument is authoritative. A repeated or conflicting close, or a restart that
-restores the settled position, does not settle it again. After settlement, a fill or fill void for the
-instrument still updates its order but no longer changes positions. The engine logs a warning and emits no
-position event.
+การปิดครั้งแรกที่ apply กับ instrument ถือเป็นค่าที่เชื่อถือได้ การปิดซ้ำหรือขัดแย้งกัน หรือการ restart ที่กู้คืน position
+ที่ settle แล้ว จะไม่ settle ซ้ำอีก หลัง settle แล้ว fill หรือ fill void ของ instrument นั้นยังคงอัปเดต order แต่จะไม่
+เปลี่ยน position อีก engine จะ log warning และไม่ปล่อย position event
 
-Settlement does not redeem venue assets or change account balances. Venue account reports stay
-authoritative for cash, so an unredeemed payout counts toward account balances only once the venue
-reports the redeemed funds.
+การ settle ไม่ได้ redeem สินทรัพย์ที่ venue และไม่ได้เปลี่ยนยอดเงินใน account รายงาน account จาก venue ยังคงเป็น
+แหล่งข้อมูลที่เชื่อถือได้สำหรับเงินสด ดังนั้นเงินที่ยังไม่ได้ redeem จะนับรวมในยอดเงินก็ต่อเมื่อ venue รายงานเงินที่
+redeem แล้วเท่านั้น
 
-Backtests and sandbox paper trading keep the simulated venue's expiration handling instead. The matching
-engine closes positions with expiration fills, and those fills credit the simulated account. The live node
-does not apply engine settlement on a venue whose execution client settles expiring contracts itself, as the
-sandbox client does.
+Backtest และ sandbox paper trading ยังคงใช้การจัดการการหมดอายุของ venue จำลองแทน matching engine จะปิด
+position ด้วย expiration fill และ fill เหล่านั้นจะเข้า account จำลอง live node จะไม่ใช้การ settle ของ engine
+บน venue ที่ execution client settle สัญญาที่หมดอายุเอง เช่นเดียวกับที่ sandbox client ทำ
 
-## Order fill aggregation
+## การรวม order fill {#order-fill-aggregation}
 
-Positions aggregate order fills to maintain an accurate view of market exposure. The aggregation
-process handles both sides of trading activity:
+Position รวม order fill เพื่อรักษามุมมองของ exposure ในตลาดให้ถูกต้อง กระบวนการรวมจัดการกิจกรรมการเทรดทั้งสองฝั่ง:
 
-### Buy fills
+### Fill ฝั่ง buy {#buy-fills}
 
-When a BUY order fills:
+เมื่อ order ฝั่ง BUY ถูก fill:
 
-- Increases long exposure or reduces short exposure.
-- Updates average entry price for opening trades.
-- Updates average exit price for closing trades.
-- Calculates realized PnL for any closed portion.
+- เพิ่ม exposure ฝั่ง long หรือลด exposure ฝั่ง short
+- อัปเดตราคาเข้าเฉลี่ยสำหรับ trade ที่เปิด position
+- อัปเดตราคาออกเฉลี่ยสำหรับ trade ที่ปิด position
+- คำนวณ realized PnL ของส่วนที่ถูกปิด
 
-### Sell fills
+### Fill ฝั่ง sell {#sell-fills}
 
-When a SELL order fills:
+เมื่อ order ฝั่ง SELL ถูก fill:
 
-- Increases short exposure or reduces long exposure.
-- Updates average entry price for opening trades.
-- Updates average exit price for closing trades.
-- Calculates realized PnL for any closed portion.
+- เพิ่ม exposure ฝั่ง short หรือลด exposure ฝั่ง long
+- อัปเดตราคาเข้าเฉลี่ยสำหรับ trade ที่เปิด position
+- อัปเดตราคาออกเฉลี่ยสำหรับ trade ที่ปิด position
+- คำนวณ realized PnL ของส่วนที่ถูกปิด
 
-### Net position calculation
+### การคำนวณ net position {#net-position-calculation}
 
-The position maintains a `signed_qty` field representing the net exposure:
+Position มี field `signed_qty` ที่แทน net exposure:
 
-- Positive values indicate `LONG` positions.
-- Negative values indicate `SHORT` positions.
-- Zero indicates a `FLAT` (closed) position.
+- ค่าบวกหมายถึง position แบบ `LONG`
+- ค่าลบหมายถึง position แบบ `SHORT`
+- ศูนย์หมายถึง position แบบ `FLAT` (ปิดแล้ว)
 
-```python
+```text
 # Example: Position aggregation
 # Initial BUY 100 units at $50
 signed_qty = +100  # LONG position
@@ -125,171 +121,165 @@ signed_qty = -50  # Closes the LONG cycle and opens a SHORT cycle
 signed_qty = 0  # Position FLAT (closed)
 ```
 
-### Reversal accounting
+### การบัญชีเมื่อกลับทิศ (reversal) {#reversal-accounting}
 
-An opposite-side fill larger than the open quantity closes the existing exposure and opens the
-residual in the other direction. The execution engine splits this fill into a close and a new
-opening, with closed-state retention governed by [Position snapshotting](#position-snapshotting).
+Fill ฝั่งตรงข้ามที่มีขนาดใหญ่กว่าปริมาณที่เปิดอยู่ จะปิด exposure เดิมและเปิดส่วนที่เหลือในทิศทางตรงข้าม execution
+engine จะแยก fill นี้เป็นการปิดและการเปิดใหม่ โดยการเก็บสถานะที่ปิดแล้วเป็นไปตาม
+[Position snapshotting](#position-snapshotting)
 
-An unsplit reversal fill applied directly to one `Position` starts a new accounting episode for the residual
-exposure. The episode has these resets, including during fill-void replay:
+Fill แบบกลับทิศที่ไม่ได้ถูกแยกและ apply โดยตรงกับ `Position` ตัวเดียว จะเริ่มช่วงการบัญชี (accounting episode)
+ใหม่สำหรับ exposure ส่วนที่เหลือ ช่วงใหม่นี้มีการ reset ดังนี้ รวมถึงระหว่าง replay ของ fill void ด้วย:
 
-- `avg_px_open` becomes the reversal fill price.
-- `avg_px_close` becomes `None`, and `realized_return` becomes zero until a subsequent closing fill.
-- `buy_qty` and `sell_qty` restart with only the opening residual on the new entry side and zero on the other
-  side. Later close averages thus exclude volume from the previous direction.
+- `avg_px_open` เปลี่ยนเป็นราคาของ fill ที่กลับทิศ
+- `avg_px_close` เป็น `None` และ `realized_return` เป็นศูนย์จนกว่าจะมี fill ที่ปิดครั้งถัดไป
+- `buy_qty` และ `sell_qty` เริ่มใหม่ โดยมีเฉพาะส่วนที่เหลือที่เปิดใหม่ในฝั่งการเข้าใหม่ และเป็นศูนย์ในอีกฝั่ง ดังนั้น
+  ค่าเฉลี่ยการปิดในภายหลังจะไม่รวม volume จากทิศทางก่อนหน้า
 
-**Only the closing portion** realizes PnL against the previous entry price. The object's `realized_pnl` and
-commission totals stay cumulative across this reversal, with the fill's commission counted once. The reset
-does not clear fill history, opening timestamps, or peak quantity. If the position instead reaches `FLAT` and
-a later fill reopens it, the full cycle resets, including realized PnL and commissions.
+**เฉพาะส่วนที่ปิด** เท่านั้นที่ realize PnL เทียบกับราคาเข้าเดิม `realized_pnl` และยอดรวม commission ของ object
+ยังคงสะสมต่อเนื่องข้ามการกลับทิศนี้ โดยนับ commission ของ fill เพียงครั้งเดียว การ reset ไม่ได้ล้างประวัติ fill,
+timestamp ตอนเปิด หรือ peak quantity หาก position ไปถึง `FLAT` แล้วมี fill ภายหลังเปิดใหม่ จะ reset ทั้งรอบ
+รวมถึง realized PnL และ commission
 
-These episode resets apply to fill-driven reversals. A quantity adjustment that changes the position's side
-does not perform the same reset.
+การ reset ช่วงการบัญชีเหล่านี้ใช้กับการกลับทิศที่เกิดจาก fill เท่านั้น การปรับปริมาณที่เปลี่ยนฝั่งของ position
+จะไม่ทำการ reset แบบเดียวกัน
 
-## Position adjustments
+## การปรับ position {#position-adjustments}
 
-Position adjustments record quantity or PnL changes that occur outside normal order fills. The
-system represents these changes as `PositionAdjusted` events.
+Position adjustment บันทึกการเปลี่ยนแปลงปริมาณหรือ PnL ที่เกิดขึ้นนอกเหนือจาก order fill ปกติ ระบบแทน
+การเปลี่ยนแปลงเหล่านี้ด้วย event `PositionAdjusted`
 
-### Base-currency commissions
+### Commission ในสกุล base currency {#base-currency-commissions}
 
-When trading spot currency pairs (for example, BTC/USDT) or FX spot, commissions paid in the base
-currency directly affect the net quantity received or delivered:
+เมื่อเทรดคู่เงินแบบ spot (เช่น BTC/USDT) หรือ FX spot commission ที่จ่ายเป็น base currency จะส่งผลโดยตรงต่อ
+ปริมาณสุทธิที่ได้รับหรือส่งมอบ:
 
-- **Opening fills**: Commission is deducted from the traded quantity. A buy of 1.0 BTC with
-  0.001 BTC commission results in a net long position of 0.999 BTC.
-- **Closing fills**: Commission is applied to `signed_qty` because it affects actual inventory. A sale of a
-  0.999 BTC LONG position with 0.000999 BTC commission leaves you SHORT 0.000999 BTC, not FLAT. You gave up
-  0.999999 BTC total.
-- **Flips**: Commission affects the final position size on both sides of the flip.
+- **Fill ที่เปิด**: หัก commission ออกจากปริมาณที่เทรด การซื้อ 1.0 BTC โดยเสีย commission 0.001 BTC
+  จะได้ net long position 0.999 BTC
+- **Fill ที่ปิด**: commission ถูก apply กับ `signed_qty` เพราะกระทบ inventory จริง การขาย position LONG
+  0.999 BTC โดยเสีย commission 0.000999 BTC จะทำให้คุณ SHORT อยู่ 0.000999 BTC ไม่ใช่ FLAT เพราะคุณ
+  สละไปทั้งหมด 0.999999 BTC
+- **Flip**: commission ส่งผลต่อขนาด position สุดท้ายทั้งสองฝั่งของการ flip
 
 :::note
-Base-currency commissions only apply to spot currency pairs and FX spot instruments where the
-commission currency matches `instrument.base_currency`. For other instruments, commissions are
-tracked separately and do not affect position quantity.
+Commission ในสกุล base currency ใช้กับคู่เงินแบบ spot และ instrument แบบ FX spot ที่สกุลเงินของ commission
+ตรงกับ `instrument.base_currency` เท่านั้น สำหรับ instrument อื่น commission จะถูกติดตามแยกและไม่กระทบปริมาณ position
 :::
 
-### Funding payments
+### Funding payment {#funding-payments}
 
-Funding adjustments track periodic payments for perpetual futures without affecting position
-quantity. They use `quantity_change = None` and can include a PnL change.
+Funding adjustment ติดตามการจ่ายเงินตามรอบของ perpetual futures โดยไม่กระทบปริมาณ position ใช้
+`quantity_change = None` และอาจมีการเปลี่ยนแปลง PnL รวมอยู่ด้วย
 
-### Adjustment tracking
+### การติดตาม adjustment {#adjustment-tracking}
 
-The position exposes its retained adjustments:
+Position เปิดให้เข้าถึง adjustment ที่เก็บไว้:
 
-- `position.adjustments()` returns the list of all `PositionAdjusted` events.
-- Each adjustment includes its type (`COMMISSION` or `FUNDING`), quantity or PnL change, reason,
-  event ID, and timestamps.
-- The current adjustment history is cleared when a closed position reopens.
-- After `purge_events_for_order()`, a position with fills regenerates commission adjustments from the
-  surviving fills and reapplies non-commission adjustments. With no fills, the position becomes an empty
-  `FLAT` shell and clears its adjustment history.
+- `position.adjustments()` คืน list ของ event `PositionAdjusted` ทั้งหมด
+- Adjustment แต่ละรายการมีประเภท (`COMMISSION` หรือ `FUNDING`), การเปลี่ยนแปลงปริมาณหรือ PnL, เหตุผล,
+  event ID และ timestamp
+- ประวัติ adjustment ปัจจุบันจะถูกล้างเมื่อ position ที่ปิดแล้วเปิดใหม่
+- หลัง `purge_events_for_order()` position ที่มี fill จะสร้าง commission adjustment ใหม่จาก fill ที่เหลืออยู่และ
+  apply adjustment ที่ไม่ใช่ commission ซ้ำ หากไม่มี fill เลย position จะกลายเป็นเปลือก `FLAT` ว่าง ๆ และล้าง
+  ประวัติ adjustment
 
-## OMS types and position management
+## ประเภท OMS และการจัดการ position {#oms-types-and-position-management}
 
-NautilusTrader supports two position management modes. A strategy configured with
-`OmsType.UNSPECIFIED` uses the owning execution client's OMS type. For ownership resolution and position ID rules,
-see the [Execution guide](execution/index.md#order-management-system-oms).
+NautilusTrader รองรับโหมดการจัดการ position สองแบบ strategy ที่ตั้งค่าเป็น `OmsType.UNSPECIFIED` จะใช้ประเภท
+OMS ของ execution client ที่เป็นเจ้าของ สำหรับการ resolve ความเป็นเจ้าของและกฎของ position ID ดู
+[คู่มือ Execution](execution/index.md#order-management-system-oms)
 
-### `NETTING`
+### `NETTING` {#netting}
 
-In `NETTING` mode, fills for each instrument and strategy are aggregated into a single position:
+ในโหมด `NETTING` fill ของแต่ละ instrument และ strategy จะถูกรวมเป็น position เดียว:
 
-- One position per instrument and strategy.
-- All fills contribute to the same position.
-- A fill that crosses zero closes the current cycle and opens a new cycle on the opposite side.
-- Historical snapshots preserve closed position states.
+- หนึ่ง position ต่อ instrument และ strategy
+- ทุก fill ส่งผลต่อ position เดียวกัน
+- Fill ที่ข้ามศูนย์จะปิดรอบปัจจุบันและเปิดรอบใหม่ในฝั่งตรงข้าม
+- Snapshot ย้อนหลังเก็บรักษาสถานะของ position ที่ปิดแล้ว
 
-### `HEDGING`
+### `HEDGING` {#hedging}
 
-In `HEDGING` mode, multiple positions can exist for the same instrument:
+ในโหมด `HEDGING` สามารถมีหลาย position สำหรับ instrument เดียวกัน:
 
-- Multiple simultaneous `LONG` and `SHORT` positions.
-- Each position has a unique position ID.
-- Positions are tracked independently.
-- No automatic netting across positions.
-- A fill with a new position ID creates a separate position. If a later fill reuses a closed
-  position ID, the engine archives the closed cycle before replacing the cached state.
-- A virtual position flip creates a new ID and keeps the original closed position in the cache. Thus, that
-  path does not need a closed-cycle snapshot.
+- มี position แบบ `LONG` และ `SHORT` หลายตัวพร้อมกันได้
+- แต่ละ position มี position ID ไม่ซ้ำกัน
+- แต่ละ position ถูกติดตามแยกกัน
+- ไม่มีการ netting ข้าม position โดยอัตโนมัติ
+- Fill ที่มี position ID ใหม่จะสร้าง position แยกต่างหาก หาก fill ภายหลังใช้ position ID ที่ปิดแล้วซ้ำ engine จะ
+  archive รอบที่ปิดแล้วก่อนแทนที่สถานะใน cache
+- Virtual position flip จะสร้าง ID ใหม่และคง position เดิมที่ปิดแล้วไว้ใน cache ดังนั้นเส้นทางนี้ไม่จำเป็นต้องมี
+  snapshot ของรอบที่ปิด
 
-After a virtual flip, later fills for the same order follow the destination position even if they carry the
-original position ID. The engine derives the destination from retained order and position history, including
-after cache recovery and fill-void corrections. It rejects fills when that history is incomplete or ambiguous.
+หลัง virtual flip fill ภายหลังของ order เดียวกันจะไปที่ position ปลายทาง แม้จะมี position ID เดิมติดมาก็ตาม engine
+หา position ปลายทางจากประวัติ order และ position ที่เก็บไว้ รวมถึงหลังการกู้ cache และการแก้ไขด้วย fill void
+หากประวัตินั้นไม่ครบหรือกำกวม engine จะ reject fill
 
-Virtual `HEDGING` positions always keep replay history across reopens, even when
-`carry_replay_events_on_reopen=False`, to preserve this routing when a position ID is reused.
+Virtual position แบบ `HEDGING` จะเก็บประวัติสำหรับ replay ข้ามการเปิดใหม่เสมอ แม้จะตั้ง
+`carry_replay_events_on_reopen=False` ก็ตาม เพื่อรักษาการ routing นี้เมื่อมีการใช้ position ID ซ้ำ
 
 :::warning
-`HEDGING` can increase margin requirements when a venue maintains long and short positions
-independently. A venue with a `NETTING` OMS exposes only its net position, even when NautilusTrader
-tracks multiple virtual positions. Check the venue's position mode and margin rules.
+`HEDGING` อาจเพิ่มความต้องการ margin เมื่อ venue ดูแล position ฝั่ง long และ short แยกกัน venue ที่ใช้ OMS แบบ
+`NETTING` จะแสดงเฉพาะ net position แม้ NautilusTrader จะติดตาม virtual position หลายตัวก็ตาม ตรวจสอบ position
+mode และกฎ margin ของ venue
 :::
 
-### Strategy vs venue OMS
+### OMS ของ strategy เทียบกับของ venue {#strategy-vs-venue-oms}
 
-Strategy and venue OMS types can differ:
+ประเภท OMS ของ strategy และของ venue อาจต่างกันได้:
 
-| Strategy OMS | Venue OMS | Result                                                              |
-| ------------ | --------- | ------------------------------------------------------------------- |
-| `NETTING`    | `NETTING` | One position per instrument and strategy.                           |
-| `HEDGING`    | `HEDGING` | Multiple positions per instrument and strategy.                     |
-| `NETTING`    | `HEDGING` | One virtual position across the venue positions.                    |
-| `HEDGING`    | `NETTING` | Multiple virtual positions against the venue's single net position. |
+| Strategy OMS | Venue OMS | ผลลัพธ์                                                                |
+| ------------ | --------- | --------------------------------------------------------------------- |
+| `NETTING`    | `NETTING` | หนึ่ง position ต่อ instrument และ strategy                               |
+| `HEDGING`    | `HEDGING` | หลาย position ต่อ instrument และ strategy                                |
+| `NETTING`    | `HEDGING` | Virtual position หนึ่งตัวครอบคลุม position ทั้งหมดของ venue                 |
+| `HEDGING`    | `NETTING` | Virtual position หลายตัวเทียบกับ net position เดียวของ venue               |
 
 :::tip
-Align the strategy and venue OMS types unless the strategy requires virtual positions. See the
-integration guide for the venue's position-mode configuration.
+ตั้งประเภท OMS ของ strategy และ venue ให้ตรงกัน เว้นแต่ strategy ต้องการ virtual position ดูคู่มือ integration
+สำหรับการตั้งค่า position mode ของ venue
 :::
 
-## Position snapshotting
+## Position snapshotting {#position-snapshotting}
 
-Position snapshotting preserves closed cycles for PnL tracking and reporting when a later fill
-reopens a closed position.
+Position snapshotting เก็บรักษารอบที่ปิดแล้วไว้สำหรับการติดตาม PnL และการรายงาน เมื่อ fill ภายหลังเปิด position
+ที่ปิดแล้วขึ้นมาใหม่
 
-### Why snapshotting matters
+### ทำไม snapshotting จึงสำคัญ {#why-snapshotting-matters}
 
-When a position closes (becomes `FLAT`) and then reopens under the same ID with a new trade, its object
-resets. This reset tracks the new exposure. Without snapshotting, the historical realized PnL from the
-previous position cycle would be lost.
+เมื่อ position ปิด (เป็น `FLAT`) แล้วเปิดใหม่ด้วย ID เดิมจาก trade ใหม่ object ของ position จะ reset เพื่อติดตาม
+exposure ใหม่ หากไม่มี snapshotting realized PnL ย้อนหลังของรอบก่อนหน้าจะหายไป
 
-### How it works
+### ทำงานอย่างไร {#how-it-works}
 
-When a fill reopens a closed position under the same ID, the execution engine archives the closed
-state before opening the next cycle. This applies to both `NETTING` and `HEDGING` OMS.
-A `HEDGING` flip using a non-virtual ID follows a separate path: it reuses the ID without
-archiving the closed cycle.
+เมื่อ fill เปิด position ที่ปิดแล้วขึ้นใหม่ด้วย ID เดิม execution engine จะ archive สถานะที่ปิดไว้ก่อนเปิดรอบถัดไป
+ใช้ได้กับทั้ง OMS แบบ `NETTING` และ `HEDGING` ส่วน flip ของ `HEDGING` ที่ใช้ ID แบบไม่ใช่ virtual
+จะไปอีกเส้นทางหนึ่ง คือใช้ ID ซ้ำโดยไม่ archive รอบที่ปิด
 
-The snapshot preserves:
+Snapshot เก็บรักษา:
 
-- Final quantities and prices.
-- Realized PnL.
-- All fill events.
-- Commission totals.
+- ปริมาณและราคาสุดท้าย
+- Realized PnL
+- Fill event ทั้งหมด
+- ยอดรวม commission
 
-The cache stores snapshots by position ID. The active cache entry then represents the new cycle, while
-previous snapshots stay accessible. The Portfolio includes their realized PnL in instrument totals.
+Cache เก็บ snapshot ตาม position ID โดย entry ที่ active ใน cache จะแทนรอบใหม่ ส่วน snapshot ก่อนหน้ายังเข้าถึง
+ได้ Portfolio จะรวม realized PnL ของ snapshot เหล่านี้เข้าในยอดรวมของ instrument
 
-A fill void that corrects a fill from an earlier cycle is the one exception. The correction moves the cycle
-boundaries the stored snapshots describe. Thus, the engine replaces them with the cycles the corrected history
-actually closes, keeping each counted once. See
-[Position replay across NETTING cycles](execution/index.md#position-replay-across-netting-cycles).
+Fill void ที่แก้ไข fill จากรอบก่อนหน้าเป็นข้อยกเว้นเดียว การแก้ไขนี้เลื่อนขอบเขตของรอบที่ snapshot ที่เก็บไว้อธิบาย
+ดังนั้น engine จะแทนที่ snapshot เหล่านั้นด้วยรอบที่ประวัติที่แก้ไขแล้วปิดจริง โดยนับแต่ละรอบเพียงครั้งเดียว ดู
+[Position replay across NETTING cycles](execution/index.md#position-replay-across-netting-cycles)
 
 :::note
-This closed-cycle archive differs from optional position state snapshots:
+Archive ของรอบที่ปิดนี้ต่างจาก position state snapshot ซึ่งเป็นตัวเลือกเสริม:
 
-- `snapshot_positions=True` publishes state when a position opens, changes, or closes.
-- `snapshot_positions_interval_secs` periodically publishes all open positions.
+- `snapshot_positions=True` จะ publish สถานะเมื่อ position เปิด เปลี่ยนแปลง หรือปิด
+- `snapshot_positions_interval_secs` จะ publish position ที่เปิดอยู่ทั้งหมดเป็นระยะ
 
-A cache with a Redis or Postgres backing also persists these snapshots. Without cache backing, both paths
-publish snapshots on the in-process message bus without persisting them. See
-[`LiveExecutionEngineConfig`](/docs/python-api-latest/live.html#nautilus_trader.live.LiveExecutionEngineConfig)
-for these settings.
+Cache ที่มี Redis หรือ Postgres เป็น backing จะ persist snapshot เหล่านี้ด้วย หากไม่มี cache backing ทั้งสองเส้นทาง
+จะ publish snapshot บน message bus ภายใน process โดยไม่ persist ดูค่าตั้งเหล่านี้ได้ที่ `LiveExecutionEngineConfig`
 :::
 
-### Example scenario
+### ตัวอย่างสถานการณ์ {#example-scenario}
 
 ```text
 # NETTING OMS Example
@@ -306,17 +296,17 @@ BUY 50 units at $52    # Position closes, PnL = $100
 # Total realized PnL = $500 + $100 = $600 (from snapshots)
 ```
 
-## PnL calculations
+## การคำนวณ PnL {#pnl-calculations}
 
-Position PnL calculations account for instrument specifications and market conventions.
+การคำนวณ PnL ของ position คำนึงถึง specification ของ instrument และธรรมเนียมของตลาด
 
-### Realized PnL
+### Realized PnL {#realized-pnl}
 
-The price component of realized PnL is calculated when fills partially or fully close a position,
-or when a [settlement at contract expiration](#settlement-at-contract-expiration) closes it.
-Commissions in the position's cost currency affect realized PnL as each fill arrives.
+ส่วนของราคาใน realized PnL จะคำนวณเมื่อ fill ปิด position บางส่วนหรือทั้งหมด หรือเมื่อ
+[การ settle ตอนสัญญาหมดอายุ](#settlement-at-contract-expiration)ปิด position commission ในสกุล cost currency
+ของ position จะส่งผลต่อ realized PnL ทันทีที่แต่ละ fill เข้ามา
 
-```python
+```text
 # For standard instruments
 # LONG: realized_pnl = (exit_price - entry_price) * closed_quantity * multiplier
 # SHORT: realized_pnl = (entry_price - exit_price) * closed_quantity * multiplier
@@ -326,236 +316,212 @@ Commissions in the position's cost currency affect realized PnL as each fill arr
 # SHORT: realized_pnl = closed_quantity * multiplier * (1/exit_price - 1/entry_price)
 ```
 
-The position side selects the formula. Premium-based inverse instruments (such as coin-settled options) quote
-the premium in the base currency. Thus, they use the standard formula and report PnL and notional value in the
-base currency.
+ฝั่งของ position เป็นตัวเลือกสูตร inverse instrument ที่อิง premium (เช่น option ที่ settle เป็นเหรียญ) quote premium
+เป็น base currency ดังนั้นจึงใช้สูตรมาตรฐาน และรายงาน PnL และมูลค่า notional เป็น base currency
 
-### Unrealized PnL
+### Unrealized PnL {#unrealized-pnl}
 
-`unrealized_pnl()` calculates PnL for an open position from the supplied `price`. You can pass a
-bid, ask, mid, last, or mark price:
+`unrealized_pnl()` คำนวณ PnL ของ position ที่เปิดอยู่จาก `price` ที่ส่งเข้าไป คุณส่งราคา bid, ask, mid, last
+หรือ mark ก็ได้ เช่น ใช้ราคา last trade, ใช้ bid เพื่อประเมินแบบระมัดระวังสำหรับ position LONG หรือใช้ ask เพื่อ
+ประเมินแบบระมัดระวังสำหรับ position SHORT
 
-```python
-position.unrealized_pnl(last_price)  # Using last traded price
-position.unrealized_pnl(bid_price)  # Conservative for LONG positions
-position.unrealized_pnl(ask_price)  # Conservative for SHORT positions
-```
+สำหรับ position แบบ `FLAT` จะคืน `Money(0, cost_currency)` เสมอไม่ว่าจะส่งราคาใดเข้าไป
 
-For a `FLAT` position, it returns `Money(0, cost_currency)` regardless of the supplied price.
+### Total PnL {#total-pnl}
 
-### Total PnL
+`total_pnl()` รวมส่วน realized และ unrealized เข้าด้วยกัน (คืนค่า `realized_pnl + unrealized_pnl` ที่ราคาปัจจุบันที่ส่งเข้าไป)
 
-`total_pnl()` combines the realized and unrealized components:
+### ข้อพิจารณาเรื่องสกุลเงิน {#currency-considerations}
 
-```python
-total_pnl = position.total_pnl(current_price)
-# Returns realized_pnl + unrealized_pnl
-```
+- PnL คำนวณในสกุล cost currency ของ instrument คือ quote สำหรับสัญญาแบบ linear, base สำหรับสัญญาแบบ inverse
+  และ settlement สำหรับสัญญาแบบ quanto
+- สำหรับ Forex โดยทั่วไป cost currency คือ quote currency
+- Portfolio รวม realized PnL ต่อ instrument ในสกุล cost currency
+- ยอดรวมหลายสกุลเงินต้องแปลงค่านอก Position
 
-### Currency considerations
+## Commission และต้นทุน {#commissions-and-costs}
 
-- PnL is calculated in the instrument's cost currency: quote for linear contracts, base for
-  inverse contracts, and settlement for quanto contracts.
-- For Forex, the cost currency is typically the quote currency.
-- Portfolio aggregates realized PnL per instrument in cost currency.
-- Multi-currency totals require conversion outside the Position class.
+Position ติดตาม commission ของ fill:
 
-## Commissions and costs
+- Commission สะสมแยกตามสกุลเงิน
+- Commission ของแต่ละ fill ถูกบวกเข้ายอดรวมสะสม
+- รองรับ commission หลายสกุลเงิน
+- Realized PnL รวม commission เฉพาะที่อยู่ในสกุล cost currency ของ position
+- Commission อื่นถูกติดตามแยกและอาจต้องแปลงค่า
 
-Positions track fill commissions:
-
-- Commissions are accumulated by currency.
-- Each fill's commission is added to the running total.
-- Multiple commission currencies are supported.
-- Realized PnL includes commissions only when denominated in the position's cost currency.
-- Other commissions are tracked separately and may require conversion.
-
-```python
-commissions = position.commissions()
-# Returns list[Money] with aggregated commission totals per currency
-
-notional = position.notional_value(current_price)
-# Returns Money in quote (linear), base (inverse), or settlement currency (quanto)
-```
+`position.commissions()` คืนยอดรวม commission แยกตามสกุลเงิน ส่วน `position.notional_value(current_price)` คืน
+`Money` ในสกุล quote (linear), base (inverse) หรือ settlement currency (quanto)
 
 :::warning
-In Python, `notional_value()` raises `ValueError` under these conditions:
+การคำนวณ notional value จะล้มเหลวภายใต้เงื่อนไขต่อไปนี้:
 
-- An inverse position lacks a base currency.
-- The supplied price is not positive for a non-premium inverse position.
-- The result cannot be represented as `Money`.
+- Inverse position ไม่มี base currency
+- ราคาที่ส่งเข้าไปไม่เป็นบวกสำหรับ inverse position ที่ไม่อิง premium
+- ผลลัพธ์ไม่สามารถแทนด้วย `Money` ได้
 
-Rust callers can use `try_notional_value()` to handle these calculation errors. `notional_value()` panics if
-the calculation fails.
+ฝั่ง Rust ใช้ `try_notional_value()` เพื่อจัดการ error ของการคำนวณเหล่านี้ได้ ส่วน `notional_value()` จะ panic
+หากการคำนวณล้มเหลว
 :::
 
-## Position properties and state
+## Property และสถานะของ position {#position-properties-and-state}
 
-### Identifiers
+### Identifier {#identifiers}
 
-- `id`: Unique position identifier.
-- `instrument_id`: The traded instrument.
-- `account_id`: Account where position is held.
-- `trader_id`: The trader who owns the position.
-- `strategy_id`: The strategy managing the position.
-- `opening_order_id`: Client order ID that opened the position.
-- `closing_order_id`: Client order ID that closed the position, if a fill closed it.
+- `id`: identifier ของ position ที่ไม่ซ้ำกัน
+- `instrument_id`: instrument ที่เทรด
+- `account_id`: account ที่ถือ position
+- `trader_id`: trader ที่เป็นเจ้าของ position
+- `strategy_id`: strategy ที่จัดการ position
+- `opening_order_id`: client order ID ที่เปิด position
+- `closing_order_id`: client order ID ที่ปิด position หากปิดด้วย fill
 
-### Position state
+### สถานะของ position {#position-state}
 
-- `side`: Current position side (`LONG`, `SHORT`, or `FLAT`).
-- `entry`: Opening side for the current cycle (`BUY` for `LONG`, `SELL` for `SHORT`). Updates when
-  the position reverses direction.
-- `quantity`: Current absolute position size.
-- `signed_qty`: Decimal signed position size (positive for `LONG`, negative for `SHORT`).
-- `peak_qty`: Maximum quantity reached during the current open-close cycle.
-- `is_open`: Whether position is open.
-- `is_closed`: Whether position is closed (`FLAT`).
-- `is_long`: Whether position side is `LONG`.
-- `is_short`: Whether position side is `SHORT`.
+- `side`: ฝั่งของ position ปัจจุบัน (`LONG`, `SHORT` หรือ `FLAT`)
+- `entry`: ฝั่งที่เปิดของรอบปัจจุบัน (`BUY` สำหรับ `LONG`, `SELL` สำหรับ `SHORT`) อัปเดตเมื่อ position กลับทิศ
+- `quantity`: ขนาด position ปัจจุบันแบบค่าสัมบูรณ์
+- `signed_qty`: ขนาด position แบบมีเครื่องหมายเป็น Decimal (บวกสำหรับ `LONG`, ลบสำหรับ `SHORT`)
+- `peak_qty`: ปริมาณสูงสุดที่เคยถึงในรอบเปิด-ปิดปัจจุบัน
+- `is_open`: position เปิดอยู่หรือไม่
+- `is_closed`: position ปิดแล้วหรือไม่ (`FLAT`)
+- `is_long`: ฝั่งของ position เป็น `LONG` หรือไม่
+- `is_short`: ฝั่งของ position เป็น `SHORT` หรือไม่
 
-### Pricing and valuation
+### ราคาและการประเมินมูลค่า {#pricing-and-valuation}
 
-- `avg_px_open`: Decimal average entry price.
-- `avg_px_close`: Decimal average exit price when closing.
-- `realized_pnl`: Realized profit/loss.
-- `realized_return`: Floating-point return ratio (for example, 0.05 for 5%).
-- `quote_currency`: Quote currency of the instrument.
-- `base_currency`: Base currency if applicable.
-- `settlement_currency`: Currency for PnL settlement.
+- `avg_px_open`: ราคาเข้าเฉลี่ยแบบ Decimal
+- `avg_px_close`: ราคาออกเฉลี่ยแบบ Decimal เมื่อปิด
+- `realized_pnl`: กำไร/ขาดทุนที่ realize แล้ว
+- `realized_return`: อัตราผลตอบแทนแบบ floating-point (เช่น 0.05 สำหรับ 5%)
+- `quote_currency`: quote currency ของ instrument
+- `base_currency`: base currency หากมี
+- `settlement_currency`: สกุลเงินสำหรับ settle PnL
 
-See [Reversal accounting](#reversal-accounting) for how price averages and returns reset while realized PnL
-stays cumulative when an unsplit fill reverses one position.
+ดู [การบัญชีเมื่อกลับทิศ](#reversal-accounting) สำหรับการ reset ราคาเฉลี่ยและผลตอบแทน ในขณะที่ realized PnL
+ยังสะสมต่อเนื่อง เมื่อ fill ที่ไม่ถูกแยกทำให้ position หนึ่งกลับทิศ
 
-### Instrument specifications
+### Specification ของ instrument {#instrument-specifications}
 
-- `multiplier`: Contract multiplier.
-- `price_precision`: Decimal precision for prices.
-- `size_precision`: Decimal precision for quantities.
-- `is_inverse`: Whether instrument is inverse.
+- `multiplier`: contract multiplier
+- `price_precision`: precision ทศนิยมของราคา
+- `size_precision`: precision ทศนิยมของปริมาณ
+- `is_inverse`: instrument เป็น inverse หรือไม่
 
-### Timestamps
+### Timestamp {#timestamps}
 
-- `ts_init`: When position was initialized.
-- `ts_opened`: When position was opened.
-- `ts_last`: Last update timestamp.
-- `ts_closed`: When the position was closed, if closed.
-- `duration_ns`: Duration from open to close in nanoseconds, or zero while open.
+- `ts_init`: เวลาที่ position ถูก initialize
+- `ts_opened`: เวลาที่ position ถูกเปิด
+- `ts_last`: timestamp ของการอัปเดตล่าสุด
+- `ts_closed`: เวลาที่ position ถูกปิด หากปิดแล้ว
+- `duration_ns`: ระยะเวลาตั้งแต่เปิดจนปิดหน่วย nanosecond หรือเป็นศูนย์ขณะยังเปิดอยู่
 
-### Associated data
+### ข้อมูลที่เกี่ยวข้อง {#associated-data}
 
-- `symbol`: The instrument's ticker symbol.
-- `venue`: The trading venue.
-- `client_order_ids`: Unique client order IDs for retained fills in the current cycle.
-- `venue_order_ids`: Unique venue order IDs for retained fills in the current cycle.
-- `trade_ids`: Unique trade IDs for retained fills in the current cycle.
-- `events`: Retained order fill events in the current cycle.
-- `adjustments`: Retained position adjustments in the current cycle.
-- `event_count`: Number of retained fill events in the current cycle.
-- `last_event`: Most recently retained fill event.
-- `last_trade_id`: Trade ID of the most recently retained fill.
+- `symbol`: ticker symbol ของ instrument
+- `venue`: trading venue
+- `client_order_ids`: client order ID ที่ไม่ซ้ำของ fill ที่เก็บไว้ในรอบปัจจุบัน
+- `venue_order_ids`: venue order ID ที่ไม่ซ้ำของ fill ที่เก็บไว้ในรอบปัจจุบัน
+- `trade_ids`: trade ID ที่ไม่ซ้ำของ fill ที่เก็บไว้ในรอบปัจจุบัน
+- `events`: order fill event ที่เก็บไว้ในรอบปัจจุบัน
+- `adjustments`: position adjustment ที่เก็บไว้ในรอบปัจจุบัน
+- `event_count`: จำนวน fill event ที่เก็บไว้ในรอบปัจจุบัน
+- `last_event`: fill event ล่าสุดที่เก็บไว้
+- `last_trade_id`: trade ID ของ fill ล่าสุดที่เก็บไว้
 
 :::info
-For complete type information and detailed property documentation, see the Position
-[API Reference](/docs/python-api-latest/model/position.html#nautilus_trader.model.Position).
+ดูข้อมูล type ทั้งหมดและเอกสารของ property โดยละเอียดได้ที่ [Rust API docs](https://nautilustrader.io/docs/core-latest/)
 :::
 
-## Events and tracking
+## Event และการติดตาม {#events-and-tracking}
 
-Each `Position` object records the fills and adjustments for its current open-close cycle:
+Object `Position` แต่ละตัวบันทึก fill และ adjustment ของรอบเปิด-ปิดปัจจุบัน:
 
-- Fill events stay in application order.
-- Client order, venue order, and trade ID accessors return sorted, unique values.
-- `event_count` reports the number of retained fill events.
-- Closed `NETTING` cycles keep their event history in the cache snapshots described above.
+- Fill event เรียงตามลำดับที่ apply
+- Accessor ของ client order ID, venue order ID และ trade ID คืนค่าที่เรียงแล้วและไม่ซ้ำกัน
+- `event_count` รายงานจำนวน fill event ที่เก็บไว้
+- รอบ `NETTING` ที่ปิดแล้วเก็บประวัติ event ไว้ใน cache snapshot ตามที่อธิบายข้างต้น
 
-This data supports:
+ข้อมูลนี้รองรับ:
 
-- Detailed position analysis.
-- Trade reconciliation.
-- Performance attribution.
-- Audit trails.
+- การวิเคราะห์ position โดยละเอียด
+- การ reconcile trade
+- Performance attribution
+- Audit trail
 
 :::tip
-Use `position.events()` to access the current cycle's retained fills for reconciliation.
-The `position.trade_ids()` result helps match against broker statements.
-See the [Execution guide](execution/) for reconciliation best practices.
+ใช้ `position.events()` เพื่อเข้าถึง fill ที่เก็บไว้ในรอบปัจจุบันสำหรับ reconciliation ผลลัพธ์ของ
+`position.trade_ids()` ช่วยในการจับคู่กับ statement ของ broker ดู[คู่มือ Execution](execution/)
+สำหรับแนวปฏิบัติที่ดีในการทำ reconciliation
 :::
 
-## Numerical precision
+## ความแม่นยำเชิงตัวเลข {#numerical-precision}
 
-`Position` uses checked domain and raw arithmetic for exact quantity and fee operations, and `Decimal`
-for signed quantity, average prices, cost basis, and PnL residuals.
-`Price`, `Quantity`, and `Money` retain their fixed-point representations. Python `signed_qty`, `avg_px_open`,
-and `avg_px_close` properties return `decimal.Decimal` values when present. `realized_return` remains a
-floating-point analytics projection and does not feed accounting.
+`Position` ใช้การคำนวณแบบ checked ทั้งในระดับ domain และ raw สำหรับการดำเนินการกับปริมาณและค่าธรรมเนียมแบบ
+แม่นยำ และใช้ `Decimal` สำหรับปริมาณแบบมีเครื่องหมาย ราคาเฉลี่ย cost basis และเศษ PnL ส่วน `Price`, `Quantity`
+และ `Money` ยังคงใช้การแทนค่าแบบ fixed-point `realized_return` ยังคงเป็นค่าประมาณแบบ floating-point สำหรับ
+การวิเคราะห์ และไม่ได้ป้อนเข้าการบัญชี
 
-The arithmetic has a finite bound: a 96-bit coefficient and a maximum decimal scale of 28. Input conversions
-must fit exactly. Derived products, cost sums, division, and proportional intermediates round within that
-bound. An operation fails if an input loses precision, an intermediate overflows, or a nonzero intermediate
-disappears. At Decimal's precision limit, PnL sums may absorb a disappearing residual smaller than one native
-settlement `Money` unit. A disappearing operand of at least one native unit still fails; representable residuals
-remain in the position.
-The fallible fill, adjustment, settlement, purge, and fill-void operations leave the position unchanged on error.
+การคำนวณมีขอบเขตจำกัด คือ coefficient ขนาด 96 บิตและ decimal scale สูงสุด 28 การแปลง input ต้องพอดีแบบไม่มี
+การสูญเสีย ผลคูณที่ derive มา ผลรวมต้นทุน การหาร และค่ากลางตามสัดส่วน จะปัดภายในขอบเขตนั้น การดำเนินการจะล้มเหลว
+หาก input สูญเสีย precision ค่ากลาง overflow หรือค่ากลางที่ไม่เป็นศูนย์หายไป ที่ขีดจำกัด precision ของ Decimal
+ผลรวม PnL อาจดูดซับเศษที่หายไปซึ่งเล็กกว่าหนึ่งหน่วย `Money` ของ settlement แบบ native ได้ แต่ operand ที่หายไป
+ซึ่งมีขนาดอย่างน้อยหนึ่งหน่วย native ยังคงทำให้ล้มเหลว ส่วนเศษที่แทนค่าได้จะยังอยู่ใน position
+การดำเนินการ fill, adjustment, settlement, purge และ fill-void ที่อาจล้มเหลวได้ จะไม่เปลี่ยน position เมื่อเกิด error
 
-### Cost basis and rounding
+### Cost basis และการปัดเศษ {#cost-basis-and-rounding}
 
-Opening and closing cost accumulators retain the amounts behind average prices. A rounded average never
-feeds the cost basis. A partial reduction retains unallocated opening cost, and the final reduction consumes
-that remainder. A separate Decimal PnL remainder retains fractions below the native Money scale between
-updates.
+ตัวสะสมต้นทุนการเปิดและปิดเก็บยอดเงินที่อยู่เบื้องหลังราคาเฉลี่ยไว้ ค่าเฉลี่ยที่ปัดแล้วจะไม่ถูกป้อนเข้า cost basis
+การลดบางส่วนจะเก็บต้นทุนการเปิดที่ยังไม่ได้จัดสรรไว้ และการลดครั้งสุดท้ายจะใช้ส่วนที่เหลือนั้นทั้งหมด เศษ PnL แบบ
+Decimal ที่แยกต่างหากจะเก็บเศษส่วนที่ต่ำกว่า scale ของ Money แบบ native ไว้ระหว่างการอัปเดต
 
-Derived Money amounts round midpoint to even at the native scale: nine decimal places in standard mode and
-16 in high-precision mode. A currency with a finer supported precision uses that precision instead. Currency
-display precision does not truncate the stored amount. Reversal fee allocation works in native Money units:
-the closing share truncates toward zero, and the opening share receives the residual, preserving the fee total.
+ยอด Money ที่ derive มาจะปัดแบบ midpoint to even ที่ scale แบบ native คือ 9 ตำแหน่งทศนิยมในโหมดมาตรฐาน และ
+16 ตำแหน่งในโหมด high-precision สกุลเงินที่รองรับ precision ละเอียดกว่าจะใช้ precision นั้นแทน precision สำหรับ
+แสดงผลของสกุลเงินไม่ได้ตัดยอดที่เก็บไว้ การจัดสรรค่าธรรมเนียมเมื่อกลับทิศทำงานในหน่วย Money แบบ native โดยส่วน
+ที่ปิดจะตัดเศษเข้าหาศูนย์ และส่วนที่เปิดจะได้รับเศษที่เหลือ ทำให้ยอดรวมค่าธรรมเนียมคงเดิม
 
-| Operation                                                      | Accounting result                                         |
+| การดำเนินการ                                                     | ผลทางบัญชี                                                  |
 | -------------------------------------------------------------- | --------------------------------------------------------- |
-| Open one unit with a `0.000001 USD` fee                        | Realized PnL is `-0.000001 USD`.                          |
-| Buy `0.01` at `0.1234`, then sell it at `0.1235`, without fees | Realized PnL is `0.000001 USD`.                           |
-| Close a `0.9` long with a sell of `1` and a `0.006 USD` fee    | Closing fee is `0.0054 USD`; opening fee is `0.0006 USD`. |
+| เปิดหนึ่งหน่วยโดยมีค่าธรรมเนียม `0.000001 USD`                          | Realized PnL เป็น `-0.000001 USD`                         |
+| ซื้อ `0.01` ที่ `0.1234` แล้วขายที่ `0.1235` โดยไม่มีค่าธรรมเนียม          | Realized PnL เป็น `0.000001 USD`                          |
+| ปิด long `0.9` ด้วยการขาย `1` และค่าธรรมเนียม `0.006 USD`             | ค่าธรรมเนียมปิดเป็น `0.0054 USD` ค่าธรรมเนียมเปิดเป็น `0.0006 USD` |
 
-Supported quantity precision can exceed the instrument's display precision, for example after a base-currency
-fee. The position retains that quantity rather than rounding it to flat. Strategy close orders round such
-quantities down to multiples of the instrument's size increment. Dust remains open; no close order is submitted
-when the entire quantity rounds to zero. Non-premium inverse PnL requires
-positive prices. With the `defi` feature, 17- and 18-decimal inputs are supported when the input and resulting
-accounting fit the Decimal and domain bounds.
+Quantity precision ที่รองรับอาจเกิน display precision ของ instrument ได้ เช่น หลังหักค่าธรรมเนียมในสกุล base
+currency position จะเก็บปริมาณนั้นไว้แทนการปัดให้เป็น flat close order ของ strategy จะปัดปริมาณดังกล่าวลงเป็น
+ผลคูณของ size increment ของ instrument เศษเล็ก ๆ (dust) จะยังเปิดอยู่ และจะไม่ส่ง close order เมื่อปริมาณทั้งหมด
+ปัดแล้วเป็นศูนย์ PnL ของ inverse ที่ไม่อิง premium ต้องใช้ราคาที่เป็นบวก เมื่อเปิด feature `defi` จะรองรับ input
+ที่มีทศนิยม 17 และ 18 ตำแหน่ง หาก input และผลทางบัญชีที่ได้อยู่ภายในขอบเขตของ Decimal และ domain
 
-### Persistence and replay
+### การ persist และ replay {#persistence-and-replay}
 
-Serialized positions include opening cost, closing cost, closed quantity, and the PnL remainder. Preserve
-these fields when restoring a position that will process more fills. `Position.to_dict()` includes this state,
-and `Position.from_dict()` validates its accounting inputs. Position lifecycle and snapshot financial values
-use decimal text in Arrow; SQL stores signed quantity and average prices as `NUMERIC`.
+Position ที่ serialize แล้วรวมต้นทุนการเปิด ต้นทุนการปิด ปริมาณที่ปิดแล้ว และเศษ PnL ต้องเก็บรักษา field เหล่านี้
+ไว้เมื่อกู้คืน position ที่จะประมวลผล fill ต่อ ค่าทางการเงินของวงจรชีวิตและ snapshot ของ position ใช้ข้อความ
+ทศนิยมใน Arrow ส่วน SQL เก็บปริมาณแบบมีเครื่องหมายและราคาเฉลี่ยเป็น `NUMERIC`
 
-Position payloads and EventStore lifecycle accounting from older builds do not satisfy this contract.
-Regenerate those stores from the original inputs before replaying with this version. The EventStore
-envelope format marker does not version individual accounting payloads.
+Payload ของ position และการบัญชีวงจรชีวิตใน EventStore จาก build รุ่นเก่าไม่เป็นไปตามข้อตกลงนี้ ให้สร้าง store
+เหล่านั้นใหม่จาก input ต้นฉบับก่อน replay ด้วยเวอร์ชันนี้ marker ของรูปแบบ envelope ใน EventStore ไม่ได้ทำ version
+ให้กับ payload การบัญชีแต่ละรายการ
 
-EventStore replay derives accounting from fills, adjustments, and settlement. Lifecycle notifications validate
-that accounting rather than replacing it with averages that omit cost basis and residuals. This layout has no
-reader for the prior floating-point accounting format.
+การ replay ของ EventStore derive การบัญชีจาก fill, adjustment และ settlement notification ของวงจรชีวิตใช้ตรวจสอบ
+การบัญชีนั้น แทนที่จะแทนด้วยค่าเฉลี่ยที่ละเลย cost basis และเศษ layout นี้ไม่มีตัวอ่านสำหรับรูปแบบการบัญชีแบบ
+floating-point เดิม
 
-## Integration with other components
+## การทำงานร่วมกับ component อื่น {#integration-with-other-components}
 
-Positions interact with several key components:
+Position ทำงานร่วมกับ component หลักหลายตัว:
 
-- **Portfolio**: Aggregates position exposure and PnL across instruments and strategies.
-- **ExecutionEngine**: Creates and updates positions from fills.
-- **Cache**: Stores current position state and closed-cycle snapshots.
-- **RiskEngine**: Reads open positions when it checks whether an order reduces exposure.
+- **Portfolio**: รวม exposure และ PnL ของ position ข้าม instrument และ strategy
+- **ExecutionEngine**: สร้างและอัปเดต position จาก fill
+- **Cache**: เก็บสถานะ position ปัจจุบันและ snapshot ของรอบที่ปิดแล้ว
+- **RiskEngine**: อ่าน position ที่เปิดอยู่เมื่อตรวจสอบว่า order ลด exposure หรือไม่
 
 :::info
-Positions are not created for spread instruments. Contingent orders can still trigger for spreads,
-but they operate without position linkage. The engine handles spread instruments separately from
-regular positions.
+ไม่มีการสร้าง position สำหรับ spread instrument contingent order ยังคง trigger สำหรับ spread ได้ แต่ทำงานโดยไม่ผูกกับ
+position engine จัดการ spread instrument แยกจาก position ปกติ
 :::
 
-## Related guides
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-- [Events](events/): How fills produce position events.
-- [Orders](orders/): Orders that create and modify positions.
-- [Execution](execution/): Fill handling that updates positions.
-- [Portfolio](portfolio.md): Portfolio-level position aggregation.
+- [Events](events/): fill สร้าง position event อย่างไร
+- [Orders](orders/): order ที่สร้างและแก้ไข position
+- [Execution](execution/): การจัดการ fill ที่อัปเดต position
+- [Portfolio](portfolio.md): การรวม position ในระดับ portfolio

@@ -2,22 +2,20 @@
 
 `FIX OrdType <40>=J` (Market If Touched)
 
-A *Market-If-Touched* order releases a *Market* order when its trigger price is reached. Traders often use it
-to enter on a pullback or take profit. A take-profit order sells against a LONG position or buys against a
-SHORT position.
+Order แบบ *Market-If-Touched* จะปล่อย *Market* order ออกไปเมื่อราคาถึง trigger price เทรดเดอร์มักใช้เพื่อเข้า
+position ตอนราคาย่อตัว (pullback) หรือเพื่อทำกำไร order แบบ take-profit จะขายสวน position ฝั่ง LONG หรือซื้อสวน
+position ฝั่ง SHORT
 
-## Use cases
+## กรณีการใช้งาน {#use-cases}
 
-Use a *Market-If-Touched* order to prioritize execution when a target price is touched. It triggers in the
-opposite market direction from a stop order, such as buying below or selling above the current market. The
-touch price is not a guaranteed fill price, and the released *Market* order can slip, be rejected, or stay
-unfilled.
+ใช้ order แบบ *Market-If-Touched* เมื่อต้องการให้ความสำคัญกับการได้ execute เมื่อราคาแตะเป้าหมาย order นี้ trigger
+ในทิศทางตรงข้ามกับ stop order เช่น ซื้อต่ำกว่าราคาตลาดปัจจุบันหรือขายสูงกว่าราคาตลาดปัจจุบัน ราคาที่แตะไม่ได้
+รับประกันว่าจะเป็นราคาที่ได้ fill และ *Market* order ที่ถูกปล่อยออกไปอาจเกิด slippage ถูก reject หรือไม่ได้ fill เลย
 
-## Example
+## ตัวอย่าง {#example}
 
-**Example**: create a *Market-If-Touched* order on the Binance Futures exchange to SELL 10 ETHUSDT-PERP
-Perpetual Futures contracts. Set a trigger price of 10,000 USDT and keep the order active until further
-notice.
+**ตัวอย่าง**: สร้าง order แบบ *Market-If-Touched* บน Binance Futures เพื่อ SELL สัญญา ETHUSDT-PERP
+Perpetual Futures จำนวน 10 สัญญา ตั้ง trigger price ที่ 10,000 USDT และให้ order active ไปจนกว่าจะยกเลิก
 
 ```rust tab="Rust"
 use nautilus_model::{
@@ -46,34 +44,10 @@ let order = self.order().market_if_touched(
 );
 ```
 
-```python tab="Python"
-from nautilus_trader.model import InstrumentId
-from nautilus_trader.model import MarketIfTouchedOrder
-from nautilus_trader.model import OrderSide
-from nautilus_trader.model import Price
-from nautilus_trader.model import Quantity
-from nautilus_trader.model import TimeInForce
-from nautilus_trader.model import TriggerType
+ดูรายละเอียดเพิ่มเติมได้ที่ [Rust API docs](https://nautilustrader.io/docs/core-latest/)
 
-order: MarketIfTouchedOrder = self.order_factory.market_if_touched(
-    instrument_id=InstrumentId.from_str("ETHUSDT-PERP.BINANCE"),
-    order_side=OrderSide.SELL,
-    quantity=Quantity.from_int(10),
-    trigger_price=Price.from_str("10_000.00"),
-    trigger_type=TriggerType.LAST_PRICE,  # <-- optional (default DEFAULT)
-    time_in_force=TimeInForce.GTC,  # <-- optional (default GTC)
-    expire_time=None,  # <-- optional (default None)
-    reduce_only=False,  # <-- optional (default False)
-    tags=["ENTRY"],  # <-- optional (default None)
-)
-```
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-See the
-[`MarketIfTouchedOrder` API reference](/docs/python-api-latest/model/orders.html#nautilus_trader.model.MarketIfTouchedOrder)
-for further details.
-
-## Related guides
-
-- [Orders](index.md#trigger-type) - Trigger types and other execution instructions.
-- [Emulated orders](emulated.md) - Emulating conditional orders on venues without native support.
-- [Execution](../execution/) - How orders reach the venue and fills are handled.
+- [Orders](index.md#trigger-type) - Trigger type และ execution instruction อื่น ๆ
+- [Emulated orders](emulated.md) - การ emulate conditional order บน venue ที่ไม่รองรับแบบ native
+- [Execution](../execution/) - order ไปถึง venue อย่างไรและการจัดการ fill

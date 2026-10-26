@@ -1,30 +1,30 @@
 # Architecture
 
-This page describes NautilusTrader's components, runtime boundaries, and data flows.
-The [design principles and policies](../developer_guide/design_principles.md) guide this structure.
+หน้านี้อธิบาย component, ขอบเขตของ runtime และการไหลของข้อมูลใน NautilusTrader
+โครงสร้างนี้ยึดตาม [หลักการออกแบบและนโยบาย](../developer_guide/design_principles.md)
 
 :::note
-For this guide, the **Nautilus system boundary** means the runtime of one Nautilus node instance.
+ในคู่มือนี้ **ขอบเขตของระบบ Nautilus** หมายถึง runtime ของ Nautilus node หนึ่ง instance
 :::
 
-## Architectural style
+## รูปแบบสถาปัตยกรรม {#architectural-style}
 
-NautilusTrader uses these architectural techniques and design patterns:
+NautilusTrader ใช้เทคนิคทางสถาปัตยกรรมและ design pattern ต่อไปนี้:
 
 - [Domain-driven design (DDD)](https://en.wikipedia.org/wiki/Domain-driven_design)
 - [Event-driven architecture](https://en.wikipedia.org/wiki/Event-driven_programming)
 - [Messaging patterns](https://en.wikipedia.org/wiki/Messaging_pattern) (publish/subscribe,
-  request/response, and point-to-point)
+  request/response และ point-to-point)
 - [Ports and adapters](https://en.wikipedia.org/wiki/Hexagonal_architecture_(software))
 - [Crash-only design](#crash-only-design)
 
-The [design principles and policies](../developer_guide/design_principles.md) state the priorities and contracts
-these techniques support.
+[หลักการออกแบบและนโยบาย](../developer_guide/design_principles.md) ระบุลำดับความสำคัญและข้อตกลง (contract)
+ที่เทคนิคเหล่านี้รองรับ
 
-## System architecture
+## สถาปัตยกรรมของระบบ {#system-architecture}
 
-NautilusTrader provides both a framework for composing trading systems and default implementations
-for several [environment contexts](#environment-contexts).
+NautilusTrader มีทั้ง framework สำหรับประกอบระบบเทรด และ implementation เริ่มต้นสำหรับ
+[environment context](#environment-contexts) หลายแบบ
 
 ```mermaid
 flowchart LR
@@ -62,115 +62,111 @@ flowchart LR
     bus <--> bus_backing
 ```
 
-The kernel owns the shared trading core. Adapters exchange market data and execution messages through the
-engine boundaries.
+kernel เป็นเจ้าของแกนกลางการเทรดที่ใช้ร่วมกัน adapter แลกเปลี่ยน market data และ message ด้าน execution
+ผ่านขอบเขตของ engine
 
-### Core components
+### Component หลัก {#core-components}
 
-#### `NautilusKernel`
+#### `NautilusKernel` {#nautiluskernel}
 
-The central orchestration component:
+component ศูนย์กลางที่ประสานการทำงานทั้งหมด:
 
-- Initializes and manages the shared core components.
-- Configures the messaging infrastructure.
-- Selects environment-specific clocks and behavior.
-- Coordinates shared resources and lifecycle management.
-- Provides one lifecycle boundary for system operations.
+- initialize และจัดการ component หลักที่ใช้ร่วมกัน
+- ตั้งค่าโครงสร้างพื้นฐานด้าน messaging
+- เลือก clock และพฤติกรรมตาม environment
+- ประสานทรัพยากรที่ใช้ร่วมกันและการจัดการ lifecycle
+- เป็นขอบเขต lifecycle เดียวสำหรับการทำงานของระบบ
 
-#### `MessageBus`
+#### `MessageBus` {#messagebus}
 
-`MessageBus` centrally routes inter-component communication:
+`MessageBus` เป็นศูนย์กลางในการ route การสื่อสารระหว่าง component:
 
-- **Publish/subscribe**: Broadcasts events and data to multiple consumers.
-- **Request/response**: Correlates requests with their responses.
-- **Command/event messaging**: Routes actions and state changes through typed endpoints.
-- **Optional external backing**: Sends selected publications and, for live nodes, receives configured external
-  streams through a backing such as Redis. These streams provide live transport. Durable state recovery
-  belongs to the cache or event store.
+- **Publish/subscribe**: กระจาย event และข้อมูลไปยังผู้รับหลายราย
+- **Request/response**: จับคู่ request กับ response ของมัน
+- **Command/event messaging**: route action และการเปลี่ยนสถานะผ่าน endpoint ที่มี type ชัดเจน
+- **Backing ภายนอก (optional)**: ส่ง publication ที่เลือกไว้ และสำหรับ live node ยังรับ stream ภายนอกที่ตั้งค่าไว้
+  ผ่าน backing อย่าง Redis ได้ด้วย stream เหล่านี้ทำหน้าที่เป็น transport แบบ live ส่วนการกู้คืนสถานะแบบถาวร
+  เป็นหน้าที่ของ cache หรือ event store
 
-#### `Cache`
+#### `Cache` {#cache}
 
-`Cache` keeps trading state in memory:
+`Cache` เก็บสถานะการเทรดไว้ในหน่วยความจำ:
 
-- Stores instruments, accounts, orders, positions, and more.
-- Provides indexed reads for trading components.
-- Optionally persists configured state through a cache database backing.
+- เก็บ instrument, account, order, position และอื่น ๆ
+- ให้การอ่านแบบมี index สำหรับ component ด้านการเทรด
+- persist สถานะที่ตั้งค่าไว้ผ่าน database backing ของ cache ได้ (optional)
 
-#### `DataEngine`
+#### `DataEngine` {#dataengine}
 
-Processes and routes market data throughout the system:
+ประมวลผลและ route market data ไปทั่วทั้งระบบ:
 
-- Handles quotes, trades, bars, order books, custom data, and other supported types.
-- Manages subscriptions and correlated request/response flows through data clients.
-- Keeps each client subscription active until its final owner releases it, retaining the original
-  client route and parameters for the final unsubscribe.
-- Routes resulting data to consumers according to their subscriptions and requests.
-- Manages data flow from external sources to internal components.
+- จัดการ quote, trade, bar, order book, custom data และ type อื่นที่รองรับ
+- จัดการ subscription และ flow แบบ request/response ที่สัมพันธ์กันผ่าน data client
+- คง subscription ของแต่ละ client ไว้จนกว่าเจ้าของรายสุดท้ายจะปล่อย โดยเก็บ route ของ client และ parameter
+  เดิมไว้ใช้ตอน unsubscribe ครั้งสุดท้าย
+- route ข้อมูลที่ได้ไปยังผู้รับตาม subscription และ request ของแต่ละราย
+- จัดการการไหลของข้อมูลจากแหล่งภายนอกไปยัง component ภายใน
 
-#### `ExecutionEngine`
+#### `ExecutionEngine` {#executionengine}
 
-Manages order lifecycle and execution:
+จัดการ lifecycle ของ order และการ execute:
 
-- Routes trading commands to the appropriate execution clients.
-- Tracks order and position states.
-- Coordinates with risk management systems.
-- Handles execution reports and fills from venues.
-- Applies reconciliation events and reconciles individual venue reports.
+- route คำสั่งเทรดไปยัง execution client ที่เหมาะสม
+- ติดตามสถานะของ order และ position
+- ประสานงานกับระบบบริหารความเสี่ยง
+- จัดการ execution report และ fill จาก venue
+- ใช้ reconciliation event และ reconcile report จาก venue ทีละรายการ
 
-For live execution, `ExecutionManager` tracks reconciliation state and coordinates individual
-reconciliation operations. `LiveNode` owns recurring checks, deadlines, and cancellation. See the
-[reconciliation component diagram](execution/reconciliation.md#component-responsibilities)
-for their ownership and dependencies.
+สำหรับ live execution `ExecutionManager` ติดตามสถานะ reconciliation และประสานการทำ reconciliation แต่ละครั้ง
+ส่วน `LiveNode` เป็นเจ้าของการตรวจสอบเป็นรอบ, deadline และการยกเลิก ดู
+[แผนภาพ component ของ reconciliation](execution/reconciliation.md#component-responsibilities)
+สำหรับความเป็นเจ้าของและ dependency ของแต่ละส่วน
 
-#### `RiskEngine`
+#### `RiskEngine` {#riskengine}
 
-Provides risk management:
+ทำหน้าที่บริหารความเสี่ยง:
 
-- Validates order fields, balances, quantities, notionals, reduce-only behavior, and trading state.
-- Applies configurable submission and modification rate limits.
-- Monitors order and position events used by its controls.
+- ตรวจสอบ field ของ order, balance, quantity, notional, พฤติกรรม reduce-only และสถานะการเทรด
+- ใช้ rate limit ที่ตั้งค่าได้สำหรับการส่งและแก้ไข order
+- ติดตาม event ของ order และ position ที่ตัวควบคุมของมันใช้
 
-#### `Portfolio`
+#### `Portfolio` {#portfolio}
 
-Maintains derived account and position state:
+ดูแลสถานะของ account และ position ที่คำนวณต่อยอดมา:
 
-- Tracks balances, net positions, margin, realized and unrealized profit and loss (PnL), and
-  exposure.
-- Updates state and valuations from account, order, position, quote, bar, and mark-price events.
+- ติดตาม balance, net position, margin, กำไรขาดทุนที่ realize และยังไม่ realize (PnL) และ exposure
+- อัปเดตสถานะและการประเมินมูลค่าจาก event ของ account, order, position, quote, bar และ mark price
 
-#### `Trader`
+#### `Trader` {#trader}
 
-Coordinates user trading components:
+ประสาน component ด้านการเทรดของผู้ใช้:
 
-- Registers actors, strategies, and execution algorithms.
-- Manages their lifecycle, clocks, and event subscriptions.
+- ลงทะเบียน actor, strategy และ execution algorithm
+- จัดการ lifecycle, clock และ event subscription ของสิ่งเหล่านี้
 
-### Environment contexts
+### Environment contexts {#environment-contexts}
 
-An environment context defines the data source and execution setting for a node:
+environment context กำหนดแหล่งข้อมูลและรูปแบบการ execute ของ node:
 
-- `Backtest`: Historical data with simulated execution.
-- `Sandbox`: Real-time data with simulated execution.
-- `Live`: Real-time data with live venue connections, including paper or real accounts.
+- `Backtest`: ข้อมูลในอดีตกับการ execute แบบจำลอง
+- `Sandbox`: ข้อมูล real-time กับการ execute แบบจำลอง
+- `Live`: ข้อมูล real-time กับการเชื่อมต่อ venue จริง ทั้ง account แบบ paper และ account จริง
 
-### Common core
+### แกนกลางร่วม {#common-core}
 
-Backtest, sandbox, and live systems share the `NautilusKernel` struct from the `nautilus-system`
-crate. The kernel owns the common cache, portfolio, engines, trader, clock, and messaging
-infrastructure.
+ระบบ backtest, sandbox และ live ใช้ struct `NautilusKernel` จาก crate `nautilus-system` ร่วมกัน
+kernel เป็นเจ้าของ cache, portfolio, engine, trader, clock และโครงสร้างพื้นฐานด้าน messaging ที่ใช้ร่วมกัน
 
-The *ports and adapters* architectural style enables modular components to be integrated into the
-core through explicit client, backing-store, and component interfaces, including custom
-implementations.
+รูปแบบสถาปัตยกรรมแบบ *ports and adapters* ทำให้ component แบบ modular เชื่อมเข้ากับแกนกลางได้ผ่าน interface
+ที่ชัดเจนของ client, backing store และ component รวมถึง implementation ที่เขียนเอง
 
-### Data and execution flow patterns
+### รูปแบบการไหลของข้อมูลและ execution {#data-and-execution-flow-patterns}
 
-#### Data flow: life of a quote tick
+#### Data flow: เส้นทางของ quote tick {#data-flow-life-of-a-quote-tick}
 
-The following trace shows the path a `QuoteTick` takes from the network to a
-strategy. Trades and bars follow the same cache-then-publish path with different
-handler names. Order book deltas and depth snapshots take a different route (see
-the note below the steps).
+ลำดับต่อไปนี้แสดงเส้นทางที่ `QuoteTick` เดินทางจาก network ไปถึง strategy trade และ bar ใช้เส้นทาง
+cache-แล้ว-publish แบบเดียวกันแต่ชื่อ handler ต่างกัน ส่วน order book delta และ depth snapshot ใช้เส้นทางอื่น
+(ดู note ใต้ขั้นตอน)
 
 ```mermaid
 sequenceDiagram
@@ -189,44 +185,44 @@ sequenceDiagram
     MB->>Strategy: on_quote(quote)
 ```
 
-1. **Adapter receives raw data.** A venue-specific `DataClient`, such as Binance or Bybit,
-   receives a WebSocket message, parses it, and constructs a `QuoteTick`.
-1. **Adapter sends a data event.** The adapter sends `DataEvent::Data(Data::Quote(quote))` through an MPSC
-   channel. In live mode this is an async unbounded channel. In backtests the engine feeds data directly.
-1. **`DataEngine` processes the event.** The channel receiver routes the event to
-   `DataEngine::process_data`, which dispatches to `handle_quote`.
-1. **`Cache` stores the quote.** `handle_quote` calls `cache.add_quote(quote)`. When the insertion
-   succeeds, components can read it through `self.cache.quote(instrument_id)`.
-1. **`MessageBus` publishes.** The engine publishes the quote on a topic derived
-   from the instrument ID, such as `data.quotes.BINANCE.BTCUSDT-PERP`. The
-   `MessageBus` finds all handlers subscribed to that topic.
-1. **Strategy handler runs.** Each subscribed strategy's `on_quote(quote)` runs on the
-   single-threaded core. `self.cache.quote(instrument_id)` returns the same quote only if insertion
-   succeeded and no later quote has replaced it before the read.
+1. **Adapter รับข้อมูลดิบ** `DataClient` เฉพาะของ venue เช่น Binance หรือ Bybit รับ message จาก WebSocket
+   parse แล้วสร้าง `QuoteTick`
+1. **Adapter ส่ง data event** adapter ส่ง `DataEvent::Data(Data::Quote(quote))` ผ่าน MPSC channel
+   ในโหมด live จะเป็น async unbounded channel ส่วนใน backtest engine จะป้อนข้อมูลโดยตรง
+1. **`DataEngine` ประมวลผล event** ตัวรับของ channel route event ไปยัง `DataEngine::process_data`
+   ซึ่ง dispatch ต่อไปยัง `handle_quote`
+1. **`Cache` เก็บ quote** `handle_quote` เรียก `cache.add_quote(quote)` เมื่อการ insert สำเร็จ
+   component ต่าง ๆ จะอ่านได้ผ่าน `cache.quote(instrument_id)`
+1. **`MessageBus` publish** engine publish quote ไปยัง topic ที่สร้างจาก instrument ID เช่น
+   `data.quotes.BINANCE.BTCUSDT-PERP` แล้ว `MessageBus` จะหา handler ทั้งหมดที่ subscribe topic นั้น
+1. **Handler ของ strategy ทำงาน** `on_quote(quote)` ของแต่ละ strategy ที่ subscribe จะรันบนแกนกลางแบบ
+   single-threaded `cache.quote(instrument_id)` จะคืน quote ตัวเดียวกันก็ต่อเมื่อการ insert สำเร็จ
+   และยังไม่มี quote ใหม่กว่ามาแทนที่ก่อนการอ่าน
 
 :::note
-For quotes, trades, and bars, the engine attempts cache insertion before publication:
+สำหรับ quote, trade และ bar engine จะพยายาม insert ลง cache ก่อน publish:
 
-- A synchronous persistence or enqueue error prevents the in-memory insertion, but the engine logs the error
-  and still publishes the value. A published quote can thus be absent from the cache after a synchronous
-  insertion failure.
-- Built-in database backings perform the actual write asynchronously, so a later database error does not roll
-  back the cache insertion.
+- error จากการ persist หรือการเข้าคิวแบบ synchronous จะทำให้การ insert ในหน่วยความจำไม่เกิดขึ้น แต่ engine
+  จะ log error แล้วยัง publish ค่านั้นต่อไป ดังนั้น quote ที่ publish ไปแล้วอาจไม่มีอยู่ใน cache หากการ insert
+  แบบ synchronous ล้มเหลว
+- database backing ในตัวเขียนข้อมูลจริงแบบ asynchronous ดังนั้น error ของ database ที่เกิดภายหลังจะไม่ rollback
+  การ insert ลง cache
 
-A callback can also observe newer cache state than the event it handles, including during synchronous reentry.
-Delivery order does not provide an event-time snapshot, and the [queued dispatch
-requirements](../developer_guide/callback_dispatch.md#maintenance-and-observable-state) do not add one.
+callback อาจเห็นสถานะ cache ที่ใหม่กว่า event ที่กำลังจัดการอยู่ได้ รวมถึงระหว่าง synchronous reentry
+ลำดับการส่งไม่ได้ให้ snapshot ตาม event time และ
+[ข้อกำหนดของ queued dispatch](../developer_guide/callback_dispatch.md#maintenance-and-observable-state)
+ก็ไม่ได้เพิ่มสิ่งนี้ให้
 
-Order book deltas and depth snapshots are published directly, while `BookUpdater` subscriptions maintain book
-state separately.
+order book delta และ depth snapshot ถูก publish โดยตรง ขณะที่ subscription ของ `BookUpdater` ดูแลสถานะ
+ของ book แยกต่างหาก
 :::
 
-#### Execution flow: life of an order
+#### Execution flow: เส้นทางของ order {#execution-flow-life-of-an-order}
 
-This simplified trace shows direct order submission with successful venue acceptance followed by a fill. It
-omits execution algorithms, emulation, and ambiguous transport outcomes. See [Execution](execution/index.md)
-and [command outcomes](execution/policies.md#command-outcomes) for those paths. Adapters translate venue
-messages into the execution events shown below:
+ลำดับแบบย่อนี้แสดงการส่ง order โดยตรงที่ venue accept สำเร็จแล้วตามด้วย fill โดยไม่รวม execution algorithm,
+emulation และผลลัพธ์ของ transport ที่ไม่ชัดเจน ดู [Execution](execution/index.md) และ
+[ผลลัพธ์ของคำสั่ง](execution/policies.md#command-outcomes) สำหรับเส้นทางเหล่านั้น adapter แปล message
+ของ venue เป็น execution event ตามที่แสดงด้านล่าง:
 
 ```mermaid
 sequenceDiagram
@@ -252,24 +248,19 @@ sequenceDiagram
     MB->>Strategy: on_order_filled(event)
 ```
 
-1. **Strategy creates a command.** The strategy calls `self.submit_order(order)`.
-1. **`RiskEngine` validates.** Configured order, balance, quantity, notional, trading-state, and
-   rate checks run. If a check fails, the strategy receives `OrderDenied`,
-   and the order never reaches the venue.
-1. **`ExecutionEngine` routes.** The command is routed to the `ExecutionClient`
-   for the target venue.
-1. **`ExecutionClient` submits.** The adapter sends the order to the venue over
-   REST or WebSocket.
-1. **Events flow back.** The venue responds with acknowledgments and fills.
-   Each event (`Accepted`, `Filled`, `Canceled`, `Rejected`, or `Expired`) flows through
-   the `ExecutionEngine`, which updates order state in the `Cache` and delivers
-   the event to the strategy's handler. Fill events also trigger position and
-   portfolio updates.
+1. **Strategy สร้างคำสั่ง** strategy เรียก `submit_order(order)`
+1. **`RiskEngine` ตรวจสอบ** การตรวจสอบ order, balance, quantity, notional, สถานะการเทรด และ rate
+   ที่ตั้งค่าไว้จะทำงาน หากการตรวจสอบใดไม่ผ่าน strategy จะได้รับ `OrderDenied` และ order จะไม่ไปถึง venue เลย
+1. **`ExecutionEngine` route** คำสั่งถูก route ไปยัง `ExecutionClient` ของ venue เป้าหมาย
+1. **`ExecutionClient` ส่ง** adapter ส่ง order ไปยัง venue ผ่าน REST หรือ WebSocket
+1. **Event ไหลกลับมา** venue ตอบกลับด้วยการยืนยันและ fill แต่ละ event (`Accepted`, `Filled`, `Canceled`,
+   `Rejected` หรือ `Expired`) ไหลผ่าน `ExecutionEngine` ซึ่งอัปเดตสถานะ order ใน `Cache` และส่ง event
+   ไปยัง handler ของ strategy event ของ fill ยังทำให้เกิดการอัปเดต position และ portfolio ด้วย
 
-#### Component state management
+#### การจัดการสถานะของ component {#component-state-management}
 
-Types that implement the `Component` trait use a finite state machine. `ComponentState` defines
-stable and transitional states, while `ComponentTrigger` constrains valid transitions:
+type ที่ implement trait `Component` ใช้ finite state machine `ComponentState` นิยามสถานะแบบคงที่และ
+สถานะระหว่างเปลี่ยน ส่วน `ComponentTrigger` จำกัดการเปลี่ยนสถานะที่ถูกต้อง:
 
 ```mermaid
 stateDiagram-v2
@@ -316,50 +307,50 @@ stateDiagram-v2
     DISPOSED --> [*]
 ```
 
-**Stable states**:
+**สถานะคงที่**:
 
-- **PRE_INITIALIZED**: The component exists but is not ready to fulfill its specification.
-- **READY**: The component is configured and can start.
-- **RUNNING**: The component operates normally and can fulfill its specification.
-- **STOPPED**: The component has stopped successfully.
-- **DEGRADED**: The component may not meet its full specification.
-- **FAULTED**: The component has shut down because of a detected fault.
-- **DISPOSED**: The component has shut down and released its resources.
+- **PRE_INITIALIZED**: component มีอยู่แล้วแต่ยังไม่พร้อมทำงานตาม specification
+- **READY**: component ตั้งค่าเรียบร้อยและเริ่มทำงานได้
+- **RUNNING**: component ทำงานตามปกติและทำงานตาม specification ได้
+- **STOPPED**: component หยุดทำงานสำเร็จแล้ว
+- **DEGRADED**: component อาจทำงานได้ไม่ครบตาม specification
+- **FAULTED**: component ปิดตัวลงเพราะตรวจพบ fault
+- **DISPOSED**: component ปิดตัวลงและปล่อยทรัพยากรแล้ว
 
-**Transitional states**:
+**สถานะระหว่างเปลี่ยน**:
 
-- **STARTING**: The component is executing its `start` actions.
-- **STOPPING**: The component is executing its `stop` actions.
-- **RESUMING**: The component is executing its `resume` actions after a stop or degradation.
-- **RESETTING**: The component is executing its `reset` actions.
-- **DISPOSING**: The component is executing its `dispose` actions.
-- **DEGRADING**: The component is executing its `degrade` actions.
-- **FAULTING**: The component is executing its `fault` actions.
+- **STARTING**: component กำลังทำ action ของ `start`
+- **STOPPING**: component กำลังทำ action ของ `stop`
+- **RESUMING**: component กำลังทำ action ของ `resume` หลังจากหยุดหรือ degrade
+- **RESETTING**: component กำลังทำ action ของ `reset`
+- **DISPOSING**: component กำลังทำ action ของ `dispose`
+- **DEGRADING**: component กำลังทำ action ของ `degrade`
+- **FAULTING**: component กำลังทำ action ของ `fault`
 
-Transitional states cover the corresponding lifecycle callback and should stay brief. If a callback returns an
-error, the transition halts in its transitional state.
+สถานะระหว่างเปลี่ยนครอบคลุม lifecycle callback ที่สอดคล้องกัน และควรใช้เวลาสั้น หาก callback คืน error
+การเปลี่ยนสถานะจะหยุดค้างอยู่ในสถานะระหว่างเปลี่ยนนั้น
 
-`dispose()` is the exception: a failing `on_dispose` moves the component to FAULTED so it can still be
-retired. A failed `on_stop` or `on_fault` leaves the component in its transitional state, from which trader
-retirement can still invoke `dispose()` and finish cleanup.
+`dispose()` เป็นข้อยกเว้น: `on_dispose` ที่ล้มเหลวจะย้าย component ไปที่ FAULTED เพื่อให้ยัง retire ได้
+`on_stop` หรือ `on_fault` ที่ล้มเหลวจะทำให้ component ค้างในสถานะระหว่างเปลี่ยน ซึ่งจากจุดนั้นการ retire
+ของ trader ยังเรียก `dispose()` และ cleanup ให้เสร็จได้
 
-After a successful reset, the component releases its retained data subscriptions before returning to READY.
-Its next start acquires fresh subscriptions against the reset data engine. If `on_reset` fails, the component
-stays in RESETTING with its subscriptions intact.
+หลังจาก reset สำเร็จ component จะปล่อย data subscription ที่ถือไว้ก่อนกลับไปที่ READY การ start ครั้งถัดไป
+จะได้ subscription ใหม่กับ data engine ที่ reset แล้ว หาก `on_reset` ล้มเหลว component จะค้างอยู่ที่
+RESETTING โดย subscription ยังคงอยู่ครบ
 
-During normal retirement, the trader runs `on_dispose`, releases the component's retained data subscriptions,
-and then removes its registry and bookkeeping entries. If `on_dispose` fails, the component stays registered
-with its subscriptions intact. Retiring the resulting FAULTED component releases those subscriptions without
-invoking the failed disposal hook again.
+ในการ retire ตามปกติ trader จะรัน `on_dispose`, ปล่อย data subscription ที่ component ถือไว้ แล้วลบ entry
+ใน registry และข้อมูลบันทึกต่าง ๆ หาก `on_dispose` ล้มเหลว component จะยังลงทะเบียนอยู่และ subscription
+ยังคงอยู่ครบ การ retire component ที่อยู่ในสถานะ FAULTED หลังจากนั้นจะปล่อย subscription เหล่านั้น
+โดยไม่เรียก hook การ dispose ที่ล้มเหลวซ้ำอีก
 
-Each component release removes its message bus handlers and decrements ownership on the routed
-data client. The data client sends an upstream unsubscribe only after the final owner releases the
-same physical subscription. Engine-managed resources, including book snapshots, synthetic feeds,
-spread quotes, internal bars, and option chains, follow the same final-owner rule.
+การปล่อยของ component แต่ละครั้งจะลบ handler บน message bus ของมัน และลดจำนวนความเป็นเจ้าของบน data client
+ที่ถูก route ไป data client จะส่ง unsubscribe ไปยังต้นทางก็ต่อเมื่อเจ้าของรายสุดท้ายปล่อย subscription
+ทางกายภาพตัวเดียวกันแล้วเท่านั้น ทรัพยากรที่ engine จัดการ เช่น book snapshot, synthetic feed, spread quote,
+internal bar และ option chain ก็ใช้กฎเจ้าของรายสุดท้ายเดียวกันนี้
 
-#### Actor vs Component traits
+#### Trait `Actor` เทียบกับ `Component` {#actor-vs-component-traits}
 
-The Rust implementation separates targeted message dispatch from lifecycle management:
+implementation ใน Rust แยกการ dispatch message แบบเจาะจงเป้าหมายออกจากการจัดการ lifecycle:
 
 ```mermaid
 classDiagram
@@ -415,208 +406,177 @@ classDiagram
     }
 ```
 
-**`Actor` trait: message dispatch**
+**Trait `Actor`: การ dispatch message**
 
-- Provides the `handle` method for receiving messages dispatched through the actor registry.
-- Supports lookup by actor ID. Typed unchecked accessors check the concrete actor type at runtime and return
-  an `ActorRef` guard.
-- Used by types that receive targeted messages, such as strategies and throttlers.
+- มีเมธอด `handle` สำหรับรับ message ที่ dispatch ผ่าน actor registry
+- รองรับการค้นหาด้วย actor ID accessor แบบ typed unchecked จะตรวจสอบ type จริงของ actor ตอน runtime
+  และคืน guard แบบ `ActorRef`
+- ใช้โดย type ที่รับ message แบบเจาะจงเป้าหมาย เช่น strategy และ throttler
 
-**`Component` trait: lifecycle management**
+**Trait `Component`: การจัดการ lifecycle**
 
-- Manages state transitions such as `start`, `stop`, `resume`, `reset`, and `dispose`.
-- Registers a component with the trader ID, clock, and cache.
-- Tracks component state through the finite state machine described above.
-- Used by actors, strategies, execution algorithms, and the `Trader` when they need managed
-  lifecycle behavior. The data, risk, and execution engines expose their own lifecycle methods but
-  do not implement this trait.
+- จัดการการเปลี่ยนสถานะ เช่น `start`, `stop`, `resume`, `reset` และ `dispose`
+- ลงทะเบียน component กับ trader ID, clock และ cache
+- ติดตามสถานะของ component ผ่าน finite state machine ที่อธิบายไว้ข้างต้น
+- ใช้โดย actor, strategy, execution algorithm และ `Trader` เมื่อต้องการพฤติกรรม lifecycle ที่มีการจัดการ
+  ส่วน data, risk และ execution engine มีเมธอด lifecycle ของตัวเอง แต่ไม่ได้ implement trait นี้
 
 :::note
-Message bus access does not depend on the `Actor` trait. Code running on the node thread can use the
-thread-local `MessageBus` APIs, while `Actor` specifically enables registry-based dispatch to an
-actor ID.
+การเข้าถึง message bus ไม่ได้ขึ้นกับ trait `Actor` โค้ดที่รันบน thread ของ node ใช้ API ของ `MessageBus`
+แบบ thread-local ได้ ส่วน `Actor` มีไว้เฉพาะเพื่อให้ dispatch ไปยัง actor ID ผ่าน registry ได้
 :::
 
-This separation allows:
+การแยกแบบนี้ทำให้มีได้ทั้ง:
 
-- **Actor only**: Lightweight message handlers without lifecycle, such as `Throttler`.
-- **Component only**: Lifecycle-managed types without targeted actor dispatch, such as `Trader`.
-- **Both traits**: Data actors, including strategies and execution algorithms, that need lifecycle
-  management and targeted dispatch.
+- **Actor อย่างเดียว**: message handler น้ำหนักเบาที่ไม่มี lifecycle เช่น `Throttler`
+- **Component อย่างเดียว**: type ที่มีการจัดการ lifecycle แต่ไม่มีการ dispatch แบบเจาะจง actor เช่น `Trader`
+- **ทั้งสอง trait**: data actor รวมถึง strategy และ execution algorithm ที่ต้องการทั้งการจัดการ lifecycle
+  และการ dispatch แบบเจาะจงเป้าหมาย
 
 :::warning
-Separate thread-local registries support these access patterns. Both registry `get` methods return shared
-`Rc<UnsafeCell<dyn ...>>` handles.
+registry แบบ thread-local ที่แยกกันรองรับรูปแบบการเข้าถึงเหล่านี้ เมธอด `get` ของ registry ทั้งสองคืน handle
+แบบ `Rc<UnsafeCell<dyn ...>>` ที่ใช้ร่วมกัน
 
-- **Component access**: lifecycle wrapper functions use a private borrow guard to reject overlapping lifecycle
-  access. That protection does not apply to arbitrary access through a raw registry handle.
-- **Actor access**: typed accessors return `ActorRef` guards, which do not prevent two simultaneous guards for
-  the same actor.
+- **การเข้าถึง component**: ฟังก์ชัน wrapper ของ lifecycle ใช้ borrow guard ภายในเพื่อปฏิเสธการเข้าถึง lifecycle
+  ที่ซ้อนทับกัน แต่การป้องกันนี้ไม่ครอบคลุมการเข้าถึงใด ๆ ผ่าน handle ดิบจาก registry
+- **การเข้าถึง actor**: accessor แบบ typed คืน guard แบบ `ActorRef` ซึ่งไม่ได้ป้องกันการมี guard สองตัว
+  ของ actor ตัวเดียวกันพร้อมกัน
 
-Creating overlapping mutable references is undefined behavior. Get, use, and drop an `ActorRef` within one
-synchronous scope. **Never store one or hold it across an `.await` point.** Same-actor re-entrant lookup is a
-constraint of the current dispatch model, not a safe aliasing guarantee.
+การสร้าง mutable reference ที่ซ้อนทับกันเป็น undefined behavior ให้ get, ใช้งาน และ drop `ActorRef` ภายใน
+scope แบบ synchronous เดียว **ห้ามเก็บไว้หรือถือข้ามจุด `.await` เด็ดขาด** การค้นหา actor ตัวเดิมแบบ re-entrant
+เป็นข้อจำกัดของโมเดล dispatch ปัจจุบัน ไม่ใช่การรับประกันว่า aliasing ปลอดภัย
 :::
 
-For queued dispatch, releasing an actor guard alone does not establish a safe delivery boundary:
-enclosing mutable runtime borrows must also end. Subscriber admission order alone does not preserve
-publication order during nested fan-out. Pending deliveries need registration and lifecycle identity
-to enforce the [dispatch requirements](../developer_guide/callback_dispatch.md).
+สำหรับ queued dispatch การปล่อย actor guard เพียงอย่างเดียวยังไม่ถือเป็นขอบเขตการส่งที่ปลอดภัย:
+mutable borrow ของ runtime ที่ครอบอยู่ก็ต้องสิ้นสุดด้วย ลำดับการรับ subscriber เพียงอย่างเดียวไม่ได้รักษา
+ลำดับการ publish ระหว่าง fan-out แบบซ้อน การส่งที่ค้างอยู่ต้องมี identity ของการลงทะเบียนและ lifecycle
+เพื่อบังคับใช้ [ข้อกำหนดของ dispatch](../developer_guide/callback_dispatch.md)
 
-### Messaging
+### Messaging {#messaging}
 
-The `MessageBus` passes data, commands, and events between components without requiring direct
-component references.
+`MessageBus` ส่งผ่านข้อมูล, คำสั่ง และ event ระหว่าง component โดยไม่ต้องมี reference ถึง component กันโดยตรง
 
-#### Threading model
+#### โมเดล threading {#threading-model}
 
-Within a node, the core consumes and dispatches messages on a **single thread**. This includes:
+ภายใน node แกนกลางจะรับและ dispatch message บน **thread เดียว** ซึ่งรวมถึง:
 
-- The `MessageBus` and actor callback dispatch.
-- Strategy logic and order management.
-- Risk engine checks and execution coordination.
-- Cache reads and writes.
+- `MessageBus` และการ dispatch callback ของ actor
+- logic ของ strategy และการจัดการ order
+- การตรวจสอบของ risk engine และการประสานงานด้าน execution
+- การอ่านและเขียน cache
 
-Serial processing coordinates state changes within the node. Synchronous reentry still has the constraints
-described above. The [queued dispatch requirements](../developer_guide/callback_dispatch.md) define
-publication ordering across nested callbacks. Live inputs and latency can cause behavioral differences from
-backtests. Components consume messages synchronously in a pattern *similar* to the
-[actor model](https://en.wikipedia.org/wiki/Actor_model).
+การประมวลผลแบบเรียงลำดับช่วยประสานการเปลี่ยนสถานะภายใน node แต่ synchronous reentry ยังคงมีข้อจำกัด
+ตามที่อธิบายไว้ข้างต้น [ข้อกำหนดของ queued dispatch](../developer_guide/callback_dispatch.md) นิยามลำดับ
+การ publish ข้าม callback ที่ซ้อนกัน input แบบ live และ latency อาจทำให้พฤติกรรมต่างจาก backtest ได้
+component รับ message แบบ synchronous ในรูปแบบที่ *คล้าย* กับ
+[actor model](https://en.wikipedia.org/wiki/Actor_model)
 
 :::note
-The [LMAX architecture](https://martinfowler.com/articles/lmax.html) is a related example of
-single-threaded transaction processing.
+[สถาปัตยกรรม LMAX](https://martinfowler.com/articles/lmax.html) เป็นตัวอย่างที่เกี่ยวข้องของการประมวลผล
+transaction แบบ single-threaded
 :::
 
-Background services use separate threads or the process-wide, multi-threaded Tokio runtime. The
-runtime's worker count is configurable:
+service เบื้องหลังใช้ thread แยก หรือ Tokio runtime แบบ multi-threaded ที่ใช้ร่วมกันทั้ง process
+จำนวน worker ของ runtime ตั้งค่าได้:
 
-- **Network and adapters**: WebSocket connections, REST clients, and data feeds run as async tasks.
-- **Logging**: A worker receives log events outside the synchronous core.
-- **Persistence**: Redis and PostgreSQL cache backings queue writes to async tasks. DataFusion runs
-  catalog query futures on a Tokio runtime.
+- **Network และ adapter**: การเชื่อมต่อ WebSocket, REST client และ data feed รันเป็น async task
+- **Logging**: worker ตัวหนึ่งรับ log event นอกแกนกลางแบบ synchronous
+- **Persistence**: cache backing ของ Redis และ PostgreSQL จัดคิวการเขียนไปยัง async task ส่วน DataFusion
+  รัน future ของการ query catalog บน Tokio runtime
 
-Async producers send data and execution events through channels. The node runner receives them and uses the
-thread-local `MessageBus` to dispatch them to engine endpoints on the core thread. Each thread has its own bus
-instance. Channels bridge work from other threads or tasks.
+producer แบบ async ส่ง data และ execution event ผ่าน channel ตัวรันของ node รับ event เหล่านั้นแล้วใช้
+`MessageBus` แบบ thread-local dispatch ไปยัง endpoint ของ engine บน core thread แต่ละ thread มี instance
+ของ bus เป็นของตัวเอง channel ทำหน้าที่เชื่อมงานจาก thread หรือ task อื่น
 
-## Crash-only design
+## Crash-only design {#crash-only-design}
 
-NautilusTrader draws on [crash-only design](https://en.wikipedia.org/wiki/Crash-only_software) when
-handling unrecoverable faults. Repository release builds abort on panic, allowing an external
-supervisor to restart the process instead of letting it continue with potentially invalid state.
+NautilusTrader นำแนวคิด [crash-only design](https://en.wikipedia.org/wiki/Crash-only_software) มาใช้
+เมื่อจัดการ fault ที่กู้คืนไม่ได้ release build ของ repository จะ abort เมื่อเกิด panic เพื่อให้ supervisor
+ภายนอก restart process แทนที่จะปล่อยให้ทำงานต่อด้วยสถานะที่อาจไม่ถูกต้อง
 
-Recovery behavior:
+พฤติกรรมการกู้คืน:
 
-- **Startup recovery**: Configured cache and event-store recovery run through normal startup rather
-  than through a separate crash-only entry point. Ordinary startup and focused recovery tests
-  exercise the same initialization flow.
-- **External state**: Configured backing stores preserve selected state across process restarts,
-  reducing recovery work and the risk of losing state. Durability depends on the backing store and
-  its settings.
-- **Supervisor-managed restart**: An external process supervisor owns restart policy after an unrecoverable
-  failure. Aborting skips graceful cleanup inside the failed process. Actual downtime depends on the
-  supervisor, configured state, and backing store.
-- **Prompt recovery**: The design aims to minimize downtime by using normal startup recovery after
-  a supervisor restarts the process. Recovery time depends on the state to restore and its backing
-  store.
-- **Execution recovery**: Venue commands are not generally safe to retry blindly. Execution reconciliation
-  handles that boundary.
+- **การกู้คืนตอน startup**: การกู้คืน cache และ event store ที่ตั้งค่าไว้ทำงานผ่าน startup ตามปกติ
+  ไม่ได้ผ่าน entry point แบบ crash-only แยกต่างหาก startup ปกติและ test ด้านการกู้คืนโดยเฉพาะ
+  จึงทดสอบ flow การ initialize เดียวกัน
+- **สถานะภายนอก**: backing store ที่ตั้งค่าไว้จะเก็บสถานะที่เลือกไว้ข้ามการ restart process ช่วยลดงานกู้คืน
+  และความเสี่ยงที่สถานะจะสูญหาย ความคงทนขึ้นอยู่กับ backing store และการตั้งค่าของมัน
+- **การ restart ที่ supervisor จัดการ**: process supervisor ภายนอกเป็นเจ้าของนโยบายการ restart หลังเกิด
+  ความล้มเหลวที่กู้คืนไม่ได้ การ abort จะข้าม cleanup แบบ graceful ภายใน process ที่ล้มเหลว downtime จริง
+  ขึ้นอยู่กับ supervisor, สถานะที่ตั้งค่าไว้ และ backing store
+- **การกู้คืนอย่างรวดเร็ว**: การออกแบบมุ่งลด downtime โดยใช้การกู้คืนตอน startup ตามปกติหลังจาก supervisor
+  restart process เวลาในการกู้คืนขึ้นอยู่กับสถานะที่ต้องกู้คืนและ backing store ของมัน
+- **การกู้คืนด้าน execution**: โดยทั่วไปการ retry คำสั่งไปยัง venue แบบไม่ตรวจสอบนั้นไม่ปลอดภัย
+  execution reconciliation เป็นตัวจัดการขอบเขตนี้
 
 :::note
-Normal operation still uses graceful shutdown flows such as `stop` and `dispose`. They tear down
-clients and, when configured, save state and flush writers. Crash-only behavior applies to
-unrecoverable faults, where continuing normal cleanup may be unsafe.
+การทำงานปกติยังใช้ flow การปิดแบบ graceful เช่น `stop` และ `dispose` ซึ่งจะปิด client และเมื่อตั้งค่าไว้
+จะบันทึกสถานะและ flush writer พฤติกรรมแบบ crash-only ใช้กับ fault ที่กู้คืนไม่ได้ ซึ่งการ cleanup ตามปกติต่อไป
+อาจไม่ปลอดภัย
 :::
 
-This design complements the
-[data-integrity policy](../developer_guide/design_principles.md#data-integrity-and-failure): a panic
-caused by an unrecoverable invariant violation immediately terminates a process built with the
-repository release profile.
+การออกแบบนี้เสริมกับ
+[นโยบายด้าน data integrity](../developer_guide/design_principles.md#data-integrity-and-failure): panic
+ที่เกิดจากการละเมิด invariant ที่กู้คืนไม่ได้จะทำให้ process ที่ build ด้วย release profile ของ repository
+สิ้นสุดลงทันที
 
-**References**:
+**อ้างอิง**:
 
-- [Crash-Only Software](https://www.usenix.org/conference/hotos-ix/crash-only-software): Candea and
-  Fox, HotOS 2003.
+- [Crash-Only Software](https://www.usenix.org/conference/hotos-ix/crash-only-software): Candea และ
+  Fox, HotOS 2003
 - [Microreboot: A technique for cheap recovery](https://www.usenix.org/events/osdi04/tech/candea.html):
-  Candea et al., OSDI 2004.
+  Candea et al., OSDI 2004
 - [The properties of crash-only software](https://brooker.co.za/blog/2012/01/22/crash-only.html):
-  Marc Brooker.
-- [Crash-only software: More than meets the eye](https://lwn.net/Articles/191059/): LWN.net.
-- [Recovery-Oriented Computing (ROC) Project](http://roc.cs.berkeley.edu/): UC Berkeley and
-  Stanford.
+  Marc Brooker
+- [Crash-only software: More than meets the eye](https://lwn.net/Articles/191059/): LWN.net
+- [Recovery-Oriented Computing (ROC) Project](http://roc.cs.berkeley.edu/): UC Berkeley และ
+  Stanford
 
-## Framework organization
+## การจัดระเบียบ framework {#framework-organization}
 
-The Rust workspace groups related behavior into crates under `crates/`. The public package under
-`python/nautilus_trader/` provides Python facades and supporting utilities over the Rust
-implementation.
+Rust workspace จัดกลุ่มพฤติกรรมที่เกี่ยวข้องกันเป็น crate ภายใต้ `crates/`
 
-### Core and domain
+### Core และ domain {#core-and-domain}
 
-- `core`: Low-level time, string, serialization, and runtime primitives.
-- `model`: Trading domain types, including instruments, accounts, orders, positions, and market
-  data.
-- `common`: Shared runtime services, including the cache, message bus, clocks, actors, components,
-  and logging.
-- `serialization`: Schema and encoding support for model and event types.
+- `core`: primitive ระดับล่างด้านเวลา, string, serialization และ runtime
+- `model`: type ของ domain การเทรด รวมถึง instrument, account, order, position และ market data
+- `common`: service ของ runtime ที่ใช้ร่วมกัน รวมถึง cache, message bus, clock, actor, component และ logging
+- `serialization`: การรองรับ schema และ encoding สำหรับ type ของ model และ event
 
-### Trading and analysis
+### การเทรดและการวิเคราะห์ {#trading-and-analysis}
 
-- `analysis`: Trading performance statistics and analysis.
-- `indicators`: Technical indicators.
-- `data`: Market-data engines, aggregation, and data tooling.
-- `execution`: Order execution, emulation, and reconciliation primitives.
-- `portfolio`: Portfolio accounting and state.
-- `risk`: Pre-trade controls, position sizing, and trading state.
-- `trading`: Strategies and execution algorithms.
+- `analysis`: สถิติผลงานการเทรดและการวิเคราะห์
+- `indicators`: technical indicator
+- `data`: engine ด้าน market data, การ aggregate และเครื่องมือด้านข้อมูล
+- `execution`: primitive ด้าน order execution, emulation และ reconciliation
+- `portfolio`: การทำบัญชีและสถานะของ portfolio
+- `risk`: การควบคุมก่อนเทรด, การกำหนดขนาด position และสถานะการเทรด
+- `trading`: strategy และ execution algorithm
 
-### Infrastructure and runtimes
+### โครงสร้างพื้นฐานและ runtime {#infrastructure-and-runtimes}
 
-- `network` and `cryptography`: Networking clients, transport support, signing, and cryptographic
-  providers.
-- `infrastructure`, `persistence`, and `event_store`: Database backings, data catalogs, object
-  storage, and event-store integration.
-- `system`: The kernel shared by backtest, sandbox, and live
-  [environment contexts](#environment-contexts).
-- `backtest` and `live`: Environment-specific engines and nodes.
-- `adapters/*`: Venue, broker, data, blockchain, and sandbox integrations.
-- `pyo3`: The Python extension aggregator.
-- `plugin`, `cli`, and `testkit`: Plugin interfaces, command-line tools, and test support.
+- `network` และ `cryptography`: network client, การรองรับ transport, การ sign และผู้ให้บริการด้าน cryptography
+- `infrastructure`, `persistence` และ `event_store`: database backing, data catalog, object storage
+  และการเชื่อมต่อ event store
+- `system`: kernel ที่ใช้ร่วมกันโดย [environment context](#environment-contexts) แบบ backtest, sandbox และ live
+- `backtest` และ `live`: engine และ node เฉพาะของแต่ละ environment
+- `adapters/*`: integration กับ venue, broker, ข้อมูล, blockchain และ sandbox
+- `plugin`, `cli` และ `testkit`: interface ของ plugin, เครื่องมือ command-line และการรองรับการทดสอบ
 
-## Code structure
+## โครงสร้างโค้ด {#code-structure}
 
-The `crates/` directory contains the Rust implementation. PyO3 collects its Python bindings into
-the `nautilus_trader._libnautilus` extension module, and `python/nautilus_trader/` exposes the public
-Python facades.
+directory `crates/` เก็บ implementation ที่เป็น Rust
 
-The `nautilus-core` and `nautilus-model` crates keep an optional C FFI for native consumers. Other workspace
-crates use Rust APIs or PyO3 bindings.
+crate `nautilus-core` และ `nautilus-model` มี C FFI แบบ optional ไว้สำหรับผู้ใช้แบบ native ส่วน crate อื่นใน
+workspace ใช้ Rust API
 
-### Dependency flow
+### Rust crates {#rust-crates}
 
-```mermaid
-flowchart TB
-    subgraph trader["python/nautilus_trader<br/>Python"]
-    end
+manifest ของ Rust crate ประกาศ workspace dependency และ feature flag แบบ optional feature จะเปิดความสามารถ
+เสริมโดยไม่เพิ่มเข้าไปใน build ขั้นต่ำ
 
-    subgraph bindings["crates/pyo3<br/>PyO3"]
-    end
-
-    subgraph core["crates<br/>Rust"]
-    end
-
-    trader --> bindings
-    bindings --> core
-```
-
-### Rust crates
-
-Rust crate manifests declare workspace dependencies and optional feature flags. Features enable
-optional functionality without adding it to minimal builds.
-
-Selected direct workspace dependencies are shown below. Arrows point to dependencies. The diagram omits edges
-that do not clarify the overall direction.
+ด้านล่างแสดง direct workspace dependency ที่เลือกมาบางส่วน ลูกศรชี้ไปยัง dependency แผนภาพนี้ละ edge
+ที่ไม่ช่วยให้เห็นทิศทางโดยรวมได้ชัดขึ้น
 
 ```mermaid
 flowchart BT
@@ -673,82 +633,62 @@ flowchart BT
 
 **Feature flags**:
 
-| Feature     | Main crates                               | Effect                                                           |
+| Feature     | Crate หลัก                                 | ผล                                                             |
 | ----------- | ----------------------------------------- | ---------------------------------------------------------------- |
-| `streaming` | `data`, `system`, `live`, `backtest`      | Adds persistence support for catalog streaming.                  |
-| `cloud`     | `persistence`                             | Adds AWS, Azure, GCP, and HTTP object-store backends.            |
-| `python`    | Python-facing crates                      | Adds PyO3 bindings and the transitive features each crate needs. |
-| `defi`      | Domain, data, runtime, and binding crates | Adds DeFi and blockchain types and runtime paths.                |
+| `streaming` | `data`, `system`, `live`, `backtest`      | เพิ่มการรองรับ persistence สำหรับ catalog streaming                  |
+| `cloud`     | `persistence`                             | เพิ่ม backend ของ object store สำหรับ AWS, Azure, GCP และ HTTP     |
+| `defi`      | crate ด้าน domain, data, runtime และ binding | เพิ่ม type และเส้นทางของ runtime สำหรับ DeFi และ blockchain           |
 
-:::note
-Source builds require Rust. Prebuilt Python wheels do not require a Rust toolchain at runtime.
+### Type safety {#type-safety}
+
+codebase ของ Rust อาศัยการรับประกันของ compiler สำหรับโค้ดที่ปลอดภัย แต่ละ block ที่เป็น `unsafe` คือการเลือก
+ไม่ใช้การรับประกันเหล่านั้นอย่างชัดเจน ดังนั้นความปลอดภัยของหน่วยความจำและ type จึงขึ้นอยู่กับ invariant
+ที่ระบุไว้ในเอกสาร ดูส่วน Rust ใน [Developer Guide](../developer_guide/rust.md)
+
+### Errors และ exceptions {#errors-and-exceptions}
+
+เอกสาร API อธิบาย error ที่คาดว่าจะเกิดจาก NautilusTrader และเงื่อนไขที่ทำให้เกิด error เหล่านั้น
+
+### Processes และ threads {#processes-and-threads}
+
+:::warning[หนึ่ง node ต่อหนึ่ง process]
+การรัน `LiveNode` หรือ `BacktestNode` หลาย instance **พร้อมกัน** ใน process เดียวกันไม่ได้รับการรองรับ
+เพราะสถานะของ runtime ไม่ได้แยกออกจากกัน:
+
+- **โหมดของ logger และ timestamp**: ระบบ logging ใช้สถานะแบบ global ส่วน backtest จะสลับ clock ของ logging
+  ระหว่างโหมด static และ real-time
+- **สถานะ runtime แบบ thread-local**: node จะติดตั้ง message bus, registry ของ actor และ component
+  และ channel sender สำหรับ thread ที่ขับเคลื่อนมัน
+- **สถานะ runtime ระดับ process**: Tokio runtime และ worker ของ logging ใช้ร่วมกันทั้ง process
+
+การรันหลาย node แบบเรียงลำดับทำได้ เมื่อ dispose แต่ละ node ก่อนที่ node ถัดไปจะเริ่ม ก่อนสร้าง `LiveNode`
+ตัวใหม่บน thread เดียวกัน ให้ drop node ตัวก่อนหน้าด้วย การ dispose อย่างเดียวไม่ได้ปล่อย guard
+ที่ใช้ตอนสร้าง node มีการทดสอบเฉพาะสำหรับการสร้าง node แบบเรียงลำดับและการกู้คืนสถานะที่มี cache backing
+
+สำหรับ production ให้เพิ่มหลาย strategy เข้าไปใน `LiveNode` ตัวเดียวภายใน process หนึ่ง
+หากต้องการรันแบบขนานหรือแยก workload ให้รันแต่ละ node ใน process แยกของตัวเอง
 :::
 
-### Type safety
+### การจัดสรรหน่วยความจำ {#memory-allocation}
 
-The Rust codebase relies on the compiler's guarantees for safe code. Each `unsafe` block explicitly
-opts out of those guarantees, so memory and type safety depend on its documented invariants. See the
-Rust section of the [Developer Guide](../developer_guide/rust.md).
+แกนกลางแบบ event-driven จะจัดสรรและคืนหน่วยความจำของ object ระหว่างการ dispatch message, การจัดการ order event
+และการดูแล order book การเลือก allocator จึงมีผลต่อ throughput และหน่วยความจำที่ใช้จริง (resident memory)
+ผลที่ได้ขึ้นอยู่กับ workload, platform และการตั้งค่า build
 
-PyO3 validates bound arguments and converts Rust errors into Python exceptions:
+CLI `nautilus` ใช้ [mimalloc](https://crates.io/crates/mimalloc) สำหรับการจัดสรรหน่วยความจำของ Rust
+ให้เปรียบเทียบ allocator กับ workload ที่เป็นตัวแทนจริงก่อนเลือกใช้กับ binary ของตัวเอง บันทึก source revision,
+การตั้งค่า build, environment, วิธีการวัด, throughput และ resident memory ตาม
+[คู่มือ benchmarking](../developer_guide/benchmarking.md)
 
-:::info
-Passing an incompatible Python value to a typed PyO3 parameter raises a Python exception before the
-Rust method body runs.
-:::
+Rust binary หนึ่งตัว link global allocator ได้เพียงตัวเดียว และ library ไม่ได้บังคับเลือกให้ ดังนั้น crate ของ
+NautilusTrader จึงเป็นกลางต่อ allocator เมื่อ build โดยใช้ crate โดยตรง ให้เลือกเปิดใช้จาก binary ของตัวเอง
+(ดู [คู่มือ Rust](rust.md#memory-allocator))
 
-### Errors and exceptions
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-API documentation describes expected errors from NautilusTrader and the conditions that produce
-them.
-
-:::warning
-Python's standard library and third-party dependencies can also raise exceptions outside those
-documented contracts.
-:::
-
-### Processes and threads
-
-:::warning[One node per process]
-Running multiple `LiveNode` or `BacktestNode` instances **concurrently** in the same process is not
-supported because their runtime state is not isolated:
-
-- **Logger mode and timestamps**: The logging subsystem uses global state. Backtests switch the logging clock
-  between static and real-time modes.
-- **Thread-local runtime state**: A node installs its message bus, actor and component registries,
-  and channel senders for the thread that drives it.
-- **Process-wide runtime state**: The Tokio runtime and logging worker are shared by the process.
-
-Sequential execution of multiple nodes is supported when each node is disposed before the next
-one starts. Before constructing a replacement `LiveNode` on the same thread, also drop the previous
-node, or release all references to it in Python. Disposal alone does not release its construction
-guard. Focused tests exercise sequential node construction and cache-backed state recovery.
-
-For production deployments, add multiple strategies to one `LiveNode` within a process.
-For parallel execution or workload isolation, run each node in its own separate process.
-:::
-
-### Memory allocation
-
-The event-driven core allocates and frees objects during message dispatch, order event handling, and order
-book maintenance. Allocator choice can affect throughput and resident memory. The effect depends on the
-workload, platform, and build configuration.
-
-The `nautilus` CLI and Python wheels use [mimalloc](https://crates.io/crates/mimalloc) for Rust
-allocations. Compare allocators on representative workloads before choosing one for a custom binary.
-Record the source revision, build settings, environment, measurement method, throughput, and resident
-memory using the [benchmarking guide](../developer_guide/benchmarking.md).
-
-A Rust binary links exactly one global allocator, and libraries do not impose one, so the NautilusTrader
-crates stay allocator-neutral. When building directly against the crates, opt in from your own binary (see the
-[Rust guide](rust.md#memory-allocator)).
-
-## Related guides
-
-- [Design principles](../developer_guide/design_principles.md): Principles, policies, and trade-offs.
-- [Identifier storage](../developer_guide/rust.md#identifier-storage): Identifier lifetimes and memory costs.
-- [Behavioral models](behavioral_models.md): Model representation and dispatch.
-- [Overview](overview.md): High-level introduction to NautilusTrader.
-- [Python](python.md): Python ownership, runtime, and public API boundaries.
-- [Rust](rust.md): Native Rust APIs and runtime use.
-- [Message Bus](message_bus.md): Core messaging infrastructure.
+- [Design principles](../developer_guide/design_principles.md): หลักการ นโยบาย และ trade-off
+- [Identifier storage](../developer_guide/rust.md#identifier-storage): lifetime ของ identifier และต้นทุนด้านหน่วยความจำ
+- [Behavioral models](behavioral_models.md): การแทนและการ dispatch ของ model
+- [Overview](overview.md): ภาพรวมระดับสูงของ NautilusTrader
+- [Rust](rust.md): Rust API แบบ native และการใช้งาน runtime
+- [Message Bus](message_bus.md): โครงสร้างพื้นฐานด้าน messaging หลัก

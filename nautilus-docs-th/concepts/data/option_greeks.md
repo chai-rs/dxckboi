@@ -1,33 +1,31 @@
 # OptionGreeks
 
-`OptionGreeks` represents venue-provided option sensitivities and implied volatility for one option
-instrument. As a native `Data` enum variant, it can be recorded, replayed, and queried through the
-catalog.
+`OptionGreeks` แทนค่า sensitivity ของ option และ implied volatility ที่ venue ให้มาสำหรับ option
+instrument หนึ่งตัว เนื่องจากเป็น variant ของ enum `Data` แบบ native จึงบันทึก, replay และ query
+ผ่าน catalog ได้
 
-## Fields
+## ฟิลด์ {#fields}
 
-| Field              | Rust type           | Python type        | Required/default | Notes                                      |
-| ------------------ | ------------------- | ------------------ | ---------------- | ------------------------------------------ |
-| `instrument_id`    | `InstrumentId`      | `InstrumentId`     | Required         | Option instrument for the Greeks.          |
-| `convention`       | `GreeksConvention`  | `GreeksConvention` | Default          | Numeraire convention for the values.       |
-| `greeks`           | `OptionGreekValues` | Separate floats    | Required         | Delta, gamma, vega, theta, and rho.        |
-| `mark_iv`          | `Option<f64>`       | `float \| None`    | `None`           | Mark implied volatility.                   |
-| `bid_iv`           | `Option<f64>`       | `float \| None`    | `None`           | Bid implied volatility.                    |
-| `ask_iv`           | `Option<f64>`       | `float \| None`    | `None`           | Ask implied volatility.                    |
-| `underlying_price` | `Option<f64>`       | `float \| None`    | `None`           | Underlying price used for the calculation. |
-| `open_interest`    | `Option<f64>`       | `float \| None`    | `None`           | Open interest when published.              |
-| `ts_event`         | `UnixNanos`         | `int`              | Required         | Event timestamp in nanoseconds.            |
-| `ts_init`          | `UnixNanos`         | `int`              | Required         | Initialization timestamp in nanoseconds.   |
+| ฟิลด์               | Rust type           | จำเป็น/ค่าเริ่มต้น  | หมายเหตุ                                      |
+| ------------------ | ------------------- | ---------------- | ------------------------------------------ |
+| `instrument_id`    | `InstrumentId`      | Required         | option instrument ของค่า greeks นี้          |
+| `convention`       | `GreeksConvention`  | Default          | convention ของ numeraire สำหรับค่าเหล่านี้       |
+| `greeks`           | `OptionGreekValues` | Required         | Delta, gamma, vega, theta และ rho          |
+| `mark_iv`          | `Option<f64>`       | `None`           | Mark implied volatility                    |
+| `bid_iv`           | `Option<f64>`       | `None`           | Bid implied volatility                     |
+| `ask_iv`           | `Option<f64>`       | `None`           | Ask implied volatility                     |
+| `underlying_price` | `Option<f64>`       | `None`           | ราคาของสินทรัพย์อ้างอิงที่ใช้ในการคำนวณ            |
+| `open_interest`    | `Option<f64>`       | `None`           | Open interest เมื่อมีการเผยแพร่                |
+| `ts_event`         | `UnixNanos`         | Required         | timestamp ของ event หน่วยนาโนวินาที           |
+| `ts_init`          | `UnixNanos`         | Required         | timestamp ตอนสร้าง หน่วยนาโนวินาที             |
 
-## Behavior
+## พฤติกรรม {#behavior}
 
-- `OptionGreeks` dereferences to its core `OptionGreekValues` on the Rust surface.
-- The Python constructor accepts `delta`, `gamma`, `vega`, `theta`, and optional `rho`
-  as separate float arguments.
-- Option chain subscriptions use `underlying_price` and deltas to resolve ATM and
-  delta-based strike windows.
+- ใน Rust, `OptionGreeks` dereference ไปเป็น `OptionGreekValues` ซึ่งเป็นแกนหลักของมัน
+- การ subscribe option chain ใช้ `underlying_price` และค่า delta เพื่อหาช่วง strike แบบ ATM และแบบอิง
+  delta
 
-## Example
+## ตัวอย่าง {#example}
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -57,29 +55,7 @@ let greeks = OptionGreeks {
 };
 ```
 
-```python tab="Python"
-from nautilus_trader.model import InstrumentId
-from nautilus_trader.model import OptionGreeks
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-greeks = OptionGreeks(
-    instrument_id=InstrumentId.from_str("BTC-20240628-65000-C.DERIBIT"),
-    delta=0.51,
-    gamma=0.0002,
-    vega=12.5,
-    theta=-3.2,
-    rho=0.1,
-    mark_iv=0.55,
-    bid_iv=0.54,
-    ask_iv=0.56,
-    underlying_price=65_000.0,
-    open_interest=120.0,
-    ts_event=1_000_000_000,
-    ts_init=1_000_000_100,
-)
-```
-
-## Related guides
-
-- [Greeks](../greeks.md) covers venue-provided and locally computed Greeks.
-- [Options](../options.md#optiongreeks-data-type) covers option chain subscriptions.
-- [Python API reference](/docs/python-api-latest/model/data.html) lists Python members.
+- [Greeks](../greeks.md) อธิบาย greeks ที่ venue ให้มาและที่คำนวณเองในเครื่อง
+- [Options](../options.md#optiongreeks-data-type) อธิบายการ subscribe option chain

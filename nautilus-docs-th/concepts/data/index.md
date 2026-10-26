@@ -1,604 +1,461 @@
 # Data
 
-NautilusTrader supports granular order book data, quotes, trades, bars, reference prices, and
-custom data. This overview links to the built-in types and explains the concepts shared across
-backtesting, sandbox, and live environments.
+NautilusTrader รองรับข้อมูล order book แบบละเอียด, quote, trade, bar, ราคาอ้างอิง และ custom data
+หน้าภาพรวมนี้รวมลิงก์ไปยังชนิดข้อมูล built-in และอธิบายแนวคิดที่ใช้ร่วมกันในสภาพแวดล้อม backtest, sandbox
+และ live
 
-## Built-in data types
+## ชนิดข้อมูล built-in {#built-in-data-types}
 
-Each main built-in market data type has a dedicated guide to its fields, behavior, and construction.
+market data แบบ built-in หลักแต่ละชนิดมีคู่มือเฉพาะที่อธิบายฟิลด์ พฤติกรรม และการสร้าง
 
-| Data type                                     | Category             | Description                                          |
+| ชนิดข้อมูล                                    | หมวดหมู่             | คำอธิบาย                                             |
 | --------------------------------------------- | -------------------- | ---------------------------------------------------- |
-| [`OrderBookDelta`](order_book_delta.md)       | Order book           | Single incremental order book change.                |
-| [`OrderBookDeltas`](order_book_deltas.md)     | Order book           | Batch of related order book deltas.                  |
-| [`OrderBookDepth`](order_book_depth.md)       | Order book           | Variable-depth bid and ask snapshots.                |
-| [`QuoteTick`](quote_tick.md)                  | Top-of-book          | Best bid and ask prices and sizes.                   |
-| [`TradeTick`](trade_tick.md)                  | Trades               | Single venue trade or match event.                   |
-| [`Bar`](bar.md)                               | Aggregation          | OHLCV bar for a specific `BarType`.                  |
-| [`MarkPriceUpdate`](mark_price_update.md)     | Derivative reference | Mark price for a derivatives instrument.             |
-| [`IndexPriceUpdate`](index_price_update.md)   | Derivative reference | Index price used by a derivatives market.            |
-| [`FundingRateUpdate`](funding_rate_update.md) | Derivative reference | Funding rate and next funding metadata.              |
-| [`OptionGreeks`](option_greeks.md)            | Options              | Venue-provided Greeks and implied volatility.        |
-| [`InstrumentStatus`](instrument_status.md)    | Instrument event     | Trading, quoting, and halt status changes.           |
-| [`InstrumentClose`](instrument_close.md)      | Instrument event     | Close, settlement, or other venue close price event. |
+| [`OrderBookDelta`](order_book_delta.md)       | Order book           | การเปลี่ยนแปลงของ order book แบบ incremental หนึ่งรายการ |
+| [`OrderBookDeltas`](order_book_deltas.md)     | Order book           | ชุดของ order book delta ที่เกี่ยวข้องกัน              |
+| [`OrderBookDepth`](order_book_depth.md)       | Order book           | snapshot ฝั่ง bid และ ask แบบกำหนดความลึกได้          |
+| [`QuoteTick`](quote_tick.md)                  | Top-of-book          | ราคาและขนาดของ bid และ ask ที่ดีที่สุด                |
+| [`TradeTick`](trade_tick.md)                  | Trades               | trade หรือ match event หนึ่งรายการจาก venue           |
+| [`Bar`](bar.md)                               | Aggregation          | bar แบบ OHLCV ของ `BarType` ที่ระบุ                  |
+| [`MarkPriceUpdate`](mark_price_update.md)     | Derivative reference | mark price ของ instrument ประเภท derivatives          |
+| [`IndexPriceUpdate`](index_price_update.md)   | Derivative reference | index price ที่ตลาด derivatives ใช้                   |
+| [`FundingRateUpdate`](funding_rate_update.md) | Derivative reference | funding rate และ metadata ของรอบ funding ถัดไป        |
+| [`OptionGreeks`](option_greeks.md)            | Options              | Greeks และ implied volatility ที่ venue ให้มา         |
+| [`InstrumentStatus`](instrument_status.md)    | Instrument event     | การเปลี่ยนสถานะ trading, quoting และ halt             |
+| [`InstrumentClose`](instrument_close.md)      | Instrument event     | event ราคาปิด, ราคา settlement หรือราคาปิดอื่นของ venue |
 
-Topic-addressable data on the message bus stays under the `data` root:
+ข้อมูลที่ระบุตำแหน่งด้วย topic บน message bus จะอยู่ภายใต้ root `data`:
 
-- Live streams use `data.<kind>...`.
-- The data pipeline uses `data.pipeline.<kind>...`.
+- live stream ใช้ `data.<kind>...`
+- data pipeline ใช้ `data.pipeline.<kind>...`
 
-See [Message Bus](../message_bus.md#topic-hierarchy) for the topic hierarchy.
+ดูลำดับชั้นของ topic ได้ที่ [Message Bus](../message_bus.md#topic-hierarchy)
 
-## Order books
+## Order book {#order-books}
 
-A Rust `OrderBook` maintains state for one instrument in backtesting and live trading. NautilusTrader
-supports these book types:
+`OrderBook` ของ Rust ดูแล state ของ instrument หนึ่งตัว ทั้งใน backtest และ live trading NautilusTrader
+รองรับ book type ดังนี้:
 
-- `L3_MBO`: Level 3 market-by-order (MBO) data, keyed by order ID at each price level.
-- `L2_MBP`: Level 2 market-by-price (MBP) data, aggregated by price level.
-- `L1_MBP`: Level 1 market-by-price (MBP) top-of-book data, also known as best bid and offer (BBO).
+- `L3_MBO`: ข้อมูล Level 3 แบบ market-by-order (MBO) ใช้ order ID เป็น key ในแต่ละระดับราคา
+- `L2_MBP`: ข้อมูล Level 2 แบบ market-by-price (MBP) รวมตามระดับราคา
+- `L1_MBP`: ข้อมูล Level 1 แบบ market-by-price (MBP) ระดับ top-of-book หรือที่เรียกว่า best bid and offer (BBO)
 
-Quote, trade, and bar data (`QuoteTick`, `TradeTick`, and `Bar`) can also drive `L1_MBP` books in
-backtests.
+ข้อมูล quote, trade และ bar (`QuoteTick`, `TradeTick` และ `Bar`) ก็ขับเคลื่อน book แบบ `L1_MBP` ใน
+backtest ได้เช่นกัน
 
-### Delta flags and event boundaries
+### Delta flag และขอบเขตของ event {#delta-flags-and-event-boundaries}
 
-Each `OrderBookDelta` carries a `flags` field using `RecordFlag` bitmask values
-to signal event boundaries to the `DataEngine`:
+`OrderBookDelta` แต่ละตัวมีฟิลด์ `flags` ที่ใช้ค่า bitmask ของ `RecordFlag` เพื่อบอกขอบเขตของ event ให้
+`DataEngine`:
 
-- `F_LAST`: Marks the final delta in a logical event group. When `buffer_deltas` is enabled, the `DataEngine`
-  accumulates deltas and only publishes to subscribers when it encounters `F_LAST`. Each event group **must**
-  end with a delta that has `F_LAST` set. `BacktestNode` also closes each replayed `OrderBookDeltas` batch at
-  this flag. See [order book delta replay](../backtesting/apis-and-runs.md#order-book-delta-replay).
-- `F_SNAPSHOT`: Marks deltas that belong to a snapshot (as opposed to an
-  incremental update). Snapshot sequences begin with a `Clear` action followed
-  by `Add` deltas reconstructing the full book state. The last delta in a
-  snapshot has both `F_SNAPSHOT | F_LAST` set.
+- `F_LAST`: ระบุ delta ตัวสุดท้ายในกลุ่ม event เชิงตรรกะ เมื่อเปิด `buffer_deltas` แล้ว `DataEngine` จะสะสม
+  delta ไว้และ publish ให้ subscriber เมื่อเจอ `F_LAST` เท่านั้น กลุ่ม event ทุกกลุ่ม **ต้อง** จบด้วย delta ที่ตั้ง
+  `F_LAST` ไว้ `BacktestNode` ก็ปิดแต่ละชุด `OrderBookDeltas` ที่ replay ที่ flag นี้เช่นกัน ดู
+  [การ replay order book delta](../backtesting/apis-and-runs.md#order-book-delta-replay)
+- `F_SNAPSHOT`: ระบุ delta ที่เป็นส่วนหนึ่งของ snapshot (ต่างจากการอัปเดตแบบ incremental) ลำดับของ snapshot
+  เริ่มด้วย action `Clear` ตามด้วย delta แบบ `Add` ที่สร้าง state ของ book ทั้งหมดขึ้นมาใหม่ delta ตัวสุดท้าย
+  ใน snapshot จะตั้งทั้ง `F_SNAPSHOT | F_LAST`
 
-:::warning[Missing F_LAST stalls buffered consumers]
-A missing `F_LAST` on the final delta in an event group causes buffered consumers
-to accumulate deltas indefinitely without publishing. This applies to incremental
-updates and snapshots alike, including empty book snapshots where only a `Clear`
-delta is emitted.
+:::warning[ไม่มี F_LAST ทำให้ consumer แบบ buffer ค้าง]
+ถ้า delta ตัวสุดท้ายในกลุ่ม event ไม่มี `F_LAST` consumer แบบ buffer จะสะสม delta ไปเรื่อย ๆ โดยไม่ publish
+ซึ่งเกิดได้ทั้งกับการอัปเดตแบบ incremental และ snapshot รวมถึง snapshot ของ book ว่างที่ส่งออกมาเพียง delta
+`Clear` ตัวเดียว
 :::
 
-## Instruments
+## Instrument {#instruments}
 
-All market data belongs to an instrument. The instrument definition supplies the
-identity, precision, price and size increments, limits, currencies, and contract
-semantics that make the data meaningful.
+market data ทั้งหมดเป็นของ instrument ตัวใดตัวหนึ่ง นิยามของ instrument ให้ข้อมูล identity, precision,
+ขั้นของราคาและขนาด, ขีดจำกัด, สกุลเงิน และความหมายของสัญญา ซึ่งทำให้ข้อมูลมีความหมาย
 
-See [Instruments](../instruments/) for the instrument taxonomy and per-type guides.
+ดูการจัดหมวดหมู่ instrument และคู่มือของแต่ละประเภทได้ที่ [Instruments](../instruments/)
 
-## Bars and aggregation
+## Bar และการ aggregate {#bars-and-aggregation}
 
-### Introduction to bars
+### รู้จัก bar {#introduction-to-bars}
 
-A **bar**, also known as a candle, candlestick, or kline, summarizes price and volume over an interval:
+**bar** หรือที่เรียกว่า candle, candlestick หรือ kline สรุปราคาและ volume ในช่วงเวลาหนึ่ง:
 
-- Opening price
-- Highest price
-- Lowest price
-- Closing price
-- Traded volume (or ticks as a volume proxy)
+- ราคาเปิด
+- ราคาสูงสุด
+- ราคาต่ำสุด
+- ราคาปิด
+- volume ที่ซื้อขาย (หรือจำนวน tick ที่ใช้แทน volume)
 
-An **aggregation method** defines how NautilusTrader groups input data into bars.
+**aggregation method** กำหนดว่า NautilusTrader จะจัดกลุ่มข้อมูล input เป็น bar อย่างไร
 
-### Purpose of data aggregation
+### จุดประสงค์ของการ aggregate ข้อมูล {#purpose-of-data-aggregation}
 
-Aggregation converts granular market data into bars that:
+การ aggregate แปลง market data แบบละเอียดเป็น bar ที่:
 
-- Supply inputs for technical indicators and strategies.
-- Match the time resolution a strategy needs.
-- Reduce storage and processing compared with high-frequency order book data.
+- ใช้เป็น input ของ technical indicator และ strategy
+- ตรงกับความละเอียดของเวลาที่ strategy ต้องการ
+- ลดพื้นที่เก็บข้อมูลและการประมวลผลเมื่อเทียบกับข้อมูล order book ความถี่สูง
 
-### Aggregation methods
+### Aggregation method {#aggregation-methods}
 
-NautilusTrader supports these aggregation methods:
+NautilusTrader รองรับ aggregation method ต่อไปนี้:
 
-| Name               | Description                                               | Category    |
+| ชื่อ               | คำอธิบาย                                                  | หมวดหมู่    |
 | :----------------- | :-------------------------------------------------------- | :---------- |
-| `TICK`             | Number of ticks.                                          | Threshold   |
-| `TICK_IMBALANCE`   | Buy/sell imbalance of ticks.                              | Threshold   |
-| `TICK_RUNS`        | Sequential buy/sell runs of ticks.                        | Information |
-| `VOLUME`           | Traded volume.                                            | Threshold   |
-| `VOLUME_IMBALANCE` | Buy/sell imbalance of traded volume.                      | Threshold   |
-| `VOLUME_RUNS`      | Sequential buy/sell runs of traded volume.                | Information |
-| `VALUE`            | Notional trade value, also known as dollar bars.          | Threshold   |
-| `VALUE_IMBALANCE`  | Buy/sell imbalance of notional trade value.               | Threshold   |
-| `VALUE_RUNS`       | Sequential buy/sell runs of notional trade value.         | Information |
-| `RENKO`            | Fixed price movements, with brick size measured in ticks. | Price       |
-| `MILLISECOND`      | Time intervals with millisecond granularity.              | Time        |
-| `SECOND`           | Time intervals with second granularity.                   | Time        |
-| `MINUTE`           | Time intervals with minute granularity.                   | Time        |
-| `HOUR`             | Time intervals with hour granularity.                     | Time        |
-| `DAY`              | Time intervals with day granularity.                      | Time        |
-| `WEEK`             | Time intervals with week granularity.                     | Time        |
-| `MONTH`            | Time intervals with month granularity.                    | Time        |
-| `YEAR`             | Time intervals with year granularity.                     | Time        |
+| `TICK`             | จำนวน tick                                                | Threshold   |
+| `TICK_IMBALANCE`   | ความไม่สมดุลระหว่างฝั่งซื้อ/ขายของ tick                   | Threshold   |
+| `TICK_RUNS`        | การซื้อ/ขายต่อเนื่องกัน (run) ของ tick                    | Information |
+| `VOLUME`           | volume ที่ซื้อขาย                                         | Threshold   |
+| `VOLUME_IMBALANCE` | ความไม่สมดุลระหว่างฝั่งซื้อ/ขายของ volume                 | Threshold   |
+| `VOLUME_RUNS`      | การซื้อ/ขายต่อเนื่องกัน (run) ของ volume                  | Information |
+| `VALUE`            | มูลค่า notional ของ trade หรือที่เรียกว่า dollar bar       | Threshold   |
+| `VALUE_IMBALANCE`  | ความไม่สมดุลระหว่างฝั่งซื้อ/ขายของมูลค่า notional         | Threshold   |
+| `VALUE_RUNS`       | การซื้อ/ขายต่อเนื่องกัน (run) ของมูลค่า notional          | Information |
+| `RENKO`            | การเคลื่อนของราคาแบบคงที่ โดยวัดขนาด brick เป็นจำนวน tick | Price       |
+| `MILLISECOND`      | ช่วงเวลาระดับมิลลิวินาที                                  | Time        |
+| `SECOND`           | ช่วงเวลาระดับวินาที                                       | Time        |
+| `MINUTE`           | ช่วงเวลาระดับนาที                                         | Time        |
+| `HOUR`             | ช่วงเวลาระดับชั่วโมง                                      | Time        |
+| `DAY`              | ช่วงเวลาระดับวัน                                          | Time        |
+| `WEEK`             | ช่วงเวลาระดับสัปดาห์                                      | Time        |
+| `MONTH`            | ช่วงเวลาระดับเดือน                                        | Time        |
+| `YEAR`             | ช่วงเวลาระดับปี                                           | Time        |
 
-The threshold, information, and time categories follow the `BarSpecification` predicates. `RENKO`
-is price-driven and has no matching predicate. The broader information-driven concept below
-includes both imbalance and runs bars.
+หมวด threshold, information และ time เป็นไปตาม predicate ของ `BarSpecification` ส่วน `RENKO` ขับเคลื่อน
+ด้วยราคาและไม่มี predicate ที่ตรงกัน แนวคิด information-driven ที่กว้างกว่าในหัวข้อถัดไปครอบคลุมทั้ง bar แบบ
+imbalance และ runs
 
-### Information-driven bars
+### Information-driven bar {#information-driven-bars}
 
-Information-driven bars adapt their sampling frequency to market activity rather than using fixed
-intervals. They are based on the concept of **aggressor side** (whether the trade initiator was a
-buyer or seller) and come in two families: **imbalance** and **runs**.
+information-driven bar ปรับความถี่ในการ sample ตามกิจกรรมของตลาด แทนที่จะใช้ช่วงเวลาคงที่ โดยอิงแนวคิดของ
+**aggressor side** (ผู้เริ่ม trade เป็นฝั่งซื้อหรือฝั่งขาย) และแบ่งเป็นสองตระกูล คือ **imbalance** และ **runs**
 
-**Imbalance bars** close when the absolute *net* buy/sell activity reaches the configured step.
-Each trade contributes a signed value: positive for buyer-initiated trades and negative for
-seller-initiated trades. Opposing trades cancel each other out, so these bars form more slowly in
-balanced markets and faster during directional moves.
+**Imbalance bar** จะปิดเมื่อกิจกรรมซื้อ/ขาย *สุทธิ* แบบค่าสัมบูรณ์ถึง step ที่ตั้งไว้ แต่ละ trade ให้ค่าแบบมีเครื่องหมาย:
+บวกสำหรับ trade ที่ฝั่งซื้อเป็นผู้เริ่ม และลบสำหรับ trade ที่ฝั่งขายเป็นผู้เริ่ม trade ที่ทิศทางตรงข้ามกันจะหักล้างกัน
+bar ชนิดนี้จึงเกิดช้าลงในตลาดที่สมดุล และเกิดเร็วขึ้นเมื่อราคามีทิศทาง
 
-**Runs bars** close when *consecutive* activity from the same aggressor side reaches a threshold.
-They reset their counter when the aggressor side changes, making them sensitive to sustained
-one-sided pressure rather than net imbalance.
+**Runs bar** จะปิดเมื่อกิจกรรม *ต่อเนื่อง* จาก aggressor side เดียวกันถึง threshold ตัวนับจะ reset เมื่อ
+aggressor side เปลี่ยน ทำให้ไวต่อแรงกดดันด้านเดียวที่ต่อเนื่อง มากกว่าความไม่สมดุลสุทธิ
 
-Both families have three variants based on what is measured:
+ทั้งสองตระกูลมีสามรูปแบบตามสิ่งที่วัด:
 
-| Variant | Imbalance          | Runs          | What is measured              |
+| รูปแบบ  | Imbalance          | Runs          | สิ่งที่วัด                    |
 | :------ | :----------------- | :------------ | :---------------------------- |
-| Tick    | `TICK_IMBALANCE`   | `TICK_RUNS`   | Number of trades.             |
-| Volume  | `VOLUME_IMBALANCE` | `VOLUME_RUNS` | Traded quantity.              |
-| Value   | `VALUE_IMBALANCE`  | `VALUE_RUNS`  | Price multiplied by quantity. |
+| Tick    | `TICK_IMBALANCE`   | `TICK_RUNS`   | จำนวน trade                   |
+| Volume  | `VOLUME_IMBALANCE` | `VOLUME_RUNS` | ปริมาณที่ซื้อขาย              |
+| Value   | `VALUE_IMBALANCE`  | `VALUE_RUNS`  | ราคาคูณด้วยปริมาณ             |
 
-Information-driven bars require `TradeTick` data because they need the `aggressor_side` field to
-classify each trade. They cannot be aggregated from `QuoteTick` data alone.
+information-driven bar ต้องใช้ข้อมูล `TradeTick` เพราะต้องใช้ฟิลด์ `aggressor_side` ในการจำแนกแต่ละ trade
+จึง aggregate จากข้อมูล `QuoteTick` เพียงอย่างเดียวไม่ได้
 
-### Types of aggregation
+### ประเภทของการ aggregate {#types-of-aggregation}
 
-NautilusTrader supports three aggregation inputs:
+NautilusTrader รองรับ input สำหรับการ aggregate สามแบบ:
 
-| Input         | Result                                    | Price type             | Syntax requirement  |
+| Input         | ผลลัพธ์                                   | Price type             | ข้อกำหนดของ syntax  |
 | ------------- | ----------------------------------------- | ---------------------- | ------------------- |
-| `TradeTick`   | Trade-to-bar aggregation.                 | `LAST`                 | No `@` source.      |
-| `QuoteTick`   | Quote-to-bar aggregation.                 | `BID`, `ASK`, or `MID` | No `@` source.      |
-| Smaller `Bar` | Bar-to-bar aggregation into a larger bar. | Target bar price type. | Source follows `@`. |
+| `TradeTick`   | aggregate จาก trade เป็น bar              | `LAST`                 | ไม่มี source หลัง `@` |
+| `QuoteTick`   | aggregate จาก quote เป็น bar              | `BID`, `ASK` หรือ `MID` | ไม่มี source หลัง `@` |
+| `Bar` ที่เล็กกว่า | aggregate จาก bar เป็น bar ที่ใหญ่กว่า | price type ของ target bar | source ตามหลัง `@` |
 
-### Bar types
+### Bar type {#bar-types}
 
-`BarType` identifies a bar by:
+`BarType` ระบุ bar ด้วย:
 
-- **Instrument ID** (`InstrumentId`): The instrument for the bar.
+- **Instrument ID** (`InstrumentId`): instrument ของ bar
 - **Bar specification** (`BarSpecification`):
-  - `step`: The interval or frequency.
-  - `aggregation`: The aggregation method.
-  - `price_type`: The price basis, such as bid, ask, mid, or last.
-- **Aggregation source** (`AggregationSource`): Whether NautilusTrader or an external venue or data
-  provider aggregated the bar.
+  - `step`: ช่วงหรือความถี่
+  - `aggregation`: aggregation method
+  - `price_type`: ฐานของราคา เช่น bid, ask, mid หรือ last
+- **Aggregation source** (`AggregationSource`): NautilusTrader เป็นผู้ aggregate bar หรือ venue/data provider
+  ภายนอกเป็นผู้ aggregate
 
-The Rust/PyO3 `BarSpecification` validates fixed-subunit time aggregations so bars align cleanly
-with their parent clock or calendar unit:
+`BarSpecification` ฝั่ง Rust ตรวจสอบการ aggregate ตามเวลาแบบ fixed-subunit เพื่อให้ bar ตรงแนวกับหน่วยของ
+clock หรือปฏิทินที่ใหญ่กว่าอย่างเรียบร้อย:
 
-- `MILLISECOND` steps must divide 1000 and be less than 1000.
-- `SECOND` and `MINUTE` steps must divide 60 and be less than 60.
-- `HOUR` steps must divide 24 and be less than 24.
-- `MONTH` steps must divide 12 and may equal 12.
+- step ของ `MILLISECOND` ต้องหาร 1000 ลงตัวและน้อยกว่า 1000
+- step ของ `SECOND` และ `MINUTE` ต้องหาร 60 ลงตัวและน้อยกว่า 60
+- step ของ `HOUR` ต้องหาร 24 ลงตัวและน้อยกว่า 24
+- step ของ `MONTH` ต้องหาร 12 ลงตัว และเท่ากับ 12 ได้
 
-Except for `12-MONTH`, use the next larger aggregation when the step equals a parent unit, such as
-`1-HOUR` instead of `60-MINUTE`.
+ยกเว้น `12-MONTH` เมื่อ step เท่ากับหน่วยที่ใหญ่กว่า ให้ใช้ aggregation ระดับถัดไปแทน เช่น ใช้ `1-HOUR`
+แทน `60-MINUTE`
 
-In this model, `DAY`, `WEEK`, `YEAR`, threshold, information-driven, and `RENKO` bars are not
-restricted by the fixed-subunit rule. Time aggregations must also convert to a duration and
-nanosecond interval, so an oversized `DAY`, `WEEK`, or `YEAR` step is rejected.
+ใน model นี้ bar แบบ `DAY`, `WEEK`, `YEAR`, threshold, information-driven และ `RENKO` ไม่ถูกจำกัดด้วยกฎ
+fixed-subunit การ aggregate ตามเวลายังต้องแปลงเป็น duration และช่วงเวลาระดับ nanosecond ได้ด้วย ดังนั้น step
+ของ `DAY`, `WEEK` หรือ `YEAR` ที่ใหญ่เกินไปจะถูกปฏิเสธ
 
-Bar types can also be classified as either *standard* or *composite*:
+bar type ยังแบ่งได้เป็นแบบ *standard* หรือ *composite*:
 
-- **Standard**: Generated from granular market data, such as quote ticks or trade ticks.
-- **Composite**: Derived from a finer-grained bar type, such as 5-minute bars aggregated from
-  1-minute bars.
+- **Standard**: สร้างจาก market data แบบละเอียด เช่น quote tick หรือ trade tick
+- **Composite**: ได้มาจาก bar type ที่ละเอียดกว่า เช่น bar 5 นาทีที่ aggregate จาก bar 1 นาที
 
-### Aggregation sources
+### Aggregation source {#aggregation-sources}
 
-Bar data aggregation can be either *internal* or *external*:
+การ aggregate ข้อมูล bar เป็นได้ทั้งแบบ *internal* หรือ *external*:
 
-- `INTERNAL`: NautilusTrader aggregates the bar.
-- `EXTERNAL`: A venue or data provider aggregates the bar.
+- `INTERNAL`: NautilusTrader เป็นผู้ aggregate bar
+- `EXTERNAL`: venue หรือ data provider เป็นผู้ aggregate bar
 
-For bar-to-bar aggregation, the target is always `INTERNAL`. The source can be `INTERNAL` or
-`EXTERNAL`.
+สำหรับการ aggregate จาก bar เป็น bar นั้น target จะเป็น `INTERNAL` เสมอ ส่วน source เป็นได้ทั้ง `INTERNAL`
+หรือ `EXTERNAL`
 
-### Defining bar types with string syntax
+### การนิยาม bar type ด้วย string syntax {#defining-bar-types-with-string-syntax}
 
-#### Standard bars
+#### Standard bar {#standard-bars}
 
-Define a standard bar type with:
+นิยาม standard bar type ด้วย:
 
 `{instrument_id}-{step}-{aggregation}-{price_type}-{INTERNAL | EXTERNAL}`
 
-This example defines 5-minute AAPL trade bars that NautilusTrader aggregates locally:
+ตัวอย่างนี้นิยาม trade bar 5 นาทีของ AAPL ที่ NautilusTrader aggregate เองภายใน:
+`AAPL.XNAS-5-MINUTE-LAST-INTERNAL`
 
-```python
-bar_type = BarType.from_str("AAPL.XNAS-5-MINUTE-LAST-INTERNAL")
-```
+#### Composite bar {#composite-bars}
 
-#### Composite bars
-
-Define a composite bar type with:
+นิยาม composite bar type ด้วย:
 
 `{instrument_id}-{step}-{aggregation}-{price_type}-INTERNAL@{step}-{aggregation}-{INTERNAL | EXTERNAL}`
 
-- The derived bar type must use an `INTERNAL` aggregation source (since this is how the bar is aggregated).
-- The sampled bar type must be finer-grained than the derived bar type.
-- The sampled instrument ID is inferred to match that of the derived bar type.
-- Composite bars can be aggregated *from* `INTERNAL` or `EXTERNAL` aggregation sources.
+- bar type ที่ได้มาต้องใช้ aggregation source เป็น `INTERNAL` (เพราะเป็นวิธีที่ bar ถูก aggregate)
+- bar type ที่ถูก sample ต้องละเอียดกว่า bar type ที่ได้มา
+- instrument ID ของ bar ที่ถูก sample จะอนุมานให้ตรงกับของ bar type ที่ได้มา
+- composite bar สามารถ aggregate *จาก* aggregation source แบบ `INTERNAL` หรือ `EXTERNAL` ก็ได้
 
-This example defines internal 5-minute AAPL trade bars aggregated from external 1-minute bars:
+ตัวอย่างนี้นิยาม trade bar 5 นาทีของ AAPL แบบ internal ที่ aggregate จาก bar 1 นาทีแบบ external:
+`AAPL.XNAS-5-MINUTE-LAST-INTERNAL@1-MINUTE-EXTERNAL`
 
-```python
-bar_type = BarType.from_str("AAPL.XNAS-5-MINUTE-LAST-INTERNAL@1-MINUTE-EXTERNAL")
-```
+### ตัวอย่าง syntax ของการ aggregate {#aggregation-syntax-examples}
 
-### Aggregation syntax examples
-
-The `BarType` string format encodes both the target bar type and, optionally, the source data type:
+รูปแบบ string ของ `BarType` เข้ารหัสทั้ง target bar type และ (ถ้ามี) ชนิดของข้อมูลต้นทาง:
 
 ```text
 {instrument_id}-{step}-{aggregation}-{price_type}-{source}@{step}-{aggregation}-{source}
 ```
 
-The part after `@` applies only to bar-to-bar aggregation:
+ส่วนที่อยู่หลัง `@` ใช้เฉพาะกับการ aggregate จาก bar เป็น bar:
 
-- **Without `@`**: Aggregate from `TradeTick` objects for `LAST`, or `QuoteTick` objects for
-  `BID`, `ASK`, or `MID`.
-- **With `@`**: Aggregate from existing `Bar` objects of the specified source type.
+- **ไม่มี `@`**: aggregate จาก object `TradeTick` สำหรับ `LAST` หรือจาก object `QuoteTick` สำหรับ `BID`,
+  `ASK` หรือ `MID`
+- **มี `@`**: aggregate จาก object `Bar` ที่มีอยู่แล้วตามชนิด source ที่ระบุ
 
-#### Trade-to-bar example
+ตัวอย่าง bar type ตามแต่ละกรณี:
 
-```python
-def on_start(self) -> None:
-    # LAST selects TradeTick data as the source
-    bar_type = BarType.from_str("6EH4.XCME-50-VOLUME-LAST-INTERNAL")
-    start = self.clock.utc_now() - timedelta(days=30)
+- **trade เป็น bar**: `6EH4.XCME-50-VOLUME-LAST-INTERNAL` (`LAST` เลือกข้อมูล `TradeTick` เป็น source)
+- **quote เป็น bar**: `6EH4.XCME-1-MINUTE-ASK-INTERNAL`, `6EH4.XCME-1-MINUTE-BID-INTERNAL` และ
+  `6EH4.XCME-1-MINUTE-MID-INTERNAL` (bar 1 นาทีจากราคา ask, bid และ mid ของ `QuoteTick`)
+- **bar เป็น bar**: `6EH4.XCME-5-MINUTE-LAST-INTERNAL@1-MINUTE-EXTERNAL` (bar 5 นาทีจาก object `Bar`
+  1 นาที รูปแบบคือ `target_bar_type@source_bar_type` และ price type อยู่เฉพาะฝั่ง target)
+- **bar เป็น bar แบบหลายชั้น**: สร้าง chain การ aggregate ที่ยาวขึ้นจาก bar ที่ NautilusTrader aggregate ไว้แล้ว
+  เช่น `6EH4.XCME-1-MINUTE-LAST-INTERNAL` (bar 1 นาทีจาก `TradeTick`) ->
+  `6EH4.XCME-5-MINUTE-LAST-INTERNAL@1-MINUTE-INTERNAL` (bar 5 นาทีจาก bar 1 นาที) ->
+  `6EH4.XCME-1-HOUR-LAST-INTERNAL@5-MINUTE-INTERNAL` (bar รายชั่วโมงจาก bar 5 นาที)
 
-    # Deliver historical bars to on_historical_bars
-    self.request_bars(bar_type, start=start)
+> หมายเหตุ: ต้นฉบับมีตัวอย่างการ request/subscribe bar เหล่านี้เฉพาะในภาษา Python จึงตัดออก
 
-    # Deliver live bars to on_bar
-    self.subscribe_bars(bar_type)
-```
+### การทำงานกับ bar: request กับ subscribe {#working-with-bars-request-vs-subscribe}
 
-#### Quote-to-bar example
+NautilusTrader มีสองการดำเนินการสำหรับทำงานกับ bar:
 
-```python
-def on_start(self) -> None:
-    # Create 1-minute bars from QuoteTick ask prices
-    bar_type_ask = BarType.from_str("6EH4.XCME-1-MINUTE-ASK-INTERNAL")
-
-    # Create 1-minute bars from QuoteTick bid prices
-    bar_type_bid = BarType.from_str("6EH4.XCME-1-MINUTE-BID-INTERNAL")
-
-    # Create 1-minute bars from QuoteTick mid prices
-    bar_type_mid = BarType.from_str("6EH4.XCME-1-MINUTE-MID-INTERNAL")
-    start = self.clock.utc_now() - timedelta(days=30)
-
-    self.request_bars(bar_type_ask, start=start)
-    self.subscribe_bars(bar_type_ask)
-```
-
-#### Bar-to-bar example
-
-```python
-def on_start(self) -> None:
-    # Create 5-minute bars from 1-minute Bar objects
-    # Format: target_bar_type@source_bar_type
-    # The price type appears only on the target side
-    bar_type = BarType.from_str("6EH4.XCME-5-MINUTE-LAST-INTERNAL@1-MINUTE-EXTERNAL")
-    start = self.clock.utc_now() - timedelta(days=30)
-
-    self.request_bars(bar_type, start=start)
-
-    # Deliver live updates to on_bar
-    self.subscribe_bars(bar_type)
-```
-
-#### Advanced bar-to-bar example
-
-Build longer aggregation chains from bars that NautilusTrader has already aggregated:
-
-```python
-# Create 1-minute bars from TradeTick objects
-primary_bar_type = BarType.from_str("6EH4.XCME-1-MINUTE-LAST-INTERNAL")
-
-# Create 5-minute bars from the 1-minute bars
-intermediate_bar_type = BarType.from_str("6EH4.XCME-5-MINUTE-LAST-INTERNAL@1-MINUTE-INTERNAL")
-
-# Create hourly bars from the 5-minute bars
-hourly_bar_type = BarType.from_str("6EH4.XCME-1-HOUR-LAST-INTERNAL@5-MINUTE-INTERNAL")
-```
-
-### Working with bars: request vs. subscribe
-
-NautilusTrader provides two operations for working with bars:
-
-| Method             | Purpose                 | Delivery handler       |
+| Method             | จุดประสงค์              | Handler ที่รับข้อมูล   |
 | ------------------ | ----------------------- | ---------------------- |
-| `request_bars()`   | Fetch historical bars.  | `on_historical_bars()` |
-| `subscribe_bars()` | Subscribe to live bars. | `on_bar()`             |
+| `request_bars()`   | ดึง bar ย้อนหลัง        | `on_historical_bars()` |
+| `subscribe_bars()` | subscribe bar แบบ live  | `on_bar()`             |
 
-`subscribe_bars()` expects the instrument for the `BarType` in the cache. The same precondition
-applies to other live market data subscriptions.
+`subscribe_bars()` คาดหวังว่าจะมี instrument ของ `BarType` อยู่ใน cache เงื่อนไขเดียวกันนี้ใช้กับ subscription
+ของ live market data อื่น ๆ ด้วย
 
-These methods work together in a typical workflow:
+ใน workflow ทั่วไป สอง method นี้ทำงานร่วมกัน:
 
-1. `request_bars()` loads historical data to initialize indicators or strategy state.
-1. `subscribe_bars()` continues the stream with live bars.
+1. `request_bars()` โหลดข้อมูลย้อนหลังเพื่อ initialize indicator หรือ state ของ strategy
+1. `subscribe_bars()` รับ stream ต่อด้วย bar แบบ live
 
-The request returns a correlation ID. Historical data arrives through `on_historical_bars()` as a
-`Sequence[Bar]`. Live data arrives through `on_bar()` one bar at a time.
+request จะคืนค่า correlation ID ข้อมูลย้อนหลังจะมาถึงผ่าน `on_historical_bars()` เป็นชุดของ bar ส่วนข้อมูล live
+จะมาถึงผ่าน `on_bar()` ทีละ bar
 
-```python
-from collections.abc import Sequence
+### ลงทะเบียน indicator ก่อน request ข้อมูล {#register-indicators-before-requesting-data}
 
+ให้ลงทะเบียน indicator ก่อน request ข้อมูลย้อนหลัง เพื่อให้ indicator ได้รับการอัปเดตจากข้อมูลเหล่านั้น ถ้า request
+ก่อนแล้วค่อยลงทะเบียน indicator จะพลาดการอัปเดตจากข้อมูลย้อนหลัง
 
-def on_start(self) -> None:
-    bar_type = BarType.from_str("6EH4.XCME-5-MINUTE-LAST-INTERNAL")
-    start = self.clock.utc_now() - timedelta(days=30)
+### ข้อพิจารณาด้านประสิทธิภาพ {#performance-considerations}
 
-    # Register indicators before requesting history
-    self.register_indicator_for_bars(bar_type, self.my_indicator)
+bar aggregator ติดตามราคา OHLC ด้วย `Price` แบบ fixed-point ส่วน aggregation method เป็นตัวกำหนดงานเพิ่มเติม
+ในแต่ละการอัปเดต:
 
-    self.request_bars(bar_type, start=start)
-    self.subscribe_bars(bar_type)
+- **Time bar**: สะสม state ของ OHLCV ในแต่ละการอัปเดตและใช้ timer เพื่อส่ง bar ออกมา
+- **Threshold bar**: bar แบบ tick, volume และ value เพิ่มการตรวจตัวนับหรือตัวสะสมในแต่ละการอัปเดต bar แบบ
+  volume และ value อาจแบ่ง trade ขนาดใหญ่หนึ่งรายการไปอยู่หลาย bar เมื่อเกิน threshold ที่เหลืออยู่
+- **Information-driven bar**: bar แบบ imbalance และ runs ติดตาม aggressor side และการสะสมแบบมีเครื่องหมาย
+- **Renko bar**: bar ที่ขับเคลื่อนด้วยราคาอาจส่ง bar ออกมาหลายตัวจากการเคลื่อนของราคาครั้งใหญ่ครั้งเดียว
+- **Composite bar**: ประมวลผล source bar ที่ aggregate แล้ว แทนที่จะประมวลผลทุก tick ที่อยู่ข้างใต้
 
+### การตั้งค่า time bar {#time-bar-configuration}
 
-def on_historical_bars(self, bars: Sequence[Bar]) -> None:
-    for bar in bars:
-        self.log.info(f"Historical bar: {bar}")
+`DataEngineConfig` ควบคุมพฤติกรรมของ time bar ตัวเลือกเหล่านี้ใช้กับการ aggregate ตามเวลาทั้งหมด ตั้งแต่
+มิลลิวินาทีจนถึงปี:
 
+| ตัวเลือก                            | Default     | คำอธิบาย |
+| :---------------------------------- | :---------- | :------- |
+| `time_bars_interval_type`           | `LEFT_OPEN` | `LEFT_OPEN`: ไม่รวมจุดเริ่ม แต่รวมจุดสิ้นสุด `RIGHT_OPEN`: รวมจุดเริ่ม แต่ไม่รวมจุดสิ้นสุด |
+| `time_bars_timestamp_on_close`      | `True`      | เมื่อเป็น `True` ค่า `ts_event` คือเวลาปิดของ bar เมื่อเป็น `False` ค่า `ts_event` คือเวลาเปิดของ bar |
+| `time_bars_skip_first_non_full_bar` | `False`     | ไม่ส่ง bar ออกมาเมื่อเริ่ม aggregate กลางช่วงเวลา เพื่อหลีกเลี่ยง bar ที่ไม่เต็มตอนเริ่มต้น |
+| `time_bars_build_with_no_updates`   | `True`      | เมื่อเป็น `True` จะส่ง bar ออกมาแม้ไม่มี market update เข้ามาในช่วงเวลานั้น |
+| `time_bars_origin_offset`           | `{}`        | map จาก aggregation type ไปยัง offset หน่วย nanosecond ที่ใช้เลื่อนแนวของ bar |
+| `time_bars_build_delay`             | `0`         | หน่วงเวลาหน่วยไมโครวินาทีก่อนสร้าง bar มีประโยชน์ใน backtest เพื่อให้แน่ใจว่าข้อมูลที่ timestamp ตรงขอบ bar ถูกประมวลผลก่อน timer ทำงาน |
+| `time_bars_time_zone`               | `None`      | IANA time zone สำหรับขอบเขตปฏิทินรายวันขึ้นไป โดยมี UTC เป็นค่า default |
 
-def on_bar(self, bar):
-    # Process individual bars from subscribe_bars()
-    pass
-```
+ตัวอย่างเช่น offset `34_200_000_000_000` nanosecond สำหรับ `BarAggregation.DAY` จะจัดขอบของ bar รายวันให้
+ตรงกับ 09:30 UTC
 
-### Register indicators before requesting data
+ตั้ง `time_bars_time_zone` เพื่อจัดแนว bar รายวัน รายสัปดาห์ รายเดือน และรายปีตามปฏิทินท้องถิ่น ตัวอย่างเช่น
+ตั้ง `time_bars_time_zone` เป็น `"America/New_York"` และ `time_bars_origin_offset` ของ `BarAggregation.DAY`
+เป็น `34_200_000_000_000` จะปิด bar รายวันที่ 09:30 ตามเวลา New York แม้มีการเปลี่ยน DST
 
-Register indicators before requesting historical data so they receive those updates.
+> หมายเหตุ: ต้นฉบับมีตัวอย่าง `DataEngineConfig` เฉพาะในภาษา Python จึงตัดออก
 
-```python
-start = self.clock.utc_now() - timedelta(days=30)
+#### การ override time zone {#time-zone-overrides}
 
-# Correct order
-self.register_indicator_for_bars(bar_type, self.ema)
-self.request_bars(bar_type, start=start)
+สำหรับ bar ที่ aggregate ภายใน สามารถ override zone ที่ตั้งไว้ใน engine ผ่านพารามิเตอร์ของ request หรือ
+subscription:
 
-# Incorrect order: the indicator misses historical updates
-self.request_bars(bar_type, start=start)
-self.register_indicator_for_bars(bar_type, self.ema)
-```
+- ใน subscription ให้ส่ง `time_zone` เป็น `"UTC"` ใน `params`
+- ใน historical aggregation request ให้ใส่ `"time_zone"` ไปพร้อมกับพารามิเตอร์ request `"bar_types"`
 
-### Performance considerations
+การระบุ `"UTC"` อย่างชัดเจนจะ override การตั้งค่าที่ไม่ใช่ UTC subscription ที่ใช้ live bar type เดียวกันต้องใช้
+zone เดียวกัน historical request ที่ตั้ง `"update_subscriptions"` เป็น true ก็ใช้ instance นั้นร่วมกันด้วย ดังนั้น
+zone ที่ต่างกันจะถูกปฏิเสธ ส่วน request aggregator ที่เป็นอิสระใช้ zone อื่นได้
 
-Bar aggregators track OHLC prices with the fixed-point `Price` type. The aggregation method
-determines the additional work for each update:
+#### ขอบเขตปฏิทิน {#calendar-boundaries}
 
-- **Time bars**: Accumulate OHLCV state per update and use a timer to emit bars.
-- **Threshold bars**: Tick, volume, and value bars add a counter or accumulator check per update.
-  Volume and value bars may split a single large trade across multiple bars when it exceeds the
-  remaining threshold.
-- **Information-driven bars**: Imbalance and runs bars track aggressor side and signed accumulation.
-- **Renko bars**: Price-driven bars can emit several bars from one large price move.
-- **Composite bars**: Process an aggregated source bar instead of each underlying tick.
+origin offset ใช้กับขอบเขตท้องถิ่นตามชื่อ (nominal) ก่อนการ resolve DST:
 
-### Time bar configuration
+- **ช่วงที่หายไปจาก DST**: ขอบเขตที่ตกอยู่ในช่วงที่หายไปจะเลื่อนไปข้างหน้าเท่ากับขนาดของช่วงนั้น
+- **ขอบเขตที่ซ้ำกัน**: ขอบเขตที่เกิดซ้ำจะใช้ครั้งแรกที่เกิดขึ้น
+- **การ clamp ปลายเดือน**: clamp เฉพาะขอบเขตที่ได้รับผลกระทบ เดือนต่อ ๆ ไปยังคงใช้ origin ตามชื่อ
 
-`DataEngineConfig` controls time bar behavior. These options apply to all time-based aggregation
-from milliseconds through years:
+build delay จะบวกเวลาที่ผ่านไปหน่วยไมโครวินาทีหลังแต่ละขอบเขตที่ resolve แล้ว timestamp ของ bar ยังคงเป็น
+UTC UNIX nanoseconds และช่วงเวลาที่สั้นกว่าหนึ่งวันยังจัดแนวตาม UTC ขอบเขตปฏิทินเหล่านี้ไม่รวม session ของ
+exchange วันหยุด หรือการปิดก่อนเวลา
 
-| Option                              | Type                        | Default     | Description                                                                                                                                                  |
-| :---------------------------------- | :-------------------------- | :---------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `time_bars_interval_type`           | `BarIntervalType` or `str`  | `LEFT_OPEN` | `LEFT_OPEN`: start excluded, end included. `RIGHT_OPEN`: start included, end excluded. The Python constructor also accepts `"left-open"` and `"right-open"`. |
-| `time_bars_timestamp_on_close`      | `bool`                      | `True`      | When `True`, `ts_event` is the bar close time. When `False`, `ts_event` is the bar open time.                                                                |
-| `time_bars_skip_first_non_full_bar` | `bool`                      | `False`     | Skip emitting a bar when aggregation starts mid-interval, avoiding partial bars on startup.                                                                  |
-| `time_bars_build_with_no_updates`   | `bool`                      | `True`      | When `True`, bars are emitted even if no market updates arrived during the interval.                                                                         |
-| `time_bars_origin_offset`           | `dict[BarAggregation, int]` | `{}`        | Maps aggregation types to nanosecond offsets that shift bar alignment.                                                                                       |
-| `time_bars_build_delay`             | `int`                       | `0`         | Delay in microseconds before building a bar. Useful in backtests to ensure data at bar boundary timestamps is processed before the timer fires.              |
-| `time_bars_time_zone`               | `str` or `None`             | `None`      | IANA time zone for daily and longer calendar boundaries, with UTC as the default.                                                                            |
+## Timestamp {#timestamps}
 
-For example, an offset of `34_200_000_000_000` nanoseconds for `BarAggregation.DAY` aligns daily
-bar boundaries to 09:30 UTC.
+market data, order และ event object จำนวนมากมี timestamp สองค่า:
 
-```python
-from nautilus_trader.config import DataEngineConfig
+- `ts_event`: UNIX timestamp หน่วย nanoseconds ตอนที่ event เกิดขึ้น
+- `ts_init`: UNIX timestamp หน่วย nanoseconds ตอนที่ NautilusTrader initialize object
 
-config = DataEngineConfig(
-    time_bars_timestamp_on_close=True,
-    time_bars_build_with_no_updates=False,
-    time_bars_skip_first_non_full_bar=True,
-)
-```
+### ความหมายโดยทั่วไป {#typical-meanings}
 
-Set `time_bars_time_zone` to align daily, weekly, monthly, and yearly bars to a local calendar.
-For example, this configuration closes daily bars at 09:30 in New York across DST changes:
-
-```python
-from nautilus_trader.config import DataEngineConfig
-from nautilus_trader.model import BarAggregation
-
-config = DataEngineConfig(
-    time_bars_time_zone="America/New_York",
-    time_bars_origin_offset={BarAggregation.DAY: 34_200_000_000_000},
-)
-```
-
-#### Time-zone overrides
-
-For internally aggregated bars, override the engine's configured zone through request or
-subscription parameters:
-
-- On a subscription, pass `params={"time_zone": "UTC"}`.
-- On a historical aggregation request, include `"time_zone"` alongside the `"bar_types"` request
-  parameter.
-
-An explicit `"UTC"` overrides a non-UTC configuration. Subscriptions sharing a live bar type must
-use the same zone. Historical requests with `"update_subscriptions": True` also share that
-instance, so a different zone is rejected. Independent request aggregators can use another zone.
-
-#### Calendar boundaries
-
-Origin offsets apply to nominal local boundaries before DST resolution:
-
-- **DST gaps**: A boundary in a gap shifts forward by the gap.
-- **Repeated boundaries**: A repeated boundary uses its first occurrence.
-- **Month-end clamping**: Only the affected boundary is clamped. Later months keep the nominal origin.
-
-Build delay adds elapsed microseconds after each resolved boundary. Bar timestamps stay UTC UNIX nanoseconds,
-and periods shorter than a day keep UTC alignment. These calendar boundaries do not include exchange sessions,
-holidays, or early closes.
-
-## Timestamps
-
-Many market data, order, and event objects carry two timestamps:
-
-- `ts_event`: UNIX timestamp in nanoseconds when the event occurred.
-- `ts_init`: UNIX timestamp in nanoseconds when NautilusTrader initialized the object.
-
-### Typical meanings
-
-| Event type        | `ts_event`                             | `ts_init`                                        |
+| ชนิด event        | `ts_event`                             | `ts_init`                                        |
 | ----------------- | -------------------------------------- | ------------------------------------------------ |
-| `TradeTick`       | Trade time at the venue.               | Local object initialization time.                |
-| `QuoteTick`       | Quote time at the venue.               | Local object initialization time.                |
-| `OrderBookDelta`  | Book update time at the venue.         | Local object initialization time.                |
-| `Bar`             | Configured bar open or close boundary. | Local aggregation or object initialization time. |
-| `DefiData`        | Block or pool event time.              | Object initialization time from the chain data.  |
-| `OrderFilled`     | Fill time at the venue.                | Local fill event initialization time.            |
-| `OrderCanceled`   | Cancellation time at the venue.        | Local cancellation event initialization time.    |
-| Custom news event | Publication time.                      | Local object initialization time.                |
-| Custom event      | Time defined by the custom event.      | Local object initialization time.                |
+| `TradeTick`       | เวลาของ trade ที่ venue                | เวลาที่ initialize object ภายในเครื่อง           |
+| `QuoteTick`       | เวลาของ quote ที่ venue                | เวลาที่ initialize object ภายในเครื่อง           |
+| `OrderBookDelta`  | เวลาอัปเดต book ที่ venue              | เวลาที่ initialize object ภายในเครื่อง           |
+| `Bar`             | ขอบเปิดหรือปิดของ bar ตามที่ตั้งค่า     | เวลาที่ aggregate หรือ initialize object ภายในเครื่อง |
+| `DefiData`        | เวลาของ block หรือ pool event          | เวลาที่ initialize object จากข้อมูล chain         |
+| `OrderFilled`     | เวลาที่ fill ที่ venue                 | เวลาที่ initialize fill event ภายในเครื่อง        |
+| `OrderCanceled`   | เวลาที่ cancel ที่ venue               | เวลาที่ initialize cancellation event ภายในเครื่อง |
+| Custom news event | เวลาที่เผยแพร่                         | เวลาที่ initialize object ภายในเครื่อง           |
+| Custom event      | เวลาที่ custom event กำหนด             | เวลาที่ initialize object ภายในเครื่อง           |
 
 :::note
-`ts_init` means initialization time, not always receipt time. Commands and internally generated
-events also use it even though NautilusTrader does not receive them from an external source.
+`ts_init` หมายถึงเวลาที่ initialize ไม่ใช่เวลาที่ได้รับข้อมูลเสมอไป command และ event ที่สร้างขึ้นภายในก็ใช้ค่านี้
+แม้ว่า NautilusTrader จะไม่ได้รับมาจากแหล่งภายนอก
 :::
 
-### Latency analysis
+### การวิเคราะห์ latency {#latency-analysis}
 
-The difference `ts_init - ts_event` measures observed delay only when the clocks that produced both
-timestamps are synchronized. Otherwise, the result also includes clock offset and cannot represent
-system latency by itself.
+ผลต่าง `ts_init - ts_event` วัด delay ที่สังเกตได้ก็ต่อเมื่อ clock ที่สร้าง timestamp ทั้งสองค่าซิงก์กันเท่านั้น
+มิฉะนั้นผลลัพธ์จะรวม clock offset ไว้ด้วย และใช้แทน latency ของระบบเพียงอย่างเดียวไม่ได้
 
-### Environment-specific behavior
+### พฤติกรรมเฉพาะของแต่ละ environment {#environment-specific-behavior}
 
-#### Backtesting environment
+#### Environment ของ backtest {#backtesting-environment}
 
-- Data is ordered by `ts_init` using a stable sort.
-- DeFi data (`DefiData`) breaks `ts_init` ties by on-chain position (block number, transaction
-  index, log index) so events from the same block replay in canonical chain order.
-- This ordering gives backtests deterministic replay.
+- ข้อมูลเรียงตาม `ts_init` ด้วย stable sort
+- ข้อมูล DeFi (`DefiData`) ตัดสินกรณี `ts_init` เท่ากันด้วยตำแหน่งบน chain (block number, transaction
+  index, log index) เพื่อให้ event จาก block เดียวกัน replay ตามลำดับ canonical ของ chain
+- การเรียงลำดับนี้ทำให้ backtest replay ได้แบบ deterministic
 
-#### Live trading environment
+#### Environment ของ live trading {#live-trading-environment}
 
-Live trading processes data as it arrives. For venue-sourced data, `ts_event` records the external
-event time, while `ts_init` usually records local object initialization after receipt.
+live trading ประมวลผลข้อมูลตามที่เข้ามา สำหรับข้อมูลจาก venue ค่า `ts_event` บันทึกเวลาของ event ภายนอก
+ส่วน `ts_init` มักบันทึกเวลาที่ initialize object ภายในเครื่องหลังได้รับข้อมูล
 
-### Other notes and considerations
+### หมายเหตุและข้อพิจารณาอื่น ๆ {#other-notes-and-considerations}
 
-- For data from external sources, `ts_init` is usually the local receipt or normalization time. Clock skew
-  means that `ts_init` is not guaranteed to be greater than or equal to `ts_event`.
-- For data created within NautilusTrader, `ts_init` and `ts_event` can match.
-- Some types with `ts_init` do not have `ts_event` because:
-  - The initialization of an object happens at the same time as the event itself.
-  - The concept of an external event time does not apply.
+- สำหรับข้อมูลจากแหล่งภายนอก `ts_init` มักเป็นเวลาที่ได้รับหรือ normalize ภายในเครื่อง เนื่องจาก clock skew
+  จึงไม่รับประกันว่า `ts_init` จะมากกว่าหรือเท่ากับ `ts_event`
+- สำหรับข้อมูลที่สร้างภายใน NautilusTrader ค่า `ts_init` และ `ts_event` อาจเท่ากันได้
+- บางชนิดที่มี `ts_init` ไม่มี `ts_event` เพราะ:
+  - การ initialize object เกิดขึ้นพร้อมกับตัว event เอง
+  - แนวคิดเรื่องเวลาของ event ภายนอกใช้ไม่ได้
 
-#### Persisted data
+#### ข้อมูลที่ persist ไว้ {#persisted-data}
 
-The `ts_init` field preserves the original initialization timestamp. For venue data this is typically receipt
-time. For internally created data it is the creation time of that object.
+ฟิลด์ `ts_init` เก็บ timestamp ตอน initialize ดั้งเดิมไว้ สำหรับข้อมูลจาก venue มักเป็นเวลาที่ได้รับ สำหรับข้อมูล
+ที่สร้างภายในคือเวลาที่สร้าง object นั้น
 
-## Data flow
+## Data flow {#data-flow}
 
-From the `DataEngine` onward, data follows the same pathway in each
-[environment context](../architecture.md#environment-contexts): backtest, sandbox, and live. The entry path
-differs:
+ตั้งแต่ `DataEngine` เป็นต้นไป ข้อมูลจะไหลผ่านเส้นทางเดียวกันในทุก
+[environment context](../architecture.md#environment-contexts): backtest, sandbox และ live ที่ต่างกันคือ
+เส้นทางขาเข้า:
 
-- In live and sandbox modes, a venue adapter creates a normalized data object and sends it through
-  a channel.
-- In backtests, the engine feeds data directly.
+- ในโหมด live และ sandbox venue adapter จะสร้าง data object ที่ normalize แล้วและส่งผ่าน channel
+- ใน backtest engine จะป้อนข้อมูลโดยตรง
 
-In each environment, the `DataEngine` stores cached types in the `Cache` and publishes data on the
-`MessageBus` to subscribed handlers. For a step-by-step trace with a sequence diagram, see
-[Data flow: life of a quote tick](../architecture.md#data-flow-life-of-a-quote-tick).
+ในทุก environment `DataEngine` จะเก็บชนิดข้อมูลที่ cache ได้ลงใน `Cache` และ publish ข้อมูลบน `MessageBus`
+ให้ handler ที่ subscribe ไว้ ดูการไล่ลำดับทีละขั้นพร้อม sequence diagram ได้ที่
+[Data flow: วงจรชีวิตของ quote tick](../architecture.md#data-flow-life-of-a-quote-tick)
 
-See [Custom data](#custom-data) to define and publish another data type.
+ดู [Custom data](#custom-data) เพื่อนิยามและ publish ชนิดข้อมูลอื่น
 
-## Loading data
+## การโหลดข้อมูล {#loading-data}
 
-Convert external records into NautilusTrader model objects before adding them to a backtest or
-writing them to a catalog. The conversion path depends on the source:
+แปลง record จากภายนอกให้เป็น model object ของ NautilusTrader ก่อนเพิ่มลงใน backtest หรือเขียนลง catalog
+เส้นทางการแปลงขึ้นอยู่กับแหล่งข้อมูล:
 
-- Use an adapter loader when the repository provides one for that source format.
-- Construct the target model type directly when working from normalized rows or a DataFrame.
-- Use the PyO3 data wranglers for Arrow IPC streams that already follow the NautilusTrader schema.
+- ใช้ adapter loader เมื่อ repository มี loader สำหรับรูปแบบข้อมูลนั้น
+- สร้าง model type เป้าหมายโดยตรงเมื่อทำงานจากแถวข้อมูลที่ normalize แล้ว
 
-### Data loaders
+### Data loader {#data-loaders}
 
-Data loaders are specific to a source format: Binance order book CSV data differs from
-[Databento Binary Encoding (DBN)](https://databento.com/docs/knowledge-base/new-users/dbn-encoding/getting-started-with-dbn).
+data loader เฉพาะเจาะจงกับรูปแบบของแหล่งข้อมูล: ข้อมูล order book แบบ CSV ของ Binance ต่างจาก
+[Databento Binary Encoding (DBN)](https://databento.com/docs/knowledge-base/new-users/dbn-encoding/getting-started-with-dbn)
 
-`load_binance_order_book_deltas(...)` reads Binance depth CSV files into a normalized
-DataFrame. Convert those rows into `OrderBookDelta` objects with the instrument's price and size
-precision. See the [tutorials](../../tutorials/) for complete catalog and backtest workflows.
+### Fixed-point precision และ raw value {#fixed-point-precision-and-raw-values}
 
-### Arrow IPC wranglers
+NautilusTrader ใช้ fixed-point arithmetic สำหรับ `Price` และ `Quantity` raw value ต้องตรงกับ scale ของ
+precision ที่ประกาศไว้
 
-The PyO3 persistence module provides these wranglers for schema-compatible Arrow IPC streams:
+#### ข้อกำหนดของ raw value {#raw-value-requirements}
 
-| Wrangler                     | Constructor identity               | Return type            |
-| ---------------------------- | ---------------------------------- | ---------------------- |
-| `OrderBookDeltaDataWrangler` | Instrument ID and both precisions. | `list[OrderBookDelta]` |
-| `OrderBookDepthDataWrangler` | Instrument ID and both precisions. | `list[OrderBookDepth]` |
-| `QuoteTickDataWrangler`      | Instrument ID and both precisions. | `list[QuoteTick]`      |
-| `TradeTickDataWrangler`      | Instrument ID and both precisions. | `list[TradeTick]`      |
-| `BarDataWrangler`            | Bar type and both precisions.      | `list[Bar]`            |
+เมื่อสร้าง `Price` หรือ `Quantity` ด้วย `from_raw()` ให้ใช้ raw value จาก:
 
-Each constructor takes the identity as a string, followed by `price_precision` and
-`size_precision`. Pass the complete Arrow IPC stream as `bytes` to
-`process_record_batch_bytes(...)`.
+- ฟิลด์ `.raw` ของค่าที่มีอยู่แล้ว เช่น `price.raw`
+- ฟังก์ชันแปลง fixed-point ของ NautilusTrader
 
-### Fixed-point precision and raw values
+สำหรับค่าทศนิยมจาก Arrow column ปัจจุบัน ให้ใช้ `Price.from_decimal` หรือ `Quantity.from_decimal` แทน
+`from_raw()`
 
-NautilusTrader uses fixed-point arithmetic for `Price` and `Quantity`. Raw values must match the
-scale for their declared precision.
-
-#### Raw value requirements
-
-When constructing `Price` or `Quantity` with `from_raw()`, use a raw value from:
-
-- The `.raw` field of an existing value, such as `price.raw`.
-- NautilusTrader fixed-point conversion functions.
-
-For decimal values from current Arrow columns, use `Price.from_decimal` or
-`Quantity.from_decimal` rather than `from_raw()`.
-
-:::warning[Unvalidated raw values]
-For a precision below `FIXED_PRECISION`, the raw value must be divisible by
-`10^(FIXED_PRECISION - precision)`. Construction does not reject an invalid multiple, which can
-produce an incorrect value.
+:::warning[raw value ที่ไม่ผ่านการตรวจสอบ]
+สำหรับ precision ที่ต่ำกว่า `FIXED_PRECISION` raw value ต้องหารด้วย `10^(FIXED_PRECISION - precision)`
+ลงตัว การสร้าง object จะไม่ปฏิเสธค่าที่ไม่ใช่ผลคูณที่ถูกต้อง ซึ่งอาจทำให้ได้ค่าที่ผิด
 :::
 
-Current catalog price and size columns for fixed-point market data use `Decimal128(38, 16)`. Their decoded
-values are decimals. Their physical mantissas use the storage scale, which can differ from the model's raw
-integer scale. Use `from_raw()` only for integers already encoded at the active model scale.
+column ราคาและขนาดของ catalog ปัจจุบันสำหรับ market data แบบ fixed-point ใช้ `Decimal128(38, 16)` ค่าที่
+decode แล้วเป็นทศนิยม ส่วน mantissa ทางกายภาพใช้ scale ของ storage ซึ่งอาจต่างจาก scale ของ raw integer
+ใน model ให้ใช้ `from_raw()` เฉพาะกับจำนวนเต็มที่เข้ารหัสด้วย scale ของ model ที่ใช้งานอยู่แล้วเท่านั้น
 
-#### Legacy raw value correction
+#### การแก้ไข raw value แบบเก่า {#legacy-raw-value-correction}
 
-Older catalog writers could introduce floating-point errors by calculating raw values with
-`int(value * FIXED_SCALAR)`. Explicit migration corrects affected price and quantity values to the
-nearest valid scale multiple for their precision while leaving sentinel values unchanged. These
-catalogs require explicit migration before runtime queries. The correction adds a small amount of
-work during Arrow decoding.
+ตัวเขียน catalog รุ่นเก่าอาจทำให้เกิดความคลาดเคลื่อนของ floating-point จากการคำนวณ raw value ด้วย
+`int(value * FIXED_SCALAR)` การ migrate อย่างชัดเจนจะแก้ค่าราคาและปริมาณที่ได้รับผลกระทบให้เป็นผลคูณของ scale
+ที่ถูกต้องที่ใกล้ที่สุดตาม precision โดยไม่แตะ sentinel value catalog เหล่านี้ต้อง migrate อย่างชัดเจนก่อน query
+ตอน runtime การแก้ไขนี้เพิ่มงานเล็กน้อยระหว่าง decode Arrow
 
-### Transformation pipeline
+### Pipeline การแปลงข้อมูล {#transformation-pipeline}
 
-1. A source-specific loader reads raw data.
-1. The conversion normalizes field names, timestamps, enums, and precision.
-1. Model constructors validate and create NautilusTrader data objects.
-1. The application passes those objects to a backtest or catalog writer.
+1. loader เฉพาะของแหล่งข้อมูลอ่านข้อมูลดิบ
+1. การแปลงจะ normalize ชื่อฟิลด์, timestamp, enum และ precision
+1. constructor ของ model ตรวจสอบความถูกต้องและสร้าง data object ของ NautilusTrader
+1. แอปพลิเคชันส่ง object เหล่านั้นให้ backtest หรือตัวเขียน catalog
 
 ```mermaid
 flowchart LR
@@ -614,174 +471,80 @@ flowchart LR
     model --> consumer
 ```
 
-The conversion must preserve exact price and quantity values. Build `Price` and `Quantity` from
-decimal or string input rather than routing discrete values through binary floating point.
+การแปลงต้องรักษาค่าราคาและปริมาณให้ตรงทุกประการ ให้สร้าง `Price` และ `Quantity` จาก input แบบทศนิยมหรือ
+string แทนที่จะส่งค่าที่ไม่ต่อเนื่องผ่าน binary floating point
 
-## Data catalog
+## Data catalog {#data-catalog}
 
-The data catalog stores NautilusTrader data in [Parquet](https://parquet.apache.org) files for
-backtesting, live trading, and research. See the [data catalog guide](catalog.md) for
-initialization, storage options, writing, querying, and file operations.
+data catalog เก็บข้อมูลของ NautilusTrader ในไฟล์ [Parquet](https://parquet.apache.org) สำหรับ backtest,
+live trading และงานวิจัย ดูการ initialize, ตัวเลือก storage, การเขียน, การ query และการจัดการไฟล์ได้ที่
+[คู่มือ data catalog](catalog.md)
 
-## Data migrations
+## การ migrate ข้อมูล {#data-migrations}
 
-The `nautilus_model` crate defines the internal data format. NautilusTrader serializes these models
-as Arrow record batches and stores them in Parquet files.
+crate `nautilus_model` กำหนดรูปแบบข้อมูลภายใน NautilusTrader serialize model เหล่านี้เป็น Arrow record batch
+และเก็บในไฟล์ Parquet
 
-Use `nautilus catalog migrate-parquet` to rewrite a catalog written with an earlier schema or
-[precision mode](../../getting_started/installation.md#precision-mode) into the current Arrow format.
-See [Migrate a Parquet catalog](../../how_to/migrate_parquet_catalog.md) for the dry run, remote
-storage options, and the migration report.
+ใช้ `nautilus catalog migrate-parquet` เพื่อเขียน catalog ที่สร้างด้วย schema หรือ
+[precision mode](../../getting_started/installation.md#precision-mode) รุ่นก่อนให้เป็นรูปแบบ Arrow ปัจจุบัน
+ดู dry run, ตัวเลือก remote storage และรายงานการ migrate ได้ที่
+[Migrate a Parquet catalog](../../how_to/migrate_parquet_catalog.md)
 
-## Custom data
+## Custom data {#custom-data}
 
-Custom payloads use `DataType` for identity and routing and `CustomData` as the common wrapper:
+payload แบบกำหนดเองใช้ `DataType` สำหรับ identity และการ route และใช้ `CustomData` เป็น wrapper กลาง:
 
-- **Python payloads**: Pure Python payloads can use the fallback wrapper without registration for in-process
-  routing. Each Python payload wrapped in `CustomData`, including an unregistered in-process payload, must
-  expose `ts_event` and `ts_init` as UNIX nanosecond timestamps.
-- **Registration**: Register a type before reconstructing it from JSON or using Arrow, Parquet,
-  or Feather persistence.
-- **Rust payloads**: Same-binary Rust types can register native handlers. Live-only Rust types may omit Arrow
-  support.
+- **การลงทะเบียน**: ลงทะเบียนชนิดข้อมูลก่อน reconstruct จาก JSON หรือก่อนใช้ persistence แบบ Arrow,
+  Parquet หรือ Feather
+- **Rust payload**: ชนิดข้อมูล Rust ที่อยู่ใน binary เดียวกันลงทะเบียน native handler ได้ ชนิดข้อมูล Rust ที่ใช้
+  เฉพาะ live ไม่จำเป็นต้องรองรับ Arrow
 
-See [Custom data](../custom_data.md) for the registry, wrapper, and persistence architecture.
+ดู registry, wrapper และสถาปัตยกรรมของ persistence ได้ที่ [Custom data](../custom_data.md)
 
-### Pure Python catalog example
+custom data ที่เขียนลง catalog ต้องเรียงตาม `ts_init` จากน้อยไปมาก ไฟล์ที่เขียนไว้ก่อนหน้าด้วย timestamp
+แบบจำนวนเต็มให้แปลงด้วย `nautilus catalog migrate-parquet`
 
-A Python class used with the catalog supplies timestamps, JSON callbacks, an Arrow schema, and Arrow batch
-callbacks. `@customdataclass` generates the serialization methods and schema from the class annotations. It
-also supplies `ts_event` and `ts_init`. Pass them to the constructor without declaring them as dataclass
-fields.
+`BacktestDataConfig` รองรับชนิดข้อมูล built-in ของ catalog ไม่รองรับ custom type ใด ๆ ถ้าต้องการ replay
+wrapper `CustomData` ที่ query มา ให้เพิ่มลงใน `BacktestEngine` ที่ตั้งค่าไว้โดยตรง
 
-Register the class once during startup:
+`BacktestEngine.add_data` เรียงตาม `ts_init` โดย default ให้ปิดการเรียง (`sort=False`) เฉพาะเมื่อ input
+อยู่ในลำดับที่ต้องใช้ replay อยู่แล้ว
 
-```python
-from nautilus_trader.model import CustomData
-from nautilus_trader.model import DataType
-from nautilus_trader.model import NautilusDataType
-from nautilus_trader.model import register_custom_data_class
-from nautilus_trader.model.custom import customdataclass
-from nautilus_trader.persistence import ParquetDataCatalog
+> หมายเหตุ: ต้นฉบับมีตัวอย่าง custom data class และการเขียน/query catalog เฉพาะในภาษา Python จึงตัดออก
 
+### การ publish และ subscribe {#publishing-and-subscribing}
 
-@customdataclass()
-class MarketTickPython:
-    symbol: str = ""
-    price: float = 0.0
-    volume: int = 0
+actor และ strategy publish และรับ wrapper `CustomData`
 
+`publish_data` สร้าง topic ของ message bus จาก argument `data_type` รวมถึง metadata ของ argument นั้น
+argument นี้สามารถ override `data_type` ของ wrapper `CustomData` เองได้ ให้ใช้ค่าเดียวกันทั้งสองที่ เว้นแต่
+ตั้งใจจะ override
 
-register_custom_data_class(MarketTickPython)
+`on_data` รับ custom data ทั้งหมดที่ subscribe ไว้ จึงต้องตรวจ `data_type` ก่อนใช้ `.data`
 
-catalog = ParquetDataCatalog("/path/to/catalog")
-data_type = DataType("MarketTickPython", metadata={"exchange": "NASDAQ"})
-wrapped = [
-    CustomData(
-        data_type,
-        MarketTickPython(ts_event=1, ts_init=1, symbol="AAPL", price=150.5, volume=1000),
-    ),
-]
+สำหรับ `subscribe_data`:
 
-catalog.write_custom_data(wrapped)
-result = catalog.query_custom_data(NautilusDataType.Custom("MarketTickPython"))
-ticks = [item.data for item in result]
-```
+- ถ้าไม่มี `client_id` จะติดตั้งเฉพาะ subscription ภายในบน message bus
+- ถ้ามี `client_id` จะส่ง subscription request ไปยัง data client นั้นด้วย
 
-A hand-written class can supply the same surface itself: `ts_event` and `ts_init`,
-`type_name_static()`, `to_json()`, `from_json()`, `encode_record_batch_py()`, and
-`decode_record_batch_py()`.
+### การเก็บใน cache {#cache-storage}
 
-**Arrow schema requirements**:
+`Cache` ทั่วไปเก็บ bytes ที่ serialize แล้วภายใต้ key ที่แอปพลิเคชันกำหนด หลังลงทะเบียนชนิดของ payload แล้ว
+actor หรือ strategy จะเก็บและกู้คืน wrapper `CustomData` ทั้งตัวไป-กลับได้
 
-- Registration reads the schema from a `_schema` class attribute, falling back to an
-  `arrow_schema_py()` class method. `encode_record_batch_py` must produce batches matching it.
-- The schema must contain `ts_init`, which the catalog uses for time filtering.
-- Any `ts_event` or `ts_init` fields must use `timestamp("ns", tz="UTC")`.
+### การ publish และรับข้อมูล signal {#publishing-and-receiving-signal-data}
 
-If `ts_init` is missing or either timestamp field has the wrong type, `write_custom_data` raises
-rather than writing a file that cannot be queried.
+**signal** คือข้อความ custom data ที่มีชื่อ และค่าของมันจะถูกแปลงเป็น string actor หรือ strategy publish และ
+subscribe signal ได้ (`publish_signal`, `subscribe_signal`)
 
-Convert files written earlier with integer timestamps using `nautilus catalog migrate-parquet`.
-Custom writes must be in ascending `ts_init` order.
+ถ้า `ts_event` เป็นศูนย์ `publish_signal` จะใช้เวลาปัจจุบันของ clock ข้อความ signal ใช้ custom data
+pipeline ภายใน ส่วน `subscribe_signal` จะ dispatch ไปยัง `on_signal`
 
-`BacktestDataConfig` accepts built-in catalog data types, not arbitrary custom types. To replay the
-queried `CustomData` wrappers, add them to a configured `BacktestEngine` directly:
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-```python
-engine.add_data(result)
-```
-
-`BacktestEngine.add_data` sorts by `ts_init` by default. Pass `sort=False` only when the input is
-already in the required replay order.
-
-### Publishing and subscribing
-
-Actors and strategies publish and receive the `CustomData` wrapper:
-
-```python
-from nautilus_trader.model import CustomData
-from nautilus_trader.model import DataType
-
-
-data_type = DataType("MarketTickPython", metadata={"exchange": "NASDAQ"})
-custom = CustomData(data_type, MarketTickPython(ts_event=1, ts_init=1))
-self.subscribe_data(data_type)
-self.publish_data(data_type, custom)
-
-
-def on_data(self, data: CustomData) -> None:
-    if data.data_type == data_type:
-        tick = data.data
-```
-
-`publish_data` derives the message-bus topic from its `data_type` argument, including that argument's
-metadata. This argument can override the `CustomData` wrapper's own `data_type`. Use the same value for both
-unless the override is intentional.
-
-`on_data` receives all subscribed custom data, so inspect `data_type` before using `.data`.
-
-For `subscribe_data`:
-
-- Without `client_id`, it installs only the local message-bus subscription.
-- With `client_id`, it also sends the subscription request to that data client.
-
-### Cache storage
-
-The general `Cache` stores serialized bytes under application-defined keys. After registering the
-payload type, an actor or strategy can round-trip the complete `CustomData` wrapper:
-
-```python
-cache_key = "market_tick:AAPL"
-self.cache.add(cache_key, custom.to_json_bytes())
-
-cached = self.cache.get(cache_key)
-if cached is not None:
-    restored = CustomData.from_json_bytes(cached)
-```
-
-### Publishing and receiving signal data
-
-A **signal** is a named custom-data message whose Python value is converted to a string. Publish and
-subscribe from an actor or strategy:
-
-```python
-self.subscribe_signal("signal_name")
-self.publish_signal("signal_name", value, ts_event)
-
-
-def on_signal(self, signal):
-    print("Signal", signal)
-```
-
-If `ts_event` is zero, `publish_signal` uses the current clock time. Signal messages use the custom
-data pipeline internally, while `subscribe_signal` dispatches them to `on_signal`.
-
-## Related guides
-
-- [Custom data](../custom_data.md): Runtime registration, wrappers, routing, and persistence.
-- [Instruments](../instruments/): Financial instruments referenced by data.
-- [Options](../options.md): Option instruments, chain subscriptions, and strike filtering.
-- [Greeks](../greeks.md): Venue-provided and locally computed option Greeks.
-- [Cache](../cache.md): Data storage and retrieval.
-- [Adapters](../adapters.md): Data sources and connectivity.
+- [Custom data](../custom_data.md): การลงทะเบียนตอน runtime, wrapper, การ route และ persistence
+- [Instruments](../instruments/): financial instrument ที่ข้อมูลอ้างอิงถึง
+- [Options](../options.md): option instrument, การ subscribe chain และการกรอง strike
+- [Greeks](../greeks.md): option Greeks ที่ venue ให้มาและที่คำนวณภายในเครื่อง
+- [Cache](../cache.md): การเก็บและดึงข้อมูล
+- [Adapters](../adapters.md): แหล่งข้อมูลและการเชื่อมต่อ

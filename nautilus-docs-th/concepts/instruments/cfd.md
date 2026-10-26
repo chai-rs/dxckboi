@@ -1,49 +1,48 @@
 # CFD
 
-`Cfd` represents a contract for difference that tracks an underlying asset without
-transferring ownership of the underlying. The venue defines the quote currency,
-precision, increments, limits, margins, and fees.
+`Cfd` แทน contract for difference (สัญญาส่วนต่าง) ที่อ้างอิงราคาสินทรัพย์อ้างอิงโดยไม่มีการโอนกรรมสิทธิ์
+ในสินทรัพย์อ้างอิงนั้น venue เป็นผู้กำหนด quote currency, precision, increment, limit, margin และ fee
 
-Examples include CFD contracts on FX, equities, indexes, and commodities.
+ตัวอย่างเช่น สัญญา CFD บน FX, หุ้น, ดัชนี และสินค้าโภคภัณฑ์
 
-## Fields
+## Fields {#fields}
 
-| Field             | Rust type          | Python type        | Required/default | Notes                                    |
-| ----------------- | ------------------ | ------------------ | ---------------- | ---------------------------------------- |
-| `instrument_id`   | `InstrumentId`     | `InstrumentId`     | Required         | Stored as `id` in Rust.                  |
-| `raw_symbol`      | `Symbol`           | `Symbol`           | Required         | Native venue symbol.                     |
-| `asset_class`     | `AssetClass`       | `AssetClass`       | Required         | Asset class of the underlying.           |
-| `base_currency`   | `Option<Currency>` | `Currency \| None` | `None`           | Base currency when the CFD tracks one.   |
-| `quote_currency`  | `Currency`         | `Currency`         | Required         | Currency used to quote and value prices. |
-| `price_precision` | `u8`               | `int`              | Required         | Decimal places allowed for prices.       |
-| `size_precision`  | `u8`               | `int`              | Required         | Decimal places allowed for order sizes.  |
-| `price_increment` | `Price`            | `Price`            | Required         | Smallest valid price step.               |
-| `size_increment`  | `Quantity`         | `Quantity`         | Required         | Smallest valid size step.                |
-| `lot_size`        | `Option<Quantity>` | `Quantity \| None` | `None`           | Rounded lot or board size.               |
-| `max_quantity`    | `Option<Quantity>` | `Quantity \| None` | `None`           | Maximum order quantity.                  |
-| `min_quantity`    | `Option<Quantity>` | `Quantity \| None` | `None`           | Minimum order quantity.                  |
-| `max_notional`    | `Option<Money>`    | `Money \| None`    | `None`           | Maximum order notional value.            |
-| `min_notional`    | `Option<Money>`    | `Money \| None`    | `None`           | Minimum order notional value.            |
-| `max_price`       | `Option<Price>`    | `Price \| None`    | `None`           | Maximum valid quote or order price.      |
-| `min_price`       | `Option<Price>`    | `Price \| None`    | `None`           | Minimum valid quote or order price.      |
-| `margin_init`     | `Option<Decimal>`  | `Decimal \| None`  | `0`              | Initial margin rate.                     |
-| `margin_maint`    | `Option<Decimal>`  | `Decimal \| None`  | `0`              | Maintenance margin rate.                 |
-| `tick_scheme`     | `Option<Ustr>`     | `str \| None`      | `None`           | Registered variable tick scheme name.    |
-| `info`            | `Option<Params>`   | `dict \| None`     | `None`           | Adapter metadata.                        |
-| `ts_event`        | `UnixNanos`        | `int`              | Required         | Event timestamp in nanoseconds.          |
-| `ts_init`         | `UnixNanos`        | `int`              | Required         | Initialization timestamp in nanoseconds. |
+| Field             | Rust type          | จำเป็น/ค่าเริ่มต้น  | หมายเหตุ                                    |
+| ----------------- | ------------------ | ---------------- | ------------------------------------------ |
+| `instrument_id`   | `InstrumentId`     | จำเป็น            | ใน Rust เก็บเป็น `id`                        |
+| `raw_symbol`      | `Symbol`           | จำเป็น            | Symbol ดั้งเดิมของ venue                     |
+| `asset_class`     | `AssetClass`       | จำเป็น            | Asset class ของสินทรัพย์อ้างอิง               |
+| `base_currency`   | `Option<Currency>` | `None`           | Base currency ในกรณีที่ CFD อ้างอิงสกุลเงิน     |
+| `quote_currency`  | `Currency`         | จำเป็น            | สกุลเงินที่ใช้ quote และประเมินมูลค่าราคา        |
+| `price_precision` | `u8`               | จำเป็น            | จำนวนทศนิยมที่อนุญาตสำหรับราคา                 |
+| `size_precision`  | `u8`               | จำเป็น            | จำนวนทศนิยมที่อนุญาตสำหรับขนาด order          |
+| `price_increment` | `Price`            | จำเป็น            | ขั้นราคาที่เล็กที่สุดที่ใช้ได้                     |
+| `size_increment`  | `Quantity`         | จำเป็น            | ขั้นขนาดที่เล็กที่สุดที่ใช้ได้                      |
+| `lot_size`        | `Option<Quantity>` | `None`           | ขนาด lot หรือ board ที่ปัดแล้ว                 |
+| `max_quantity`    | `Option<Quantity>` | `None`           | ปริมาณ order สูงสุด                          |
+| `min_quantity`    | `Option<Quantity>` | `None`           | ปริมาณ order ต่ำสุด                          |
+| `max_notional`    | `Option<Money>`    | `None`           | มูลค่า notional ของ order สูงสุด               |
+| `min_notional`    | `Option<Money>`    | `None`           | มูลค่า notional ของ order ต่ำสุด               |
+| `max_price`       | `Option<Price>`    | `None`           | ราคา quote หรือ order สูงสุดที่ใช้ได้            |
+| `min_price`       | `Option<Price>`    | `None`           | ราคา quote หรือ order ต่ำสุดที่ใช้ได้            |
+| `margin_init`     | `Option<Decimal>`  | `0`              | อัตรา initial margin                         |
+| `margin_maint`    | `Option<Decimal>`  | `0`              | อัตรา maintenance margin                     |
+| `tick_scheme`     | `Option<Ustr>`     | `None`           | ชื่อ variable tick scheme ที่ลงทะเบียนไว้         |
+| `info`            | `Option<Params>`   | `None`           | Metadata ของ adapter                        |
+| `ts_event`        | `UnixNanos`        | จำเป็น            | Timestamp ของ event หน่วย nanosecond         |
+| `ts_init`         | `UnixNanos`        | จำเป็น            | Timestamp ตอน initialize หน่วย nanosecond    |
 
-**Note**: Python constructors use `instrument_id`. Rust stores the same value as `id`.
+**หมายเหตุ**: builder ใช้ชื่อ `instrument_id` แต่ Rust เก็บค่าเดียวกันไว้ใน field `id`
 
-## Behavior
+## พฤติกรรม {#behavior}
 
-- `Cfd` has instrument class `Cfd`.
-- It is never inverse and uses a multiplier of one.
-- It has no activation timestamp, expiration timestamp, strike, or option kind.
-- If a venue offers cash and CFD instruments on the same underlying, use `Cfd` only for the CFD. Use the
-  matching cash type for the underlying market.
+- `Cfd` มี instrument class เป็น `Cfd`
+- ไม่เป็น inverse และใช้ multiplier เท่ากับหนึ่งเสมอ
+- ไม่มี activation timestamp, expiration timestamp, strike หรือ option kind
+- หาก venue มีทั้ง instrument แบบ cash และแบบ CFD บนสินทรัพย์อ้างอิงเดียวกัน ให้ใช้ `Cfd` เฉพาะกับ CFD
+  และใช้ cash type ที่ตรงกันสำหรับตลาดของสินทรัพย์อ้างอิง
 
-## Example
+## ตัวอย่าง {#example}
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -74,41 +73,12 @@ let audusd = Cfd::builder()
     .unwrap();
 ```
 
-```python tab="Python"
-from decimal import Decimal
+## Adapters {#adapters}
 
-from nautilus_trader.model import AssetClass
-from nautilus_trader.model import Cfd
-from nautilus_trader.model import Currency
-from nautilus_trader.model import InstrumentId
-from nautilus_trader.model import Price
-from nautilus_trader.model import Quantity
-from nautilus_trader.model import Symbol
+Adapter ของ [Interactive Brokers](../../integrations/interactive_brokers.md) สร้างหรือใช้ instrument แบบ
+`Cfd` สำหรับสัญญา CFD
 
-audusd = Cfd(
-    instrument_id=InstrumentId.from_str("AUDUSD.OANDA"),
-    raw_symbol=Symbol("AUD/USD"),
-    asset_class=AssetClass.FX,
-    quote_currency=Currency.from_str("USD"),
-    price_precision=5,
-    price_increment=Price.from_str("0.00001"),
-    size_precision=0,
-    size_increment=Quantity.from_int(1),
-    ts_event=0,
-    ts_init=0,
-    base_currency=Currency.from_str("AUD"),
-    lot_size=Quantity.from_int(1000),
-    margin_init=Decimal("0.03"),
-    margin_maint=Decimal("0.03"),
-)
-```
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-## Adapters
-
-The [Interactive Brokers](../../integrations/interactive_brokers.md) adapter creates or consumes
-`Cfd` instruments for CFD contracts.
-
-## Related guides
-
-- [Currency Pair](currency_pair.md) covers cash FX and crypto spot pairs.
-- [Commodity](commodity.md) covers spot commodity instruments.
+- [Currency Pair](currency_pair.md) ครอบคลุมคู่เงิน FX แบบ cash และคู่ crypto แบบ spot
+- [Commodity](commodity.md) ครอบคลุม instrument สินค้าโภคภัณฑ์แบบ spot

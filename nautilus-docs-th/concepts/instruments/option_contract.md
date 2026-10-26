@@ -1,52 +1,49 @@
 # Option Contract
 
-`OptionContract` represents a listed put or call option on a non-crypto underlying. It
-defines the option kind, strike price, activation time, expiration time, currency,
-multiplier, and lot size.
+`OptionContract` แทน option แบบ put หรือ call ที่จดทะเบียนซื้อขาย โดยมีสินทรัพย์อ้างอิงที่ไม่ใช่ crypto
+กำหนดชนิดของ option, strike price, เวลาเริ่มใช้งาน, เวลาหมดอายุ, สกุลเงิน, multiplier และ lot size
 
-Examples include equity options, index options, and futures options.
+ตัวอย่างเช่น equity option, index option และ futures option
 
-## Fields
+## ฟิลด์ {#fields}
 
-| Field             | Rust type          | Python type        | Required/default | Notes                                    |
-| ----------------- | ------------------ | ------------------ | ---------------- | ---------------------------------------- |
-| `instrument_id`   | `InstrumentId`     | `InstrumentId`     | Required         | Stored as `id` in Rust.                  |
-| `raw_symbol`      | `Symbol`           | `Symbol`           | Required         | Native venue symbol.                     |
-| `asset_class`     | `AssetClass`       | `AssetClass`       | Required         | Asset class of the underlying.           |
-| `exchange`        | `Option<Ustr>`     | `str \| None`      | `None`           | Exchange MIC or venue code when known.   |
-| `underlying`      | `Ustr`             | `str`              | Required         | Underlying asset, future, or index.      |
-| `option_kind`     | `OptionKind`       | `OptionKind`       | Required         | Put or call.                             |
-| `strike_price`    | `Price`            | `Price`            | Required         | Option strike price.                     |
-| `activation_ns`   | `UnixNanos`        | `int`              | Required         | Contract activation timestamp.           |
-| `expiration_ns`   | `UnixNanos`        | `int`              | Required         | Contract expiration timestamp.           |
-| `currency`        | `Currency`         | `Currency`         | Required         | Premium quote and settlement currency.   |
-| `price_precision` | `u8`               | `int`              | Required         | Decimal places allowed for prices.       |
-| `price_increment` | `Price`            | `Price`            | Required         | Smallest valid price step.               |
-| `size_precision`  | `u8`               | `int`              | Fixed `0`        | Options trade in whole contracts.        |
-| `size_increment`  | `Quantity`         | `Quantity`         | Fixed `1`        | Minimum contract size step.              |
-| `multiplier`      | `Quantity`         | `Quantity`         | Required         | Contract multiplier.                     |
-| `lot_size`        | `Quantity`         | `Quantity`         | Required         | Rounded lot or contract lot size.        |
-| `margin_init`     | `Option<Decimal>`  | `Decimal \| None`  | `0`              | Initial margin rate.                     |
-| `margin_maint`    | `Option<Decimal>`  | `Decimal \| None`  | `0`              | Maintenance margin rate.                 |
-| `max_quantity`    | `Option<Quantity>` | `Quantity \| None` | `None`           | Maximum order quantity.                  |
-| `min_quantity`    | `Option<Quantity>` | `Quantity \| None` | `1`              | Minimum order quantity.                  |
-| `max_price`       | `Option<Price>`    | `Price \| None`    | `None`           | Maximum valid quote or order price.      |
-| `min_price`       | `Option<Price>`    | `Price \| None`    | `None`           | Minimum valid quote or order price.      |
-| `tick_scheme`     | `Option<Ustr>`     | `str \| None`      | `None`           | Registered variable tick scheme name.    |
-| `info`            | `Option<Params>`   | `dict \| None`     | `None`           | Adapter metadata.                        |
-| `ts_event`        | `UnixNanos`        | `int`              | Required         | Event timestamp in nanoseconds.          |
-| `ts_init`         | `UnixNanos`        | `int`              | Required         | Initialization timestamp in nanoseconds. |
+| ฟิลด์              | Rust type          | จำเป็น/ค่าเริ่มต้น  | หมายเหตุ                                    |
+| ----------------- | ------------------ | ---------------- | ---------------------------------------- |
+| `instrument_id`   | `InstrumentId`     | Required         | ใน Rust เก็บไว้ในชื่อ `id`                  |
+| `raw_symbol`      | `Symbol`           | Required         | symbol ดั้งเดิมของ venue                    |
+| `asset_class`     | `AssetClass`       | Required         | asset class ของสินทรัพย์อ้างอิง               |
+| `exchange`        | `Option<Ustr>`     | `None`           | MIC ของ exchange หรือรหัส venue หากทราบ     |
+| `underlying`      | `Ustr`             | Required         | สินทรัพย์อ้างอิง, future หรือ index           |
+| `option_kind`     | `OptionKind`       | Required         | Put หรือ call                             |
+| `strike_price`    | `Price`            | Required         | strike price ของ option                   |
+| `activation_ns`   | `UnixNanos`        | Required         | timestamp ที่สัญญาเริ่มใช้งาน                  |
+| `expiration_ns`   | `UnixNanos`        | Required         | timestamp ที่สัญญาหมดอายุ                    |
+| `currency`        | `Currency`         | Required         | สกุลเงินของ premium quote และการชำระ         |
+| `price_precision` | `u8`               | Required         | จำนวนตำแหน่งทศนิยมที่อนุญาตสำหรับราคา           |
+| `price_increment` | `Price`            | Required         | ขั้นราคาเล็กที่สุดที่ใช้ได้                      |
+| `size_precision`  | `u8`               | Fixed `0`        | option ซื้อขายเป็นจำนวนสัญญาเต็ม              |
+| `size_increment`  | `Quantity`         | Fixed `1`        | ขั้นขนาดสัญญาขั้นต่ำ                          |
+| `multiplier`      | `Quantity`         | Required         | multiplier ของสัญญา                       |
+| `lot_size`        | `Quantity`         | Required         | ขนาด lot แบบปัดหรือขนาด lot ของสัญญา          |
+| `margin_init`     | `Option<Decimal>`  | `0`              | อัตรา initial margin                       |
+| `margin_maint`    | `Option<Decimal>`  | `0`              | อัตรา maintenance margin                   |
+| `max_quantity`    | `Option<Quantity>` | `None`           | ปริมาณ order สูงสุด                          |
+| `min_quantity`    | `Option<Quantity>` | `1`              | ปริมาณ order ต่ำสุด                          |
+| `max_price`       | `Option<Price>`    | `None`           | ราคา quote หรือ order สูงสุดที่ใช้ได้            |
+| `min_price`       | `Option<Price>`    | `None`           | ราคา quote หรือ order ต่ำสุดที่ใช้ได้            |
+| `tick_scheme`     | `Option<Ustr>`     | `None`           | ชื่อ tick scheme แบบแปรผันที่ลงทะเบียนไว้        |
+| `info`            | `Option<Params>`   | `None`           | metadata ของ adapter                       |
+| `ts_event`        | `UnixNanos`        | Required         | timestamp ของ event หน่วยนาโนวินาที         |
+| `ts_init`         | `UnixNanos`        | Required         | timestamp ตอนสร้าง หน่วยนาโนวินาที           |
 
-**Note**: Python constructors use `instrument_id`. Rust stores the same value as `id`.
+## พฤติกรรม {#behavior}
 
-## Behavior
+- `OptionContract` มี instrument class เป็น `Option`
+- ซื้อขายเป็นจำนวนสัญญาเต็ม โดยมี size precision เป็น `0` และ size increment เป็น `1`
+- ชนิดของ option และ strike price กำหนดรูปแบบของ payoff
+- ใช้ `CryptoOption` สำหรับ option ที่สินทรัพย์อ้างอิงและการชำระเป็นสกุลเงิน crypto
 
-- `OptionContract` has instrument class `Option`.
-- It trades in whole contracts with size precision `0` and size increment `1`.
-- The option kind and strike price define the payoff shape.
-- Use `CryptoOption` for options where the underlying and settlement are crypto currencies.
-
-## Example
+## ตัวอย่าง {#example}
 
 ```rust tab="Rust"
 use jiff::Timestamp;
@@ -83,46 +80,14 @@ let aapl_call = OptionContract::builder()
     .unwrap();
 ```
 
-```python tab="Python"
-import pandas as pd
+## Adapter {#adapters}
 
-from nautilus_trader.model import AssetClass
-from nautilus_trader.model import Currency
-from nautilus_trader.model import InstrumentId
-from nautilus_trader.model import OptionContract
-from nautilus_trader.model import OptionKind
-from nautilus_trader.model import Price
-from nautilus_trader.model import Quantity
-from nautilus_trader.model import Symbol
+**adapter ที่สร้างหรือใช้ instrument แบบ `OptionContract` ได้แก่**:
 
-aapl_call = OptionContract(
-    instrument_id=InstrumentId.from_str("AAPL211217C00150000.OPRA"),
-    raw_symbol=Symbol("AAPL211217C00150000"),
-    asset_class=AssetClass.EQUITY,
-    underlying="AAPL",
-    option_kind=OptionKind.CALL,
-    strike_price=Price.from_str("150.00"),
-    currency=Currency.from_str("USD"),
-    activation_ns=pd.Timestamp("2021-09-17", tz="UTC").value,
-    expiration_ns=pd.Timestamp("2021-12-17", tz="UTC").value,
-    price_precision=2,
-    price_increment=Price.from_str("0.01"),
-    multiplier=Quantity.from_int(100),
-    lot_size=Quantity.from_int(1),
-    ts_event=0,
-    ts_init=0,
-    exchange="GMNI",
-)
-```
+- [Databento](../../integrations/databento.md) สำหรับข้อมูล option ที่จดทะเบียนซื้อขาย
+- [Interactive Brokers](../../integrations/interactive_brokers.md) สำหรับสัญญา option ที่จดทะเบียนซื้อขาย
 
-## Adapters
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-**Adapters that create or consume `OptionContract` instruments include**:
-
-- [Databento](../../integrations/databento.md) for listed options data.
-- [Interactive Brokers](../../integrations/interactive_brokers.md) for listed option contracts.
-
-## Related guides
-
-- [Options](../options.md) covers option data, Greeks, and chain subscriptions.
-- [Crypto Option](crypto_option.md) covers crypto option contracts.
+- [Options](../options.md) อธิบายข้อมูล option, greeks และการ subscribe option chain
+- [Crypto Option](crypto_option.md) อธิบายสัญญา crypto option

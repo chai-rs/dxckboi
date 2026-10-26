@@ -1,98 +1,62 @@
-# Getting started
+# เริ่มต้นใช้งาน
 
-## 1. Install
+เอกสารชุดนี้เน้นการใช้ NautilusTrader จาก Rust โดย Nautilus มี implementation ของ Rust ครบถ้วนอยู่ใน
+directory `crates/` ทำให้เขียน actor, strategy, รัน backtest และเทรดแบบ live ได้ด้วย Rust ล้วน
 
-Set up a Python 3.13-3.14 environment and install the package:
+## 1. ติดตั้ง {#1-install}
 
-```bash
-pip install -U --pre nautilus_trader
-```
+ติดตั้ง Rust toolchain (rustup และ cargo) และ dependency สำหรับการ build ตามคู่มือ
+[การติดตั้ง](installation.md) ซึ่งอธิบายแพลตฟอร์มที่รองรับและการ build จาก source
 
-PyPI publishes NautilusTrader 2.x as `2.0.0rcN` pre-releases. Include `--pre` until `2.0.0` is
-released. Confirm the install with:
+จากนั้นเพิ่ม crate ของ Nautilus ลงใน `Cargo.toml` ของโปรเจกต์ ดูรายการ crate และ feature flag ได้ที่หัวข้อ
+[การตั้งค่าโปรเจกต์](../concepts/rust.md#project-setup) ในคู่มือแนวคิด Rust
 
-```bash
-python -c "import nautilus_trader; print(nautilus_trader.__version__)"
-```
+## 2. รัน backtest แรก {#2-run-the-quickstart}
 
-See the [Installation](installation) guide for platform support and source builds.
+คู่มือ [รัน backtest (Rust)](../how_to/run_rust_backtest.md) พาไปตั้งแต่ dependency ใน `Cargo.toml`
+จนถึงการรัน backtest ด้วยทั้ง `BacktestEngine` และ `BacktestNode`
 
-## 2. Run the quickstart
+## 3. เลือกเส้นทางของคุณ {#3-choose-your-path}
 
-The [Quickstart](quickstart) runs your first backtest in five minutes using synthetic
-data. No downloads, no catalog setup.
+- **เขียน strategy และ actor** - เริ่มจาก [Write an Actor (Rust)](../how_to/write_rust_actor.md) แล้วต่อด้วย
+  [Write a Strategy (Rust)](../how_to/write_rust_strategy.md)
+- **Backtesting** - ดู API ทั้งสองระดับด้านล่าง แล้วศึกษา [tutorial](../tutorials/) สำหรับตัวอย่างรูปแบบ strategy
+- **Live trading** - ดู [รัน live trading (Rust)](../how_to/run_rust_live_trading.md),
+  how-to [Configure a live trading node](../how_to/configure_live_trading.md)
+  และ [Integrations](../integrations/) สำหรับ venue ที่รองรับ
+- **Data workflow** - ดู [how-to guide](../how_to/) สำหรับการตั้งค่า Parquet data catalog
+- **ภาพรวมของ Rust API** - ดูคู่มือแนวคิด [Rust](../concepts/rust.md)
+- **สร้าง adapter และร่วมพัฒนา** - ดู [Developer guide](../developer_guide/) และแนวทางการเขียน
+  [Rust](../developer_guide/rust.md) ของโปรเจกต์
 
-The getting-started tutorials all use a simple EMA crossover strategy. This is
-deliberate. The trading logic is not the focus. These tutorials teach how the
-engine operates: data loading, venue simulation, order lifecycle, and reporting.
-The [tutorials](../tutorials/) introduce different strategies (mean reversion,
-order book imbalance, grid market making) once the engine mechanics are clear.
+## ระดับของ Backtesting API {#backtesting-api-levels}
 
-## 3. Choose your path
+NautilusTrader มี API สำหรับ backtest สองระดับ:
 
-- **Backtesting** - learn the two API levels below, then work through the
-  [tutorials](../tutorials/) for strategy pattern walkthroughs.
-- **Live trading** - see the
-  [Configure a live trading node](../how_to/configure_live_trading.md) how-to
-  and [Integrations](../integrations/) for supported venues.
-- **Data workflows** - see the [how-to guides](../how_to/) for loading
-  external data and setting up the Parquet data catalog.
-- **Building adapters** - see the [Developer guide](../developer_guide/).
+| ระดับ API        | Entry point      | เหมาะกับ                                                                  |
+| :-------------- | :--------------- | :----------------------------------------------------------------------- |
+| Low-level API   | `BacktestEngine` | เข้าถึง component โดยตรง, การพัฒนา library                                  |
+| High-level API  | `BacktestNode`   | workflow ระดับ production, ย้ายไป live trading ได้ง่ายกว่า (แนะนำ)               |
 
-## Backtesting API levels
+API แบบ high-level ต้องใช้ data catalog ที่เป็น Parquet ส่วน API แบบ low-level ใช้ข้อมูลในหน่วยความจำได้
+แต่ไม่มีเส้นทางไปสู่ live trading ดูวิธีใช้ทั้งสองแบบจาก Rust ได้ที่ [รัน backtest (Rust)](../how_to/run_rust_backtest.md)
 
-NautilusTrader provides two API levels for backtesting:
+:::warning[หนึ่ง node ต่อหนึ่ง process]
+ไม่รองรับการรัน instance ของ `BacktestNode` หรือ `LiveNode` หลายตัวพร้อมกันใน process เดียวกัน เนื่องจากมี
+state แบบ global singleton แต่รองรับการรันต่อกันตามลำดับ โดย dispose อย่างถูกต้องระหว่างแต่ละรอบ การสร้าง
+`LiveNode` ตัวใหม่แทนตัวเดิมบน thread เดียวกันก็ต้อง drop node ตัวก่อนหน้าก่อนสร้างด้วย
 
-| API level                             | Entry point      | Best for                                                              |
-| :------------------------------------ | :--------------- | :-------------------------------------------------------------------- |
-| [Low-level API](backtest_low_level)   | `BacktestEngine` | Direct component access, library development                          |
-| [High-level API](backtest_high_level) | `BacktestNode`   | Production workflows, easier transition to live trading (recommended) |
-
-The high-level API requires a Parquet-based data catalog. The low-level API works with
-in-memory data but has no live-trading path.
-
-:::warning[One node per process]
-Running multiple `BacktestNode` or `LiveNode` instances concurrently in the same
-process is not supported due to global singleton state. Sequential execution with
-proper disposal between runs is supported. A replacement `LiveNode` on the same
-thread also requires dropping the previous node, or releasing all references to
-it in Python, before construction.
-
-See [Processes and threads](../concepts/architecture.md#processes-and-threads) for
-details.
+ดูรายละเอียดได้ที่ [Processes and threads](../concepts/architecture.md#processes-and-threads)
 :::
 
-See the [Backtesting](../concepts/backtesting/) concept guide for help choosing an
-API level.
+ดูคู่มือแนวคิด [Backtesting](../concepts/backtesting/) เพื่อช่วยเลือกระดับ API
 
-## Examples in the repository
+## ตัวอย่างใน repository {#examples-in-the-repository}
 
-The online documentation shows a subset of examples. For the full set, see the
-repository on GitHub:
+เอกสารออนไลน์แสดงตัวอย่างเพียงบางส่วน ดูชุดเต็มได้ใน repository บน GitHub:
 
-| Directory                                                                            | Contains                                              |
-| :----------------------------------------------------------------------------------- | :---------------------------------------------------- |
-| [examples/](https://github.com/nautechsystems/nautilus_trader/tree/develop/examples) | Runnable Python examples organized by environment     |
-| [docs/tutorials/](../tutorials/)                                                     | Tutorials demonstrating common workflows              |
-| [docs/concepts/](../concepts/)                                                       | Concept guides with illustrative code snippets        |
-| [python/tests/unit/](../../python/tests/unit/)                                       | Unit tests covering core functionality and edge cases |
-
-## Running in Docker
-
-A self-contained dockerized Jupyter notebook server provides the fastest way to try
-NautilusTrader with no local setup. Deleting the container deletes any data.
-
-```bash
-# Pull the latest image
-docker pull ghcr.io/nautechsystems/jupyterlab:nightly --platform linux/amd64
-
-# Run the container
-docker run -p 8888:8888 ghcr.io/nautechsystems/jupyterlab:nightly
-```
-
-Then open <http://localhost:8888> in your browser.
-
-:::warning
-Examples use `LoggerConfig(stdout_level=LogLevel.ERROR)` because Nautilus logging exceeds
-Jupyter's stdout rate limit, causing notebooks to hang at lower log levels.
-:::
+| Directory                                                                        | เนื้อหา                                                  |
+| :------------------------------------------------------------------------------- | :------------------------------------------------------ |
+| [crates/](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates) | implementation ของ Rust ทั้งหมด                           |
+| [docs/tutorials/](../tutorials/)                                                 | tutorial ที่สาธิต workflow ที่ใช้บ่อย                         |
+| [docs/concepts/](../concepts/)                                                   | คู่มือแนวคิดพร้อมตัวอย่างโค้ดประกอบ                           |

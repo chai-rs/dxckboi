@@ -1,21 +1,20 @@
 # Limit-If-Touched
 
-`FIX OrdType <40>` no dedicated value (commonly `4` Stop Limit with a favorable trigger)
+`FIX OrdType <40>` ไม่มีค่าเฉพาะ (มักใช้ `4` Stop Limit ที่มี trigger ฝั่งที่ได้เปรียบ)
 
-A *Limit-If-Touched* order releases a *Limit* order at the specified price when its trigger price is
-reached.
+order แบบ *Limit-If-Touched* จะปล่อย order แบบ *Limit* ที่ราคาที่กำหนด เมื่อราคาแตะ trigger price
 
-## Use cases
+## กรณีการใช้งาน {#use-cases}
 
-Use a *Limit-If-Touched* order to activate a price-protected order only after a trigger is touched. For
-example, place a take-profit *Limit* order as price approaches a target instead of resting it early. As with a
-*Stop-Limit*, the order may not fill if the market moves through the limit after the trigger.
+ใช้ order แบบ *Limit-If-Touched* เพื่อเปิดใช้งาน order ที่มีการป้องกันราคา (price-protected) หลังจากราคาแตะ
+trigger แล้วเท่านั้น เช่น วาง order แบบ *Limit* สำหรับ take-profit เมื่อราคาเข้าใกล้เป้าหมาย แทนที่จะวาง order
+ทิ้งไว้ตั้งแต่เนิ่นๆ เช่นเดียวกับ *Stop-Limit* order อาจไม่ได้ fill ถ้าตลาดวิ่งผ่านราคา limit ไปหลังจาก trigger
 
-## Example
+## ตัวอย่าง {#example}
 
-**Example**: create a *Limit-If-Touched* order to BUY 5 BTCUSDT-PERP perpetual futures contracts on Binance
-Futures. Set a limit price of 30,100 USDT and a trigger price of 30,150 USDT. The order expires one hour after
-creation.
+**ตัวอย่าง**: สร้าง order แบบ *Limit-If-Touched* เพื่อ BUY สัญญา perpetual futures BTCUSDT-PERP จำนวน 5 สัญญา
+บน Binance Futures กำหนดราคา limit ที่ 30,100 USDT และ trigger price ที่ 30,150 USDT โดย order จะหมดอายุ
+หนึ่งชั่วโมงหลังจากสร้าง
 
 ```rust tab="Rust"
 use nautilus_core::DurationNanos;
@@ -49,36 +48,10 @@ let order = self.order().limit_if_touched(
 );
 ```
 
-```python tab="Python"
-from nautilus_trader.model import InstrumentId
-from nautilus_trader.model import LimitIfTouchedOrder
-from nautilus_trader.model import OrderSide
-from nautilus_trader.model import Price
-from nautilus_trader.model import Quantity
-from nautilus_trader.model import TimeInForce
-from nautilus_trader.model import TriggerType
+ดูรายละเอียดเพิ่มเติมได้ใน [Rust API Reference](https://nautilustrader.io/docs/core-latest/)
 
-order: LimitIfTouchedOrder = self.order_factory.limit_if_touched(
-    instrument_id=InstrumentId.from_str("BTCUSDT-PERP.BINANCE"),
-    order_side=OrderSide.BUY,
-    quantity=Quantity.from_int(5),
-    price=Price.from_str("30_100"),
-    trigger_price=Price.from_str("30_150"),
-    trigger_type=TriggerType.LAST_PRICE,  # <-- optional (default DEFAULT)
-    time_in_force=TimeInForce.GTD,  # <-- optional (default GTC)
-    expire_time=self.clock.timestamp_ns() + 3_600_000_000_000,
-    post_only=True,  # <-- optional (default False)
-    reduce_only=False,  # <-- optional (default False)
-    tags=["TAKE_PROFIT"],  # <-- optional (default None)
-)
-```
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-See the
-[`LimitIfTouchedOrder` API reference](/docs/python-api-latest/model/orders.html#nautilus_trader.model.LimitIfTouchedOrder)
-for further details.
-
-## Related guides
-
-- [Orders](index.md#trigger-type) - Trigger types and other execution instructions.
-- [Emulated orders](emulated.md) - Emulating conditional orders on venues without native support.
-- [Execution](../execution/) - How orders reach the venue and fills are handled.
+- [Orders](index.md#trigger-type) - ประเภทของ trigger และคำสั่งการ execute อื่นๆ
+- [Emulated orders](emulated.md) - การจำลอง conditional order บน venue ที่ไม่รองรับแบบ native
+- [Execution](../execution/) - order ไปถึง venue อย่างไรและจัดการ fill อย่างไร

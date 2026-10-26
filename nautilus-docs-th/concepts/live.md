@@ -1,76 +1,74 @@
 # Live Trading
 
-The same strategy and execution-algorithm code can run across backtest and live environments. Live
-execution also introduces venue, transport, timing, persistence, external-activity, and
-reconciliation behavior that a simulation may not reproduce.
+โค้ด strategy และ execution algorithm ชุดเดียวกันสามารถรันได้ทั้งใน backtest และ live แต่การ execute
+แบบ live ยังมีพฤติกรรมด้าน venue, transport, จังหวะเวลา, persistence, กิจกรรมจากภายนอก และ
+reconciliation ที่การจำลองอาจไม่ได้จำลองไว้
 
 :::warning
-**Live trading involves real financial risk.** Before deploying to production, understand
-system configuration, node operations, execution reconciliation, and the differences
-between backtesting and live trading.
+**Live trading มีความเสี่ยงทางการเงินจริง** ก่อน deploy สู่ production ควรเข้าใจการตั้งค่าระบบ,
+การดำเนินงานของ node, execution reconciliation และความแตกต่างระหว่าง backtest กับ live trading
 :::
 
-## Backtest and live differences
+## ความแตกต่างระหว่าง backtest และ live {#backtest-and-live-differences}
 
-Backtests advance a controlled clock from historical data and execute orders on simulated venues.
-A live node shares strategy and execution-algorithm code with a backtest, but coordinates with
-systems outside the process boundary.
+backtest จะเดิน clock ที่ควบคุมได้จากข้อมูลย้อนหลัง และ execute order บน venue จำลอง ส่วน live node
+ใช้โค้ด strategy และ execution algorithm ร่วมกับ backtest แต่ต้องประสานงานกับระบบที่อยู่นอกขอบเขตของ process
 
-- **Venue**: Venue rules and adapter capabilities determine which order types, instructions, and
-  events are available. See [Adapters](adapters.md).
-- **Transport**: A network failure can leave an order command outcome unknown. See
-  [Command outcomes](execution/policies.md#command-outcomes).
-- **Timing**: Independent inputs can interleave, and the runner does not define one global FIFO
-  order. See [Dispatch priority](#dispatch-priority-and-overload-behavior).
-- **Persistence**: Built-in cache backends process writes independently of venue transport, and
-  event-store capture does not gate dispatch on durable commit. See
-  [Persistence before transport](execution/policies.md#persistence-before-transport).
-- **External activity**: Venue reports can include orders created outside the node. See
-  [External order creation](execution/reconciliation.md#external-order-creation).
-- **Reconciliation**: Startup and runtime checks align retained local state with venue reports. See
-  [Execution reconciliation](execution/reconciliation.md).
+- **Venue**: กฎของ venue และความสามารถของ adapter เป็นตัวกำหนดว่ามีชนิด order, คำสั่งพิเศษ และ event ใด
+  ให้ใช้บ้าง ดู [Adapters](adapters.md)
+- **Transport**: ความล้มเหลวของเครือข่ายอาจทำให้ไม่รู้ผลของคำสั่ง order ดู
+  [Command outcomes](execution/policies.md#command-outcomes)
+- **จังหวะเวลา**: input ที่เป็นอิสระต่อกันอาจสลับลำดับกันได้ และ runner ไม่ได้กำหนดลำดับ FIFO แบบ global
+  เพียงลำดับเดียว ดู [Dispatch priority](#dispatch-priority-and-overload-behavior)
+- **Persistence**: cache backend ในตัวประมวลผลการเขียนแยกจาก transport ของ venue และการบันทึกลง
+  event store ไม่ได้รอ commit ที่ถาวรก่อน dispatch ดู
+  [Persistence before transport](execution/policies.md#persistence-before-transport)
+- **กิจกรรมจากภายนอก**: report จาก venue อาจมี order ที่ถูกสร้างนอก node ดู
+  [External order creation](execution/reconciliation.md#external-order-creation)
+- **Reconciliation**: การตรวจสอบตอนเริ่มต้นและระหว่างรันจะปรับสถานะในเครื่องที่เก็บไว้ให้ตรงกับ report
+  ของ venue ดู [Execution reconciliation](execution/reconciliation.md)
 
-## Execution client routing
+## การ routing ไปยัง execution client {#execution-client-routing}
 
-A live node can register independently named execution clients for the same venue. A command's
-`client_id` selects a registered client directly. Venue and default routes select a client when
-neither the command's `client_id` nor account-based routing resolves one.
+live node สามารถลงทะเบียน execution client หลายตัวที่ตั้งชื่อแยกกันสำหรับ venue เดียวกันได้ `client_id`
+ของคำสั่งจะเลือก client ที่ลงทะเบียนไว้โดยตรง ส่วนเส้นทางตาม venue และเส้นทางค่าเริ่มต้นจะใช้เลือก client
+เมื่อทั้ง `client_id` ของคำสั่งและการ routing ตาม account ไม่สามารถระบุ client ได้
 
-:::warning[Account isolation]
-Registering multiple clients for a venue does not provide end-to-end account isolation for positions and order
-management across same-venue accounts. Pre-trade risk checks use the account of the client that will run each
-command. See [Account selection](execution/index.md#account-selection).
+:::warning[การแยก account]
+การลงทะเบียนหลาย client สำหรับ venue หนึ่งไม่ได้ทำให้ position และการจัดการ order แยกขาดจากกันแบบ
+end-to-end ระหว่าง account บน venue เดียวกัน การตรวจความเสี่ยงก่อนเทรด (pre-trade risk check) ใช้ account
+ของ client ที่จะรันคำสั่งนั้นๆ ดู [Account selection](execution/index.md#account-selection)
 :::
 
-### Order routing
+### การ routing order {#order-routing}
 
-Configure venue and default routes through each client's `RoutingConfig`:
+ตั้งค่าเส้นทางตาม venue และเส้นทางค่าเริ่มต้นผ่าน `RoutingConfig` ของแต่ละ client:
 
-- `venues` assigns the listed venues to that client. These explicit routes take precedence over
-  automatic venue routes and the default client.
-- `default=True` selects the fallback client when no venue route applies.
+- `venues` กำหนด venue ที่ระบุให้กับ client นั้น เส้นทางที่กำหนดชัดเจนเหล่านี้มีลำดับความสำคัญเหนือ
+  เส้นทาง venue อัตโนมัติและ client ค่าเริ่มต้น
+- `default=True` เลือก client สำรองเมื่อไม่มีเส้นทาง venue ใดใช้ได้
 
-The only client registered for a venue automatically routes that venue unless another client
-explicitly routes it. Multiple clients for the same venue require an explicit venue route or a
-default client, even when strategies supply a `client_id` for each command. Duplicate client IDs,
-conflicting venue routes, and multiple defaults fail during node construction.
+client ตัวเดียวที่ลงทะเบียนไว้สำหรับ venue หนึ่งจะ route venue นั้นโดยอัตโนมัติ เว้นแต่จะมี client อื่น
+route venue นั้นอย่างชัดเจน หากมีหลาย client สำหรับ venue เดียวกัน ต้องมีเส้นทาง venue ที่กำหนดชัดเจน
+หรือ client ค่าเริ่มต้น แม้ strategy จะระบุ `client_id` ให้ทุกคำสั่งก็ตาม client ID ซ้ำกัน, เส้นทาง venue
+ที่ขัดกัน และการมีค่าเริ่มต้นหลายตัว จะทำให้การสร้าง node ล้มเหลว
 
-### Instrument updates
+### การอัปเดต instrument {#instrument-updates}
 
-Instrument updates reach each client whose own venue matches, plus the client routed to that venue, if any.
-Each matching client receives the update once. Receiving an instrument update does not select that client as
-the recipient of order commands.
+การอัปเดต instrument จะไปถึงทุก client ที่ venue ของตัวเองตรงกัน รวมถึง client ที่ถูก route ไปยัง venue นั้น
+(ถ้ามี) client ที่ตรงเงื่อนไขแต่ละตัวจะได้รับการอัปเดตเพียงครั้งเดียว การได้รับการอัปเดต instrument ไม่ได้
+ทำให้ client นั้นถูกเลือกเป็นผู้รับคำสั่ง order
 
-### Direct Rust callers
+### การเรียกจาก Rust โดยตรง {#direct-rust-callers}
 
-`ExecutionEngine::register_client` registers a client without assigning routing. Call
-`register_venue_routing` or `set_default_client` afterward to configure venue or fallback routing.
-Alternatively, `register_default_client` registers a client and makes it the default.
+`ExecutionEngine::register_client` ลงทะเบียน client โดยไม่กำหนด routing ให้เรียก
+`register_venue_routing` หรือ `set_default_client` ตามหลังเพื่อตั้งค่าเส้นทาง venue หรือเส้นทางสำรอง
+อีกทางหนึ่งคือ `register_default_client` ซึ่งลงทะเบียน client และตั้งให้เป็นค่าเริ่มต้นไปพร้อมกัน
 
-## Live node lifecycle
+## วงจรชีวิตของ live node {#live-node-lifecycle}
 
-Rust `LiveNode::run()` prepares cached and venue state before starting trader components, then owns
-the event loop and coordinated shutdown.
+`LiveNode::run()` ของ Rust จะเตรียมสถานะใน cache และสถานะของ venue ก่อนเริ่ม component ของ trader
+จากนั้นจะเป็นเจ้าของ event loop และการ shutdown แบบประสานงาน
 
 ```mermaid
 flowchart TD
@@ -86,184 +84,71 @@ flowchart TD
     Stop --> Final[Disconnect clients and finalize]
 ```
 
-Live node lifecycle: instruments and execution state are prepared before strategies start trading.
+วงจรชีวิตของ live node: instrument และสถานะ execution ถูกเตรียมไว้ก่อนที่ strategy จะเริ่มเทรด
 
-Cache restoration runs when a backing database is attached and cache loading is enabled. Connection,
-reconciliation, or trader startup failures abort startup and follow the coordinated cleanup path.
+การกู้คืน cache จะทำงานเมื่อมีฐานข้อมูลรองรับอยู่และเปิดการโหลด cache ไว้ หากการเชื่อมต่อ, reconciliation
+หรือการเริ่ม trader ล้มเหลว การเริ่มต้นจะถูกยกเลิกและเข้าสู่เส้นทาง cleanup แบบประสานงาน
 
-### Submission recovery at shutdown
+:::warning[หนึ่ง LiveNode ต่อหนึ่ง process]
+ให้รัน `LiveNode` พร้อมกันได้เพียงตัวเดียวต่อ process เพราะ runner ผูก channel sender และ message bus
+ไว้กับ thread-local storage และสถานะ runtime อื่นๆ ก็เป็นระดับ process ให้รัน node เพิ่มเติมใน process แยก
 
-Rust `LiveNode::stop`, `run`, and `run_with_mode`, and Python `run_async()` use the same submission recovery
-boundary:
-
-1. During `delay_post_stop`, the node continues processing venue evidence and native managed-exit timers
-   without starting new reconciliation queries.
-1. At the end of that window, any retained submission without a native outcome or venue confirmation makes
-   shutdown return an error. The error lists the unresolved client order IDs.
-1. Clients disconnect and the kernel stops even when recovery is incomplete.
-
-Evidence drained after this boundary cannot change the recorded shutdown result.
-
-This applies to `RetainUnresolved` and to clients which require submission retention, including submissions
-whose recovery budget has not yet exhausted. Polymarket requires retention automatically, so its callers can
-receive this error without selecting an opt-in policy. The default `ResolveLocally` policy stays unchanged for
-clients which do not require retention.
-
-Submission acknowledgement ends submission recovery. It does not prove that an accepted order's cancel or
-update completed, or that positions are flat. Managed exit keeps its existing attempt budget, and this result
-does not extend cleanup beyond `delay_post_stop` or implement recovery across restarts. See
-[submission recovery](execution/reconciliation.md#submission-recovery) for identity and query-budget rules.
-
-## Hosted event loops
-
-Use `run_async()` from Python to run a node on an event loop you already own. For example, an ASGI server can
-serve a dashboard beside the node. Use `run()` when the node should own the calling thread and signal
-handling.
-
-This lifecycle sketch leaves node configuration and request serving to the application:
-
-```python
-import asyncio
-
-from nautilus_trader.live import LiveNode
-from nautilus_trader.live import LiveNodeHandle
-
-
-async def wait_until_running(
-    handle: LiveNodeHandle,
-    task: asyncio.Task[None],
-) -> None:
-    while not handle.is_running:
-        if task.done():
-            await task
-            raise RuntimeError("LiveNode stopped during startup")
-        await asyncio.sleep(0.01)
-
-
-async def serve_with_node(node: LiveNode) -> None:
-    cache, portfolio, handle = node.cache, node.portfolio, node.handle()
-    run_task: asyncio.Task[None] | None = None
-    service_task: asyncio.Task[None] | None = None
-    try:
-        run_task = asyncio.create_task(node.run_async())
-        await wait_until_running(handle, run_task)
-
-        service_task = asyncio.create_task(serve_requests(cache, portfolio, handle))
-        done, _ = await asyncio.wait(
-            (run_task, service_task),
-            return_when=asyncio.FIRST_COMPLETED,
-        )
-        if run_task in done:
-            await run_task
-            raise RuntimeError("LiveNode stopped while the service was running")
-        await service_task
-    finally:
-        if service_task is not None and not service_task.done():
-            service_task.cancel()
-            await asyncio.gather(service_task, return_exceptions=True)
-        try:
-            if run_task is not None:
-                handle.stop()
-                await run_task
-        finally:
-            node.dispose()
-```
-
-Both entry points run the same lifecycle, so a hosted node performs the same startup ordering,
-maintenance, reconciliation, and shutdown as an owned one. The mode decides only who owns signal
-handling: a hosted node installs no handlers, leaving `SIGINT` and `SIGTERM` to the host.
-
-### Access and shutdown
-
-`run_async()` returns a coroutine and lends the node to it for the run's duration:
-
-- Capture `cache`, `portfolio`, and `handle()` **before starting**. Each stays usable while the node
-  runs, whereas reading state through the node itself raises until the run returns it.
-- `handle()` works throughout, since it is how a host stops the node. `is_running` also answers
-  throughout because it reads the same handle.
-- Call `dispose()` **after the run task finishes** to release the node's resources. Calling it during the run
-  returns without doing anything. It does not defer disposal.
-
-`LiveNodeHandle` is safe to call from any thread, including a signal handler. `stop()` requests a
-graceful shutdown and returns immediately, so the awaiting task resolves only once shutdown
-finishes. Cancelling that task requests the same shutdown, waits for it, then re-raises the
-cancellation, which keeps `asyncio.timeout` and task groups behaving as their callers expect.
-
-The shared [submission recovery shutdown contract](#submission-recovery-at-shutdown) applies to
-hosted nodes. If an awaiting Python task is cancelled, cancellation still propagates after teardown,
-with any shutdown error preserved as the cancellation exception's cause.
-
-### Host integration and limits
-
-Compatibility is tested with the default asyncio loop and uvloop. An ASGI lifespan managed by Uvicorn can
-apply the same ownership pattern without transferring signal handling to the node.
-
-Before an ASGI lifespan reports startup complete, wait until the handle reports `Running` while checking
-whether the run task has failed. Keep supervising the task after startup, and treat unexpected completion as a
-service failure.
-
-While the node is running, it yields to the host loop periodically, so a burst of events cannot starve the
-host's own callbacks. Startup and shutdown drain their queues without yielding. Thus, a large instrument load
-or a shutdown backlog can hold the loop for the length of that drain.
-
-:::warning[One LiveNode per process]
-Run one concurrent `LiveNode` per process. The runner binds its channel senders and message bus into
-thread-local storage, and other runtime state is process-wide. `run_async()` also rejects a second
-hosted node on the same event loop. Run additional nodes in separate processes.
-
-Building another `LiveNode` on the same thread raises an error while the first node exists or is being built.
-In Python, `node.build(...)` is a static constructor and attempts to create another node.
-
-Calling `dispose()` alone does not release this construction guard. Before building a replacement, drop the
-existing node or release all references to it in Python:
-
-- With a single Python reference, call `del node` first: `node = LiveNode.build(...)` attempts construction
-  while the old node still exists.
-- Exceptions and unfinished coroutines can keep the node. Release those references too.
-- If an unreachable reference cycle keeps it, run `gc.collect()` before rebuilding.
-
-When an ASGI application lifespan constructs the node, run that application with one worker. Do not
-use hot reload for live trading because it restarts the worker and its node. Scale HTTP request
-handling with processes that do not construct a trading node.
+การสร้าง `LiveNode` อีกตัวบน thread เดียวกันจะเกิด error ขณะที่ node ตัวแรกยังมีอยู่หรือกำลังถูกสร้าง
 :::
 
-A node configured with a cache database backing is rejected on a host loop. Those backings wait for
-their worker task by blocking the calling thread, which stalls the host loop rather than slowing it.
-Native-only nodes can use `run()` for database backing. Custom Python clients drive asyncio in
-both launch modes, so neither supports cache database backing.
+### การกู้คืน submission ตอน shutdown {#submission-recovery-at-shutdown}
 
-## Configuration
+`LiveNode::stop`, `run` และ `run_with_mode` ของ Rust ใช้ขอบเขตการกู้คืน submission เดียวกัน:
 
-For how config structs handle defaults, `T` vs `Option<T>` semantics, and
-builder patterns, see the [Configuration](configuration.md) concept guide.
+1. ระหว่าง `delay_post_stop` node จะยังประมวลผลหลักฐานจาก venue และ timer ของ managed exit แบบ native
+   ต่อไป โดยไม่เริ่ม query สำหรับ reconciliation ใหม่
+1. เมื่อจบช่วงเวลานั้น หากยังมี submission ที่เก็บไว้ซึ่งไม่มีผลลัพธ์แบบ native หรือการยืนยันจาก venue
+   การ shutdown จะคืนค่า error โดย error จะระบุ client order ID ที่ยังไม่ได้ข้อสรุป
+1. client จะ disconnect และ kernel จะหยุดแม้การกู้คืนยังไม่สมบูรณ์
 
-For node and execution engine settings, strategy configuration, cache backing, and multi-venue
-wiring, see the
-[Configure a live trading node](../how_to/configure_live_trading.md) how-to guide.
+หลักฐานที่ระบายเข้ามาหลังขอบเขตนี้ไม่สามารถเปลี่ยนผลการ shutdown ที่บันทึกไว้แล้วได้
 
-## Execution reconciliation
+กฎนี้ใช้กับ `RetainUnresolved` และกับ client ที่บังคับให้เก็บ submission ไว้ รวมถึง submission ที่งบการกู้คืน
+ยังไม่หมด Polymarket บังคับการเก็บไว้โดยอัตโนมัติ ผู้เรียกจึงอาจได้รับ error นี้โดยไม่ต้องเลือก policy
+แบบ opt-in ส่วน policy ค่าเริ่มต้น `ResolveLocally` ยังคงเดิมสำหรับ client ที่ไม่ได้บังคับการเก็บไว้
 
-For how submit, modify, and cancel commands resolve, see
-[Command outcomes](execution/policies.md#command-outcomes).
+การ acknowledge submission ทำให้การกู้คืน submission สิ้นสุดลง แต่ไม่ได้พิสูจน์ว่าการ cancel หรือ update
+ของ order ที่ถูก accept แล้วเสร็จสมบูรณ์ หรือว่า position เป็นศูนย์ managed exit ยังคงใช้งบความพยายาม
+ที่มีอยู่เดิม และผลลัพธ์นี้ไม่ได้ขยาย cleanup ให้เลยช่วง `delay_post_stop` หรือทำการกู้คืนข้ามการ restart
+ดูกฎเรื่อง identity และงบการ query ได้ที่ [submission recovery](execution/reconciliation.md#submission-recovery)
 
-At startup, reconciliation aligns cached order and position state with venue reports before trader
-components start. Continuous checks can then monitor in-flight orders, open orders, positions, and
-own order books while the node runs.
+## การตั้งค่า {#configuration}
 
-An adapter can declare bounded historical reports. Startup reconciliation applies their fill economics only
-when the report set and retained state prove a coherent position transition. Incomplete or ambiguous history
-can still recover exact order state without changing positions or portfolio economics.
+สำหรับวิธีที่ config struct จัดการค่าเริ่มต้น, ความหมายของ `T` เทียบกับ `Option<T>` และรูปแบบ builder
+ดูคู่มือแนวคิด [Configuration](configuration.md)
 
-See [Execution reconciliation](execution/reconciliation.md) for configuration, recovery procedures,
-runtime checks, scenarios, and invariants.
-For runtime protection against stale snapshots and the distinction from genuine corrections and explicit fill-void events,
-see [Snapshot freshness and fill corrections](execution/reconciliation.md#snapshot-freshness-and-fill-corrections).
+สำหรับการตั้งค่า node และ execution engine, การตั้งค่า strategy, cache backing และการเชื่อมหลาย venue
+ดูคู่มือ how-to [Configure a live trading node](../how_to/configure_live_trading.md)
 
-## Rust live runner metrics
+## Execution reconciliation {#execution-reconciliation}
 
-Rust `LiveNode` exposes primitive runner metrics through `LiveNodeHandle::metrics_snapshot()`.
-Get the handle from the node before calling `run()`, then poll snapshots from another task and
-derive rates or utilization from deltas.
+สำหรับวิธีที่คำสั่ง submit, modify และ cancel ได้ข้อสรุป ดู
+[Command outcomes](execution/policies.md#command-outcomes)
+
+ตอนเริ่มต้น reconciliation จะปรับสถานะ order และ position ใน cache ให้ตรงกับ report ของ venue ก่อนที่
+component ของ trader จะเริ่ม จากนั้นการตรวจสอบต่อเนื่องจะเฝ้าดู order ที่กำลังส่ง, order ที่เปิดอยู่,
+position และ own order book ระหว่างที่ node ทำงาน
+
+adapter สามารถประกาศ report ย้อนหลังแบบมีขอบเขตได้ reconciliation ตอนเริ่มต้นจะนำผลทางเศรษฐศาสตร์ของ
+fill ใน report เหล่านั้นไปใช้ก็ต่อเมื่อชุด report และสถานะที่เก็บไว้พิสูจน์ได้ว่าเป็นการเปลี่ยนผ่านของ position
+ที่สอดคล้องกัน ประวัติที่ไม่ครบหรือกำกวมยังกู้คืนสถานะ order ที่แน่นอนได้ โดยไม่เปลี่ยน position หรือผลทาง
+เศรษฐศาสตร์ของ portfolio
+
+ดู [Execution reconciliation](execution/reconciliation.md) สำหรับการตั้งค่า, ขั้นตอนการกู้คืน,
+การตรวจสอบระหว่างรัน, สถานการณ์ตัวอย่าง และ invariant
+สำหรับการป้องกัน snapshot ที่ล้าสมัยระหว่างรัน และความแตกต่างจากการแก้ไขจริงและ event fill-void ที่ระบุ
+ชัดเจน ดู [Snapshot freshness and fill corrections](execution/reconciliation.md#snapshot-freshness-and-fill-corrections)
+
+## Metrics ของ live runner ใน Rust {#rust-live-runner-metrics}
+
+`LiveNode` ของ Rust เปิดให้ดู metrics พื้นฐานของ runner ผ่าน `LiveNodeHandle::metrics_snapshot()`
+ให้ดึง handle จาก node ก่อนเรียก `run()` แล้ว poll snapshot จาก task อื่น และคำนวณอัตราหรือ utilization
+จากส่วนต่าง (delta)
 
 ```rust
 use std::time::Duration;
@@ -318,60 +203,60 @@ tokio::spawn(async move {
 node.run().await?;
 ```
 
-### Snapshot scope and interpretation
+### ขอบเขตและการตีความ snapshot {#snapshot-scope-and-interpretation}
 
-The snapshot covers `LiveNode::run` channel dispatch after startup, including residual dispatch
-during the shutdown grace period. It does **not** include startup buffering, startup flushes, or the
-final post-loop drain.
+snapshot ครอบคลุมการ dispatch ผ่าน channel ของ `LiveNode::run` หลังการเริ่มต้น รวมถึงการ dispatch ที่
+ค้างอยู่ในช่วง grace period ของการ shutdown แต่ **ไม่** รวม buffer ตอนเริ่มต้น, การ flush ตอนเริ่มต้น หรือ
+การระบายครั้งสุดท้ายหลังจบ loop
 
-- `dispatch_busy_ns` covers the five dispatch branches. `maintenance_busy_ns` and
-  `external_msgbus_busy_ns` cover non-dispatch loop work.
-- Queue depths are point samples from the maintenance tick while the node is running, and can be
-  stale during shutdown grace.
-- Snapshots are lock-free and may not be a consistent cross-field view. Derive rates from successive
-  snapshots with **saturating deltas**.
-- Counters reset when `LiveNode::run` enters steady state.
+- `dispatch_busy_ns` ครอบคลุม dispatch branch ทั้งห้า ส่วน `maintenance_busy_ns` และ
+  `external_msgbus_busy_ns` ครอบคลุมงานใน loop ที่ไม่ใช่การ dispatch
+- ความลึกของคิวเป็นค่าที่สุ่มวัด ณ จุดเวลาจาก maintenance tick ระหว่างที่ node ทำงาน และอาจล้าสมัยในช่วง
+  grace ของการ shutdown
+- snapshot เป็นแบบ lock-free และอาจไม่ใช่มุมมองที่สอดคล้องกันข้ามฟิลด์ ให้คำนวณอัตราจาก snapshot ที่ต่อเนื่องกัน
+  ด้วย **saturating delta**
+- ตัวนับจะรีเซ็ตเมื่อ `LiveNode::run` เข้าสู่ steady state
 
-## Dispatch priority and overload behavior
+## ลำดับความสำคัญของการ dispatch และพฤติกรรมเมื่อโหลดเกิน {#dispatch-priority-and-overload-behavior}
 
-The live runner's seven internal message channels are separate and unbounded. When several message
-channels are ready together, the runner polls eligible branches in this order:
+message channel ภายในทั้งเจ็ดของ live runner แยกจากกันและไม่จำกัดขนาด เมื่อมีหลาย channel พร้อมในเวลา
+เดียวกัน runner จะ poll branch ที่มีสิทธิ์ตามลำดับนี้:
 
-1. Time and system work.
-1. Execution events.
-1. Execution commands.
-1. External message-bus ingress.
-1. Data events and commands.
+1. งานด้านเวลาและระบบ
+1. Execution event
+1. Execution command
+1. ข้อมูลขาเข้าจาก external message bus
+1. Data event และ command
 
-When data work is pending, timer polling yields until another message channel is serviced.
-Execution events precede execution commands. Data events and commands alternate when both are pending.
+เมื่อมีงานด้าน data ค้างอยู่ การ poll timer จะหลีกทางจนกว่า message channel อื่นจะได้รับการบริการ
+execution event มาก่อน execution command ส่วน data event และ command จะสลับกันเมื่อค้างอยู่ทั้งคู่
 
-This polling order keeps a market-data backlog from taking priority over ready execution traffic. It does not
-define **one global FIFO order** across channels, adapters, or venues.
+ลำดับการ poll นี้ป้องกันไม่ให้ข้อมูลตลาดที่ค้างสะสมได้ลำดับความสำคัญเหนือ execution traffic ที่พร้อมอยู่
+แต่ไม่ได้กำหนด **ลำดับ FIFO แบบ global เพียงลำดับเดียว** ข้าม channel, adapter หรือ venue
 
-Each selected branch runs to completion before the runner polls again, so a slow handler delays each channel.
-The runner yields to the host event loop periodically, but yielding does not change channel priority or
-shorten a slow handler.
+branch ที่ถูกเลือกแต่ละตัวจะทำงานจนเสร็จก่อนที่ runner จะ poll อีกครั้ง handler ที่ช้าจึงทำให้ทุก channel
+ล่าช้า runner จะหลีกทางให้ event loop ของ host เป็นระยะ แต่การหลีกทางนี้ไม่ได้เปลี่ยนลำดับความสำคัญของ
+channel หรือทำให้ handler ที่ช้าเร็วขึ้น
 
-:::warning[Unbounded queues]
-Runner channels do not apply producer backpressure, coalesce messages, shed market data, or impose a maximum
-queue depth. Sustained input above dispatch capacity thus increases queue depth, latency, and memory use. The
-runner does not automatically throttle a feed, halt trading, or shut down when a threshold is crossed.
+:::warning[คิวไม่จำกัดขนาด]
+channel ของ runner ไม่มี backpressure ไปยังผู้ผลิตข้อมูล, ไม่รวมข้อความ, ไม่ทิ้งข้อมูลตลาด และไม่กำหนด
+ความลึกคิวสูงสุด input ที่สูงกว่าความสามารถในการ dispatch อย่างต่อเนื่องจึงเพิ่มความลึกคิว, latency และ
+การใช้หน่วยความจำ runner จะไม่ throttle feed, หยุดเทรด หรือ shutdown โดยอัตโนมัติเมื่อเกินเกณฑ์
 :::
 
-Use runner metrics and queue-state events to detect this pressure. The thresholds are operational
-signals, not service-time guarantees. The application must decide how to alert, reduce input, halt
-new exposure, or stop the node when pressure persists.
+ใช้ runner metrics และ queue-state event เพื่อตรวจจับแรงกดดันนี้ เกณฑ์เหล่านี้เป็นสัญญาณเชิงปฏิบัติการ
+ไม่ใช่การรับประกันเวลาให้บริการ แอปพลิเคชันต้องตัดสินใจเองว่าจะแจ้งเตือน, ลด input, หยุดเปิด exposure ใหม่
+หรือหยุด node อย่างไรเมื่อแรงกดดันยังคงอยู่
 
-## Queue pressure monitoring
+## การเฝ้าดูแรงกดดันของคิว {#queue-pressure-monitoring}
 
-`LiveNode` converts runner queue samples into typed state transitions when
-`LiveNodeConfig.queue_monitor` is set. The monitor is **disabled by default** and publishes no
-queue-state events while the field is unset.
+`LiveNode` จะแปลงค่าตัวอย่างคิวของ runner เป็นการเปลี่ยนสถานะแบบมี type เมื่อตั้งค่า
+`LiveNodeConfig.queue_monitor` ไว้ ตัวเฝ้าดูนี้ **ปิดโดยค่าเริ่มต้น** และจะไม่ publish queue-state event ใดๆ
+ขณะที่ฟิลด์นี้ยังไม่ได้ตั้งค่า
 
-### Configure thresholds
+### ตั้งค่าเกณฑ์ {#configure-thresholds}
 
-The following example sets the thresholds applied to each monitored runner channel:
+ตัวอย่างต่อไปนี้ตั้งเกณฑ์ที่ใช้กับแต่ละ runner channel ที่ถูกเฝ้าดู:
 
 ```rust tab="Rust"
 use nautilus_live::config::{LiveNodeConfig, QueueMonitorConfig};
@@ -389,21 +274,7 @@ let config = LiveNodeConfig {
 };
 ```
 
-```python tab="Python"
-from nautilus_trader.live import LiveNodeConfig
-from nautilus_trader.live import QueueMonitorConfig
-
-config = LiveNodeConfig(
-    queue_monitor=QueueMonitorConfig(
-        queue_depth_trigger=1_000,
-        queue_depth_clear=500,
-        mean_dispatch_ns_trigger=250_000,
-        mean_dispatch_ns_clear=150_000,
-    ),
-)
-```
-
-The four values apply to each monitored runner channel:
+ค่าทั้งสี่ใช้กับแต่ละ runner channel ที่ถูกเฝ้าดู:
 
 - `time_events`
 - `exec_events`
@@ -411,176 +282,157 @@ The four values apply to each monitored runner channel:
 - `data_events`
 - `data_commands`
 
-Each clear threshold must be **lower than its trigger threshold**. Configuration validation rejects
-equal or inverted thresholds.
+เกณฑ์ clear แต่ละตัวต้อง **ต่ำกว่าเกณฑ์ trigger ของมัน** การตรวจสอบ config จะปฏิเสธเกณฑ์ที่เท่ากันหรือกลับด้าน
 
-### State transitions
+### การเปลี่ยนสถานะ {#state-transitions}
 
-The live runner evaluates the monitor on its 100 ms maintenance tick, after sampling current queue
-depths. Queue depth is a point-in-time value. Mean dispatch time uses the messages and dispatch busy
-time accumulated since the previous metrics snapshot.
+live runner จะประเมินตัวเฝ้าดูทุก maintenance tick ที่ 100 ms หลังสุ่มวัดความลึกคิวปัจจุบัน ความลึกคิวเป็น
+ค่า ณ จุดเวลา ส่วนเวลา dispatch เฉลี่ยใช้จำนวนข้อความและเวลาที่ dispatch ไม่ว่างที่สะสมมาตั้งแต่ metrics
+snapshot ครั้งก่อน
 
-| Condition    | Measure                                               | `Triggered`                                    | `Cleared`                                    |
+| เงื่อนไข       | ค่าที่วัด                                                | `Triggered`                                    | `Cleared`                                    |
 | ------------ | ----------------------------------------------------- | ---------------------------------------------- | -------------------------------------------- |
-| `Backlogged` | Point-in-time queue depth.                            | `queue_depth >= queue_depth_trigger`           | `queue_depth <= queue_depth_clear`           |
-| `Slow`       | Per-channel mean dispatch time for the sample window. | `mean_dispatch_ns >= mean_dispatch_ns_trigger` | `mean_dispatch_ns <= mean_dispatch_ns_clear` |
+| `Backlogged` | ความลึกคิว ณ จุดเวลา                                     | `queue_depth >= queue_depth_trigger`           | `queue_depth <= queue_depth_clear`           |
+| `Slow`       | เวลา dispatch เฉลี่ยราย channel ในช่วงหน้าต่างของตัวอย่าง        | `mean_dispatch_ns >= mean_dispatch_ns_trigger` | `mean_dispatch_ns <= mean_dispatch_ns_clear` |
 
-Each channel tracks `Backlogged` and `Slow` independently:
+แต่ละ channel ติดตาม `Backlogged` และ `Slow` แยกจากกัน:
 
-- A value between the clear and trigger thresholds keeps the prior state, so it does not publish another
-  event.
-- If both conditions cross on one tick, the node publishes two events. Each condition clears
-  independently.
-- A sample window with no dispatches does not evaluate `Slow`. The condition keeps its prior state until a
-  window contains a dispatch.
+- ค่าที่อยู่ระหว่างเกณฑ์ clear และ trigger จะคงสถานะเดิมไว้ จึงไม่ publish event เพิ่ม
+- หากทั้งสองเงื่อนไขข้ามเกณฑ์ใน tick เดียวกัน node จะ publish สอง event และแต่ละเงื่อนไขจะ clear แยกกัน
+- หน้าต่างตัวอย่างที่ไม่มีการ dispatch จะไม่ประเมิน `Slow` เงื่อนไขนี้จะคงสถานะเดิมจนกว่าจะมีหน้าต่างที่มี
+  การ dispatch
 
-### Typed delivery
+### การส่งแบบมี type {#typed-delivery}
 
-Each transition publishes a fresh `QueueStateChanged` value on
-`events.system.QueueStateChanged.<channel>`, where `<channel>` is the Rust variant name, such as
-`DataEvents` for Python `SystemChannel.DATA_EVENTS`. The event identifies the configured trader,
-runner channel, condition, and transition state. It also records the queue depth and mean dispatch
-time at the crossing, a fresh event ID, and event timestamps.
+การเปลี่ยนสถานะแต่ละครั้งจะ publish ค่า `QueueStateChanged` ใหม่บน
+`events.system.QueueStateChanged.<channel>` โดย `<channel>` คือชื่อ variant ใน Rust เช่น `DataEvents`
+event นี้ระบุ trader ที่ตั้งค่าไว้, runner channel, เงื่อนไข และสถานะการเปลี่ยน รวมถึงบันทึกความลึกคิวและ
+เวลา dispatch เฉลี่ย ณ จุดที่ข้ามเกณฑ์, event ID ใหม่ และ timestamp ของ event
 
-Actors subscribe with `subscribe_queue_state(...)` and receive events through
-`on_queue_state(...)`. The Python API exposes `SystemChannel`, `QueueCondition`, `QueueState`, and
-`QueueStateChanged` from `nautilus_trader.common`. Publication stays on the in-process typed message
-bus, and the event has no wire representation for external message-bus streaming. See
-[Queue pressure state](actors.md#queue-pressure-state) for actor examples.
+actor subscribe ด้วย `subscribe_queue_state(...)` และรับ event ผ่าน `on_queue_state(...)` การ publish
+อยู่บน message bus แบบมี type ภายใน process และ event นี้ไม่มีรูปแบบ wire สำหรับการสตรีมผ่าน external
+message bus ดูตัวอย่างสำหรับ actor ได้ที่ [Queue pressure state](actors.md#queue-pressure-state)
 
-## Socket transport state
+## สถานะ transport ของ socket {#socket-transport-state}
 
-### Publication and routing
+### การ publish และการ routing {#publication-and-routing}
 
-Actors can observe transport availability for adapters that opt into socket state reporting. `LiveNode`
-publishes `SocketStateChanged` on `events.system.SocketStateChanged.<client_id>.<endpoint>` with the trader
-ID, client ID, optional venue, stable endpoint label, state, fresh event ID, and event timestamps. The
-endpoint label identifies one logical adapter transport without exposing its URL.
+actor สามารถสังเกตความพร้อมใช้งานของ transport สำหรับ adapter ที่เลือกเปิดการรายงานสถานะ socket ได้
+`LiveNode` จะ publish `SocketStateChanged` บน `events.system.SocketStateChanged.<client_id>.<endpoint>`
+พร้อม trader ID, client ID, venue (ถ้ามี), label ของ endpoint ที่คงที่, สถานะ, event ID ใหม่ และ timestamp
+ของ event โดย label ของ endpoint ระบุ transport เชิงตรรกะหนึ่งตัวของ adapter โดยไม่เปิดเผย URL
 
-`LiveNode` sets both timestamps from the kernel clock when it handles the transport's neutral state
-notification. Adapters send the notification through the runner's system-event channel, separately from market
-data. The internal channel is not part of queue-pressure monitoring.
+`LiveNode` ตั้ง timestamp ทั้งสองจาก clock ของ kernel เมื่อจัดการการแจ้งสถานะแบบกลางของ transport
+adapter ส่งการแจ้งนี้ผ่าน system-event channel ของ runner แยกจากข้อมูลตลาด channel ภายในนี้ไม่ได้เป็นส่วน
+หนึ่งของการเฝ้าดูแรงกดดันของคิว
 
-The client ID and endpoint components percent-encode bytes other than ASCII letters, digits, `-`, and `_`.
-Thus, dots and wildcard characters in labels cannot change topic matching. Use `subscribe_socket_state`
-filters to select a client, endpoint, or both without constructing topic names.
+ส่วนประกอบ client ID และ endpoint จะ percent-encode ไบต์ที่ไม่ใช่ตัวอักษร ASCII, ตัวเลข, `-` และ `_`
+ดังนั้นจุดและอักขระ wildcard ใน label จึงเปลี่ยนการจับคู่ topic ไม่ได้ ใช้ตัวกรองของ
+`subscribe_socket_state` เพื่อเลือก client, endpoint หรือทั้งสองอย่าง โดยไม่ต้องสร้างชื่อ topic เอง
 
-### State semantics
+### ความหมายของสถานะ {#state-semantics}
 
-| Transport event or condition        | Publication                                            |
+| event หรือเงื่อนไขของ transport          | การ publish                                             |
 | ----------------------------------- | ------------------------------------------------------ |
-| TCP or WebSocket becomes available. | `Connected`.                                           |
-| Active transport is lost.           | `Disconnected`.                                        |
-| Connection or retry attempt fails.  | No event.                                              |
-| Deliberate shutdown.                | No disconnect event.                                   |
-| Reconnect attempts are exhausted.   | No additional event after the reported transport loss. |
+| TCP หรือ WebSocket พร้อมใช้งาน          | `Connected`                                            |
+| transport ที่ใช้งานอยู่ขาดหาย             | `Disconnected`                                         |
+| การเชื่อมต่อหรือการลองใหม่ล้มเหลว            | ไม่มี event                                              |
+| การ shutdown โดยเจตนา                 | ไม่มี disconnect event                                   |
+| ลอง reconnect จนหมดจำนวนครั้ง            | ไม่มี event เพิ่มหลังจากรายงานการขาดหายของ transport แล้ว      |
 
-`Connected` reports **transport availability**. It does not mean that authentication, subscription
-replay, or adapter recovery has completed.
+`Connected` รายงาน **ความพร้อมใช้งานของ transport** ไม่ได้หมายความว่าการยืนยันตัวตน, การ replay
+subscription หรือการกู้คืนของ adapter เสร็จสมบูรณ์แล้ว
 
 :::warning
-Socket state is operational evidence, not an execution-command outcome. A disconnect by itself does not
-reject, cancel, or resolve an in-flight command. Stream updates, queries, or reconciliation provide that
-evidence under the [command outcome policy](execution/policies.md#command-outcomes).
+สถานะ socket เป็นหลักฐานเชิงปฏิบัติการ ไม่ใช่ผลลัพธ์ของคำสั่ง execution การ disconnect เพียงอย่างเดียว
+ไม่ได้ reject, cancel หรือสรุปผลคำสั่งที่กำลังดำเนินอยู่ การอัปเดตจากสตรีม, query หรือ reconciliation
+เป็นผู้ให้หลักฐานนั้นภายใต้ [command outcome policy](execution/policies.md#command-outcomes)
 :::
 
-### Dead-peer detection
+### การตรวจจับ peer ที่ตายแล้ว {#dead-peer-detection}
 
-A connection can stop delivering without closing. A NAT or load balancer drops it with no `FIN` and no `RST`.
-Thus, writes keep succeeding into the send buffer and nothing surfaces the loss.
+การเชื่อมต่ออาจหยุดส่งข้อมูลโดยไม่ปิด เช่น NAT หรือ load balancer ทิ้งการเชื่อมต่อไปโดยไม่มี `FIN` และ
+ไม่มี `RST` การเขียนจึงยังสำเร็จลง send buffer ต่อไปและไม่มีอะไรบ่งชี้ว่าการเชื่อมต่อหายไป
 
-#### Heartbeat timeout
+#### Heartbeat timeout {#heartbeat-timeout}
 
-Handler-mode WebSocket and raw TCP clients reconnect on heartbeat timeout. With a configured heartbeat, the
-default timeout is **three heartbeat intervals**. An explicit `heartbeat_timeout_secs` overrides that window.
-WebSocket clients reset it on any inbound frame. Raw TCP clients reset it when bytes arrive.
+WebSocket และ raw TCP client แบบ handler-mode จะ reconnect เมื่อ heartbeat timeout เมื่อตั้งค่า heartbeat
+ไว้ timeout ค่าเริ่มต้นคือ **สามช่วง heartbeat** หากระบุ `heartbeat_timeout_secs` ชัดเจนจะใช้ค่านั้นแทน
+WebSocket client จะรีเซ็ตเมื่อได้รับ frame ขาเข้าใดๆ ส่วน raw TCP client จะรีเซ็ตเมื่อมีไบต์มาถึง
 
-The client expects the peer to answer heartbeats, so a transport with no heartbeat gets no default window. An
-explicit timeout can still enable detection without a heartbeat.
+client คาดหวังว่า peer จะตอบ heartbeat ดังนั้น transport ที่ไม่มี heartbeat จะไม่มีหน้าต่างค่าเริ่มต้น แต่
+timeout ที่ระบุชัดเจนยังเปิดการตรวจจับได้แม้ไม่มี heartbeat
 
-For WebSocket clients, that window counts all frames, so a keepalive reply refreshes it and a quiet
-market does not trip it.
+สำหรับ WebSocket client หน้าต่างนี้นับทุก frame การตอบ keepalive จึงรีเฟรชหน้าต่าง และตลาดที่เงียบจะไม่
+ทำให้ timeout
 
-#### Feed idle timeout
+#### Feed idle timeout {#feed-idle-timeout}
 
-An adapter can set a separate idle timeout to detect a feed that stopped flowing while the transport stays
-healthy. Only Text and Binary frames refresh this timeout. That second window suits a venue which pushes data
-on a known cadence. Where the venue answers the keepalive with a text payload, its reply refreshes the idle
-timeout exactly like real data does. Thus, this window is meaningful only when it sits below the heartbeat
-interval.
+adapter สามารถตั้ง idle timeout แยกต่างหากเพื่อตรวจจับ feed ที่หยุดไหลขณะที่ transport ยังปกติดี มีเพียง
+frame แบบ Text และ Binary เท่านั้นที่รีเฟรช timeout นี้ หน้าต่างที่สองนี้เหมาะกับ venue ที่ push ข้อมูลตาม
+จังหวะที่รู้แน่นอน ในกรณีที่ venue ตอบ keepalive ด้วย payload แบบ text การตอบนั้นจะรีเฟรช idle timeout
+เหมือนข้อมูลจริง หน้าต่างนี้จึงมีความหมายก็ต่อเมื่อตั้งไว้ต่ำกว่าช่วง heartbeat
 
-### Adapter and actor integration
+### การเชื่อมกับ adapter และ actor {#adapter-and-actor-integration}
 
-Adapter integrations construct a `SocketStateSink` and set it through the network client's `state_sink`
-builder option. Publication requires the `LiveNode` runner. The standalone `AsyncRunner` does not publish
-these events.
+การเชื่อม adapter จะสร้าง `SocketStateSink` และตั้งผ่าน builder option `state_sink` ของ network client
+การ publish ต้องใช้ runner ของ `LiveNode` ส่วน `AsyncRunner` แบบ standalone จะไม่ publish event เหล่านี้
 
-Actors subscribe with `subscribe_socket_state(...)` and receive events through `on_socket_state(...)`. The
-Python API exposes `SocketState` and `SocketStateChanged` from `nautilus_trader.common`. Delivery stays on the
-typed in-process bus. External message-bus streaming and wire formats do not expose these events.
+actor subscribe ด้วย `subscribe_socket_state(...)` และรับ event ผ่าน `on_socket_state(...)` การส่งอยู่บน
+bus แบบมี type ภายใน process การสตรีมผ่าน external message bus และรูปแบบ wire จะไม่เปิดเผย event เหล่านี้
 
-### Endpoint reconnect commands
+### คำสั่ง reconnect ราย endpoint {#endpoint-reconnect-commands}
 
-An actor or strategy can call `reconnect_socket(client_id, endpoint)` with an endpoint label from a
-state event. The runner routes the typed command through the kernel and the engine that owns the
-registered endpoint. The engine invokes only that transport's reconnect handle. It does not call
-the containing `DataClient` or `ExecutionClient` disconnect and connect lifecycle.
+actor หรือ strategy สามารถเรียก `reconnect_socket(client_id, endpoint)` ด้วย label ของ endpoint จาก
+state event ได้ runner จะ route คำสั่งแบบมี type ผ่าน kernel และ engine ที่เป็นเจ้าของ endpoint ที่ลงทะเบียนไว้
+engine จะเรียกเฉพาะ reconnect handle ของ transport นั้น โดยไม่เรียกวงจร disconnect และ connect ของ
+`DataClient` หรือ `ExecutionClient` ที่ครอบอยู่
 
 :::note
-The API is **fire-and-observe**. A successful return means the command passed local validation and was
-queued. It does not acknowledge kernel acceptance or completed recovery.
+API นี้เป็นแบบ **fire-and-observe** การคืนค่าสำเร็จหมายความว่าคำสั่งผ่านการตรวจสอบในเครื่องและเข้าคิวแล้ว
+ไม่ได้ยืนยันว่า kernel รับคำสั่งหรือการกู้คืนเสร็จสมบูรณ์
 :::
 
-An accepted request emits `SocketStateChanged` for the selected endpoint:
+คำขอที่ได้รับการยอมรับจะ emit `SocketStateChanged` สำหรับ endpoint ที่เลือก:
 
-1. `SocketState.DISCONNECTED` as the transport enters reconnect mode.
-1. `SocketState.CONNECTED` after transport recovery.
+1. `SocketState.DISCONNECTED` เมื่อ transport เข้าสู่โหมด reconnect
+1. `SocketState.CONNECTED` หลัง transport กู้คืนแล้ว
 
-The transport's normal reconnect controller preserves its authentication, subscription replay, and
-adapter recovery behavior.
+ตัวควบคุมการ reconnect ปกติของ transport จะคงพฤติกรรมการยืนยันตัวตน, การ replay subscription และการ
+กู้คืนของ adapter ไว้
 
-The kernel logs unknown clients, unsupported clients, unknown or ambiguous endpoints, duplicate
-requests, disconnecting transports, and closed transports. These rejections emit no socket state
-change and do not affect another endpoint. Endpoint labels use identifier characters only and never
-contain raw URLs.
+kernel จะ log client ที่ไม่รู้จัก, client ที่ไม่รองรับ, endpoint ที่ไม่รู้จักหรือกำกวม, คำขอซ้ำ, transport ที่กำลัง
+disconnect และ transport ที่ปิดแล้ว การปฏิเสธเหล่านี้จะไม่ emit การเปลี่ยนสถานะ socket และไม่กระทบ
+endpoint อื่น label ของ endpoint ใช้เฉพาะอักขระของ identifier และไม่มี URL ดิบ
 
-## Shutdown on error
+## Shutdown เมื่อเกิด error {#shutdown-on-error}
 
-Set `LiveNodeConfig.shutdown_on_error=True` so that a Rust error log requests a live node shutdown. The Rust
-logger records the first `log::error!` emitted after the kernel starts, including error logs from other
-threads. The kernel publishes a `ShutdownSystem` command when the live event loop next checks for shutdown.
+ตั้ง `LiveNodeConfig.shutdown_on_error=True` เพื่อให้ error log ใน Rust ร้องขอการ shutdown ของ live node
+logger ของ Rust จะบันทึก `log::error!` ตัวแรกที่ถูก emit หลัง kernel เริ่ม รวมถึง error log จาก thread อื่น
+kernel จะ publish คำสั่ง `ShutdownSystem` เมื่อ live event loop ตรวจการ shutdown ครั้งถัดไป
 
-The shutdown request follows the normal live node stop path. The node stops the trader,
-awaits the post-stop delay, disconnects clients, and stops the engines. It does not abort
-the process.
+คำขอ shutdown จะเป็นไปตามเส้นทางการหยุด live node ปกติ node จะหยุด trader, รอ post-stop delay,
+disconnect client และหยุด engine โดยไม่ abort process
 
-```python
-from nautilus_trader.config import LiveNodeConfig
+trigger นี้มีกฎดังนี้:
 
-config = LiveNodeConfig(shutdown_on_error=True)
-```
-
-The trigger follows these rules:
-
-- Error logs suppressed by component filters or logging bypass mode still request shutdown.
-- A new kernel run clears and re-arms the trigger, so a process can restart a node without
-  reinitializing the logging system.
-- Shutdown-on-error observes **Rust `log` records**, not Python `logging.error(...)` calls.
+- error log ที่ถูกระงับโดยตัวกรองของ component หรือโหมด logging bypass ยังร้องขอ shutdown ได้
+- การรัน kernel ครั้งใหม่จะล้างและตั้ง trigger ใหม่ process จึง restart node ได้โดยไม่ต้อง initialize ระบบ
+  logging ใหม่
+- shutdown-on-error สังเกต **record ของ `log` ใน Rust**
 
 :::note
-The per-engine `graceful_shutdown_on_error` option has been removed. Configure shutdown-on-error at
-the node/kernel level instead.
+option `graceful_shutdown_on_error` ราย engine ถูกนำออกแล้ว ให้ตั้งค่า shutdown-on-error ที่ระดับ
+node/kernel แทน
 :::
 
-## Related guides
+## คู่มือที่เกี่ยวข้อง {#related-guides}
 
-- [Execution reconciliation](execution/reconciliation.md) - State recovery and runtime consistency checks.
-- [Execution policies](execution/policies.md) - Command delivery, persistence, and recovery
-  boundaries.
-- [Python](python.md) - Python ownership, runtime, and public API boundaries.
-- [Configure a live trading node](../how_to/configure_live_trading.md) - Node and engine configuration.
-- [Run live trading with Rust](../how_to/run_rust_live_trading.md) - Rust node setup and venue connection.
-- [Adapters](adapters.md) - Venue connectivity.
-- [Execution](execution/) - Command outcomes and order execution.
-- [Message bus](message_bus.md) - Typed in-process publish and subscribe behavior.
-- [Backtesting](backtesting/) - Testing strategies before deployment.
+- [Execution reconciliation](execution/reconciliation.md) - การกู้คืนสถานะและการตรวจความสอดคล้องระหว่างรัน
+- [Execution policies](execution/policies.md) - ขอบเขตของการส่งคำสั่ง, persistence และการกู้คืน
+- [Configure a live trading node](../how_to/configure_live_trading.md) - การตั้งค่า node และ engine
+- [Run live trading with Rust](../how_to/run_rust_live_trading.md) - การตั้งค่า node ใน Rust และการเชื่อมต่อ venue
+- [Adapters](adapters.md) - การเชื่อมต่อกับ venue
+- [Execution](execution/) - ผลลัพธ์ของคำสั่งและการ execute order
+- [Message bus](message_bus.md) - พฤติกรรม publish และ subscribe แบบมี type ภายใน process
+- [Backtesting](backtesting/) - การทดสอบ strategy ก่อน deploy
