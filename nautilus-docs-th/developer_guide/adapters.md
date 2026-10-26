@@ -2175,3 +2175,248 @@ group หรือ spawner และปล่อยให้ `begin_shutdown` ca
 หลังจาก `finish_shutdown` ระบายทุก handle และ `start_generation` เปิด group ใหม่แล้วเท่านั้น การใช้
 token ที่ถูก cancel แล้วซ้ำจะทำให้ task ที่มาแทนออกทันที ขณะที่การแทนที่ก่อนระบายเสร็จจะปล่อยให้
 งานเก่าข้ามขอบเขตของการ reconnect
+
+## การทดสอบ {#testing}
+
+test พิสูจน์ semantics ของ adapter ที่ขอบเขตที่กว้างขึ้นเป็นลำดับ ให้เก็บ fixture ที่ถูกต้องแบบ canonical ไว้ใต้
+`test_data/` และไม่ให้ unit test และ integration test ทั่วไปเข้าถึง network ให้ได้ payload ที่ถูกต้องมาจาก
+เอกสารทางการของ venue หรือ response ของ venue ที่บันทึกไว้ อย่าประดิษฐ์ขึ้นเอง ส่วน input ที่ผิดรูปแบบหรือ
+ถูกดัดแปลงแบบสังเคราะห์ยังมีประโยชน์สำหรับ negative test, property test และ fuzz test เมื่อ test ระบุไว้ชัดเจน
+
+| ขอบเขต                        | ตำแหน่งทั่วไป                       | สิ่งที่ต้องพิสูจน์                                                                                        |
+| --------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Pure protocol logic         | test module ใน `src/**`           | symbol, enum, timestamp, decimal, signature, codec, parser และ input ที่ผิดรูปแบบ                         |
+| Public Rust client boundary | `tests/`                         | พฤติกรรมแบบ typed ของ HTTP และ WebSocket ผ่าน mock server, การ dispatch event, วงจรชีวิต และการ retry       |
+| Live venue acceptance       | ตัวอย่างของ adapter หรือ test node   | authentication, subscription, execution, report, การกู้คืน และข้อจำกัดที่ประกาศไว้                         |
+
+### การทดสอบ Rust {#rust-testing}
+
+policy การทดสอบร่วมของ repository ใช้ `#[rstest]` สำหรับ test function ของ Rust, อนุญาต
+`#[tokio::test]` สำหรับ async test และไม่อนุญาต comment แบบ arrange/act/assert
+[testing conventions hook](../../.pre-commit-hooks/check_testing_conventions.sh) บังคับใช้กฎ
+ระดับ repository เหล่านี้
+
+#### Fixture และ assertion ของ parser {#fixtures-and-parser-assertions}
+
+ใช้ค่า fixture ที่แน่นอนและ assert ทุกฟิลด์ output ที่คงที่ input ที่แตกต่างกันควรทำให้เห็นการสลับ
+ฟิลด์, ค่าที่ตกหล่น, precision ที่ผิด และค่าเริ่มต้นที่เกิดขึ้นโดยไม่ตั้งใจ
+
+test ของ parser และ serializer ควรครอบคลุม:
+
+- fixture ที่สมจริงหนึ่งตัวสำหรับทุกกลุ่ม message หรือ instrument ที่รองรับ
+- ค่าขอบเขตของ precision ทศนิยม, ปริมาณ, timestamp, ID และรหัส enum
+- ฟิลด์ที่ไม่รู้จัก, หายไป, null และผิดรูปแบบตาม contract ของ venue
+- round trip หรือ canonical byte ในจุดที่โปรโตคอลกำหนด
+- error ที่คงที่สำหรับ input ที่ถูกปฏิเสธ
+
+เก็บ envelope ของ venue ไว้ครบเมื่อฟิลด์ status, cursor ของ pagination, timestamp หรือ wrapper ของผลลัพธ์ที่ซ้อนกัน
+มีผลต่อพฤติกรรม บันทึกที่มาของ fixture ไว้ใน fixture เอง, README ที่อยู่ใกล้ ๆ หรือ source manifest ใช้
+payload จริงแยกกันสำหรับ state ที่ต่างกันเชิงโครงสร้าง เช่น long, short, flat, ว่าง และ partially filled อย่า
+ดัดแปลง fixture แบบ happy-path ตัวเดียวให้เป็นทุก case ที่ถูกต้อง
+
+หาก test ของ HTTP และ WebSocket ใช้ fixture loader หรือ model builder ร่วมกัน ให้วาง code สำหรับ test ไว้ใน
+module `common::testing` อย่าคัดลอก code test ร่วมนั้นไปไว้ใน production module รูปแบบนี้เป็นทางเลือก
+เมื่อไม่มี code test ที่ใช้ร่วมกัน
+
+#### การ synchronize ของ client {#client-synchronization}
+
+ขับ method ของ public client ผ่าน mock HTTP server หรือ mock WebSocket server แล้ว assert event ที่ emit,
+request, สถานะ connection, สถานะ subscription, จำนวน retry และพฤติกรรม shutdown
+
+เลือกใช้ notification ที่ test หรือ mock เป็นเจ้าของเมื่อ operation เปิดให้ใช้ ให้ subscribe ก่อน
+อ่าน state ที่เชื่อถือได้ แล้วตรวจซ้ำหลังทุก notification เพื่อไม่ให้พลาด transition ที่เกิดระหว่าง
+การอ่านกับการ await เมื่อไม่มีสัญญาณที่เหมาะสม ให้ใช้
+[`wait_until_async`](../../crates/common/src/testing.rs) การ sleep สั้น ๆ ใช้ได้เมื่อช่วงเวลา
+นั้นคือสิ่งที่กำลังทดสอบ แต่ไม่ควรใช้ปกปิดจุด synchronization ที่ขาดหายไป
+
+### การทดสอบเชิงฟังก์ชันและ integration {#functional-and-integration-testing}
+
+ทดสอบแต่ละขอบเขต public ด้วยหลักฐานของโปรโตคอลทั้งแบบสำเร็จและแบบมีปัญหา:
+
+| Surface          | หลักฐานแบบสำเร็จ                                                                              | หลักฐานของความล้มเหลวและการกู้คืน                                                                              |
+| ---------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| HTTP client      | method, path, query หรือ body, authentication และ typed response ที่ตรงทุกประการ                   | credential ที่หายไป, venue error, body ที่ผิดรูปแบบ, การจัดประเภท retry และการจบ pagination                    |
+| WebSocket client | connection, authentication, heartbeat, acknowledgement ของ subscription และการ route แบบ typed   | authentication ล้มเหลว, frame ที่ผิดรูปแบบ, acknowledgement ที่เก่าแล้ว, disconnect, replay และ shutdown         |
+| Data client      | request และ subscription สร้าง domain event ที่ครบถ้วนพร้อม identity และเวลาที่ถูกต้อง               | ความสด, การกรอง, input ที่ผิดรูปแบบ, gap ของ stream, unsubscribe และพฤติกรรม reconnect                        |
+| Execution client | คำสั่งสร้าง event ตามลำดับ, account state และ reconciliation report                               | local denial, rejection ที่ชัดเจน, ผลลัพธ์ที่ไม่ทราบ, รายการซ้ำ, batch บางส่วน และการกู้คืนตอน startup            |
+
+mock transport ควรเปิดเผย state มากพอที่จะ assert request, จำนวน connection, authentication,
+subscription และ event ที่ emit ให้รอเงื่อนไขที่สังเกตได้เหล่านั้นแทนการ sleep
+assert ทั้งสองฝั่งของขอบเขต: request ของ venue ที่แน่นอน และ event หรือ report ของ Nautilus
+ที่เป็นผลลัพธ์
+
+data test ครอบคลุมทุก request และ subscription ที่ประกาศไว้ รวมถึง:
+
+- identity, precision และความสดของ instrument
+- ขอบเขตของ snapshot และ incremental ของ order book
+- หลาย symbol หรือหลายกลุ่มผลิตภัณฑ์ที่ใช้ connection ร่วมกัน
+- พฤติกรรมของ acknowledgement, rejection, unsubscribe, reconnect และ resubscribe
+- message ที่ผิดรูปแบบหรือไม่รู้จัก โดยไม่สูญเสียข้อมูลที่ถูกต้องที่ตามมา
+
+execution test ครอบคลุมทุกคำสั่งและ report ที่ประกาศไว้ รวมถึง:
+
+- local denial ก่อน submit
+- venue rejection ที่ชัดเจน
+- context ของ diagnostic และเหตุผลที่แสดงต่อ strategy แบบสะอาดที่ตรงทุกประการสำหรับทุกเส้นทาง rejection ที่เปลี่ยนแปลง
+- ผลลัพธ์ของ transport ที่ไม่ทราบซึ่งยังคง reconcile ได้
+- ความพยายามที่กำกวมตามด้วย response ที่ดูเหมือนชัดเจน
+- venue identifier ที่คืนมาซึ่งหายไป, ผิดรูปแบบ และไม่ตรงกัน
+- ฟิลด์ error ที่มีโครงสร้าง และ fallback ของ raw body แบบมีขอบเขต: ว่าง, plain text, ข้อมูลที่มีโครงสร้าง
+  แต่ผิดรูปแบบ, markup, UTF-8 ที่ไม่ถูกต้อง และ input ที่ใหญ่เกินไป
+- หลักฐานที่เทียบเท่ากันจาก HTTP, WebSocket, การ poll และ reconciliation ให้เหตุผลและ
+  การจัดประเภทเดียวกัน
+- หลักฐาน post-only ที่มีโครงสร้าง หรือ text classifier ที่ตรงทุกตัวอักษร รวมถึง message ที่ใกล้เคียงแต่ไม่ตรง
+- ผลลัพธ์ของ batch แบบบางส่วนและราย order
+- stream update ที่ซ้ำหรือผิดลำดับ
+- account state, order ที่เปิดอยู่, fill, position และ reconciliation ตอน startup
+- cutoff คงที่ค่าเดียวข้าม query ของ order และ fill แบบมีขอบเขต รวมถึง record ที่อยู่ตรงขอบเขต
+- mass status ที่สมบูรณ์และไม่สมบูรณ์สำหรับแหล่ง report แต่ละแหล่งที่ล้มเหลวได้อย่างอิสระ
+- coverage ของ position snapshot หลัง reconnect, แถวที่ถูกข้าม, flat ที่ระบุชัด และ instrument ที่ไม่มีอยู่
+- การกู้คืน order ที่แน่นอนโดยไม่มีผลต่อ position หรือ portfolio เมื่อประวัติแบบมีขอบเขตไม่สมบูรณ์หรือ
+  กำกวม
+- stop, reset และ dispose ที่เป็น idempotent
+
+ให้ test ของ adapter โฟกัสที่พฤติกรรมของ adapter
+[ข้อกำหนดการทดสอบ data](spec_data_testing.md) และ
+[ข้อกำหนดการทดสอบ execution](spec_exec_testing.md) กำหนด catalog ของ scenario ร่วมและ
+กฎการข้าม ให้ลิงก์ไปยังเอกสารเหล่านั้นแทนการคัดลอกรายการบางส่วนไปไว้ใน README ของ adapter
+
+### Acceptance testing {#acceptance-testing}
+
+รัน acceptance test หลังจาก deterministic test ผ่านแล้วเท่านั้น ใช้ testnet หรือ account ที่ควบคุมได้ และ
+บันทึก:
+
+- environment และผลิตภัณฑ์ของ venue
+- specification case ที่รองรับและที่ข้าม
+- order type และ flag ที่ทดสอบ
+- case ของ reconnect หรือการกู้คืนที่ทดสอบ
+- ข้อจำกัดของ venue, rate limit และช่องว่างที่ทราบ
+
+acceptance test ต้องตรวจสอบ event และ state ของ venue ไม่ใช่แค่ว่าไม่มี error ให้เก็บกวาด order
+และ position ที่เปิดอยู่ตามแผนการทดสอบ และอย่าอนุมานว่ารองรับ production จาก happy
+path เพียงเส้นเดียว
+
+จัดเตรียม tester entry point ที่เกี่ยวข้อง:
+
+- Rust: `crates/adapters/<adapter>/examples/node_data_tester.rs` และ
+  `node_exec_tester.rs` พร้อม subdirectory ตามผลิตภัณฑ์เมื่อโปรโตคอลแยกตามผลิตภัณฑ์
+
+**Execution tester วาง order จริงโดยค่าเริ่มต้น** ให้ระบุเรื่องนี้เป็นคำเตือนไว้ที่ด้านบนของ module ตั้ง
+`dry_run=False` อย่างชัดเจนใน `ExecTesterConfig` เพื่อให้เห็นว่ามี option dry-run อยู่ การควบคุมของ Rust tester แตกต่างกันไป
+ให้ตรวจสอบก่อนรัน
+
+## ประสิทธิภาพและความทนทาน {#performance-and-robustness}
+
+เพิ่ม suite เหล่านี้ในช่วงท้าย หลังจากงาน functional, integration และ acceptance ยืนยันพฤติกรรมที่ถูกต้องแล้ว
+suite เหล่านี้เพิ่มความมั่นใจให้กับ hot path ที่ยืนยันแล้วและ input จาก venue ที่ไม่น่าเชื่อถือ แต่ไม่ได้แทนที่ conformance test
+
+### Canonical benchmark {#canonical-benchmarks}
+
+ใช้ Criterion สำหรับการตรวจประสิทธิภาพเชิงลึกบนขอบเขตของ production ที่การวัดระบุว่า
+สำคัญ suite ของ Lighter และ Derive เป็นโครงสร้างอ้างอิง:
+
+| Suite               | ขอบเขตแบบ canonical                                                                                                  | อ้างอิง                                                                                                                                |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `benches/data.rs`   | raw frame หรือ payload ของ venue ผ่านการ decode, parse, lookup ใน cache เมื่อจำเป็น และการสร้าง domain ของ Nautilus           | [Lighter data](../../crates/adapters/lighter/benches/data.rs), [Derive data](../../crates/adapters/derive/benches/data.rs)           |
+| `benches/exec.rs`   | คำสั่ง order ผ่านการ serialize และ sign และเมื่อเกี่ยวข้อง payload ของ execution ขาเข้าผ่านการ dispatch event               | [Lighter execution](../../crates/adapters/lighter/benches/exec.rs), [Derive execution](../../crates/adapters/derive/benches/exec.rs) |
+| `benches/micros.rs` | ต้นทุนเฉพาะการ decode, เฉพาะการ parse และ component ที่เจาะจง เพื่อระบุตำแหน่ง regression ที่พบที่ขอบเขตของ pipeline             | [Lighter micros](../../crates/adapters/lighter/benches/micros.rs), [Derive micros](../../crates/adapters/derive/benches/micros.rs)   |
+
+วาง instrument, payload, state ของ signer และ fixture อื่นที่สมจริงและใช้ร่วมกันไว้ใน
+`benches/common/` สร้าง setup, การ allocate และ state ที่คงที่ไว้นอกช่วงที่จับเวลา เมื่อ
+production ไม่ได้จ่ายต้นทุนนั้นต่อ operation และให้รวม setup ไว้เมื่อมันเป็นส่วนหนึ่งของ hot
+path จริง
+
+วัด pipeline แบบ end-to-end ที่เป็นตัวแทนได้ก่อน เพิ่ม component สำหรับวินิจฉัยเพื่ออธิบาย
+regression ไม่ใช่เพื่อทำให้ suite ใหญ่ขึ้น ตั้ง throughput เมื่อ byte, message, order หรือหน่วยอื่น
+ช่วยให้เห็นความสามารถในการปฏิบัติการชัดเจนขึ้น
+
+เพิ่ม suite เฉพาะของ venue สำหรับ hot path ที่ยืนยันแล้ว เช่น การ sign, hashing, binary codec หรือ
+authentication โดย Lighter มี suite ด้าน cryptography ที่เจาะจง และ Derive มี suite สำหรับการ sign อย่า
+บังคับหมวดที่ adapter ไม่ได้ใช้ ตัวเลขการ sign ของ Lighter ที่บันทึกไว้และการเปรียบเทียบกับ
+Go ทางการอยู่ใน
+[Lighter adapter benchmarks](../../crates/adapters/lighter/benches/BENCHMARKS.md)
+
+ทำตาม[คู่มือ benchmarking](../../BENCHMARKING.md) ของ repository สำหรับการเลือกเครื่องมือ, baseline, การควบคุม
+noise และการรายงานผล และใช้
+[Criterion practitioner guide](benchmarking.md#writing-criterion-benchmarks) สำหรับโครงสร้าง
+benchmark และคำสั่งที่รันบนเครื่อง local
+
+### Fuzz testing {#fuzz-testing}
+
+coverage-guided fuzzing เพิ่มความมั่นใจในจุดที่ byte หรือค่าใด ๆ จาก venue ข้ามขอบเขตความเชื่อถือ
+ให้จัดลำดับความสำคัญ:
+
+- การ decode raw WebSocket frame หรือ binary frame
+- การ normalize decimal, timestamp, symbol และ enum
+- signing payload และ canonical encoding
+- hash และ binary codec
+- การจัดสรร nonce หรือ sequence
+- parser และ encoder เฉพาะของ venue อื่น ๆ ที่รับ input ที่ไม่น่าเชื่อถือ
+
+ใส่ seed ให้ corpus ของ parser และ decoder ด้วย payload ที่เป็นตัวแทนจาก `test_data/` เมื่อช่วยเพิ่ม
+coverage ให้ harness อยู่ต่ำกว่าชั้น live network และ runtime เว้นแต่ target ต้องการ
+ขอบเขตเหล่านั้นโดยเฉพาะ
+
+การไม่ panic เป็นเพียง baseline ให้ assert คุณสมบัติแบบ deterministic เช่น:
+
+- round trip ของ encode/decode
+- canonical encoding และ idempotence
+- ขอบเขตของความยาว, precision, ช่วงค่า และการ allocate
+- hash และ signature แบบ deterministic
+- model ของ nonce หรือ sequence แบบ monotonic
+- ความสอดคล้องกับ implementation ที่เป็นอิสระ
+- การปฏิเสธ input ที่ไม่ถูกต้องอย่างคงที่
+
+ใช้ differential fuzzing เมื่อมี reference ที่เป็นอิสระเพียงพอ target การคูณ scalar ของ Lighter
+และ nonce model ของ Derive แสดงวิธีเปรียบเทียบ implementation โดยไม่ใส่
+state ของ network ไว้ใน harness
+
+การเชื่อมต่อแบบ canonical ของ adapter คือ:
+
+| Surface                                                    | การเชื่อมต่อที่ต้องทำ                                                                  | การบังคับใช้หรือการใช้งาน                                                       |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Adapter `[features]`                                       | `fuzz = ["nautilus-live/fuzz"]`                                                    | เปิดการรองรับ fuzz ร่วมโดยไม่เปลี่ยน build ปกติ                                  |
+| Adapter `[package.metadata]`                               | `cargo-fuzz = true`                                                                | ให้ `cargo fuzz` ถือว่า manifest ของ adapter เป็น fuzz package                  |
+| Adapter `[[bin]]`                                          | หนึ่ง entry ต่อหนึ่ง target พร้อม feature `fuzz` และตั้ง `test`, `doc` และ `bench` เป็น false | ลงทะเบียน binary ที่ค้นพบได้โดยไม่เพิ่มเข้าไปในการรัน test ปกติ                      |
+| `fuzz/fuzz_targets/`                                       | target ที่เจาะจงซึ่งอยู่ต่ำกว่าชั้น live network และ runtime                                | ให้ input ใด ๆ อยู่ที่ขอบเขตของ parser, codec, การ normalize หรือ model             |
+| [`scripts/fuzz-adapter.sh`](../../scripts/fuzz-adapter.sh) | การค้นหา target ของ adapter และการรันซ้ำแบบแบ่งช่วงเวลา                                 | ใช้ binary ที่ลงทะเบียนไว้และรักษาตำแหน่งของ corpus และ artifact                     |
+
+adapter crate ต้องไม่พึ่งพา `libfuzzer-sys` โดยตรง
+[Cargo conventions hook](../../.pre-commit-hooks/check_cargo_conventions.sh) บังคับใช้เส้นทาง
+feature ร่วม ให้ใช้ [Lighter fuzz README][lighter-fuzz] และ
+[Derive fuzz README][derive-fuzz] ที่เจาะจงสำหรับคำสั่ง setup, corpus, artifact และ target แทนการ
+คัดลอกทุกคำสั่งมาไว้ที่นี่
+
+## เอกสาร {#documentation}
+
+สร้างหรืออัปเดต `docs/integrations/<adapter>.md` ให้มี:
+
+- ผลิตภัณฑ์, environment, data type, order type และ report ที่รองรับ
+- authentication และ environment variable
+- ตัวอย่าง config และการลงทะเบียน factory
+- ข้อจำกัดของ venue, พฤติกรรม reconciliation และช่องว่างที่ทราบ
+- ความแตกต่างของ testnet หรือ sandbox
+- ลิงก์ไปยังเอกสารโปรโตคอลของ venue ที่ implementation ใช้
+
+ทำให้คำกล่าวอ้างเรื่อง capability ทดสอบได้ และระบุข้อยกเว้นที่ชอบธรรม ให้ลิงก์ไปยังคู่มือร่วมด้าน
+[configuration](../concepts/configuration.md), [benchmarking](../../BENCHMARKING.md) และการทดสอบ
+แทนการคัดลอก policy ของคู่มือเหล่านั้น
+
+ทำตาม[คู่มือเอกสาร](docs.md) และ
+[คู่มือรูปแบบ Markdown](markdown_style.md) ของ repository ให้เปลี่ยน input ของ generator แล้ว generate output ใหม่
+
+## อ้างอิงข้อกำหนดการทดสอบ {#testing-spec-references}
+
+ใช้ข้อกำหนดร่วมเหล่านี้เพื่อวางแผนและรายงาน conformance ของ adapter:
+
+- [ข้อกำหนดการทดสอบ data client](spec_data_testing.md)
+- [ข้อกำหนดการทดสอบ execution client](spec_exec_testing.md)
+
+[binance]: ../../crates/adapters/binance/src/lib.rs
+[bybit]: ../../crates/adapters/bybit/src/lib.rs
+[derive]: ../../crates/adapters/derive/src/lib.rs
+[derive-fuzz]: ../../crates/adapters/derive/fuzz/README.md
+[kraken]: ../../crates/adapters/kraken/src/lib.rs
+[lighter]: ../../crates/adapters/lighter/src/lib.rs
+[lighter-fuzz]: ../../crates/adapters/lighter/fuzz/README.md
+[okx]: ../../crates/adapters/okx/src/lib.rs

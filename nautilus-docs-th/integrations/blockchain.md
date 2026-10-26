@@ -1,101 +1,93 @@
 # Blockchain
 
-## Overview
+## ภาพรวม {#overview}
 
-The blockchain adapter ingests DeFi data from EVM chains and exposes it through the
-NautilusTrader data model. It also includes an execution client for locally signed Uniswap V3
-market swaps. The execution client is not production-ready. The adapter uses three backends:
+adapter สำหรับ blockchain รับข้อมูล DeFi จาก EVM chain และเปิดให้ใช้ผ่าน data model ของ NautilusTrader
+นอกจากนี้ยังมี execution client สำหรับ market swap บน Uniswap V3 ที่ sign ในเครื่อง ซึ่ง execution client นี้
+ยังไม่พร้อมสำหรับ production adapter ใช้ backend สามตัว:
 
-- HyperSync: high-throughput historical blocks and contract logs. See the
-  [Envio HyperSync docs](https://docs.envio.dev/docs/HyperSync/hypersync-usage) for query shape,
-  pagination, and tuning.
-- HTTP RPC: contract calls, Multicall reads, and final on-chain state hydration.
-- Postgres: optional durable cache state, pool metadata, decoded events, and snapshots.
+- HyperSync: block และ contract log ในอดีตแบบ throughput สูง ดูรูปแบบ query, pagination และการปรับแต่งได้ที่
+  [เอกสาร Envio HyperSync](https://docs.envio.dev/docs/HyperSync/hypersync-usage)
+- HTTP RPC: การเรียก contract, การอ่านผ่าน Multicall และการเติมสถานะสุดท้ายบน chain (hydration)
+- Postgres: (optional) สถานะ cache แบบถาวร, metadata ของ pool, event ที่ decode แล้ว และ snapshot
 
-## Capability status
+## สถานะของความสามารถ {#capability-status}
 
-| Capability                | Scope                                                                      | Readiness                                                     |
+| Capability                | ขอบเขต                                                                       | ความพร้อม                                                       |
 | ------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| Historical blocks         | Any configured `Chain` with a reachable HyperSync endpoint.                | Available through the Rust service and `sync-blocks`.         |
-| Live blocks               | HyperSync, or WSS RPC for chains with an RPC client.                       | Available through the Rust and Python data-client surfaces.   |
-| DEX pool discovery        | Chain and DEX combinations with a registered pool-creation parser.         | Available through the data client and `sync-dex`.             |
-| Pool snapshots and replay | Concentrated-liquidity integrations with the complete snapshot parser set. | Available with Postgres and the provider constraints below.   |
-| Live pool events          | Registered swap, liquidity, collect, flash, and fee-protocol parsers.      | Available through the Rust and Python data-client surfaces.   |
-| Transaction execution     | Locally signed Uniswap V3 BUY and SELL market swaps.                       | Experimental; not production-ready or exposed for Python use. |
+| Historical blocks         | `Chain` ใดก็ได้ที่ตั้งค่าไว้และเข้าถึง HyperSync endpoint ได้                       | ใช้ได้ผ่าน Rust service และ `sync-blocks`                         |
+| Live blocks               | HyperSync หรือ WSS RPC สำหรับ chain ที่มี RPC client                          | ใช้ได้ผ่าน data client ฝั่ง Rust                                  |
+| DEX pool discovery        | ชุด chain และ DEX ที่มี parser สำหรับการสร้าง pool ลงทะเบียนไว้                    | ใช้ได้ผ่าน data client และ `sync-dex`                            |
+| Pool snapshots and replay | integration แบบ concentrated-liquidity ที่มีชุด parser ของ snapshot ครบ          | ใช้ได้เมื่อมี Postgres และอยู่ภายใต้ข้อจำกัดของผู้ให้บริการด้านล่าง          |
+| Live pool events          | parser ที่ลงทะเบียนไว้สำหรับ swap, liquidity, collect, flash และ fee-protocol   | ใช้ได้ผ่าน data client ฝั่ง Rust                                  |
+| Transaction execution     | market swap แบบ BUY และ SELL บน Uniswap V3 ที่ sign ในเครื่อง                   | Experimental ยังไม่พร้อมสำหรับ production                         |
 
-Direct WSS RPC clients exist for Ethereum, Polygon, Base, Arbitrum, and BSC. Other configured chain
-values can use HyperSync block history when their endpoint is reachable, but they do not support
-WSS live mode.
+มี WSS RPC client โดยตรงสำหรับ Ethereum, Polygon, Base, Arbitrum และ BSC ค่า chain อื่นที่ตั้งค่าไว้
+ใช้ประวัติ block จาก HyperSync ได้เมื่อเข้าถึง endpoint ได้ แต่ไม่รองรับโหมด live ผ่าน WSS
 
-### Chain and DEX command support
+### คำสั่งที่รองรับตาม chain และ DEX {#chain-and-dex-command-support}
 
-Command support is derived from the parsers registered for each chain and DEX. The CLI help for
-`sync-dex` and `analyze-pool(s)` prints the same capability boundaries.
+การรองรับคำสั่งได้มาจาก parser ที่ลงทะเบียนไว้สำหรับแต่ละ chain และ DEX คำสั่ง help ของ CLI สำหรับ
+`sync-dex` และ `analyze-pool(s)` จะแสดงขอบเขตความสามารถแบบเดียวกัน
 
-| Tier            | Meaning                                                      | DEXes                                               | Chains                                      |
+| Tier            | ความหมาย                                                      | DEXes                                               | Chains                                      |
 | --------------- | ------------------------------------------------------------ | --------------------------------------------------- | ------------------------------------------- |
-| Replay-ready    | Discovery, snapshot, and fee-protocol replay parsers.        | Uniswap V3 and PancakeSwap V3.                      | Ethereum, Base, Arbitrum, and BSC.          |
-| Analysis only   | Snapshot parsers without CLI pool discovery.                 | Aerodrome Slipstream.                               | Base.                                       |
-| Discovery only  | Pool discovery without the complete snapshot parser set.     | Uniswap V2 and Uniswap V4.                          | Ethereum, Base, and Arbitrum.               |
-| Discovery only  | Pool discovery without the complete snapshot parser set.     | Camelot V3 and Fluid DEX.                           | Arbitrum.                                   |
-| Registered only | Metadata registration without command-capable event parsers. | Curve Finance and Fluid DEX.                        | Ethereum.                                   |
-| Registered only | Metadata registration without command-capable event parsers. | Aerodrome V1, BaseSwap V2, BaseX, and SushiSwap V3. | Base.                                       |
-| Registered only | Metadata registration without command-capable event parsers. | Curve Finance, SushiSwap V2, and SushiSwap V3.      | Arbitrum.                                   |
-| Blocks only     | No DEX registration; `sync-blocks` remains available.        | -                                                   | Other configured chains, including Polygon. |
+| Replay-ready    | มี parser สำหรับ discovery, snapshot และ fee-protocol replay   | Uniswap V3 และ PancakeSwap V3                       | Ethereum, Base, Arbitrum และ BSC            |
+| Analysis only   | มี parser ของ snapshot แต่ไม่มี pool discovery ผ่าน CLI           | Aerodrome Slipstream                                | Base                                        |
+| Discovery only  | มี pool discovery แต่ชุด parser ของ snapshot ไม่ครบ              | Uniswap V2 และ Uniswap V4                           | Ethereum, Base และ Arbitrum                 |
+| Discovery only  | มี pool discovery แต่ชุด parser ของ snapshot ไม่ครบ              | Camelot V3 และ Fluid DEX                            | Arbitrum                                    |
+| Registered only | ลงทะเบียน metadata แต่ไม่มี event parser ที่ใช้กับคำสั่งได้          | Curve Finance และ Fluid DEX                         | Ethereum                                    |
+| Registered only | ลงทะเบียน metadata แต่ไม่มี event parser ที่ใช้กับคำสั่งได้          | Aerodrome V1, BaseSwap V2, BaseX และ SushiSwap V3   | Base                                        |
+| Registered only | ลงทะเบียน metadata แต่ไม่มี event parser ที่ใช้กับคำสั่งได้          | Curve Finance, SushiSwap V2 และ SushiSwap V3        | Arbitrum                                    |
+| Blocks only     | ไม่มีการลงทะเบียน DEX แต่ยังใช้ `sync-blocks` ได้                  | -                                                   | chain อื่นที่ตั้งค่าไว้ รวมถึง Polygon          |
 
-`sync-dex` requires a pool-creation parser. `analyze-pool(s)` requires Initialize, Swap, Mint, Burn, and
-Collect parsers. Replay-ready integrations also parse `SetFeeProtocol`. Integrations with a `CollectProtocol`
-parser can replay protocol-fee withdrawals.
+`sync-dex` ต้องมี parser สำหรับการสร้าง pool ส่วน `analyze-pool(s)` ต้องมี parser ของ Initialize, Swap, Mint, Burn
+และ Collect integration แบบ replay-ready ยัง parse `SetFeeProtocol` ด้วย integration ที่มี parser ของ
+`CollectProtocol` จะ replay การถอนค่าธรรมเนียมของ protocol ได้
 
-Aerodrome Slipstream has no pool-creation parser, and the CLI has no separate pool-registration
-command. Analysis works only when its pool and token metadata already exist in the cache through
-another integration path. Its replay-derived snapshots cannot be validated against on-chain state.
-Registered-only DEXes are omitted from command help and fail the relevant capability check.
+Aerodrome Slipstream ไม่มี parser สำหรับการสร้าง pool และ CLI ไม่มีคำสั่งลงทะเบียน pool แยกต่างหาก การวิเคราะห์
+จะทำได้ก็ต่อเมื่อ metadata ของ pool และ token มีอยู่ใน cache แล้วผ่านเส้นทาง integration อื่น snapshot ที่ได้จากการ
+replay ของมันไม่สามารถตรวจสอบกับสถานะบน chain ได้ DEX แบบ registered-only จะไม่แสดงใน help ของคำสั่ง
+และจะไม่ผ่านการตรวจสอบความสามารถที่เกี่ยวข้อง
 
-### Interface availability
+### ช่องทางที่ใช้งานได้ {#interface-availability}
 
-| Surface                               | Rust                                      | Python                     | CLI                                      |
-| ------------------------------------- | ----------------------------------------- | -------------------------- | ---------------------------------------- |
-| Data configuration and factory        | Public config and factory.                | Public config and factory. | -                                        |
-| Live data subscriptions               | Data-client subscription API.             | LiveNode data-client API.  | -                                        |
-| Block sync, discovery, and analysis   | Adapter services.                         | -                          | `sync-blocks`, `sync-dex`, and analysis. |
-| Stored snapshot loading               | Cache API.                                | `load_pool_snapshot`.      | -                                        |
-| Execution configuration               | Public config.                            | Configuration types only.  | -                                        |
-| Execution factory and order routing   | Public factory and client.                | -                          | -                                        |
-| Preflight, wrap, approve, and storage | Direct `BlockchainExecutionClient` calls. | -                          | -                                        |
+| Surface                               | Rust                                      | CLI                                      |
+| ------------------------------------- | ----------------------------------------- | ---------------------------------------- |
+| Data configuration and factory        | config และ factory แบบ public              | -                                        |
+| Live data subscriptions               | subscription API ของ data client          | -                                        |
+| Block sync, discovery, and analysis   | service ของ adapter                       | `sync-blocks`, `sync-dex` และการวิเคราะห์   |
+| Stored snapshot loading               | Cache API                                 | -                                        |
+| Execution configuration               | config แบบ public                          | -                                        |
+| Execution factory and order routing   | factory และ client แบบ public              | -                                        |
+| Preflight, wrap, approve, and storage | เรียก `BlockchainExecutionClient` โดยตรง     | -                                        |
 
-The Python module does not register or export `BlockchainExecutionClientFactory`, so Python
-LiveNode configuration cannot instantiate the execution client.
+### ตัวอย่าง {#examples}
 
-### Examples
+มีตัวอย่าง data client ที่รันได้:
 
-Runnable data-client examples are available for both public language surfaces:
+- [Rust LiveNode data tester](../../crates/adapters/blockchain/examples/node_data_tester.rs)
 
-- [Rust LiveNode data tester](../../crates/adapters/blockchain/examples/node_data_tester.rs).
-- [Python data tester](../../examples/live/blockchain/data_tester.py).
-- [Python LiveNode example](../../examples/live/blockchain/node_test.py).
+repository ไม่มีตัวอย่างการตั้งค่า execution ที่รันได้และได้รับการดูแล ให้สร้าง integration ด้าน execution ด้วย Rust
+และปฏิบัติตามข้อจำกัดใน [Execution](#execution)
 
-The repository does not provide a maintained runnable execution setup example. Build execution
-integrations in Rust and apply the constraints in [Execution](#execution).
+## Primitive หลัก {#core-primitives}
 
-## Core primitives
+domain model ของ DeFi อยู่ใน `nautilus_model::defi`
 
-The DeFi domain model lives in `nautilus_model::defi`.
+### Chain {#chain}
 
-### Chain
+`Chain` กำหนด blockchain เป้าหมายและ service endpoint เริ่มต้นของมัน
 
-`Chain` defines the target blockchain and its default service endpoints.
-
-| Field                      | Type             | Description                                                        |
+| Field                      | Type             | คำอธิบาย                                                            |
 | -------------------------- | ---------------- | ------------------------------------------------------------------ |
-| `name`                     | `Blockchain`     | Chain enum value, such as `Ethereum` or `Arbitrum`.                |
-| `chain_id`                 | `u32`            | EVM chain ID, such as `1` for Ethereum.                            |
-| `hypersync_url`            | `String`         | HyperSync endpoint, by default `https://{chain_id}.hypersync.xyz`. |
-| `rpc_url`                  | `Option<String>` | Optional direct RPC endpoint stored on the chain model.            |
-| `native_currency_decimals` | `u8`             | Native gas token decimal precision, usually `18`.                  |
+| `name`                     | `Blockchain`     | ค่า enum ของ chain เช่น `Ethereum` หรือ `Arbitrum`                    |
+| `chain_id`                 | `u32`            | EVM chain ID เช่น `1` สำหรับ Ethereum                               |
+| `hypersync_url`            | `String`         | HyperSync endpoint ค่าเริ่มต้นคือ `https://{chain_id}.hypersync.xyz`   |
+| `rpc_url`                  | `Option<String>` | RPC endpoint โดยตรง (optional) ที่เก็บไว้ใน model ของ chain            |
+| `native_currency_decimals` | `u8`             | precision ทศนิยมของ gas token ดั้งเดิม ปกติคือ `18`                    |
 
-Chains can be loaded by numeric ID with `Chain::from_chain_id` or by name with
-`Chain::from_chain_name`.
+โหลด chain ได้ด้วย ID ตัวเลขผ่าน `Chain::from_chain_id` หรือด้วยชื่อผ่าน `Chain::from_chain_name`
 
 | Chain family     | Code | Name         | Decimals |
 | ---------------- | ---- | ------------ | -------- |
@@ -104,57 +96,55 @@ Chains can be loaded by numeric ID with `Chain::from_chain_id` or by name with
 | Avalanche        | AVAX | Avalanche    | 18       |
 | BSC              | BNB  | Binance Coin | 18       |
 
-### DEX and pools
+### DEX และ pool {#dex-and-pools}
 
-DEX integrations register:
+integration ของ DEX จะลงทะเบียน:
 
-- Factory addresses.
-- Event signatures and parser functions.
-- AMM type.
+- factory address
+- event signature และฟังก์ชัน parser
+- ประเภท AMM
 
-Pool definitions bind the chain and DEX to a pool contract address or protocol pool ID to form a
-stable Nautilus instrument ID. The token pair, fee tier, tick spacing, and creation block remain
-pool metadata.
+นิยามของ pool ผูก chain และ DEX เข้ากับ address ของ pool contract หรือ pool ID ของ protocol เพื่อสร้าง
+instrument ID ของ Nautilus ที่คงที่ คู่ token, fee tier, tick spacing และ block ที่สร้างยังคงเป็น metadata ของ pool
 
-When the data engine processes a pool definition, it caches and publishes a `CurrencyPair` under the same pool
-instrument ID. The instrument takes its base and quote from `Pool::get_base_token` and
-`Pool::get_quote_token`. Swap trade info and execution use this same token-priority orientation. The
-instrument derives price and size precision from token decimals up to `FIXED_PRECISION`. Distinct pool
-identifiers let same-token pools coexist in the cache and on the message bus.
+เมื่อ data engine ประมวลผลนิยามของ pool จะ cache และ publish `CurrencyPair` ภายใต้ instrument ID เดียวกับ pool
+instrument จะได้ base และ quote จาก `Pool::get_base_token` และ `Pool::get_quote_token` ข้อมูล trade ของ swap
+และการ execute ใช้การวางทิศทางตามลำดับความสำคัญของ token แบบเดียวกันนี้ instrument คำนวณ price และ size precision
+จากจำนวนทศนิยมของ token โดยไม่เกิน `FIXED_PRECISION` ตัวระบุ pool ที่ต่างกันทำให้ pool ที่ใช้ token คู่เดียวกัน
+อยู่ร่วมกันได้ทั้งใน cache และบน message bus
 
-Uniswap V3 and compatible concentrated-liquidity pools also use:
+pool ของ Uniswap V3 และ pool แบบ concentrated-liquidity ที่เข้ากันได้ยังใช้:
 
-- `Initialize(uint160,int24)` for initial price state.
-- `Mint` and `Burn` events for position and tick state replay.
-- `Swap` events for live pool price movement.
-- HTTP RPC final-state reads for `slot0`, liquidity, active ticks, and position data.
+- `Initialize(uint160,int24)` สำหรับสถานะราคาเริ่มต้น
+- event `Mint` และ `Burn` สำหรับ replay สถานะของ position และ tick
+- event `Swap` สำหรับการเคลื่อนไหวของราคา pool แบบ live
+- การอ่านสถานะสุดท้ายผ่าน HTTP RPC สำหรับ `slot0`, liquidity, tick ที่ active และข้อมูล position
 
-## Data client configuration
+## Configuration ของ data client {#data-client-configuration}
 
-| Option                            | Default                       | Description                                            |
+| Option                            | Default                       | คำอธิบาย                                                |
 | --------------------------------- | ----------------------------- | ------------------------------------------------------ |
-| `chain`                           | Required                      | Target `Chain`, such as Ethereum or Arbitrum.          |
-| `dex_ids`                         | `[]`                          | DEX integrations to register and sync.                 |
-| `http_rpc_url`                    | Required                      | HTTP RPC endpoint for contract reads and Multicall.    |
-| `wss_rpc_url`                     | `None`                        | WSS endpoint; required for RPC live streams.           |
-| `rpc_requests_per_second`         | `None`                        | Optional RPC request throttle.                         |
-| `multicall_calls_per_rpc_request` | `200`                         | Requested maximum Multicall targets per RPC request.   |
-| `use_hypersync_for_live_data`     | Rust: `false`; Python: `true` | When true, live block and event streams use HyperSync. |
-| `from_block`                      | `None`                        | Optional start block for historical sync.              |
-| `pool_filters`                    | `DexPoolFilters()`            | Pool universe filtering rules.                         |
-| `postgres_cache_database_config`  | `None`                        | Optional Postgres cache configuration.                 |
-| `proxy_url`                       | `None`                        | Optional HTTP and WebSocket proxy URL.                 |
-| `transport_backend`               | `Sockudo`                     | WebSocket transport backend.                           |
+| `chain`                           | Required                      | `Chain` เป้าหมาย เช่น Ethereum หรือ Arbitrum             |
+| `dex_ids`                         | `[]`                          | integration ของ DEX ที่จะลงทะเบียนและ sync                 |
+| `http_rpc_url`                    | Required                      | HTTP RPC endpoint สำหรับการอ่าน contract และ Multicall    |
+| `wss_rpc_url`                     | `None`                        | WSS endpoint จำเป็นสำหรับ live stream ผ่าน RPC            |
+| `rpc_requests_per_second`         | `None`                        | การจำกัดอัตรา RPC request (optional)                     |
+| `multicall_calls_per_rpc_request` | `200`                         | จำนวน target สูงสุดของ Multicall ที่ร้องขอต่อหนึ่ง RPC request |
+| `use_hypersync_for_live_data`     | `false`                       | เมื่อเป็น true stream ของ block และ event แบบ live จะใช้ HyperSync |
+| `from_block`                      | `None`                        | block เริ่มต้นสำหรับการ sync ข้อมูลในอดีต (optional)          |
+| `pool_filters`                    | `DexPoolFilters()`            | กฎการกรองชุด pool                                       |
+| `postgres_cache_database_config`  | `None`                        | configuration ของ Postgres cache (optional)             |
+| `proxy_url`                       | `None`                        | proxy URL สำหรับ HTTP และ WebSocket (optional)           |
+| `transport_backend`               | `Sockudo`                     | backend ของ WebSocket transport                         |
 
 :::note
-Pool snapshot requests require a Postgres cache database. The in-memory cache can hold
-tokens and pools, but latest pool profiler bootstrap reads snapshot and event state through the
-cache database path.
+การร้องขอ pool snapshot ต้องใช้ฐานข้อมูล Postgres cache cache ในหน่วยความจำเก็บ token และ pool ได้
+แต่การ bootstrap ของ pool profiler ล่าสุดจะอ่านสถานะ snapshot และ event ผ่านเส้นทางฐานข้อมูลของ cache
 :::
 
-## Environment
+## Environment {#environment}
 
-Set credentials outside the repository:
+ตั้งค่า credential ไว้นอก repository:
 
 ```bash
 export ENVIO_API_TOKEN="<envio-token>"
@@ -162,7 +152,7 @@ export RPC_HTTP_URL="https://your-rpc.example"
 export RPC_WSS_URL="wss://your-rpc.example"
 ```
 
-For local `.env` usage, keep the file out of version control:
+หากใช้ไฟล์ `.env` ในเครื่อง อย่าใส่ไฟล์นี้ไว้ใน version control:
 
 ```dotenv
 ENVIO_API_TOKEN=<envio-token>
@@ -170,56 +160,54 @@ RPC_HTTP_URL=https://your-rpc.example
 RPC_WSS_URL=wss://your-rpc.example
 ```
 
-- `ENVIO_API_TOKEN` is required by the Rust HyperSync client. Missing or malformed tokens fail
-  client construction before any query is sent.
-- `RPC_HTTP_URL` or `--rpc-url` is required for contract reads and snapshot hydration.
-- `RPC_WSS_URL` is required when `use_hypersync_for_live_data = false`. That mode uses WSS RPC live streams.
+- Rust HyperSync client ต้องใช้ `ENVIO_API_TOKEN` หาก token หายไปหรือรูปแบบไม่ถูกต้อง การสร้าง client
+  จะล้มเหลวก่อนส่ง query ใด ๆ
+- ต้องมี `RPC_HTTP_URL` หรือ `--rpc-url` สำหรับการอ่าน contract และการเติมสถานะ snapshot
+- ต้องมี `RPC_WSS_URL` เมื่อ `use_hypersync_for_live_data = false` ซึ่งโหมดนี้ใช้ live stream ผ่าน WSS RPC
 
-Execution adds further variables (see [Execution](#execution)):
+execution ต้องใช้ตัวแปรเพิ่มเติม (ดู [Execution](#execution)):
 
-- The signer private key is read from the variable named by the `signer_private_key_env`
-  configuration field, never from configuration directly.
-- Signed-payload protection reads the active and retired 32-byte keys from the variables named by
-  `payload_key_env` and `payload_key_retired_env`. These configuration fields contain variable names,
-  never key values.
+- private key ของ signer อ่านจากตัวแปรที่ระบุชื่อไว้ใน field `signer_private_key_env` ของ configuration
+  ไม่ได้อ่านจาก configuration โดยตรง
+- การป้องกัน signed payload อ่าน key ขนาด 32 byte ทั้งตัวที่ active และตัวที่ retire แล้วจากตัวแปรที่ระบุชื่อไว้ใน
+  `payload_key_env` และ `payload_key_retired_env` field ใน configuration เหล่านี้เก็บชื่อตัวแปร ไม่ใช่ค่าของ key
 
-For token setup and quota details, see Envio's
-[HyperSync API token docs](https://docs.envio.dev/docs/HyperSync/api-tokens).
+ดูรายละเอียดการตั้งค่า token และ quota ได้ที่
+[เอกสาร HyperSync API token](https://docs.envio.dev/docs/HyperSync/api-tokens) ของ Envio
 
-### RPC provider requirements
+### ข้อกำหนดของผู้ให้บริการ RPC {#rpc-provider-requirements}
 
-`RPC_HTTP_URL` or `--rpc-url` must point at an EVM JSON-RPC endpoint for the target chain. The data client
-uses it for contract reads, and first-time pool syncs read on-chain state through it. The client reads the
-HyperSync endpoint from `Chain::hypersync_url`. Built-in chains default to `https://{chain_id}.hypersync.xyz`.
+`RPC_HTTP_URL` หรือ `--rpc-url` ต้องชี้ไปยัง EVM JSON-RPC endpoint ของ chain เป้าหมาย data client ใช้สำหรับ
+การอ่าน contract และการ sync pool ครั้งแรกจะอ่านสถานะบน chain ผ่าน endpoint นี้ client อ่าน HyperSync endpoint
+จาก `Chain::hypersync_url` chain ในตัวมีค่าเริ่มต้นเป็น `https://{chain_id}.hypersync.xyz`
 
-Choose an RPC provider that supports the intended target blocks and Multicall workload. Provider
-labels are not sufficient evidence of archive access: verify an `eth_getCode` or `eth_call` against
-the historical block the workflow will use. Returning the block header alone does not prove that
-historical contract state is available. Large pools may also require higher payload, gas, timeout,
-and request-rate limits.
+เลือกผู้ให้บริการ RPC ที่รองรับ block เป้าหมายและปริมาณงาน Multicall ที่ต้องการ ป้ายกำกับของผู้ให้บริการ
+ไม่เพียงพอที่จะยืนยันว่าเข้าถึง archive ได้ ให้ตรวจสอบด้วย `eth_getCode` หรือ `eth_call` กับ block ในอดีต
+ที่ workflow จะใช้ การคืน block header ได้อย่างเดียวไม่ได้พิสูจน์ว่ามีสถานะ contract ในอดีตให้ใช้ pool ขนาดใหญ่
+อาจต้องการขีดจำกัด payload, gas, timeout และ request rate ที่สูงขึ้นด้วย
 
-Archive support affects validation, not whether event sync runs:
+การรองรับ archive มีผลต่อการตรวจสอบ ไม่ได้มีผลว่าการ sync event จะทำงานหรือไม่:
 
-- On an archive node, a historical-block snapshot validates against on-chain state and is stored with
-  `validation_state = on_chain`.
-- On a non-archive node, the historical read fails and the snapshot stays `validation_state = replay`,
-  which is still usable as a replay start point.
-- For a first-time sync on a non-archive node, use a recent `--to-block`. Bootstrap reads on-chain state at
-  the target block. Non-archive nodes serve only recent state.
+- บน archive node snapshot ที่ block ในอดีตจะตรวจสอบกับสถานะบน chain และถูกเก็บด้วย
+  `validation_state = on_chain`
+- บน node ที่ไม่ใช่ archive การอ่านข้อมูลในอดีตจะล้มเหลว และ snapshot จะคงเป็น `validation_state = replay`
+  ซึ่งยังใช้เป็นจุดเริ่มต้นของ replay ได้
+- สำหรับการ sync ครั้งแรกบน node ที่ไม่ใช่ archive ให้ใช้ `--to-block` ที่เป็น block ล่าสุด เพราะ bootstrap
+  จะอ่านสถานะบน chain ที่ block เป้าหมาย และ node ที่ไม่ใช่ archive ให้บริการเฉพาะสถานะล่าสุดเท่านั้น
 
-## Local services
+## Service ในเครื่อง {#local-services}
 
-The development Docker Compose file starts Postgres, Redis, and pgAdmin. To create the containers,
-wait for Postgres, and initialize the database schema, run:
+ไฟล์ Docker Compose สำหรับการพัฒนาจะเริ่ม Postgres, Redis และ pgAdmin หากต้องการสร้าง container,
+รอ Postgres และ initialize schema ของฐานข้อมูล ให้รัน:
 
 ```bash
 make init-services
 ```
 
-Use `make start-services` to start an initialized stack. Run `make init-db` to initialize or reapply
-the Postgres schema.
+ใช้ `make start-services` เพื่อเริ่ม stack ที่ initialize แล้ว และรัน `make init-db` เพื่อ initialize
+หรือใช้ schema ของ Postgres ซ้ำอีกครั้ง
 
-The local Postgres defaults are:
+ค่าเริ่มต้นของ Postgres ในเครื่อง:
 
 | Field    | Value            |
 | -------- | ---------------- |
@@ -228,24 +216,24 @@ The local Postgres defaults are:
 | User     | `nautilus`       |
 | Password | `pass`           |
 
-Check that the schema exists:
+ตรวจสอบว่ามี schema แล้ว:
 
 ```bash
 docker exec nautilus-database psql -U nautilus -d nautilus -Atc \
     "select count(*) from information_schema.tables where table_schema='public'"
 ```
 
-Pool snapshot generation and snapshot requests require a schema-initialized Postgres cache. Pool
-discovery and snapshot generation write `token`, `pool`, `pool_*_event`, `pool_snapshot`,
-`pool_position`, and `pool_tick` rows. Use a dedicated database or resettable Docker volume for
-repeatable or destructive data workloads.
+การสร้าง pool snapshot และการร้องขอ snapshot ต้องใช้ Postgres cache ที่ initialize schema แล้ว
+pool discovery และการสร้าง snapshot จะเขียนแถวใน `token`, `pool`, `pool_*_event`, `pool_snapshot`,
+`pool_position` และ `pool_tick` ให้ใช้ฐานข้อมูลเฉพาะหรือ Docker volume ที่ reset ได้สำหรับงานข้อมูล
+ที่ต้องทำซ้ำได้หรือมีการลบข้อมูล
 
-## Data flow
+## การไหลของข้อมูล {#data-flow}
 
-### Architecture
+### สถาปัตยกรรม {#architecture}
 
-`sync-dex` discovers and stores pools and tokens. `analyze-pool(s)` then generates `pool_snapshot`
-rows. The diagram shows the default replay path and the `--snapshot-from-rpc` path.
+`sync-dex` ค้นหาและเก็บ pool และ token จากนั้น `analyze-pool(s)` จะสร้างแถวใน `pool_snapshot`
+แผนภาพแสดงเส้นทาง replay เริ่มต้นและเส้นทาง `--snapshot-from-rpc`
 
 ```mermaid
 flowchart TD
@@ -295,111 +283,108 @@ flowchart TD
     PG --> R
 ```
 
-`analyze-pools` runs one task per pool, bounded by `--concurrency`. Each task owns its data client.
-A snapshot is usable as a replay start point unless its `validation_state` is `invalid`.
+`analyze-pools` รันหนึ่ง task ต่อหนึ่ง pool โดยจำกัดด้วย `--concurrency` แต่ละ task มี data client ของตัวเอง
+snapshot ใช้เป็นจุดเริ่มต้นของ replay ได้ เว้นแต่ `validation_state` ของมันเป็น `invalid`
 
-### Data-client surface
+### Data client ที่ใช้งานได้ {#data-client-surface}
 
-The public data client supports these DeFi subscriptions and requests:
+data client แบบ public รองรับ subscription และ request ด้าน DeFi ต่อไปนี้:
 
-| Surface           | Commands                                                           | Behavior                                                                                           |
+| Surface           | Commands                                                           | พฤติกรรม                                                                                             |
 | ----------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| Blocks            | `SubscribeBlocks`, `UnsubscribeBlocks`                             | Starts or stops the shared HyperSync or WSS RPC block feed.                                        |
-| Complete pool     | `SubscribePool`, `UnsubscribePool`                                 | Selects swaps, mints, burns, collects, flashes, and both fee-protocol event types.                 |
-| Pool swaps        | `SubscribePoolSwaps`, `UnsubscribePoolSwaps`                       | Selects swap events for one pool instrument.                                                       |
-| Liquidity updates | `SubscribePoolLiquidityUpdates`, `UnsubscribePoolLiquidityUpdates` | Selects mint and burn events for one pool instrument.                                              |
-| Fee collections   | `SubscribePoolFeeCollects`, `UnsubscribePoolFeeCollects`           | Selects collect events for one pool instrument.                                                    |
-| Flash events      | `SubscribePoolFlashEvents`, `UnsubscribePoolFlashEvents`           | Selects flash events for one pool instrument.                                                      |
-| Pool snapshot     | `RequestPoolSnapshot`                                              | Publishes the pool definition, then a usable snapshot when cache bootstrap and validation succeed. |
+| Blocks            | `SubscribeBlocks`, `UnsubscribeBlocks`                             | เริ่มหรือหยุด block feed ที่ใช้ร่วมกันจาก HyperSync หรือ WSS RPC                                       |
+| Complete pool     | `SubscribePool`, `UnsubscribePool`                                 | เลือก swap, mint, burn, collect, flash และ event ของ fee-protocol ทั้งสองแบบ                         |
+| Pool swaps        | `SubscribePoolSwaps`, `UnsubscribePoolSwaps`                       | เลือก event ของ swap สำหรับ pool instrument หนึ่งตัว                                                 |
+| Liquidity updates | `SubscribePoolLiquidityUpdates`, `UnsubscribePoolLiquidityUpdates` | เลือก event ของ mint และ burn สำหรับ pool instrument หนึ่งตัว                                         |
+| Fee collections   | `SubscribePoolFeeCollects`, `UnsubscribePoolFeeCollects`           | เลือก event ของ collect สำหรับ pool instrument หนึ่งตัว                                              |
+| Flash events      | `SubscribePoolFlashEvents`, `UnsubscribePoolFlashEvents`           | เลือก event ของ flash สำหรับ pool instrument หนึ่งตัว                                                |
+| Pool snapshot     | `RequestPoolSnapshot`                                              | publish นิยามของ pool แล้วตามด้วย snapshot ที่ใช้ได้เมื่อ bootstrap จาก cache และการตรวจสอบสำเร็จ           |
 
-Subscriptions share the underlying block and DEX event feeds. The client counts owners for each
-pool address and event type, so removing one subscription does not stop a feed that another
-subscription still owns. This holds when a complete pool subscription overlaps a narrower one: the
-narrower event types stay active after `UnsubscribePool`, and the reverse. The data engine keeps a
-pool's profiler updater until no data client has a remaining pool subscription for it.
+subscription ใช้ feed ของ block และ event ของ DEX เบื้องหลังร่วมกัน client นับจำนวนเจ้าของของแต่ละ pool address
+และ event type ดังนั้นการลบ subscription หนึ่งตัวจะไม่หยุด feed ที่ subscription อื่นยังเป็นเจ้าของอยู่ หลักนี้ใช้
+เมื่อ subscription แบบ complete pool ซ้อนกับแบบที่แคบกว่าด้วย: event type ที่แคบกว่าจะยัง active หลัง
+`UnsubscribePool` และในทางกลับกันก็เช่นกัน data engine จะเก็บ profiler updater ของ pool ไว้จนกว่าจะไม่มี
+data client ใดเหลือ subscription ของ pool นั้น
 
-A pool snapshot response carries the ID of its request. The data engine discards a response whose
-bootstrap was canceled by a final unsubscribe, a reset, or a disconnect. Pool snapshot requests
-require Postgres because bootstrap reads stored pool and event state through the cache database.
+response ของ pool snapshot จะมี ID ของ request ที่เป็นต้นทาง data engine จะทิ้ง response ที่ bootstrap
+ถูกยกเลิกไปแล้วจากการ unsubscribe ครั้งสุดท้าย, การ reset หรือการ disconnect การร้องขอ pool snapshot ต้องใช้
+Postgres เพราะ bootstrap อ่านสถานะของ pool และ event ที่เก็บไว้ผ่านฐานข้อมูลของ cache
 
 :::warning
-DeFi pool definitions and account-state updates publish on typed message-bus routers. A
-`subscribe_any` handler never receives them. Use `subscribe_defi_pools` and
-`subscribe_account_state`, or the matching actor subscription APIs.
+นิยามของ DeFi pool และ update ของ account state จะ publish บน router ของ message bus แบบ typed
+handler แบบ `subscribe_any` จะไม่ได้รับ message เหล่านี้เลย ให้ใช้ `subscribe_defi_pools` และ
+`subscribe_account_state` หรือ subscription API ของ actor ที่ตรงกัน
 :::
 
-### Pool discovery
+### Pool discovery {#pool-discovery}
 
-Pool discovery:
+pool discovery จะ:
 
-- Streams DEX factory events from HyperSync.
-- Fetches ERC-20 metadata through RPC.
-- Stores valid tokens and pools in the cache.
-- Skips invalid token metadata. `DexPoolFilters` can also exclude empty token metadata.
+- stream event ของ factory ของ DEX จาก HyperSync
+- ดึง metadata ของ ERC-20 ผ่าน RPC
+- เก็บ token และ pool ที่ถูกต้องลงใน cache
+- ข้าม metadata ของ token ที่ไม่ถูกต้อง และ `DexPoolFilters` ยังสามารถตัด metadata ของ token ที่ว่างออกได้
 
-### Live data
+### Live data {#live-data}
 
-- `use_hypersync_for_live_data = true`: subscribe to blocks through HyperSync for live timestamps
-  and hold one open-ended HyperSync DEX-event stream per subscribed DEX filter.
-- `use_hypersync_for_live_data = false`: use WSS RPC block and pool-log subscriptions for live
-  swaps, liquidity updates, fee collections, flash events, and fee-protocol events.
+- `use_hypersync_for_live_data = true`: subscribe block ผ่าน HyperSync เพื่อใช้ timestamp แบบ live
+  และเปิด stream ของ DEX event จาก HyperSync แบบไม่มีจุดสิ้นสุดค้างไว้หนึ่งตัวต่อ DEX filter ที่ subscribe
+- `use_hypersync_for_live_data = false`: ใช้ subscription ของ block และ pool log ผ่าน WSS RPC สำหรับ swap,
+  liquidity update, fee collection, flash event และ fee-protocol event แบบ live
 
-### Snapshot bootstrap
+### Snapshot bootstrap {#snapshot-bootstrap}
 
-For Uniswap V3-compatible snapshots, the default bootstrap replays stored pool events to rebuild
-price, liquidity, ticks, positions, fees, and counters. Validation then reads on-chain state through
-HTTP RPC and Multicall.
+สำหรับ snapshot ที่เข้ากันได้กับ Uniswap V3 การ bootstrap เริ่มต้นจะ replay event ของ pool ที่เก็บไว้เพื่อสร้าง
+ราคา, liquidity, tick, position, ค่าธรรมเนียม และตัวนับขึ้นใหม่ จากนั้นการตรวจสอบจะอ่านสถานะบน chain
+ผ่าน HTTP RPC และ Multicall
 
-Bootstrap modes:
+โหมดของ bootstrap:
 
-- Default: store the full pool event history up to the target block, then bootstrap from the
-  database.
-- `--snapshot-from-rpc`: skip full swap storage, stream Initialize, Mint, Burn, SetFeeProtocol, and
-  CollectProtocol events from HyperSync to enumerate ticks and positions, then hydrate the exact
-  checkpoint block from RPC.
+- ค่าเริ่มต้น: เก็บประวัติ event ของ pool ทั้งหมดจนถึง block เป้าหมาย แล้ว bootstrap จากฐานข้อมูล
+- `--snapshot-from-rpc`: ข้ามการเก็บ swap ทั้งหมด stream event ของ Initialize, Mint, Burn, SetFeeProtocol
+  และ CollectProtocol จาก HyperSync เพื่อนับ tick และ position จากนั้นเติมสถานะของ checkpoint block
+  ที่ตรงพอดีจาก RPC
 
-Use `--snapshot-from-rpc` for old high-volume pools when the required output is the final snapshot,
-not a stored swap history. It cannot be combined with `--from-block`, `--reset`, or
-`--require-existing-snapshot`.
+ใช้ `--snapshot-from-rpc` กับ pool เก่าที่มีปริมาณสูงเมื่อผลลัพธ์ที่ต้องการคือ snapshot สุดท้าย ไม่ใช่ประวัติ swap
+ที่เก็บไว้ ใช้ร่วมกับ `--from-block`, `--reset` หรือ `--require-existing-snapshot` ไม่ได้
 
-In `--snapshot-from-rpc` mode, final RPC hydration is the source of the checkpoint state. If it
-fails, the command fails instead of emitting a replayed snapshot with stale price state.
+ในโหมด `--snapshot-from-rpc` การเติมสถานะสุดท้ายจาก RPC คือแหล่งที่มาของสถานะ checkpoint หากล้มเหลว
+คำสั่งจะล้มเหลวแทนที่จะส่ง snapshot ที่ได้จากการ replay ซึ่งมีสถานะราคาที่ล้าสมัยออกมา
 
-### Snapshot validation
+### การตรวจสอบ snapshot {#snapshot-validation}
 
-For a replay-derived snapshot, bootstrap compares the profiler against on-chain state before
-marking it valid.
+สำหรับ snapshot ที่ได้จากการ replay การ bootstrap จะเปรียบเทียบ profiler กับสถานะบน chain ก่อนทำเครื่องหมายว่าถูกต้อง
 
-| Class          | Fields                                                                      | Mismatch result                                |
+| กลุ่ม           | Fields                                                                      | ผลเมื่อไม่ตรงกัน                                    |
 | -------------- | --------------------------------------------------------------------------- | ---------------------------------------------- |
-| Structural     | Current tick, active liquidity, per-tick liquidity, and position liquidity. | Store `invalid`; exclude from default loading. |
-| Non-structural | Sqrt price, fee protocol, and protocol-fee balances.                        | Warn and accept the snapshot as `on_chain`.    |
+| Structural     | current tick, active liquidity, liquidity ราย tick และ liquidity ของ position | เก็บเป็น `invalid` และตัดออกจากการโหลดเริ่มต้น        |
+| Non-structural | sqrt price, fee protocol และ balance ของค่าธรรมเนียม protocol                  | warn แล้วยอมรับ snapshot เป็น `on_chain`          |
 
-Non-structural differences can arise for these reasons:
+ความต่างแบบ non-structural อาจเกิดจากเหตุผลเหล่านี้:
 
-- Event replay is transaction-scoped, but an RPC snapshot is block-scoped.
-- A fork or replay range omits a fee-protocol update.
-- Replay rounding differs from the on-chain fee accumulator.
+- การ replay event มีขอบเขตระดับ transaction แต่ snapshot จาก RPC มีขอบเขตระดับ block
+- fork หรือช่วงของ replay ไม่ได้รวม update ของ fee-protocol
+- การปัดเศษของ replay ต่างจากตัวสะสมค่าธรรมเนียมบน chain
 
-Accepting those fields matches backtest replay behavior.
+การยอมรับ field เหล่านี้สอดคล้องกับพฤติกรรมของ backtest replay
 
-### Snapshot bootstrap guard
+### Guard ของ snapshot bootstrap {#snapshot-bootstrap-guard}
 
-Use `--require-existing-snapshot` when analysis should run only from the local snapshot cache:
+ใช้ `--require-existing-snapshot` เมื่อต้องการให้การวิเคราะห์รันจาก snapshot cache ในเครื่องเท่านั้น:
 
-- Checks for the latest usable `pool_snapshot` at or before the target block.
-- Returns `needs_bootstrap` if no usable snapshot exists.
-- Treats an empty creation-block snapshot with no positions or ticks as unusable.
-- Skips the creation-to-target bootstrap for that pool.
+- ตรวจหา `pool_snapshot` ล่าสุดที่ใช้ได้ ณ หรือก่อน block เป้าหมาย
+- คืน `needs_bootstrap` หากไม่มี snapshot ที่ใช้ได้
+- ถือว่า snapshot ว่างที่ block ตอนสร้างซึ่งไม่มี position หรือ tick เป็นสิ่งที่ใช้ไม่ได้
+- ข้ามการ bootstrap ตั้งแต่ตอนสร้างจนถึงเป้าหมายสำหรับ pool นั้น
 
-#### Analysis output
+#### ผลลัพธ์ของการวิเคราะห์ {#analysis-output}
 
-`analyze-pool(s)` prints:
+`analyze-pool(s)` จะแสดง:
 
-- One JSON result per `--checkpoint-blocks` entry.
-- One JSON result at `--to-block` when no checkpoints are given.
+- ผลลัพธ์ JSON หนึ่งรายการต่อหนึ่ง entry ใน `--checkpoint-blocks`
+- ผลลัพธ์ JSON หนึ่งรายการที่ `--to-block` เมื่อไม่ได้ระบุ checkpoint
 
-A pool that needs a first-time bootstrap has this shape:
+pool ที่ต้อง bootstrap ครั้งแรกจะมีรูปแบบนี้:
 
 ```json
 {
@@ -411,11 +396,11 @@ A pool that needs a first-time bootstrap has this shape:
 }
 ```
 
-A successful result includes `validation_state`:
+ผลลัพธ์ที่สำเร็จจะมี `validation_state`:
 
-- `on_chain`: hydrated and matched against chain.
-- `replay`: replay-derived or unchecked, still usable as a replay start point.
-- `invalid`: hydrated and mismatched, not usable.
+- `on_chain`: เติมสถานะแล้วและตรงกับ chain
+- `replay`: ได้จากการ replay หรือยังไม่ได้ตรวจสอบ แต่ยังใช้เป็นจุดเริ่มต้นของ replay ได้
+- `invalid`: เติมสถานะแล้วแต่ไม่ตรงกัน ใช้ไม่ได้
 
 ```json
 {
@@ -433,155 +418,142 @@ A successful result includes `validation_state`:
 }
 ```
 
-### Checkpoints and concurrency
+### Checkpoint และ concurrency {#checkpoints-and-concurrency}
 
-- `--checkpoint-blocks b1,b2,...`: produces snapshots in one bootstrap pass. Blocks are sorted,
-  deduped, and clamped to `--to-block`.
-- `--concurrency`: controls `analyze-pools` parallelism. Default: `4`.
-- `--skip-validation`: skips the on-chain compare and keeps replay-derived snapshots as `replay`.
-- `--snapshot-from-rpc`: hydrates from chain at the checkpoint block and records snapshots as
-  `on_chain`.
+- `--checkpoint-blocks b1,b2,...`: สร้าง snapshot ในการ bootstrap รอบเดียว block จะถูกเรียงลำดับ,
+  ตัดตัวซ้ำ และจำกัดไม่ให้เกิน `--to-block`
+- `--concurrency`: ควบคุมความขนานของ `analyze-pools` ค่าเริ่มต้น: `4`
+- `--skip-validation`: ข้ามการเปรียบเทียบกับ chain และเก็บ snapshot ที่ได้จากการ replay เป็น `replay`
+- `--snapshot-from-rpc`: เติมสถานะจาก chain ที่ checkpoint block และบันทึก snapshot เป็น `on_chain`
 
-Snapshot keys:
+key ของ snapshot:
 
-- Default mode: keyed to the last pool event at or before the checkpoint. Checkpoints with no events
-  between them can share one stored row.
-- `--snapshot-from-rpc`: keyed to the requested checkpoint block with a block-scoped sentinel
-  transaction/log index.
+- โหมดเริ่มต้น: ใช้ key เป็น pool event ล่าสุด ณ หรือก่อน checkpoint checkpoint ที่ไม่มี event อยู่ระหว่างกัน
+  อาจใช้แถวที่เก็บไว้แถวเดียวกัน
+- `--snapshot-from-rpc`: ใช้ key เป็น checkpoint block ที่ร้องขอ พร้อม sentinel transaction/log index
+  ระดับ block
 
-### Backtest replay
+### Backtest replay {#backtest-replay}
 
-Backtest replay needs a snapshot in the input data. The adapter does not service live snapshot
-requests during backtests.
+backtest replay ต้องมี snapshot อยู่ในข้อมูล input adapter จะไม่ให้บริการ request ของ snapshot แบบ live
+ระหว่าง backtest
 
-`load_pool_snapshot` reads a full snapshot, including positions and ticks, from Postgres:
+ใน Rust โหลด snapshot แบบเต็มที่เก็บไว้ใน Postgres รวมถึง position และ tick ได้ผ่าน Cache API
+โดยเลือก snapshot ล่าสุด ณ หรือก่อน block เริ่มต้นของ replay
 
-```python
-from nautilus_trader.adapters.blockchain import load_pool_snapshot
+> หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python (`load_pool_snapshot`) จึงตัดออก
 
-snapshot = load_pool_snapshot(
-    pg_config=postgres_config,
-    chain_id=chain_id,
-    pool_address=pool_address,
-    before_block=replay_start_block,  # latest snapshot at or before this block
-)
-```
+กฎของ replay:
 
-Replay rules:
+- โดยค่าเริ่มต้น snapshot ที่ถูกทำเครื่องหมาย `invalid` จะถูกตัดออก ทั้ง snapshot แบบ `on_chain` และ `replay`
+  อาจถูกคืนมาได้ ยอมรับ snapshot แบบ `invalid` เฉพาะเมื่อผู้เรียกตั้งใจรับ snapshot เหล่านั้นด้วย
+- ถือว่าการไม่ได้ snapshot กลับมาเป็นความล้มเหลวของการ setup อย่า replay โดยไม่มีสถานะของ profiler
+- ส่ง snapshot เป็นข้อมูล DeFi แบบ pool snapshot เข้า backtest engine พร้อมกับ event ของ pool
+- replay pool event ทุกตัวตั้งแต่ block ของ snapshot เป็นต้นไป การเริ่มหลัง block ของ snapshot อาจทำให้
+  profiler ล้าสมัย
 
-- By default, snapshots marked `invalid` are excluded. Both `on_chain` and `replay` snapshots can be returned.
-  Pass `require_valid=False` only when the caller also accepts `invalid` snapshots.
-- Treat `None` as setup failure. Do not replay without profiler state.
-- Wrap the result as `DefiData.PoolSnapshot(snapshot)` and pass it to
-  `BacktestEngine.add_defi_data` with the pool events.
-- Replay every pool event from the snapshot block forward. Starting after the snapshot block can leave
-  the profiler stale.
+timestamp ของ block ที่ cache ไว้จะโหลดเข้า data object ของ Nautilus เป็น UNIX nanoseconds แถวใน cache
+ที่เขียนด้วย timestamp ของ block ความละเอียดระดับวินาทีจะถูก normalize เป็นนาโนวินาทีเมื่อโหลด snapshot และ
+pool event ส่วนแถวที่เป็นนาโนวินาทีจะคง precision ที่เก็บไว้
 
-Cached block timestamps load into Nautilus data objects as UNIX nanoseconds. Cache rows written with
-second-resolution block timestamps are normalized to nanoseconds when snapshots and pool events are
-loaded, while nanosecond rows preserve their stored precision.
+### ข้อจำกัดของการวิเคราะห์ pool {#pool-analysis-constraints}
 
-### Pool analysis constraints
+`analyze-pool(s)` ตรวจสอบสิ่งที่ต้องมีก่อน และรายงานผลแต่ละ pool แยกกัน ขอบเขตเหล่านี้ใช้เช่นกันเมื่อเรียก
+service การวิเคราะห์เบื้องหลังจาก Rust
 
-`analyze-pool(s)` validates its prerequisites and reports each pool independently. These boundaries
-also apply when the underlying analysis services are called from Rust.
-
-| Condition                  | Behavior                                                                                 | Constraint                                                                                                       |
+| เงื่อนไข                    | พฤติกรรม                                                                                   | ข้อจำกัด                                                                                                         |
 | -------------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Missing pool metadata      | Fails with `Pool <address> is not registered`.                                           | Discover the pool first; analysis cannot infer or register metadata.                                             |
-| Missing parser capability  | Fails before sync.                                                                       | Use a snapshot-capable combination from [Chain and DEX command support](#chain-and-dex-command-support).         |
-| Non-checksummed address    | Fails with `Blockchain address '<address>' has incorrect checksum`.                      | Supply an EIP-55 address; factory `getPool` results may need checksum conversion.                                |
-| Provider Multicall cap     | An `out of gas`, payload, or timeout error aborts final-state hydration.                 | Lower `multicall_calls_per_rpc_request` or use a provider with higher limits.                                    |
-| Missing historical state   | A first bootstrap cannot read final state at an old `--to-block`.                        | Use a recent target or an archive-capable provider; see [RPC provider requirements](#rpc-provider-requirements). |
-| Restricted HyperSync quota | High-activity pools back off, and a full first sync can require thousands of requests.   | Lower `--concurrency`, or use `--snapshot-from-rpc` when stored swap history is unnecessary.                     |
-| Mid-life `--from-block`    | Omitting `Initialize` can leave the profiler without an initial price.                   | Sync from pool creation when generating a first snapshot.                                                        |
-| No liquidity events        | `analyze-pool` errors; `analyze-pools` emits a failure result and continues other pools. | Select a pool with a Mint or Burn at or before the target block.                                                 |
-| Any per-pool failure       | Emits `"status": "failure"` and makes `analyze-pool(s)` exit non-zero.                   | Use the exit code for the overall result and each JSON status for the per-pool result.                           |
+| ไม่มี metadata ของ pool      | ล้มเหลวด้วย `Pool <address> is not registered`                                           | ค้นหา pool ก่อน การวิเคราะห์ไม่สามารถอนุมานหรือลงทะเบียน metadata ได้                                                 |
+| ไม่มีความสามารถของ parser    | ล้มเหลวก่อน sync                                                                          | ใช้ชุดที่รองรับ snapshot จาก [คำสั่งที่รองรับตาม chain และ DEX](#chain-and-dex-command-support)                     |
+| address ไม่ได้ checksum     | ล้มเหลวด้วย `Blockchain address '<address>' has incorrect checksum`                      | ระบุ address แบบ EIP-55 ผลลัพธ์จาก `getPool` ของ factory อาจต้องแปลง checksum                                         |
+| ขีดจำกัด Multicall ของผู้ให้บริการ | error แบบ `out of gas`, payload หรือ timeout จะยกเลิกการเติมสถานะสุดท้าย                      | ลด `multicall_calls_per_rpc_request` หรือใช้ผู้ให้บริการที่มีขีดจำกัดสูงกว่า                                              |
+| ไม่มีสถานะในอดีต             | bootstrap ครั้งแรกอ่านสถานะสุดท้ายที่ `--to-block` เก่าไม่ได้                                    | ใช้เป้าหมายล่าสุดหรือผู้ให้บริการที่รองรับ archive ดู [ข้อกำหนดของผู้ให้บริการ RPC](#rpc-provider-requirements)           |
+| quota ของ HyperSync ถูกจำกัด | pool ที่มีกิจกรรมสูงจะ back off และการ sync เต็มครั้งแรกอาจต้องใช้หลายพัน request                   | ลด `--concurrency` หรือใช้ `--snapshot-from-rpc` เมื่อไม่ต้องการประวัติ swap ที่เก็บไว้                                  |
+| `--from-block` กลางอายุ pool | การข้าม `Initialize` อาจทำให้ profiler ไม่มีราคาเริ่มต้น                                        | sync ตั้งแต่ตอนสร้าง pool เมื่อสร้าง snapshot ครั้งแรก                                                                |
+| ไม่มี liquidity event         | `analyze-pool` คืน error ส่วน `analyze-pools` ส่งผลลัพธ์ความล้มเหลวแล้วทำ pool อื่นต่อ              | เลือก pool ที่มี Mint หรือ Burn ณ หรือก่อน block เป้าหมาย                                                             |
+| ความล้มเหลวราย pool ใดก็ตาม   | ส่ง `"status": "failure"` และทำให้ `analyze-pool(s)` จบด้วย exit code ที่ไม่ใช่ศูนย์               | ใช้ exit code สำหรับผลรวม และใช้ status ใน JSON แต่ละรายการสำหรับผลราย pool                                               |
 
-Final RPC hydration in `--snapshot-from-rpc` mode is authoritative for checkpoint state. A failed
-hydration aborts analysis rather than storing a snapshot with stale price state.
+การเติมสถานะสุดท้ายจาก RPC ในโหมด `--snapshot-from-rpc` เป็นแหล่งอ้างอิงหลักของสถานะ checkpoint
+หากการเติมสถานะล้มเหลว การวิเคราะห์จะถูกยกเลิกแทนที่จะเก็บ snapshot ที่มีสถานะราคาล้าสมัย
 
-## Pool analysis operations
+## การดำเนินการวิเคราะห์ pool {#pool-analysis-operations}
 
-### Discover pools before analysis
+### ค้นหา pool ก่อนวิเคราะห์ {#discover-pools-before-analysis}
 
-`analyze-pool(s)` reads pool metadata from the Postgres cache and fails with
-`Pool <address> is not registered` when the pool has not been discovered. Run `sync-dex` for the
-chain and DEX before analysis to populate the `pool` and `token` tables.
+`analyze-pool(s)` อ่าน metadata ของ pool จาก Postgres cache และล้มเหลวด้วย
+`Pool <address> is not registered` เมื่อ pool ยังไม่ถูกค้นพบ ให้รัน `sync-dex` สำหรับ chain และ DEX นั้น
+ก่อนวิเคราะห์ เพื่อเติมข้อมูลในตาราง `pool` และ `token`
 
-### Check command support
+### ตรวจสอบคำสั่งที่รองรับ {#check-command-support}
 
-Use [Chain and DEX command support](#chain-and-dex-command-support) or the command help before
-starting a sync. `sync-dex` and `analyze-pool(s)` reject unsupported chain and DEX combinations
-before querying events, rather than returning an empty result.
+ดู [คำสั่งที่รองรับตาม chain และ DEX](#chain-and-dex-command-support) หรือ help ของคำสั่งก่อนเริ่ม sync
+`sync-dex` และ `analyze-pool(s)` จะปฏิเสธชุด chain และ DEX ที่ไม่รองรับก่อน query event แทนที่จะคืนผลลัพธ์ว่าง
 
 ```bash
 ./target/debug/nautilus blockchain sync-dex --help
 ./target/debug/nautilus blockchain analyze-pools --help
 ```
 
-### Use checksummed pool addresses
+### ใช้ address ของ pool แบบ checksum {#use-checksummed-pool-addresses}
 
-Pool addresses must use the EIP-55 checksum. A lowercase address fails with
-`Blockchain address '<address>' has incorrect checksum`. Convert discovered addresses to checksum
-form before passing `--address` or adding them to an addresses file.
+address ของ pool ต้องใช้ checksum แบบ EIP-55 address ตัวพิมพ์เล็กจะล้มเหลวด้วย
+`Blockchain address '<address>' has incorrect checksum` ให้แปลง address ที่ค้นพบเป็นรูปแบบ checksum
+ก่อนส่งผ่าน `--address` หรือเพิ่มลงในไฟล์ address
 
-### Reduce the Multicall request size
+### ลดขนาด request ของ Multicall {#reduce-the-multicall-request-size}
 
-An RPC provider can reject a large final-state Multicall with an out-of-gas, payload, or timeout
-error. Lower `--multicall-calls-per-rpc-request` from its default of `200` to keep each request
-within the provider's limits.
+ผู้ให้บริการ RPC อาจปฏิเสธ Multicall ขนาดใหญ่สำหรับสถานะสุดท้ายด้วย error แบบ out-of-gas, payload หรือ timeout
+ให้ลด `--multicall-calls-per-rpc-request` จากค่าเริ่มต้น `200` เพื่อให้แต่ละ request อยู่ภายในขีดจำกัดของผู้ให้บริการ
 
-### Choose a target block the RPC provider can serve
+### เลือก block เป้าหมายที่ผู้ให้บริการ RPC ให้บริการได้ {#choose-a-target-block-the-rpc-provider-can-serve}
 
-A first-time sync reads on-chain state at `--to-block`. With a non-archive RPC provider, use a recent target.
-Alternatively, use a provider that serves contract state at the requested historical block. See
-[RPC provider requirements](#rpc-provider-requirements).
+การ sync ครั้งแรกจะอ่านสถานะบน chain ที่ `--to-block` หากใช้ผู้ให้บริการ RPC ที่ไม่ใช่ archive ให้ใช้เป้าหมายล่าสุด
+หรือใช้ผู้ให้บริการที่ให้สถานะ contract ที่ block ในอดีตที่ร้องขอได้ ดู
+[ข้อกำหนดของผู้ให้บริการ RPC](#rpc-provider-requirements)
 
-### Control HyperSync request volume
+### ควบคุมปริมาณ request ของ HyperSync {#control-hypersync-request-volume}
 
-A full first-time sync of a large or old pool can require thousands of requests. Lower
-`--concurrency` when the configured token has a restrictive quota. Use `--snapshot-from-rpc` when
-an exact checkpoint snapshot is sufficient and stored swap history is not required.
+การ sync เต็มครั้งแรกของ pool ขนาดใหญ่หรือเก่าอาจต้องใช้หลายพัน request ให้ลด `--concurrency` เมื่อ token
+ที่ตั้งค่าไว้มี quota จำกัด ใช้ `--snapshot-from-rpc` เมื่อ snapshot ที่ checkpoint ตรงพอดีก็เพียงพอและไม่ต้องการ
+ประวัติ swap ที่เก็บไว้
 
-### Start an initial replay at pool creation
+### เริ่ม replay ครั้งแรกตั้งแต่ตอนสร้าง pool {#start-an-initial-replay-at-pool-creation}
 
-Starting `--from-block` in the middle of a pool's history can omit its `Initialize` event. Without
-an initial price, snapshot bootstrap fails with
-`Pool is not initialized and it doesn't contain initial price, cannot bootstrap profiler`. Sync
-from pool creation when generating the first snapshot.
+การเริ่ม `--from-block` กลางประวัติของ pool อาจข้าม event `Initialize` ไป หากไม่มีราคาเริ่มต้น การ bootstrap
+snapshot จะล้มเหลวด้วย
+`Pool is not initialized and it doesn't contain initial price, cannot bootstrap profiler`
+ให้ sync ตั้งแต่ตอนสร้าง pool เมื่อสร้าง snapshot ครั้งแรก
 
-### Interpret pool failures
+### การตีความความล้มเหลวของ pool {#interpret-pool-failures}
 
-A pool without processed Mint or Burn events at or before the target block can lack the state needed
-for a snapshot. `analyze-pool` returns the error. `analyze-pools` emits a JSON line with
-`"status": "failure"`, continues with the other pools, and exits non-zero after any per-pool
-failure. Use the process exit code for the overall result and each JSON status for individual
-results.
+pool ที่ไม่มี event Mint หรือ Burn ที่ประมวลผลแล้ว ณ หรือก่อน block เป้าหมายอาจขาดสถานะที่จำเป็นสำหรับ snapshot
+`analyze-pool` จะคืน error ส่วน `analyze-pools` จะส่ง JSON line ที่มี `"status": "failure"` ทำ pool อื่นต่อ
+และจบด้วย exit code ที่ไม่ใช่ศูนย์หลังจากมีความล้มเหลวราย pool ใดก็ตาม ใช้ exit code ของ process สำหรับผลรวม
+และ status ใน JSON แต่ละรายการสำหรับผลแต่ละรายการ
 
-## Runbook: validate a live pool sync
+## Runbook: ตรวจสอบการ sync pool แบบ live {#runbook-validate-a-live-pool-sync}
 
-Use this procedure to check pool discovery, event parsing, and snapshot generation for one DEX on
-one chain. The example uses PancakeSwap V3 on Arbitrum. It performs read-only chain queries and
-writes only to the configured Postgres cache.
+ใช้ขั้นตอนนี้เพื่อตรวจสอบ pool discovery, การ parse event และการสร้าง snapshot สำหรับ DEX หนึ่งตัวบน chain หนึ่ง
+ตัวอย่างใช้ PancakeSwap V3 บน Arbitrum โดยทำเฉพาะ query แบบอ่านอย่างเดียวบน chain และเขียนเฉพาะลงใน
+Postgres cache ที่ตั้งค่าไว้
 
-### Prerequisites
+### สิ่งที่ต้องมีก่อน {#prerequisites}
 
-- Docker is available for the local Postgres service.
-- `ENVIO_API_TOKEN` contains a valid HyperSync token.
-- `RPC_HTTP_URL` points to an Arbitrum RPC provider that can serve the target block.
-- `POOL_ADDRESS` contains an EIP-55 checksummed PancakeSwap V3 pool address.
+- มี Docker สำหรับ service Postgres ในเครื่อง
+- `ENVIO_API_TOKEN` มี HyperSync token ที่ถูกต้อง
+- `RPC_HTTP_URL` ชี้ไปยังผู้ให้บริการ RPC ของ Arbitrum ที่ให้บริการ block เป้าหมายได้
+- `POOL_ADDRESS` มี address ของ pool PancakeSwap V3 แบบ checksum ตาม EIP-55
 
-### Start the local services and build the CLI
+### เริ่ม service ในเครื่องและ build CLI {#start-the-local-services-and-build-the-cli}
 
 ```bash
 make init-services
 cargo build -p nautilus-cli --features defi --bin nautilus
 ```
 
-### Discover pools
+### ค้นหา pool {#discover-pools}
 
-Run discovery immediately before analysis when the local database has been reset:
+รัน discovery ทันทีก่อนการวิเคราะห์เมื่อฐานข้อมูลในเครื่องถูก reset:
 
 ```bash
 ./target/debug/nautilus blockchain sync-dex \
@@ -595,9 +567,9 @@ Run discovery immediately before analysis when the local database has been reset
     --database nautilus
 ```
 
-### Analyze the pool
+### วิเคราะห์ pool {#analyze-the-pool}
 
-Keep concurrency at one for this validation run:
+คง concurrency ไว้ที่หนึ่งสำหรับการตรวจสอบรอบนี้:
 
 ```bash
 ./target/debug/nautilus blockchain analyze-pools \
@@ -613,9 +585,9 @@ Keep concurrency at one for this validation run:
     --concurrency 1
 ```
 
-### Check the stored data
+### ตรวจสอบข้อมูลที่เก็บไว้ {#check-the-stored-data}
 
-Count the rows written for the pool in:
+นับจำนวนแถวที่เขียนสำหรับ pool ใน:
 
 - `pool_swap_event`
 - `pool_liquidity_event`
@@ -627,823 +599,767 @@ Count the rows written for the pool in:
 - `pool_position`
 - `pool_tick`
 
-Fee-protocol tables remain empty when the synced range contains no `SetFeeProtocol` or
-`CollectProtocol` events. After a local database reset, rerun discovery before analysis so the pool
-row exists. See [Pool analysis operations](#pool-analysis-operations) for address, provider,
-replay-range, and request-volume failures.
+ตารางของ fee-protocol จะว่างเมื่อช่วงที่ sync ไม่มี event `SetFeeProtocol` หรือ `CollectProtocol`
+หลังจาก reset ฐานข้อมูลในเครื่อง ให้รัน discovery ใหม่ก่อนวิเคราะห์เพื่อให้มีแถวของ pool ดู
+[การดำเนินการวิเคราะห์ pool](#pool-analysis-operations) สำหรับความล้มเหลวด้าน address, ผู้ให้บริการ,
+ช่วงของ replay และปริมาณ request
 
-## Contracts
+## Contracts {#contracts}
 
-### Base contract and Multicall3
+### Base contract และ Multicall3 {#base-contract-and-multicall3}
 
-`BaseContract` batches contract calls through Multicall3
+`BaseContract` รวมการเรียก contract เป็น batch ผ่าน Multicall3
 (`0xcA11bde05977b3631167028862bE2a173976CA11`):
 
-- Multicall uses `tryAggregate(requireSuccess: false)`, so each result reports its own success or
-  failure and the contract wrapper decides whether to reject it.
-- Reads execute against a single block context.
-- Transport and provider failures surface as RPC errors.
+- Multicall ใช้ `tryAggregate(requireSuccess: false)` ดังนั้นผลลัพธ์แต่ละรายการจะรายงานความสำเร็จหรือล้มเหลว
+  ของตัวเอง และ wrapper ของ contract เป็นผู้ตัดสินว่าจะปฏิเสธหรือไม่
+- การอ่านทำงานภายใต้บริบทของ block เดียว
+- ความล้มเหลวของ transport และผู้ให้บริการจะแสดงเป็น RPC error
 
-### ERC-20 metadata
+### Metadata ของ ERC-20 {#erc-20-metadata}
 
-`Erc20Contract` reads `name`, `symbol`, and `decimals` through Multicall. The adapter can skip pools
-whose token metadata is malformed, raw bytes, or empty.
+`Erc20Contract` อ่าน `name`, `symbol` และ `decimals` ผ่าน Multicall adapter สามารถข้าม pool
+ที่ metadata ของ token ผิดรูปแบบ เป็น raw bytes หรือว่างได้
 
-### Uniswap V3 pools
+### Pool ของ Uniswap V3 {#uniswap-v3-pools}
 
-`UniswapV3PoolContract` reads global pool state, active ticks, and positions.
+`UniswapV3PoolContract` อ่านสถานะระดับ global ของ pool, tick ที่ active และ position
 
-- Large pools can exceed provider payload, gas, or timeout limits.
-- RPC-snapshot hydration fails closed if the final-state read fails.
-- Very large pools may need a lower `multicall_calls_per_rpc_request` or a stronger provider.
+- pool ขนาดใหญ่อาจเกินขีดจำกัด payload, gas หรือ timeout ของผู้ให้บริการ
+- การเติมสถานะ snapshot จาก RPC จะล้มเหลวแบบ fail closed หากการอ่านสถานะสุดท้ายล้มเหลว
+- pool ขนาดใหญ่มากอาจต้องลด `multicall_calls_per_rpc_request` หรือใช้ผู้ให้บริการที่แข็งแรงกว่า
 
-PancakeSwap V3 reuses the Uniswap V3 read contract because `slot0`, `ticks`, `positions`,
-`liquidity`, and fee-growth reads share the same ABI. Fee-protocol encoding differs:
+PancakeSwap V3 ใช้ read contract ของ Uniswap V3 ซ้ำ เพราะการอ่าน `slot0`, `ticks`, `positions`,
+`liquidity` และ fee-growth ใช้ ABI เดียวกัน แต่การ encode ของ fee-protocol ต่างกัน:
 
-- Uniswap V3 packs two 4-bit fee denominators into one `uint8`.
-- PancakeSwap V3 stores two 16-bit basis-point shares in `slot0.feeProtocol` and emits
-  `SetFeeProtocol(uint32,uint32,uint32,uint32)`.
-- PancakeSwap V3 snapshots store `fee_protocol0_basis_points` and
-  `fee_protocol1_basis_points`, and replay computes protocol fees as `fee * basis_points / 10000`.
+- Uniswap V3 รวมตัวหารค่าธรรมเนียมขนาด 4 bit สองตัวไว้ใน `uint8` ตัวเดียว
+- PancakeSwap V3 เก็บสัดส่วนแบบ basis point ขนาด 16 bit สองตัวไว้ใน `slot0.feeProtocol` และ emit
+  `SetFeeProtocol(uint32,uint32,uint32,uint32)`
+- snapshot ของ PancakeSwap V3 เก็บ `fee_protocol0_basis_points` และ `fee_protocol1_basis_points`
+  และ replay คำนวณค่าธรรมเนียมของ protocol เป็น `fee * basis_points / 10000`
 
-## Execution
+## Execution {#execution}
 
 :::warning
-The execution client is not production-ready. `BlockchainExecutionClient` implements preflight,
-explicit WETH wrap and ERC-20 approval, local EIP-1559 signing, durable reconciliation, and one
-Uniswap V3 swap flow. Other order operations fail closed with no on-chain or durable side effects.
+execution client ยังไม่พร้อมสำหรับ production `BlockchainExecutionClient` implement preflight,
+การ wrap WETH และการ approve ERC-20 แบบระบุชัดเจน, การ sign แบบ EIP-1559 ในเครื่อง, reconciliation แบบถาวร
+และ flow การ swap ของ Uniswap V3 หนึ่งแบบ การทำงานกับ order แบบอื่นจะล้มเหลวแบบ fail closed โดยไม่มีผลข้างเคียง
+ทั้งบน chain และในที่เก็บข้อมูลถาวร
 :::
 
-Execution uses these terms throughout this section:
+section นี้ใช้คำศัพท์ต่อไปนี้:
 
-| Term                | Meaning                                                                                                       |
+| คำศัพท์               | ความหมาย                                                                                                       |
 | ------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Decision height     | The minimum fresh head accepted across all three RPC sources for one authorizing read set.                    |
-| Verification source | One authoritative endpoint or one of exactly two read-only verifiers in a distinct configured failure domain. |
-| Deployment manifest | Reviewed contracts, code hashes, proxy bindings, identities, pools, tokens, and permitted call edges.         |
-| Intent              | One durable logical wrap, approve, or swap operation, independent of its transaction-hash history.            |
-| Signer ownership    | Exclusive control of the wallet signer and, after assignment, its active nonce.                               |
-| Finalized boundary  | The point where all sources agree on finalized ancestry through the transaction's inclusion block.            |
+| Decision height     | head ใหม่ที่ต่ำที่สุดซึ่งยอมรับได้จาก RPC ทั้งสามแหล่งสำหรับชุดการอ่านที่ใช้อนุญาตหนึ่งชุด                                   |
+| Verification source | endpoint หลัก (authoritative) หนึ่งตัว หรือหนึ่งใน verifier แบบอ่านอย่างเดียวสองตัวพอดีที่อยู่ใน failure domain ต่างกัน |
+| Deployment manifest | contract, code hash, proxy binding, identity, pool, token และ call edge ที่อนุญาตซึ่งผ่านการ review แล้ว          |
+| Intent              | การทำงาน wrap, approve หรือ swap เชิงตรรกะหนึ่งรายการที่เก็บแบบถาวร ไม่ขึ้นกับประวัติ hash ของ transaction                |
+| Signer ownership    | การควบคุมแต่เพียงผู้เดียวเหนือ signer ของ wallet และหลังจากกำหนดแล้วรวมถึง nonce ที่ active ของมัน                       |
+| Finalized boundary  | จุดที่ทุกแหล่งเห็นตรงกันเรื่อง finalized ancestry จนถึง block ที่ transaction ถูกรวมเข้าไป                              |
 
-### Connection and account state
+### การเชื่อมต่อและสถานะ account {#connection-and-account-state}
 
-Client construction requires one authoritative RPC endpoint and exactly two read-only verification
-providers. Each source needs a distinct endpoint, provider ID, operator ID, and pairwise-disjoint
-set of failure-domain IDs.
+การสร้าง client ต้องมี RPC endpoint หลักหนึ่งตัวและผู้ให้บริการตรวจสอบแบบอ่านอย่างเดียวสองตัวพอดี แต่ละแหล่งต้องมี
+endpoint, provider ID, operator ID ที่ต่างกัน และชุด failure-domain ID ที่ไม่ซ้อนกันเป็นคู่ ๆ
 
-#### Enforced operating conditions
+#### เงื่อนไขการทำงานที่บังคับใช้ {#enforced-operating-conditions}
 
-- The authoritative execution endpoint and both verifier endpoints must use HTTPS. Cleartext HTTP
-  is accepted only for a canonical IPv4 loopback literal in `127.0.0.0/8` or exactly `[::1]`.
-  Hostnames, IPv4-mapped IPv6, private and link-local addresses, and noncanonical numeric forms do
-  not qualify.
-- HyperSync uses the same HTTPS rule. This validation runs before the HyperSync token is loaded or
-  its client is created.
-- Blockchain HTTP clients reject redirects. A canonical loopback RPC connection also bypasses
-  configured and ambient proxies. Remote HTTPS execution RPC clients continue to honor ambient
-  proxy environment variables.
-- A Postgres-backed execution connection requires an active payload key, a stable deployment ID,
-  ready protected storage, and every key referenced by stored envelopes. It authenticates every
-  retained payload before loading the signer or making an execution RPC call.
-- An attached Postgres database can be unprotected only while the client is disconnected for
-  checks, protection, or rollback work. Rewrap requires protected storage. An unprotected database
-  cannot provide execution capability.
+- endpoint หลักของ execution และ endpoint ของ verifier ทั้งสองต้องใช้ HTTPS ยอมรับ HTTP แบบ cleartext
+  เฉพาะ IPv4 loopback แบบ canonical ใน `127.0.0.0/8` หรือ `[::1]` เท่านั้น hostname, IPv6 ที่ map จาก IPv4,
+  address แบบ private และ link-local และรูปแบบตัวเลขที่ไม่ใช่ canonical ไม่เข้าเงื่อนไข
+- HyperSync ใช้กฎ HTTPS เดียวกัน การตรวจสอบนี้ทำงานก่อนโหลด HyperSync token หรือสร้าง client
+- HTTP client ของ blockchain ปฏิเสธ redirect การเชื่อมต่อ RPC แบบ loopback ที่เป็น canonical จะข้าม proxy
+  ทั้งที่ตั้งค่าไว้และที่มาจาก environment ส่วน execution RPC client แบบ HTTPS ระยะไกลยังเคารพ proxy
+  จาก environment variable
+- การเชื่อมต่อ execution ที่ใช้ Postgres ต้องมี payload key ที่ active, deployment ID ที่คงที่, protected storage
+  ที่พร้อม และทุก key ที่ envelope ที่เก็บไว้อ้างถึง การเชื่อมต่อจะ authenticate payload ที่เก็บไว้ทุกตัวก่อนโหลด signer
+  หรือเรียก execution RPC
+- ฐานข้อมูล Postgres ที่เชื่อมไว้จะไม่ได้รับการป้องกันได้เฉพาะขณะที่ client disconnect อยู่เพื่อทำงานตรวจสอบ, ป้องกัน
+  หรือ rollback การ rewrap ต้องใช้ protected storage ฐานข้อมูลที่ไม่ได้รับการป้องกันไม่สามารถให้ความสามารถด้าน execution ได้
 
-#### Operator assumptions
+#### สมมติฐานที่ผู้ดูแลระบบต้องรับผิดชอบ {#operator-assumptions}
 
-A failure domain represents any shared upstream, reseller, gateway, proxy, account, network path, or hosting
-control plane. Distinct URLs and distinct configured identities do not prove operational independence. The
-operator must verify that the three providers do not share a control or failure domain.
+failure domain หมายถึง upstream, reseller, gateway, proxy, account, เส้นทาง network หรือ control plane ของ hosting
+ใดก็ตามที่ใช้ร่วมกัน URL ที่ต่างกันและ identity ที่ตั้งค่าไว้ต่างกันไม่ได้พิสูจน์ว่าเป็นอิสระต่อกันในการทำงานจริง
+ผู้ดูแลระบบต้องตรวจสอบว่าผู้ให้บริการทั้งสามไม่ได้ใช้ control domain หรือ failure domain ร่วมกัน
 
-The operator must also identify and monitor every party or governance mechanism that can change a
-manifest-pinned deployment's code or a manifest-pinned proxy's implementation. If such a deployment change or
-proxy upgrade is announced or suspected, stop execution and revoke every outstanding allowance whose spender
-is a router address in the affected deployment. Complete the revocations before the changed code or
-implementation is present at the decision block used for signing. Once it is, the pre-sign deployment check
-fails closed for every client transaction, including revocation.
+ผู้ดูแลระบบยังต้องระบุและติดตามทุกฝ่ายหรือกลไก governance ที่สามารถเปลี่ยนโค้ดของ deployment ที่ pin ไว้ใน manifest
+หรือ implementation ของ proxy ที่ pin ไว้ใน manifest ได้ หากมีการประกาศหรือสงสัยว่ามีการเปลี่ยน deployment
+หรือ upgrade proxy ดังกล่าว ให้หยุด execution และ revoke allowance ที่ค้างอยู่ทุกตัวที่ spender เป็น router address
+ใน deployment ที่ได้รับผลกระทบ ทำการ revoke ให้เสร็จก่อนที่โค้ดหรือ implementation ที่เปลี่ยนจะปรากฏที่ decision block
+ที่ใช้ในการ sign เพราะเมื่อปรากฏแล้ว การตรวจสอบ deployment ก่อน sign จะล้มเหลวแบบ fail closed สำหรับทุก transaction
+ของ client รวมถึงการ revoke ด้วย
 
-The operator must keep the signing key exclusive to one live client and control access to the host
-environment, database, replicas, backups, and exports.
+ผู้ดูแลระบบต้องเก็บ signing key ไว้ใช้กับ live client เพียงตัวเดียว และควบคุมการเข้าถึง environment ของ host,
+ฐานข้อมูล, replica, backup และ export
 
-Connect completes these checks before it loads the signer:
+ขั้นตอน connect จะทำการตรวจสอบเหล่านี้ให้เสร็จก่อนโหลด signer:
 
-1. Open the durable execution store. When Postgres is configured, require ready protected storage
-   and authenticate every retained payload before loading any existing verification ledger.
-1. Require all three sources to match the local chain ID and reviewed finalized checkpoint.
-1. Extend or recheck the durable finalized-header ancestry in windows of at most 4,096 blocks.
-1. Require an exact finalized-height signer nonce from all three sources.
-1. Verify the reviewed deployment manifest at the finalized height. This includes runtime code,
-   proxy slots, implementations, router and factory relationships, pool identity, token decimals,
-   and the pinned quote contract.
-1. Probe archive, finalized-tag, explicit-height state and call, gas, storage, quote, and call-trace
-   capabilities on every source.
-1. Atomically install the verification ledger or migrate retained execution history with the
-   evidence that authorized each classification.
-1. Load the private key from `signer_private_key_env`, require its address to equal
-   `wallet_address`, and reconcile any active intent.
-1. Read the native balance and configured ERC-20 balances, install the complete wallet snapshot,
-   and publish one `AccountState` under the configured account ID.
+1. เปิดที่เก็บข้อมูล execution แบบถาวร เมื่อตั้งค่า Postgres ไว้ ต้องมี protected storage ที่พร้อม
+   และ authenticate payload ที่เก็บไว้ทุกตัวก่อนโหลด verification ledger ที่มีอยู่
+1. ทั้งสามแหล่งต้องตรงกับ chain ID ในเครื่องและ finalized checkpoint ที่ review แล้ว
+1. ขยายหรือตรวจสอบ ancestry ของ finalized header แบบถาวรซ้ำ เป็นหน้าต่างละไม่เกิน 4,096 block
+1. ต้องได้ signer nonce ที่ finalized height ตรงพอดีจากทั้งสามแหล่ง
+1. ตรวจสอบ deployment manifest ที่ review แล้วที่ finalized height ซึ่งรวมถึง runtime code, proxy slot,
+   implementation, ความสัมพันธ์ระหว่าง router และ factory, identity ของ pool, decimals ของ token และ quote contract ที่ pin ไว้
+1. probe ความสามารถด้าน archive, finalized tag, state และ call ที่ height ระบุชัด, gas, storage, quote และ call trace
+   บนทุกแหล่ง
+1. ติดตั้ง verification ledger หรือย้ายประวัติ execution ที่เก็บไว้แบบ atomic พร้อมหลักฐานที่อนุญาตการจัดประเภทแต่ละรายการ
+1. โหลด private key จาก `signer_private_key_env` ตรวจสอบว่า address ของมันเท่ากับ `wallet_address`
+   และ reconcile intent ที่ active อยู่
+1. อ่าน native balance และ balance ของ ERC-20 ที่ตั้งค่าไว้ ติดตั้ง wallet snapshot ที่สมบูรณ์ และ publish
+   `AccountState` หนึ่งรายการภายใต้ account ID ที่ตั้งค่าไว้
 
-Without Postgres, the client can connect and publish balances, but all transaction operations are
-refused. A verification, migration, reconciliation, balance, or exact amount conversion failure
-keeps the client disconnected. Any loaded signer is removed, the previous complete snapshot stays
-installed, and no partial wallet state is published. Duplicate token symbols also reject the
-snapshot because symbols define currency identity.
+หากไม่มี Postgres client จะเชื่อมต่อและ publish balance ได้ แต่การทำงานกับ transaction ทั้งหมดจะถูกปฏิเสธ
+ความล้มเหลวของการตรวจสอบ, การย้ายข้อมูล, reconciliation, balance หรือการแปลงจำนวนแบบตรงพอดี จะทำให้ client
+ยังคง disconnect อยู่ signer ที่โหลดไว้จะถูกลบออก snapshot ที่สมบูรณ์ตัวก่อนหน้ายังคงติดตั้งอยู่ และจะไม่มีการ publish
+สถานะ wallet แบบไม่ครบ symbol ของ token ที่ซ้ำกันก็จะทำให้ snapshot ถูกปฏิเสธเช่นกัน เพราะ symbol กำหนด identity
+ของสกุลเงิน
 
-The verification providers never receive signed transaction bytes and have no broadcast method.
-The authoritative endpoint alone receives `eth_sendRawTransaction`. Security-critical unsigned
-reads that authorize a signature, rebroadcast, or durable transition go to all three sources.
-Diagnostic preflight and connect-time balance publication use the authoritative endpoint and cannot
-authorize execution. This protects integrity, not order confidentiality. Operators who need route
-or amount confidentiality need a separate execution design.
+ผู้ให้บริการตรวจสอบจะไม่ได้รับ byte ของ signed transaction และไม่มีเมธอด broadcast มีเพียง endpoint หลักเท่านั้นที่ได้รับ
+`eth_sendRawTransaction` การอ่านแบบ unsigned ที่สำคัญต่อความปลอดภัยซึ่งใช้อนุญาตการ sign, การ rebroadcast หรือ
+การเปลี่ยนสถานะแบบถาวร จะส่งไปยังทั้งสามแหล่ง ส่วน preflight เพื่อการวินิจฉัยและการ publish balance ตอน connect
+ใช้ endpoint หลักและไม่สามารถอนุญาตการ execute ได้ การออกแบบนี้ปกป้องความถูกต้อง (integrity) ไม่ใช่ความลับของ order
+ผู้ดูแลระบบที่ต้องการความลับของเส้นทางหรือจำนวนต้องใช้การออกแบบ execution แยกต่างหาก
 
-Published balances use `total = free` and `locked = 0`. The wallet account applies local
-reservations when it derives effective free and locked balances, as described in
-[Wallet accounts](../concepts/accounting.md#wallet-accounts).
+balance ที่ publish ใช้ `total = free` และ `locked = 0` wallet account จะใช้การจองในเครื่องเมื่อคำนวณ
+free และ locked balance ที่มีผลจริง ตามที่อธิบายใน [Wallet accounts](../concepts/accounting.md#wallet-accounts)
 
-After the client starts, `QueryAccount` republishes the installed snapshot without another RPC
-read. It fails when:
+หลังจาก client เริ่มทำงาน `QueryAccount` จะ publish snapshot ที่ติดตั้งไว้ซ้ำโดยไม่อ่าน RPC อีก และจะล้มเหลวเมื่อ:
 
-- The requested account ID differs from the client account ID.
-- The client has not started.
-- No complete snapshot exists.
+- account ID ที่ร้องขอต่างจาก account ID ของ client
+- client ยังไม่ได้เริ่ม
+- ไม่มี snapshot ที่สมบูรณ์
 
-Disconnect removes the signer and aborts in-flight submission tasks. Transaction operations reject
-a disconnected client before any execution RPC call.
+การ disconnect จะลบ signer และยกเลิก task การส่งที่กำลังทำงานอยู่ การทำงานกับ transaction จะปฏิเสธ client
+ที่ disconnect อยู่ก่อนเรียก execution RPC ใด ๆ
 
-### Supported order slice
+### ขอบเขต order ที่รองรับ {#supported-order-slice}
 
-The client accepts one market-order shape:
+client รับ market order ได้เพียงรูปแบบเดียว:
 
-| Axis        | Accepted                                                                                        | Rejected                                                              |
+| แกน          | ที่ยอมรับ                                                                                          | ที่ปฏิเสธ                                                               |
 | ----------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| Chain       | The chain configured on the execution client.                                                   | An instrument venue for another chain.                                |
-| DEX         | Uniswap V3.                                                                                     | Every other DEX, including PancakeSwap V3.                            |
-| Pool        | An address-based pool in `Cache::pool` with a fee tier.                                         | Unknown pools, V4 pool IDs, and pools without a fee tier.             |
-| Order       | A single `MarketOrder` with side `BUY` or `SELL`.                                               | Non-market orders submitted through `SubmitOrder`.                    |
-| Quantity    | Base-denominated size within `max_order_amount`; a BUY also needs a matching quote-spend limit. | Quote-denominated input or an amount above either applicable ceiling. |
-| Orientation | Tokens with distinct model priorities.                                                          | A pair whose tokens have equal priority and are ambiguous.            |
+| Chain       | chain ที่ตั้งค่าไว้บน execution client                                                              | venue ของ instrument ที่เป็นของ chain อื่น                               |
+| DEX         | Uniswap V3                                                                                      | DEX อื่นทั้งหมด รวมถึง PancakeSwap V3                                  |
+| Pool        | pool แบบอิง address ใน `Cache::pool` ที่มี fee tier                                               | pool ที่ไม่รู้จัก, pool ID ของ V4 และ pool ที่ไม่มี fee tier               |
+| Order       | `MarketOrder` เดี่ยวที่มี side เป็น `BUY` หรือ `SELL`                                               | order ที่ไม่ใช่ market ที่ส่งผ่าน `SubmitOrder`                          |
+| Quantity    | ขนาดในหน่วย base ภายใน `max_order_amount` สำหรับ BUY ต้องมี quote-spend limit ที่ตรงกันด้วย              | input ในหน่วย quote หรือจำนวนที่เกินเพดานที่เกี่ยวข้องตัวใดตัวหนึ่ง            |
+| Orientation | token ที่มีลำดับความสำคัญใน model ต่างกัน                                                             | คู่ที่ token มีลำดับความสำคัญเท่ากันและกำกวม                                 |
 
-The `InstrumentId` selects the pool, for example
-`0xC6962004f452bE9203591991D15f6b388e09E8D0.Arbitrum:UniswapV3`. Its venue must parse as `<Chain>:<DexType>`,
-and its symbol must parse as an address `PoolIdentifier`. `Pool::get_base_token` and `Pool::get_quote_token`
-apply the model's token-priority convention:
+`InstrumentId` เป็นตัวเลือก pool เช่น
+`0xC6962004f452bE9203591991D15f6b388e09E8D0.Arbitrum:UniswapV3` venue ของมันต้อง parse เป็น `<Chain>:<DexType>` ได้
+และ symbol ต้อง parse เป็น `PoolIdentifier` แบบ address ได้ `Pool::get_base_token` และ `Pool::get_quote_token`
+ใช้ convention ลำดับความสำคัญของ token ใน model:
 
-- Stablecoins are quote assets.
-- Wrapped native assets have the next priority.
-- Other tokens become base assets against them.
+- stablecoin เป็น quote asset
+- native asset แบบ wrapped มีลำดับความสำคัญรองลงมา
+- token อื่นเป็น base asset เมื่อจับคู่กับสองกลุ่มข้างต้น
 
-Equal `Token::get_token_priority` values are ambiguous and reject the order.
+ค่า `Token::get_token_priority` ที่เท่ากันถือว่ากำกวมและจะปฏิเสธ order
 
-Venue routing admits Uniswap V3 on any configured chain whose venue matches. Swap preparation also
-requires a registered Uniswap V3 deployment and factory for that chain.
+การ route ตาม venue ยอมรับ Uniswap V3 บน chain ใดก็ได้ที่ตั้งค่าไว้และ venue ตรงกัน การเตรียม swap ยังต้องมี
+deployment และ factory ของ Uniswap V3 ที่ลงทะเบียนไว้สำหรับ chain นั้นด้วย
 
-Order lists deny each open order with `OrderDenied`. Modify, cancel, and batch-cancel commands reject each
-referenced cached order with `OrderModifyRejected` or `OrderCancelRejected`. Cancel-all commands and order
-queries log a warning without an event. Mass status returns `Ok(None)` so startup reconciliation logs and
-continues. Order, fill, and position report probes return an error so LiveNode does not treat an empty answer
-as absence. These paths never sign, broadcast, or persist an intent.
+order list จะปฏิเสธ order ที่เปิดอยู่แต่ละตัวด้วย `OrderDenied` คำสั่ง modify, cancel และ batch-cancel จะปฏิเสธ order
+ที่ cache ไว้แต่ละตัวที่อ้างถึงด้วย `OrderModifyRejected` หรือ `OrderCancelRejected` คำสั่ง cancel-all และ
+การ query order จะ log warning โดยไม่มี event mass status คืน `Ok(None)` เพื่อให้ reconciliation ตอน startup
+log แล้วทำงานต่อ ส่วนการ probe report ของ order, fill และ position จะคืน error เพื่อไม่ให้ LiveNode ตีความคำตอบว่าง
+ว่าไม่มีข้อมูล เส้นทางเหล่านี้ไม่เคย sign, broadcast หรือ persist intent
 
-A swap stays `Submitted` until finality, and venue status queries cannot resolve it. The client requires
-submission retention. When the in-flight check exhausts its retries, LiveNode logs a warning and keeps the
-swap `Submitted` instead of rejecting it. Thus, the finalized fill or rejection still applies to that order.
-If the node stops before finality, shutdown reports incomplete submission recovery for each swap submitted
-during that run, and the persisted intent reconciles on the next connect. Leave open-order checks off.
+swap จะคงสถานะ `Submitted` จนกว่าจะ finality และการ query สถานะจาก venue ไม่สามารถ resolve ได้ client ต้องการ
+submission retention เมื่อการตรวจสอบ order ที่ค้างอยู่ใช้ retry จนหมด LiveNode จะ log warning และคง swap ไว้เป็น
+`Submitted` แทนที่จะ reject ดังนั้น fill หรือการ reject ที่ finalize แล้วยังคงใช้กับ order นั้นได้ หาก node หยุดก่อน
+finality ขั้นตอน shutdown จะรายงานว่าการกู้คืนการส่งยังไม่เสร็จสำหรับแต่ละ swap ที่ส่งในรอบการรันนั้น และ intent ที่ persist
+ไว้จะ reconcile ในการ connect ครั้งถัดไป ให้ปิดการตรวจสอบ open order ไว้
 
-Execution routing follows Nautilus's multi-venue broker pattern. The client represents a wallet and RPC
-connection for one chain. Each instrument venue identifies both its chain and DEX.
+การ route ของ execution เป็นไปตาม pattern แบบ multi-venue broker ของ Nautilus client แทน wallet และการเชื่อมต่อ RPC
+สำหรับ chain หนึ่ง venue ของแต่ละ instrument ระบุทั้ง chain และ DEX
 
-A strategy may select the client explicitly through `client_id`. Node configuration may instead register the
-client for instrument venues through `RoutingConfig.venues` or use it as the default execution client. After
-client selection, `ExecutionClient::handles_order_venue` accepts only a venue whose parsed chain matches the
-client configuration and whose DEX is supported by the client. The instrument retains its `<Chain>:<DexType>`
-venue rather than being rewritten to `BLOCKCHAIN`.
+strategy อาจเลือก client อย่างชัดเจนผ่าน `client_id` หรือ configuration ของ node อาจลงทะเบียน client สำหรับ venue
+ของ instrument ผ่าน `RoutingConfig.venues` หรือใช้เป็น execution client เริ่มต้น หลังจากเลือก client แล้ว
+`ExecutionClient::handles_order_venue` จะยอมรับเฉพาะ venue ที่ chain ที่ parse ได้ตรงกับ configuration ของ client
+และ DEX เป็นแบบที่ client รองรับ instrument จะคง venue แบบ `<Chain>:<DexType>` ไว้ ไม่ได้ถูกเขียนใหม่เป็น `BLOCKCHAIN`
 
-The order maps to a single `exactInputSingle` call on the original Uniswap SwapRouter (the
-deployment whose signature carries a deadline). `allowed_token_pairs` is directional
-`(token_in, token_out)`: a SELL requires the base-to-quote pair, and a BUY requires the
-quote-to-base pair. Listing only one direction does not admit the other.
+order จะ map เป็นการเรียก `exactInputSingle` ครั้งเดียวบน SwapRouter ดั้งเดิมของ Uniswap (deployment ที่ signature
+มี deadline) `allowed_token_pairs` เป็นแบบมีทิศทาง `(token_in, token_out)`: SELL ต้องมีคู่ base-to-quote และ BUY
+ต้องมีคู่ quote-to-base การระบุเพียงทิศทางเดียวไม่ได้อนุญาตอีกทิศทางหนึ่ง
 
-| Parameter           | Source                                                                                     |
+| Parameter           | ที่มา                                                                                       |
 | ------------------- | ------------------------------------------------------------------------------------------ |
-| `tokenIn`           | SELL: pool base token. BUY: pool quote token.                                              |
-| `tokenOut`          | SELL: pool quote token. BUY: pool base token.                                              |
-| `fee`               | Pool fee tier.                                                                             |
-| `recipient`         | Execution wallet address.                                                                  |
-| `deadline`          | Verified decision-header timestamp plus configured `deadline_seconds`.                     |
-| `amountIn`          | SELL: `Quantity` as raw base units. BUY: quote input from the verified exact-output quote. |
-| `amountOutMinimum`  | Derived from the verified quote at the decision height (see below).                        |
-| `sqrtPriceLimitX96` | `0` (slippage is bounded by `amountOutMinimum`).                                           |
+| `tokenIn`           | SELL: base token ของ pool BUY: quote token ของ pool                                        |
+| `tokenOut`          | SELL: quote token ของ pool BUY: base token ของ pool                                        |
+| `fee`               | fee tier ของ pool                                                                          |
+| `recipient`         | address ของ execution wallet                                                               |
+| `deadline`          | timestamp ของ decision header ที่ตรวจสอบแล้วบวก `deadline_seconds` ที่ตั้งค่าไว้                  |
+| `amountIn`          | SELL: `Quantity` เป็นหน่วย base แบบ raw BUY: quote input จาก exact-output quote ที่ตรวจสอบแล้ว |
+| `amountOutMinimum`  | คำนวณจาก quote ที่ตรวจสอบแล้วที่ decision height (ดูด้านล่าง)                                    |
+| `sqrtPriceLimitX96` | `0` (slippage ถูกจำกัดด้วย `amountOutMinimum`)                                             |
 
-### BUY quote-spend limits
+### ขีดจำกัดการใช้ quote ของ BUY {#buy-quote-spend-limits}
 
-Every BUY needs one `quote_spend_limits` entry for its directed quote-to-base pair. The entry repeats the
-quote-token address and decimals beside `max_amount`, a base-10 string in the token's raw units. Client
-construction rejects these entries:
+BUY ทุกตัวต้องมี entry ใน `quote_spend_limits` หนึ่งรายการสำหรับคู่ quote-to-base ที่มีทิศทางของมัน entry จะระบุ
+address และ decimals ของ quote token ซ้ำไว้ข้าง `max_amount` ซึ่งเป็น string ฐานสิบในหน่วย raw ของ token
+การสร้าง client จะปฏิเสธ entry เหล่านี้:
 
-- A second entry for the same directed pair.
-- A `spend_token` that differs from `token_in`.
-- A `max_amount` that is not a base-10 unsigned integer within the `U256` range.
-- A pair outside `allowed_token_pairs`.
+- entry ที่สองสำหรับคู่ที่มีทิศทางเดียวกัน
+- `spend_token` ที่ต่างจาก `token_in`
+- `max_amount` ที่ไม่ใช่จำนวนเต็มไม่ติดลบฐานสิบภายในช่วง `U256`
+- คู่ที่อยู่นอก `allowed_token_pairs`
 
-Order preparation also checks the configured token and decimals against the selected pool (see
-[Execution configuration](#execution-configuration) for an example entry).
+การเตรียม order ยังตรวจสอบ token และ decimals ที่ตั้งค่าไว้กับ pool ที่เลือกด้วย (ดูตัวอย่าง entry ใน
+[Configuration ของ execution](#execution-configuration))
 
-The client compares the independently verified exact-output quote's `amountIn` with this limit before signing.
-Equality is accepted. A quote one raw unit above the limit is denied. `max_order_amount` remains a separate
-ceiling on the submitted base quantity, and SELL orders do not use `quote_spend_limits`.
+client จะเปรียบเทียบ `amountIn` ของ exact-output quote ที่ตรวจสอบแยกกันแล้วกับขีดจำกัดนี้ก่อน sign ค่าเท่ากันถือว่ายอมรับได้
+quote ที่สูงกว่าขีดจำกัดหนึ่งหน่วย raw จะถูกปฏิเสธ `max_order_amount` ยังคงเป็นเพดานแยกต่างหากสำหรับ base quantity
+ที่ส่ง และ SELL order ไม่ใช้ `quote_spend_limits`
 
-### Slippage protection
+### การป้องกัน slippage {#slippage-protection}
 
-`amountOutMinimum` is always derived, never caller-supplied:
+`amountOutMinimum` ถูกคำนวณเสมอ ไม่เคยรับจากผู้เรียก:
 
-1. Require an initialized `PoolProfiler` with a processed event watermark in the shared engine cache
-   (`Cache::pool_profiler`). Its local simulation must consume the full SELL input or produce a
-   nonzero BUY input, but its amount does not set a signed field. A live data-side subscription
-   normally maintains this state.
-1. Choose a decision height from the minimum fresh head reported by the three sources. The head
-   skew must remain within `verification.chain_anchor.max_head_skew_blocks`.
-1. Require the profiler watermark to include the block hash observed during ingestion. All three
-   sources must return that exact explicit-height header. A block-scoped snapshot must also carry
-   the header hash as its snapshot identifier.
-1. For an event watermark, require a successful canonical receipt whose transaction, block, and
-   index metadata match the profiler position. The selected log must come from the expected pool
-   and use a supported pool-event signature.
-1. Verify one unanimous parent-linked ancestry from the profiler height through the decision
-   height. The distance must not exceed `max_quote_age_blocks`, which must be in `1..=4095`.
-1. Call the manifest-pinned `IQuoterV2` contract at the decision height through all three sources. SELL uses
-   `quoteExactInputSingle`. BUY uses `quoteExactOutputSingle`. The full decoded result must agree, including
-   amount, resulting square-root price, initialized ticks crossed, and gas estimate.
-1. Immediately before signing, reread the checkpoint, profiler header, decision header, ancestry,
-   and quote. An unavailable or changed result blocks signing.
-1. For SELL, compute `amountOutMinimum` from the verified exact-input output. For BUY, use the
-   verified exact-output input as `amountIn` and derive `amountOutMinimum` from the requested base
-   output. Integer arithmetic rejects a zero minimum.
+1. ต้องมี `PoolProfiler` ที่ initialize แล้วและมี event watermark ที่ประมวลผลแล้วใน engine cache ที่ใช้ร่วมกัน
+   (`Cache::pool_profiler`) การจำลองในเครื่องของมันต้องใช้ input ของ SELL ทั้งหมด หรือสร้าง input ของ BUY
+   ที่ไม่เป็นศูนย์ แต่จำนวนที่ได้ไม่ได้ใช้กำหนด field ที่ sign โดยปกติ subscription ฝั่ง data แบบ live จะดูแลสถานะนี้
+1. เลือก decision height จาก head ใหม่ที่ต่ำที่สุดที่ทั้งสามแหล่งรายงาน ความต่างของ head ต้องอยู่ภายใน
+   `verification.chain_anchor.max_head_skew_blocks`
+1. watermark ของ profiler ต้องมี block hash ที่สังเกตได้ระหว่าง ingestion ทั้งสามแหล่งต้องคืน header
+   ที่ height ระบุชัดนั้นตรงกันทุกประการ snapshot ระดับ block ต้องใช้ hash ของ header เป็นตัวระบุ snapshot ด้วย
+1. สำหรับ event watermark ต้องมี receipt แบบ canonical ที่สำเร็จ ซึ่ง metadata ของ transaction, block และ index
+   ตรงกับตำแหน่งของ profiler log ที่เลือกต้องมาจาก pool ที่คาดไว้และใช้ signature ของ pool event ที่รองรับ
+1. ตรวจสอบ ancestry แบบเชื่อมโยง parent ที่ทุกแหล่งเห็นตรงกันตั้งแต่ height ของ profiler ไปจนถึง decision height
+   ระยะห่างต้องไม่เกิน `max_quote_age_blocks` ซึ่งต้องอยู่ใน `1..=4095`
+1. เรียก contract `IQuoterV2` ที่ pin ไว้ใน manifest ที่ decision height ผ่านทั้งสามแหล่ง SELL ใช้
+   `quoteExactInputSingle` ส่วน BUY ใช้ `quoteExactOutputSingle` ผลลัพธ์ที่ decode แล้วทั้งหมดต้องตรงกัน
+   รวมถึงจำนวน, square-root price ที่ได้, จำนวน tick ที่ initialize แล้วที่ข้ามไป และค่าประมาณ gas
+1. ทันทีก่อน sign ให้อ่าน checkpoint, header ของ profiler, decision header, ancestry และ quote ซ้ำ
+   ผลลัพธ์ที่ไม่มีหรือเปลี่ยนไปจะขวางการ sign
+1. สำหรับ SELL คำนวณ `amountOutMinimum` จาก output ของ exact-input ที่ตรวจสอบแล้ว สำหรับ BUY ใช้ input ของ
+   exact-output ที่ตรวจสอบแล้วเป็น `amountIn` และคำนวณ `amountOutMinimum` จาก base output ที่ร้องขอ
+   การคำนวณแบบจำนวนเต็มจะปฏิเสธค่าต่ำสุดที่เป็นศูนย์
 
-Profiler divergence can request a data refresh, but it cannot override a verified quote or weaken
-the signed limits.
+การที่ profiler แตกต่างออกไปอาจทำให้ร้องขอการ refresh ข้อมูลได้ แต่ไม่สามารถ override quote ที่ตรวจสอบแล้ว
+หรือผ่อนปรนขีดจำกัดที่ sign ได้
 
-The `slippage_bps` configuration field sets the slippage. A `slippage_bps` entry in the submit command's
-`params` overrides it for that order. An override above the `max_slippage_bps` ceiling is rejected before
-signing.
+field `slippage_bps` ใน configuration กำหนด slippage entry `slippage_bps` ใน `params` ของคำสั่ง submit
+จะ override ค่าสำหรับ order นั้น override ที่สูงกว่าเพดาน `max_slippage_bps` จะถูกปฏิเสธก่อน sign
 
-Pre-upgrade event rows can lack an ingestion block hash because the schema migration does not
-backfill one. Such rows cannot authorize execution. Refresh the traded pool through the normal live
-data subscription, or resync its events and rebuild its snapshot, before submitting an order.
+แถวของ event จากก่อน upgrade อาจไม่มี block hash ตอน ingestion เพราะการ migrate schema ไม่ได้ backfill ให้
+แถวเหล่านั้นไม่สามารถอนุญาตการ execute ได้ ให้ refresh pool ที่เทรดผ่าน live data subscription ตามปกติ
+หรือ resync event และสร้าง snapshot ใหม่ก่อนส่ง order
 
-### Preflight, wrapping, and approval
+### Preflight, การ wrap และการ approve {#preflight-wrapping-and-approval}
 
-Preflight, WETH wrapping, and router approval are explicit operations on the client, separate from
-`submit_order`:
+preflight, การ wrap WETH และการ approve router เป็นการทำงานแบบระบุชัดเจนบน client แยกจาก `submit_order`:
 
-| Operation | State change                       | Pre-broadcast checks                                                                                                        | Completion check                                    |
+| Operation | การเปลี่ยนสถานะ                       | การตรวจสอบก่อน broadcast                                                                                                        | การตรวจสอบเมื่อเสร็จ                                    |
 | --------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| Preflight | None.                              | Authoritative chain, deployed-code, balance, allowance, and current-fee diagnostics.                                        | Returns a structured, sanitized report.             |
-| Wrap      | Calls WETH `deposit()` with value. | Verified decision ancestry, deployment, WETH balance, native balance, gas, fee, nonce, and explicit-height simulation.      | WETH balance increased by the exact wrapped amount. |
-| Approve   | Calls `approve(router, amount)`.   | Wrap checks plus router policy, factory and WETH identity, input-token membership, zero allowance, and approval simulation. | Allowance at the inclusion block equals the target. |
+| Preflight | ไม่มี                                | การวินิจฉัย chain, โค้ดที่ deploy, balance, allowance และค่าธรรมเนียมปัจจุบันจากแหล่งหลัก                                          | คืน report แบบมีโครงสร้างที่ผ่านการ sanitize แล้ว             |
+| Wrap      | เรียก `deposit()` ของ WETH พร้อม value | decision ancestry ที่ตรวจสอบแล้ว, deployment, WETH balance, native balance, gas, ค่าธรรมเนียม, nonce และการจำลองที่ height ระบุชัด     | WETH balance เพิ่มขึ้นเท่ากับจำนวนที่ wrap พอดี               |
+| Approve   | เรียก `approve(router, amount)`     | การตรวจสอบของ wrap รวมกับนโยบาย router, identity ของ factory และ WETH, การเป็นสมาชิกของ input token, allowance เป็นศูนย์ และการจำลอง approval | allowance ที่ block ที่ถูกรวมเท่ากับเป้าหมาย                  |
 
-Preflight resolves the pool from `Cache::pool`. Its report contains no RPC URL, private key, or raw signed
-transaction. It reports these values and checks:
+preflight resolve pool จาก `Cache::pool` report ไม่มี RPC URL, private key หรือ signed transaction แบบ raw
+โดยรายงานค่าและการตรวจสอบเหล่านี้:
 
-- Expected and observed chain IDs.
-- Pool, router, and token code checks.
-- Token balances and allowances, and native balance.
-- Base and priority fees, the derived maximum fee, and whether that fee stays within its ceiling.
-- Overall readiness and every failed check.
+- chain ID ที่คาดไว้และที่สังเกตได้
+- การตรวจสอบโค้ดของ pool, router และ token
+- balance และ allowance ของ token และ native balance
+- base fee และ priority fee, maximum fee ที่คำนวณได้ และค่าธรรมเนียมนั้นอยู่ภายในเพดานหรือไม่
+- ความพร้อมโดยรวมและการตรวจสอบทุกตัวที่ไม่ผ่าน
 
-Approve rejects a standard `false` return and accepts tokens that return no data. A nonzero
-approval is limited to configured input tokens and requires the existing allowance to be zero.
-With `unlimited_approval`, every nonzero request targets `U256::MAX`. The final allowance must equal
-the target exactly. A zero request revokes an allowlisted router even when router deployment
-metadata is unavailable, so a broken router check cannot prevent revocation.
+การ approve จะปฏิเสธการคืนค่า `false` แบบมาตรฐาน และยอมรับ token ที่ไม่คืนข้อมูล การ approve ที่ไม่เป็นศูนย์
+จำกัดเฉพาะ input token ที่ตั้งค่าไว้ และต้องมี allowance เดิมเป็นศูนย์ เมื่อใช้ `unlimited_approval` ทุก request
+ที่ไม่เป็นศูนย์จะตั้งเป้าเป็น `U256::MAX` allowance สุดท้ายต้องเท่ากับเป้าหมายพอดี request ที่เป็นศูนย์จะ revoke
+router ที่อยู่ใน allowlist แม้ metadata ของ deployment ของ router จะไม่มี ดังนั้นการตรวจสอบ router ที่เสียจะไม่ขัดขวาง
+การ revoke
 
-During an uninterrupted call, wrap and approve use the shared EIP-1559 path. They persist the intent and
-signed hash before broadcast. They return after stable finality and the operation's postcondition. Wrap
-compares the WETH balance immediately before and at the inclusion block, which avoids a stale pre-broadcast
-baseline. A failed postcondition returns an error after finality, so the transaction may still have changed
-on-chain state.
+ระหว่างการเรียกที่ไม่ถูกขัดจังหวะ wrap และ approve ใช้เส้นทาง EIP-1559 ร่วมกัน โดย persist intent และ signed hash
+ก่อน broadcast และคืนผลหลังจาก finality ที่เสถียรและ postcondition ของการทำงานนั้น wrap จะเปรียบเทียบ WETH balance
+ทันทีก่อนและที่ block ที่ถูกรวม ซึ่งหลีกเลี่ยงค่าฐานก่อน broadcast ที่ล้าสมัย postcondition ที่ไม่ผ่านจะคืน error
+หลัง finality ดังนั้น transaction อาจยังเปลี่ยนสถานะบน chain ไปแล้ว
 
-Before signing a swap, order submission requires exact agreement from all three sources for:
+ก่อน sign swap การส่ง order ต้องได้ความเห็นตรงกันทุกประการจากทั้งสามแหล่งในเรื่องต่อไปนี้:
 
-- The decision header and parent-linked ancestry from the durable finalized ledger.
-- The deployment manifest at the decision height, including every configured code hash, proxy
-  binding, and role probe.
-- The router reports the registered factory and configured WETH, and the factory resolves the
-  exact pool for the input token, output token, and fee tier.
-- Both tokens report the decimals stored in the reviewed manifest.
-- The manifest-pinned quote contract returns one exact quote.
-- Router allowance and input-token balance sufficient for the raw input amount.
-- Native balance sufficient for transaction value plus the maximum gas cost.
-- Canonical and pending nonce observations that agree with the durable nonce ledger.
-- The maximum gas estimate, median priority fee, and local gas and fee ceilings.
+- decision header และ ancestry แบบเชื่อมโยง parent จาก finalized ledger แบบถาวร
+- deployment manifest ที่ decision height รวมถึง code hash, proxy binding และ role probe ทุกตัวที่ตั้งค่าไว้
+- router รายงาน factory ที่ลงทะเบียนไว้และ WETH ที่ตั้งค่าไว้ และ factory resolve pool ที่ตรงพอดีสำหรับ
+  input token, output token และ fee tier
+- token ทั้งสองรายงาน decimals ตามที่เก็บไว้ใน manifest ที่ review แล้ว
+- quote contract ที่ pin ไว้ใน manifest คืน quote ที่ตรงพอดีหนึ่งค่า
+- allowance ของ router และ balance ของ input token เพียงพอสำหรับจำนวน input แบบ raw
+- native balance เพียงพอสำหรับ value ของ transaction บวกค่า gas สูงสุด
+- การสังเกต nonce แบบ canonical และ pending ที่สอดคล้องกับ nonce ledger แบบถาวร
+- ค่าประมาณ gas สูงสุด, priority fee แบบ median และเพดาน gas และค่าธรรมเนียมในเครื่อง
 
-The decision header supplies the deadline, quote-age boundary, durable `created_block`, and EIP-1559 base fee.
-State, call, code, storage, gas, balance, and allowance reads use its explicit block number.
+decision header ให้ deadline, ขอบเขตอายุของ quote, `created_block` แบบถาวร และ base fee ของ EIP-1559
+การอ่าน state, call, code, storage, gas, balance และ allowance ใช้หมายเลข block ที่ระบุชัดของมัน
 
-Immediately before local signing, the client repeats the chain, header, ancestry, deployment, quote, canonical
-nonce, and pending nonce checks. It persists this evidence atomically with nonce assignment. A failure before
-signing produces `OrderDenied` and no broadcast. The client releases its preparation slot only after the
-durable recoverable transition succeeds. A failed transition keeps ownership for reconciliation.
+ทันทีก่อน sign ในเครื่อง client จะตรวจสอบ chain, header, ancestry, deployment, quote, canonical nonce
+และ pending nonce ซ้ำอีกครั้ง และ persist หลักฐานนี้แบบ atomic พร้อมกับการกำหนด nonce ความล้มเหลวก่อน sign
+จะได้ `OrderDenied` และไม่มีการ broadcast client จะปล่อย preparation slot ก็ต่อเมื่อการเปลี่ยนสถานะเป็นแบบ
+recoverable ที่ถาวรสำเร็จแล้วเท่านั้น การเปลี่ยนสถานะที่ล้มเหลวจะคงความเป็นเจ้าของไว้สำหรับ reconciliation
 
-The input token is the base token for a SELL and the quote token for a BUY. Preflight readiness still reports
-the base-token allowance used by SELL setup. A BUY needs a separate quote-token approval. Submission denies
-the order if that allowance or balance is short.
+input token คือ base token สำหรับ SELL และ quote token สำหรับ BUY ความพร้อมของ preflight ยังรายงาน allowance
+ของ base token ที่ใช้ในการตั้งค่า SELL BUY ต้องมีการ approve quote token แยกต่างหาก การส่งจะปฏิเสธ order
+หาก allowance หรือ balance นั้นไม่พอ
 
-Submission never wraps or approves. An insufficient allowance or balance emits `OrderDenied`.
+การส่ง order ไม่เคย wrap หรือ approve ให้ allowance หรือ balance ที่ไม่พอจะส่ง `OrderDenied`
 
-### Transaction signing and broadcast
+### การ sign และ broadcast transaction {#transaction-signing-and-broadcast}
 
-#### Local signing
+#### การ sign ในเครื่อง {#local-signing}
 
-The client builds and signs EIP-1559 typed transactions locally with Alloy:
+client สร้างและ sign typed transaction แบบ EIP-1559 ในเครื่องด้วย Alloy:
 
-- It builds `alloy::consensus::TxEip1559` with the chain ID, nonce, gas, fees, destination, value,
-  and calldata.
-- It signs `SignableTransaction::signature_hash()` with
-  `alloy::signers::local::PrivateKeySigner`, producing `Signed<TxEip1559>`.
-- It encodes the EIP-2718 envelope with
-  `alloy::eips::eip2718::Encodable2718::encoded_2718()` and sends the raw bytes through
-  `eth_sendRawTransaction`.
+- สร้าง `alloy::consensus::TxEip1559` ด้วย chain ID, nonce, gas, ค่าธรรมเนียม, ปลายทาง, value และ calldata
+- sign `SignableTransaction::signature_hash()` ด้วย `alloy::signers::local::PrivateKeySigner`
+  ได้ผลเป็น `Signed<TxEip1559>`
+- encode envelope แบบ EIP-2718 ด้วย `alloy::eips::eip2718::Encodable2718::encoded_2718()`
+  แล้วส่ง raw bytes ผ่าน `eth_sendRawTransaction`
 
-The private key comes from the environment variable named by `signer_private_key_env`. It is never
-logged, serialized, or stored in configuration. Zeroizing buffers hold the temporary key text and
-decoded bytes while the signer is constructed. The client supports one signer, whose derived
-address must match `wallet_address` at connect.
+private key มาจาก environment variable ที่ระบุชื่อไว้ใน `signer_private_key_env` ไม่เคยถูก log, serialize
+หรือเก็บไว้ใน configuration buffer แบบ zeroizing จะเก็บข้อความ key ชั่วคราวและ byte ที่ decode แล้วระหว่างสร้าง signer
+client รองรับ signer เพียงตัวเดียว ซึ่ง address ที่ derive ได้ต้องตรงกับ `wallet_address` ตอน connect
 
-#### Signer and nonce ownership
+#### ความเป็นเจ้าของ signer และ nonce {#signer-and-nonce-ownership}
 
-At most one transaction can be in flight across wraps, approvals, and swaps:
+มี transaction ที่กำลังดำเนินการได้ไม่เกินหนึ่งตัวในทุก wrap, approval และ swap รวมกัน:
 
-- The client claims the local slot before the first preparation RPC call.
-- The durable canonical nonce comes from unanimous explicit finalized-height reads. Pending nonce
-  is an additional mempool observation and never proves canonical consumption.
-- A new signature requires canonical nonce `N`, no unexplained pending use, and an intent that can
-  atomically own `N` with its verification evidence.
-- A preparation failure releases the slot only when no signature exists.
-- After signing, the slot stays claimed through persistence, broadcast, finality, and required
-  order-event persistence.
-- A persistence error keeps the slot claimed because Postgres may have committed before the client
-  lost the acknowledgement.
-- Cancelling an operation during persistence or broadcast does not release the slot and admit a new
-  transaction.
+- client จอง slot ในเครื่องก่อนเรียก RPC ของการเตรียมครั้งแรก
+- canonical nonce แบบถาวรมาจากการอ่านที่ finalized height ระบุชัดซึ่งทุกแหล่งเห็นตรงกัน pending nonce
+  เป็นการสังเกต mempool เพิ่มเติมและไม่เคยพิสูจน์การใช้แบบ canonical
+- signature ใหม่ต้องมี canonical nonce `N`, ไม่มีการใช้ pending ที่อธิบายไม่ได้ และมี intent ที่เป็นเจ้าของ `N`
+  แบบ atomic พร้อมหลักฐานการตรวจสอบได้
+- ความล้มเหลวในการเตรียมจะปล่อย slot ก็ต่อเมื่อยังไม่มี signature
+- หลังจาก sign แล้ว slot ยังคงถูกจองตลอดการ persist, broadcast, finality และการ persist order event ที่จำเป็น
+- error ของการ persist จะคงการจอง slot ไว้ เพราะ Postgres อาจ commit แล้วก่อนที่ client จะไม่ได้รับ acknowledgement
+- การยกเลิกการทำงานระหว่าง persist หรือ broadcast ไม่ได้ปล่อย slot และไม่ได้อนุญาต transaction ใหม่
 
-Fee and gas policy also runs before signing:
+นโยบายค่าธรรมเนียมและ gas ก็ทำงานก่อน sign เช่นกัน:
 
-- All paths use the unanimous decision header's base fee. Three priority-fee values select the
-  median before `base_fee_buffer_bps` is applied. The client rejects a derived fee above
-  `max_fee_per_gas_wei`.
-- All three sources estimate the exact unsigned transaction at the decision height. The client selects the
-  maximum estimate, applies `gas_buffer_bps`, and rejects a result above `gas_limit`. It does not clamp the
-  estimate.
+- ทุกเส้นทางใช้ base fee ของ decision header ที่ทุกแหล่งเห็นตรงกัน ค่า priority fee สามค่าจะเลือก median ก่อน
+  ใช้ `base_fee_buffer_bps` client จะปฏิเสธค่าธรรมเนียมที่คำนวณได้ซึ่งสูงกว่า `max_fee_per_gas_wei`
+- ทั้งสามแหล่งประมาณ gas ของ unsigned transaction ที่ตรงพอดีที่ decision height client เลือกค่าประมาณสูงสุด
+  ใช้ `gas_buffer_bps` และปฏิเสธผลที่สูงกว่า `gas_limit` โดยไม่ clamp ค่าประมาณ
 
-#### Persist before broadcast
+#### Persist ก่อน broadcast {#persist-before-broadcast}
 
-The client reserves a durable intent before it assigns a nonce or signs. It then stores the nonce,
-an authenticated signed-payload envelope, and the local hash before broadcast. A transaction
-cannot be submitted without a ready protected durable store.
+client จะจอง intent แบบถาวรก่อนกำหนด nonce หรือ sign จากนั้นเก็บ nonce, signed-payload envelope ที่ authenticate แล้ว
+และ hash ในเครื่องก่อน broadcast transaction จะไม่สามารถส่งได้หากไม่มีที่เก็บข้อมูลถาวรที่ได้รับการป้องกันและพร้อมใช้งาน
 
-Immediately before sending, the client records the `broadcast` transition. Any outcome after that write,
-including a node rejection, is treated as uncertain until canonical nonce and receipt observation resolves it.
+ทันทีก่อนส่ง client จะบันทึกการเปลี่ยนสถานะเป็น `broadcast` ผลลัพธ์ใดก็ตามหลังจากการเขียนนั้น รวมถึงการถูก node ปฏิเสธ
+จะถือว่าไม่แน่นอนจนกว่าการสังเกต canonical nonce และ receipt จะ resolve ได้
 
-A signed intent without a durable broadcast transition remains active and blocks connect pending explicit
-recovery. The adapter has no automated recovery command or client method for that state. An operator must
-inspect the durable `execution_intent` and `execution_transaction_hash` records. The operator must make an
-explicit, reviewed recovery decision. The adapter does not release the signer slot or resend the transaction
-automatically.
+signed intent ที่ไม่มีการเปลี่ยนสถานะ broadcast แบบถาวรจะยังคง active และขวางการ connect จนกว่าจะมีการกู้คืนอย่างชัดเจน
+adapter ไม่มีคำสั่งหรือเมธอดของ client สำหรับกู้คืนสถานะนั้นแบบอัตโนมัติ ผู้ดูแลระบบต้องตรวจสอบ record แบบถาวรใน
+`execution_intent` และ `execution_transaction_hash` และต้องตัดสินใจกู้คืนอย่างชัดเจนผ่านการ review adapter
+จะไม่ปล่อย signer slot หรือส่ง transaction ซ้ำโดยอัตโนมัติ
 
-A durable `broadcast` intent may resend only its exact persisted bytes before observation resumes.
+intent ที่มีสถานะ `broadcast` แบบถาวรอาจส่งซ้ำได้เฉพาะ byte ที่ persist ไว้ตรงพอดีเท่านั้นก่อนที่การสังเกตจะกลับมาทำงาน
 
-Broadcast and receipt handling follow these rules:
+การ broadcast และการจัดการ receipt เป็นไปตามกฎเหล่านี้:
 
-- Each execution JSON-RPC request has a 10-second timeout. Errors omit the endpoint URL, request
-  payload, and signed bytes.
-- `already known` counts as acceptance.
-- A timeout, reset, node rejection, unreadable response, or returned hash that differs from the
-  signed hash enters reconciliation under the persisted intent.
-- Three null receipts are retryable. Partial propagation is retryable. Conflicting present
-  receipts are disagreement and cannot authorize a state change.
-- Receipt observation retries transient RPC errors within the configured finality poll window.
-- Poll exhaustion records `dropped` and leaves the signer slot occupied.
-- Exact-byte rebroadcast uses only the authenticated retained envelope. Before sending it again,
-  all three sources must verify the chain, ancestry, deployment, canonical and pending nonce,
-  receipt absence, and purpose-specific explicit-height simulation. Only the authoritative source
-  receives the bytes.
+- JSON-RPC request ของ execution แต่ละตัวมี timeout 10 วินาที error จะไม่รวม URL ของ endpoint, payload ของ request
+  และ byte ที่ sign แล้ว
+- `already known` ถือว่าเป็นการยอมรับ
+- timeout, การ reset, การถูก node ปฏิเสธ, response ที่อ่านไม่ได้ หรือ hash ที่คืนมาต่างจาก hash ที่ sign
+  จะเข้าสู่ reconciliation ภายใต้ intent ที่ persist ไว้
+- receipt ที่เป็น null สามตัว retry ได้ การกระจายไม่ทั่วถึง retry ได้ receipt ที่มีอยู่แต่ขัดแย้งกันถือเป็นความเห็นไม่ตรงกัน
+  และไม่สามารถอนุญาตการเปลี่ยนสถานะได้
+- การสังเกต receipt จะ retry error ชั่วคราวของ RPC ภายในหน้าต่าง poll ของ finality ที่ตั้งค่าไว้
+- เมื่อ poll จนหมดจะบันทึก `dropped` และคง signer slot ไว้
+- การ rebroadcast แบบ byte ตรงพอดีใช้เฉพาะ envelope ที่เก็บไว้และ authenticate แล้ว ก่อนส่งซ้ำ ทั้งสามแหล่งต้องตรวจสอบ
+  chain, ancestry, deployment, canonical และ pending nonce, การไม่มี receipt และการจำลองที่ height ระบุชัด
+  ตามจุดประสงค์ มีเพียงแหล่งหลักเท่านั้นที่ได้รับ byte
 
-### Risk and validation boundaries
+### ขอบเขตของความเสี่ยงและการตรวจสอบ {#risk-and-validation-boundaries}
 
-Generic pre-trade risk stays in the engine. Venue-specific gates live in the adapter as a
-configuration-driven limiter:
+ความเสี่ยงก่อนเทรดแบบทั่วไปยังอยู่ใน engine ส่วนด่านเฉพาะของ venue อยู่ใน adapter ในรูปของ limiter ที่ขับเคลื่อนด้วย configuration:
 
-| Check                 | Boundary       | Enforcement                                                                                                      |
+| การตรวจสอบ             | ขอบเขต          | การบังคับใช้                                                                                                      |
 | --------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Chain identity        | Adapter        | Reviewed checkpoint, three-source chain ID, fresh headers, and parent-linked ancestry                            |
-| Deployment identity   | Adapter + risk | Reviewed code hashes, proxy bindings, role probes, pool identity, and inclusion call graph                       |
-| Token-pair allowlist  | Risk (adapter) | Directional pairs for swaps; input-token membership for nonzero approvals                                        |
-| Order amount          | Risk (adapter) | `max_order_amount` on submitted base quantity; pair-specific `quote_spend_limits` on verified BUY quote input    |
-| Quote provenance      | Adapter        | Canonical profiler watermark, bounded ancestry, pinned QuoterV2 result, and final pre-signature recheck          |
-| Gas and fee           | Risk (adapter) | Maximum three-source gas estimate, median priority fee, and local `gas_limit` and `max_fee_per_gas_wei` ceilings |
-| Balance sufficiency   | Adapter + risk | Explicit-height three-source input-token and native balance checks                                               |
-| Allowance sufficiency | Adapter        | Explicit-height three-source router allowance checks                                                             |
-| Slippage              | Risk (adapter) | `max_slippage_bps` ceiling and verified quote-derived minimum output                                             |
-| In-flight limit       | Adapter + DB   | Local slot plus durable canonical nonce and signer ownership                                                     |
+| Chain identity        | Adapter        | checkpoint ที่ review แล้ว, chain ID จากสามแหล่ง, header ใหม่ และ ancestry แบบเชื่อมโยง parent                         |
+| Deployment identity   | Adapter + risk | code hash, proxy binding, role probe, identity ของ pool และ call graph ตอนรวมเข้า block ที่ review แล้ว               |
+| Token-pair allowlist  | Risk (adapter) | คู่แบบมีทิศทางสำหรับ swap การเป็นสมาชิกของ input token สำหรับการ approve ที่ไม่เป็นศูนย์                                  |
+| Order amount          | Risk (adapter) | `max_order_amount` สำหรับ base quantity ที่ส่ง และ `quote_spend_limits` รายคู่สำหรับ quote input ของ BUY ที่ตรวจสอบแล้ว |
+| Quote provenance      | Adapter        | watermark ของ profiler แบบ canonical, ancestry ที่มีขอบเขต, ผลจาก QuoterV2 ที่ pin ไว้ และการตรวจซ้ำครั้งสุดท้ายก่อน sign  |
+| Gas and fee           | Risk (adapter) | ค่าประมาณ gas สูงสุดจากสามแหล่ง, priority fee แบบ median และเพดาน `gas_limit` และ `max_fee_per_gas_wei` ในเครื่อง     |
+| Balance sufficiency   | Adapter + risk | การตรวจสอบ balance ของ input token และ native จากสามแหล่งที่ height ระบุชัด                                             |
+| Allowance sufficiency | Adapter        | การตรวจสอบ allowance ของ router จากสามแหล่งที่ height ระบุชัด                                                         |
+| Slippage              | Risk (adapter) | เพดาน `max_slippage_bps` และ output ขั้นต่ำที่คำนวณจาก quote ที่ตรวจสอบแล้ว                                            |
+| In-flight limit       | Adapter + DB   | slot ในเครื่องรวมกับ canonical nonce แบบถาวรและความเป็นเจ้าของ signer                                                  |
 
-Every limiter rejection refuses the order before signing and reports a structured reason.
+การปฏิเสธจาก limiter ทุกครั้งจะปฏิเสธ order ก่อน sign และรายงานเหตุผลแบบมีโครงสร้าง
 
-### Order events
+### Order events {#order-events}
 
-Order submission emits only events justified by known transaction state:
+การส่ง order จะส่งเฉพาะ event ที่มีเหตุผลรองรับจากสถานะ transaction ที่ทราบเท่านั้น:
 
-| Observation                                                | Event             | Result                                                                                                                                                                                                                           |
+| การสังเกต                                                   | Event             | ผล                                                                                                                                                                                                                                 |
 | ---------------------------------------------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Failure before the persisted broadcast transition.         | `OrderDenied`     | No transaction left the client.                                                                                                                                                                                                  |
-| Persisted broadcast attempt, including an ambiguous reply. | `OrderSubmitted`  | The signed intent remains the observation authority.                                                                                                                                                                             |
-| Verified finalized revert.                                 | `OrderRejected`   | The stable event ID and terminal marker permit signer release.                                                                                                                                                                   |
-| Finalized transaction, trace, or deployment mismatch.      | No terminal event | The client refuses to derive a fill and keeps signer ownership quarantined.                                                                                                                                                      |
-| Verified finalized success with exact transaction and log. | `OrderFilled`     | Wallet refresh and marker persistence then complete the intent. A BUY that executes below the order quantity also emits `OrderCanceled` for the remainder. A BUY that executes above the order quantity reports the full output. |
-| Timeout, disagreement, unavailable read, or reorg.         | No terminal event | The order stays submitted and signer ownership remains occupied.                                                                                                                                                                 |
+| ล้มเหลวก่อนการเปลี่ยนสถานะ broadcast ที่ persist ไว้              | `OrderDenied`     | ไม่มี transaction ใดออกจาก client                                                                                                                                                                                                 |
+| ความพยายาม broadcast ที่ persist แล้ว รวมถึงการตอบกลับที่ไม่ชัดเจน    | `OrderSubmitted`  | signed intent ยังคงเป็นแหล่งอ้างอิงของการสังเกต                                                                                                                                                                                   |
+| revert ที่ finalize แล้วและตรวจสอบแล้ว                            | `OrderRejected`   | event ID ที่คงที่และ terminal marker ทำให้ปล่อย signer ได้                                                                                                                                                                       |
+| transaction, trace หรือ deployment ที่ finalize แล้วไม่ตรงกัน      | ไม่มี terminal event | client ปฏิเสธการสร้าง fill และกักความเป็นเจ้าของ signer ไว้                                                                                                                                                                       |
+| สำเร็จแบบ finalize แล้วและตรวจสอบแล้วพร้อม transaction และ log ที่ตรงพอดี | `OrderFilled`     | การ refresh wallet และการ persist marker จะทำให้ intent เสร็จสมบูรณ์ BUY ที่ execute ได้ต่ำกว่าปริมาณของ order จะส่ง `OrderCanceled` สำหรับส่วนที่เหลือด้วย BUY ที่ execute ได้สูงกว่าปริมาณของ order จะรายงาน output ทั้งหมด |
+| timeout, ความเห็นไม่ตรงกัน, การอ่านที่ไม่มี หรือ reorg               | ไม่มี terminal event | order ยังคงเป็น submitted และความเป็นเจ้าของ signer ยังคงถูกครอบครอง                                                                                                                                                            |
 
-A successful receipt at first inclusion does not emit a fill. The client waits for the stable
-finalized boundary described below.
+receipt ที่สำเร็จตอนถูกรวมครั้งแรกจะไม่ส่ง fill client จะรอ finalized boundary ที่เสถียรตามที่อธิบายด้านล่าง
 
-### Persistence and reconciliation
+### Persistence และ reconciliation {#persistence-and-reconciliation}
 
-#### Durable record model
+#### โมเดล record แบบถาวร {#durable-record-model}
 
-Execution schema version 2 separates the logical wallet operation from its physical transaction
-hashes. Verification schema version 2 adds the canonical nonce, finalized header, decision
-evidence, and replacement-scan ledgers:
+execution schema เวอร์ชัน 2 แยกการทำงานเชิงตรรกะของ wallet ออกจาก hash ของ transaction ทางกายภาพ ส่วน
+verification schema เวอร์ชัน 2 เพิ่ม ledger ของ canonical nonce, finalized header, หลักฐานการตัดสินใจ
+และการสแกนหา replacement:
 
-| Record            | Represents                                              | Recovery use                                                        |
+| Record            | แทนสิ่งใด                                                  | การใช้ในการกู้คืน                                                        |
 | ----------------- | ------------------------------------------------------- | ------------------------------------------------------------------- |
-| Intent            | One logical `wrap`, `approve`, or `swap` operation.     | Owns signer, nonce, call fields, order identity, and markers.       |
-| Hash history      | Authenticated signed envelopes and their hashes.        | Selects the current hash and stores receipt observations.           |
-| Transition        | Append-only status history for an intent and hash.      | Records observations; recovery reads current intent and hash state. |
-| Canonical nonce   | Next signer nonce proven at a finalized height.         | Prevents pending mempool state from releasing or skipping a nonce.  |
-| Finalized headers | Parent-linked headers from the reviewed checkpoint.     | Resumes ancestry and bounded replacement scans.                     |
-| Decision evidence | Sanitized results for each authorizing verification.    | Proves which read class authorized a durable transition.            |
-| Scan cursor       | Last fully scanned finalized replacement-search height. | Resumes multi-window scans and rescans the unfinalized tail.        |
+| Intent            | การทำงาน `wrap`, `approve` หรือ `swap` เชิงตรรกะหนึ่งรายการ    | เป็นเจ้าของ signer, nonce, field ของการเรียก, identity ของ order และ marker |
+| Hash history      | signed envelope ที่ authenticate แล้วและ hash ของมัน        | เลือก hash ปัจจุบันและเก็บการสังเกต receipt                             |
+| Transition        | ประวัติสถานะแบบเพิ่มต่อท้ายอย่างเดียวของ intent และ hash         | บันทึกการสังเกต การกู้คืนอ่านสถานะปัจจุบันของ intent และ hash              |
+| Canonical nonce   | signer nonce ถัดไปที่พิสูจน์แล้วที่ finalized height            | ป้องกันไม่ให้สถานะ pending ใน mempool ปล่อยหรือข้าม nonce                 |
+| Finalized headers | header แบบเชื่อมโยง parent จาก checkpoint ที่ review แล้ว     | กลับมาต่อ ancestry และการสแกน replacement แบบมีขอบเขต                    |
+| Decision evidence | ผลลัพธ์ที่ sanitize แล้วของการตรวจสอบที่ใช้อนุญาตแต่ละครั้ง          | พิสูจน์ว่าการอ่านประเภทใดอนุญาตการเปลี่ยนสถานะแบบถาวร                       |
+| Scan cursor       | height ล่าสุดที่สแกนหา replacement แบบ finalized ครบแล้ว       | กลับมาต่อการสแกนหลายหน้าต่าง และสแกนส่วนท้ายที่ยังไม่ finalize ซ้ำ             |
 
-`purpose` is an adapter-local execution field with the values `wrap`, `approve`, and `swap`. It
-tells reconciliation whether the intent also owns a Nautilus order lifecycle. It is not a field in
-the generic Nautilus order or `SubmitOrder` specification.
+`purpose` เป็น field ของ execution เฉพาะภายใน adapter ที่มีค่า `wrap`, `approve` และ `swap` ใช้บอก
+reconciliation ว่า intent เป็นเจ้าของ lifecycle ของ order ใน Nautilus ด้วยหรือไม่ ไม่ใช่ field ใน specification
+ทั่วไปของ order หรือ `SubmitOrder` ใน Nautilus
 
-The schema keeps the legacy execution transaction table. Its connect-time migration:
+schema ยังคงตาราง execution transaction แบบ legacy ไว้ การ migrate ตอน connect จะ:
 
-- Takes an exclusive lock on the legacy table.
-- Refuses unresolved legacy rows that cannot be mapped safely.
-- Fences legacy writes after schema version 2 activates.
-- Preserves existing data.
+- ล็อกตาราง legacy แบบ exclusive
+- ปฏิเสธแถว legacy ที่ยังไม่ resolve และ map ได้ไม่ปลอดภัย
+- กั้นการเขียนแบบ legacy หลังจาก schema เวอร์ชัน 2 เริ่มใช้งาน
+- เก็บข้อมูลที่มีอยู่ไว้
 
-The first connection after enabling independent verification also classifies every retained execution intent.
-It authenticates every retained payload before remote reconstruction. An unsigned active `prepared` intent
-becomes inactive `recoverable`. A signed active intent at the canonical nonce remains active for
-reconciliation. A consumed nonce requires archive proof of its receipt, finalized ancestry, full transaction
-identity, call trace, deployment identity, and terminal status.
+การเชื่อมต่อครั้งแรกหลังจากเปิดใช้การตรวจสอบแบบอิสระจะจัดประเภท execution intent ที่เก็บไว้ทุกตัวด้วย โดย authenticate
+payload ที่เก็บไว้ทุกตัวก่อนสร้างใหม่จากระยะไกล intent แบบ `prepared` ที่ active และยังไม่ sign จะกลายเป็น
+`recoverable` ที่ไม่ active intent ที่ sign แล้วและ active ที่ canonical nonce ยังคง active สำหรับ reconciliation
+nonce ที่ถูกใช้แล้วต้องมีหลักฐานจาก archive ของ receipt, finalized ancestry, identity ของ transaction ทั้งหมด,
+call trace, identity ของ deployment และสถานะสิ้นสุด
 
-Released history must already have a consistent marker and must not retain signed ownership. Duplicate nonce
-ownership, missing archive state, a payload mismatch, or changed history blocks migration before the signer
-loads.
+ประวัติที่ปล่อยแล้วต้องมี marker ที่สอดคล้องอยู่แล้วและต้องไม่คงความเป็นเจ้าของแบบ signed ไว้ ความเป็นเจ้าของ nonce
+ที่ซ้ำกัน, สถานะ archive ที่ขาดหาย, payload ที่ไม่ตรงกัน หรือประวัติที่เปลี่ยนไป จะขวางการ migrate ก่อนที่ signer จะโหลด
 
-Partial unique indexes enforce one active intent per signer, one active owner per signer and nonce,
-and one intent per client order. An intent also stores separate acknowledgement, fill, and terminal
-event markers. A finalized or reverted intent remains active until its fill or terminal marker is
-durable.
+partial unique index บังคับให้มี intent ที่ active หนึ่งตัวต่อ signer, เจ้าของที่ active หนึ่งรายต่อ signer และ nonce
+และหนึ่ง intent ต่อ client order intent ยังเก็บ marker ของ acknowledgement, fill และ terminal event แยกกัน
+intent ที่ finalize หรือ revert แล้วจะยังคง active จนกว่า marker ของ fill หรือ terminal จะถูกเก็บแบบถาวร
 
-#### States
+#### สถานะ {#states}
 
-| State         | Detection or transition                                             | Ownership and event effect                                      |
+| State         | การตรวจพบหรือการเปลี่ยนสถานะ                                             | ผลต่อความเป็นเจ้าของและ event                                       |
 | ------------- | ------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `prepared`    | Intent reserved before nonce assignment.                            | Owns the signer; no transaction exists.                         |
-| `signed`      | Nonce assigned; any completed signature is stored before broadcast. | Owns the signer and nonce.                                      |
-| `broadcast`   | Broadcast attempt persisted before send.                            | A swap can record its `OrderSubmitted` marker.                  |
-| `included`    | Receipt block hash matches the canonical numbered block.            | Nonterminal; no fill.                                           |
-| `replaced`    | Another canonical hash consumed the signer nonce.                   | The replacement joins the original intent.                      |
-| `reorged`     | Receipt disappears or its block hash stops matching.                | Observation resumes; no terminal event.                         |
-| `dropped`     | No stable finalized receipt within the poll window.                 | Remains active and blocks new signing.                          |
-| `finalized`   | Successful receipt reaches a stable finalized boundary.             | Stays active until a fill or terminal marker.                   |
-| `reverted`    | Failed receipt reaches a stable finalized boundary.                 | Terminal marker releases ownership; swap emits `OrderRejected`. |
-| `recoverable` | Preparation fails, or restart finds an unsigned `prepared` intent.  | Becomes inactive because no signature exists.                   |
+| `prepared`    | จอง intent ไว้ก่อนกำหนด nonce                                        | เป็นเจ้าของ signer แต่ยังไม่มี transaction                             |
+| `signed`      | กำหนด nonce แล้ว signature ที่เสร็จจะถูกเก็บก่อน broadcast                  | เป็นเจ้าของ signer และ nonce                                       |
+| `broadcast`   | persist ความพยายาม broadcast ก่อนส่ง                                 | swap สามารถบันทึก marker ของ `OrderSubmitted` ได้                  |
+| `included`    | block hash ของ receipt ตรงกับ block แบบ canonical ที่มีหมายเลขนั้น         | ยังไม่สิ้นสุด ไม่มี fill                                            |
+| `replaced`    | hash แบบ canonical อื่นใช้ signer nonce ไปแล้ว                          | replacement จะเข้าร่วมกับ intent เดิม                               |
+| `reorged`     | receipt หายไปหรือ block hash ไม่ตรงอีกต่อไป                              | กลับมาสังเกตต่อ ไม่มี terminal event                                 |
+| `dropped`     | ไม่มี finalized receipt ที่เสถียรภายในหน้าต่าง poll                       | ยังคง active และขวางการ sign ใหม่                                   |
+| `finalized`   | receipt ที่สำเร็จถึง finalized boundary ที่เสถียร                         | คง active จนกว่าจะมี marker ของ fill หรือ terminal                  |
+| `reverted`    | receipt ที่ล้มเหลวถึง finalized boundary ที่เสถียร                        | terminal marker ปล่อยความเป็นเจ้าของ swap จะส่ง `OrderRejected`     |
+| `recoverable` | การเตรียมล้มเหลว หรือการ restart พบ intent แบบ `prepared` ที่ยังไม่ sign     | กลายเป็นไม่ active เพราะไม่มี signature                              |
 
-#### Restart and replacement
+#### การ restart และ replacement {#restart-and-replacement}
 
-On connect, the client reloads the active signer intent before enabling new signing:
+เมื่อ connect client จะโหลด signer intent ที่ active กลับมาก่อนเปิดให้ sign ใหม่:
 
-- An unsigned `prepared` intent becomes `recoverable` and inactive.
-- A `signed` intent remains active and keeps its nonce reserved. Connect fails until an explicit
-  recovery decision is available.
-- A durable `broadcast` intent may resend only the exact authenticated stored bytes, and only after
-  the three-source rebroadcast checks pass. Later states restore the local in-flight slot and
-  observe the current hash without another send.
-- A legacy `recoverable` intent that still has signed bytes also fails connect rather than releasing
-  its nonce.
-- A restored wrap or approve revalidates destination, calldata, and value, including a same-nonce
-  replacement, then reruns its live postcondition before reporting success.
-- A swap also requires its order, instrument, and pool to be restored in the engine cache. Missing
-  or inconsistent state fails connect.
+- intent แบบ `prepared` ที่ยังไม่ sign จะกลายเป็น `recoverable` และไม่ active
+- intent แบบ `signed` ยังคง active และคงการจอง nonce ไว้ การ connect จะล้มเหลวจนกว่าจะมีการตัดสินใจกู้คืนอย่างชัดเจน
+- intent แบบ `broadcast` ที่ถาวรอาจส่งซ้ำได้เฉพาะ byte ที่เก็บไว้และ authenticate แล้วตรงพอดี และเฉพาะหลังจากผ่าน
+  การตรวจสอบ rebroadcast จากสามแหล่งแล้วเท่านั้น สถานะที่ตามมาจะกู้ in-flight slot ในเครื่องกลับมาและสังเกต hash
+  ปัจจุบันโดยไม่ส่งอีก
+- intent แบบ `recoverable` แบบ legacy ที่ยังมี byte ที่ sign แล้วก็จะทำให้ connect ล้มเหลวเช่นกัน แทนที่จะปล่อย nonce
+- wrap หรือ approve ที่กู้คืนมาจะตรวจสอบปลายทาง, calldata และ value ใหม่ รวมถึง replacement ที่ใช้ nonce เดียวกัน
+  แล้วรัน postcondition แบบ live ซ้ำก่อนรายงานความสำเร็จ
+- swap ยังต้องมี order, instrument และ pool ของมันกู้คืนอยู่ใน engine cache สถานะที่ขาดหรือไม่สอดคล้องจะทำให้
+  connect ล้มเหลว
 
-When no receipt exists and the verified canonical signer nonce has advanced, the client scans unanimous
-canonical full blocks from the intent's creation height. Each attempt covers at most 4,096 blocks. A finalized
-cursor commits with its verification evidence. The next attempt resumes there and rescans the unfinalized
-tail.
+เมื่อไม่มี receipt และ canonical signer nonce ที่ตรวจสอบแล้วเลื่อนไปแล้ว client จะสแกน full block แบบ canonical
+ที่ทุกแหล่งเห็นตรงกันตั้งแต่ height ที่สร้าง intent แต่ละรอบครอบคลุมไม่เกิน 4,096 block cursor ที่ finalize แล้ว
+จะ commit พร้อมหลักฐานการตรวจสอบ รอบถัดไปจะกลับมาต่อจากจุดนั้นและสแกนส่วนท้ายที่ยังไม่ finalize ซ้ำ
 
-A same-nonce transaction can attach only when its hash and full decoded identity match an authenticated
-retained envelope for that intent. An unknown or mismatched replacement remains quarantined, emits no order
-rejection, and does not release signer ownership. A disappearing receipt or changed canonical block records
-`reorged` and resumes observation. Poll timeout records `dropped` and keeps the signer slot occupied for the
-next connect attempt.
+transaction ที่ใช้ nonce เดียวกันจะเชื่อมเข้าได้ก็ต่อเมื่อ hash และ identity ที่ decode แล้วทั้งหมดตรงกับ envelope
+ที่เก็บไว้และ authenticate แล้วของ intent นั้น replacement ที่ไม่รู้จักหรือไม่ตรงกันจะถูกกักไว้ ไม่ส่งการ reject order
+และไม่ปล่อยความเป็นเจ้าของ signer receipt ที่หายไปหรือ block แบบ canonical ที่เปลี่ยนจะบันทึก `reorged` และ
+กลับมาสังเกตต่อ timeout ของการ poll จะบันทึก `dropped` และคง signer slot ไว้สำหรับความพยายาม connect ครั้งถัดไป
 
 :::warning
-Keep the signing key exclusive to this client while an intent is active. On restart, a restored wrap or
-approve must match the persisted destination, calldata, and value, including a same-nonce replacement. The
-wrap then rereads WETH balances at the inclusion block and the previous block. The approve rereads router
-allowance at the inclusion block. A call-identity mismatch or a failed postcondition keeps the intent active,
-occupies the in-flight signer slot, and fails connect, including on a later process. A mismatched swap emits
-no terminal event and remains active.
+เก็บ signing key ไว้ใช้กับ client นี้เพียงตัวเดียวขณะที่ intent ยัง active เมื่อ restart wrap หรือ approve
+ที่กู้คืนมาต้องตรงกับปลายทาง, calldata และ value ที่ persist ไว้ รวมถึง replacement ที่ใช้ nonce เดียวกัน
+จากนั้น wrap จะอ่าน WETH balance ที่ block ที่ถูกรวมและ block ก่อนหน้าซ้ำ ส่วน approve จะอ่าน allowance ของ router
+ที่ block ที่ถูกรวมซ้ำ identity ของการเรียกที่ไม่ตรงกันหรือ postcondition ที่ไม่ผ่านจะคง intent ไว้ให้ active,
+ครอบครอง in-flight signer slot และทำให้ connect ล้มเหลว รวมถึงใน process ภายหลังด้วย swap ที่ไม่ตรงกัน
+จะไม่ส่ง terminal event และยังคง active
 :::
 
-#### Finality and fills
+#### Finality และ fill {#finality-and-fills}
 
-Finality uses each source's `finalized` block tag through `eth_getBlockByNumber`, not a confirmation
-count. The client:
+finality ใช้ block tag `finalized` ของแต่ละแหล่งผ่าน `eth_getBlockByNumber` ไม่ได้ใช้จำนวน confirmation client จะ:
 
-1. Requires three identical non-null normalized receipts.
-1. Matches the receipt block hash to one unanimous explicit inclusion header.
-1. Waits until the minimum verified finalized height reaches the inclusion height.
-1. Extends the unanimous parent-linked finalized ancestry.
-1. Requires the full transaction to match the authenticated signed envelope.
-1. Requires three identical `debug_traceTransaction` call trees and admits each internal call only
-   when its purpose, caller, target, and call type match one manifest edge exactly. Contract
-   creation and self-destruction are denied.
-1. Rechecks the deployment manifest at inclusion, then commits finality evidence, receipt state,
-   header ancestry, and canonical nonce advancement in one database transaction.
+1. ต้องได้ receipt ที่ normalize แล้วและไม่เป็น null ซึ่งเหมือนกันทั้งสามตัว
+1. จับคู่ block hash ของ receipt กับ inclusion header ที่ระบุชัดซึ่งทุกแหล่งเห็นตรงกันหนึ่งตัว
+1. รอจนกว่า finalized height ต่ำสุดที่ตรวจสอบแล้วจะถึง inclusion height
+1. ขยาย finalized ancestry แบบเชื่อมโยง parent ที่ทุกแหล่งเห็นตรงกัน
+1. ต้องให้ transaction ทั้งหมดตรงกับ signed envelope ที่ authenticate แล้ว
+1. ต้องได้ call tree จาก `debug_traceTransaction` ที่เหมือนกันทั้งสามตัว และยอมรับ internal call แต่ละตัวก็ต่อเมื่อ
+   จุดประสงค์, ผู้เรียก, เป้าหมาย และประเภทของการเรียกตรงกับ manifest edge หนึ่งเส้นพอดี การสร้าง contract
+   และการ self-destruct จะถูกปฏิเสธ
+1. ตรวจสอบ deployment manifest ที่ inclusion ซ้ำ แล้ว commit หลักฐาน finality, สถานะ receipt, ancestry ของ header
+   และการเลื่อน canonical nonce ใน database transaction เดียว
 
-After on-chain execution, deployment or call-trace drift detected by the final-inclusion checks leaves signer
-ownership quarantined. Those checks cannot reverse on-chain effects from a contract upgrade after the decision
-block used by the final pre-sign check. This includes an upgrade after that check completes and before
-transaction execution.
+หลังจาก execute บน chain แล้ว deployment หรือ call trace ที่เปลี่ยนไปซึ่งตรวจพบโดยการตรวจสอบ final-inclusion จะทำให้
+ความเป็นเจ้าของ signer ถูกกักไว้ การตรวจสอบเหล่านั้นไม่สามารถย้อนผลบน chain จากการ upgrade contract หลังจาก
+decision block ที่ใช้ในการตรวจสอบก่อน sign ครั้งสุดท้ายได้ ซึ่งรวมถึงการ upgrade หลังจากการตรวจสอบนั้นเสร็จและก่อน
+transaction จะ execute
 
-All three RPC sources must support the `finalized` tag. An unsupported tag fails reconciliation
-closed.
+RPC ทั้งสามแหล่งต้องรองรับ tag `finalized` tag ที่ไม่รองรับจะทำให้ reconciliation ล้มเหลวแบบ fail closed
 
-For a successful swap, the full finalized transaction must match the persisted signer, nonce,
-destination, calldata, and value. The receipt must contain exactly one `Swap` log from the selected
-pool. A SELL requires the log's positive base input to equal the persisted amount. A BUY requires
-the log's positive quote input to equal the persisted amount and a negative base output. Existing
-Uniswap V3 parsing derives the executed amount. A BUY fill price is the quote spent divided by
-the emitted last quantity.
+สำหรับ swap ที่สำเร็จ transaction ที่ finalize แล้วทั้งหมดต้องตรงกับ signer, nonce, ปลายทาง, calldata และ value
+ที่ persist ไว้ receipt ต้องมี log ของ `Swap` จาก pool ที่เลือกหนึ่งตัวพอดี SELL ต้องให้ base input ที่เป็นบวกใน log
+เท่ากับจำนวนที่ persist ไว้ BUY ต้องให้ quote input ที่เป็นบวกใน log เท่ากับจำนวนที่ persist ไว้และมี base output
+ที่เป็นลบ การ parse ของ Uniswap V3 ที่มีอยู่จะคำนวณจำนวนที่ execute ราคา fill ของ BUY คือ quote ที่ใช้หารด้วย
+last quantity ที่ emit ออกมา
 
-The fill contains:
+fill ประกอบด้วย:
 
-- The original order quantity for a SELL. For a BUY, the executed base output converted at `FIXED_PRECISION`.
-  A BUY can fill more than the submitted quantity when the pool price improves. Set `allow_overfills = true`
-  on the live execution engine so that fill is applied.
-- The average fill price. For a BUY, quote spent divided by the emitted last quantity.
-- The transaction hash as venue order ID.
-- A deterministic trade ID derived from the transaction hash and log index.
-- `effectiveGasPrice * gasUsed` as native-currency commission.
+- ปริมาณเดิมของ order สำหรับ SELL สำหรับ BUY คือ base output ที่ execute แล้วแปลงที่ `FIXED_PRECISION`
+  BUY อาจ fill มากกว่าปริมาณที่ส่งเมื่อราคาของ pool ดีขึ้น ให้ตั้ง `allow_overfills = true` บน live execution engine
+  เพื่อให้ fill นั้นถูกนำไปใช้
+- ราคา fill เฉลี่ย สำหรับ BUY คือ quote ที่ใช้หารด้วย last quantity ที่ emit ออกมา
+- transaction hash เป็น venue order ID
+- trade ID แบบ deterministic ที่ได้จาก transaction hash และ log index
+- `effectiveGasPrice * gasUsed` เป็น commission ในสกุลเงิน native
 
-Before emitting the fill, the client verifies native and tracked-token state at the finalized
-inclusion height through all three sources. It then publishes the stable-ID order event and wallet
-account state, stores the fill marker, and releases signer ownership. A wallet refresh or event
-dispatch failure keeps the finalized intent active for reconciliation.
+ก่อนส่ง fill client จะตรวจสอบสถานะ native และ token ที่ติดตามไว้ที่ finalized inclusion height ผ่านทั้งสามแหล่ง
+จากนั้น publish order event ที่มี ID คงที่และ account state ของ wallet, เก็บ marker ของ fill และปล่อยความเป็นเจ้าของ
+signer การ refresh wallet หรือการ dispatch event ที่ล้มเหลวจะคง intent ที่ finalize แล้วไว้ให้ active สำหรับ reconciliation
 
-#### Event delivery across restarts
+#### การส่ง event ข้ามการ restart {#event-delivery-across-restarts}
 
-Reconciliation checks persisted event markers and restored order state before it emits a repeated
-order event. Terminal event IDs are deterministic from the transaction hash and event kind, and
-trade IDs are deterministic from the transaction hash and log index. These identities suppress
-duplicates once the corresponding state is durable and let downstream consumers deduplicate a
-retry after a crash.
+reconciliation จะตรวจสอบ marker ของ event ที่ persist ไว้และสถานะ order ที่กู้คืนมาก่อนส่ง order event ซ้ำ
+terminal event ID เป็นแบบ deterministic จาก transaction hash และประเภท event ส่วน trade ID เป็นแบบ deterministic
+จาก transaction hash และ log index identity เหล่านี้ช่วยกันการซ้ำเมื่อสถานะที่สอดคล้องกันถูกเก็บแบบถาวรแล้ว
+และทำให้ผู้รับปลายทางตัดการซ้ำของการ retry หลัง crash ได้
 
-Event publication and marker persistence are separate operations. A process crash between them can therefore
-cause an event to be delivered again after restart. Consumers must handle order events idempotently. This
-adapter does not provide an atomic exactly-once delivery guarantee.
+การ publish event และการ persist marker เป็นการทำงานแยกกัน process ที่ crash ระหว่างสองขั้นนี้จึงอาจทำให้ event
+ถูกส่งซ้ำหลัง restart ผู้รับต้องจัดการ order event แบบ idempotent adapter นี้ไม่ได้รับประกันการส่งแบบ exactly-once
+แบบ atomic
 
-### Signed transaction storage
+### ที่เก็บ signed transaction {#signed-transaction-storage}
 
-Postgres-backed execution requires protected signed-transaction storage. Protection seals every
-signed EIP-2718 transaction with AES-256-GCM and clears its live plaintext column. The authenticated
-context binds the exact signed bytes to the deployment, chain, signer, intent, signer nonce, and
-transaction hash.
+execution ที่ใช้ Postgres ต้องใช้ที่เก็บ signed transaction แบบมีการป้องกัน การป้องกันจะ seal signed transaction
+แบบ EIP-2718 ทุกตัวด้วย AES-256-GCM และล้าง column แบบ plaintext ที่ใช้งานอยู่ authenticated context
+ผูก byte ที่ sign แล้วแบบตรงพอดีเข้ากับ deployment, chain, signer, intent, signer nonce และ transaction hash
 
-Storage maintenance uses direct Rust methods on a disconnected `BlockchainExecutionClient`. Python and the CLI
-do not expose them. Connect never activates, resumes, or repairs protection implicitly. Every Postgres-backed
-connect requires ready protected state and authenticates every retained payload before loading the signer.
+การดูแลที่เก็บข้อมูลใช้เมธอด Rust โดยตรงบน `BlockchainExecutionClient` ที่ disconnect อยู่ CLI ไม่ได้เปิดให้ใช้เมธอดเหล่านี้
+การ connect ไม่เคยเปิดใช้, กลับมาทำต่อ หรือซ่อมแซมการป้องกันโดยปริยาย การ connect ที่ใช้ Postgres ทุกครั้งต้องมีสถานะ
+ที่ได้รับการป้องกันและพร้อม และจะ authenticate payload ที่เก็บไว้ทุกตัวก่อนโหลด signer
 
-Protected storage has these key and deployment constraints:
+protected storage มีข้อจำกัดด้าน key และ deployment ดังนี้:
 
-- Supply every payload sealing key as the hexadecimal encoding of exactly 32 raw bytes, with an
-  optional `0x` prefix. The operator must generate those bytes with a cryptographically secure
-  pseudorandom number generator (CSPRNG) and use a unique raw key for each independently sealing
-  database. Keep key values out of configuration, logs, shell history, and process arguments.
-- Keep `payload_deployment_id` stable for the life of the protected database. A changed deployment
-  ID makes existing envelopes unreadable by design.
-- List every old key variable in `payload_key_retired_env` until no stored envelope references it.
-  Retired keys can open existing envelopes but never seal new ones.
-- Keep the complete key set available on every connect. A missing active or retired key, malformed
-  envelope, failed authentication tag, durable-context mismatch, or unexpected plaintext row fails
-  closed. Protected storage never falls back to `raw_transaction`.
-- Treat `2^32` seals as one lifetime budget for a raw key, not a limit that resets per database. Rotate the
-  active key before aggregate use reaches that ceiling. With the client disconnected, configure the
-  replacement as active, retain the old key as retired, and run the Rust rewrap method before the next
-  connect.
+- ระบุ payload sealing key ทุกตัวเป็น hexadecimal ของ raw bytes ขนาด 32 byte พอดี โดยมี prefix `0x` ได้
+  ผู้ดูแลระบบต้องสร้าง byte เหล่านั้นด้วย cryptographically secure pseudorandom number generator (CSPRNG)
+  และใช้ raw key ที่ไม่ซ้ำกันสำหรับแต่ละฐานข้อมูลที่ seal แยกกัน เก็บค่า key ไว้นอก configuration, log,
+  shell history และ argument ของ process
+- คง `payload_deployment_id` ไว้ตลอดอายุของฐานข้อมูลที่ได้รับการป้องกัน deployment ID ที่เปลี่ยนจะทำให้ envelope
+  ที่มีอยู่อ่านไม่ได้โดยตั้งใจ
+- ระบุตัวแปรของ key เก่าทุกตัวใน `payload_key_retired_env` จนกว่าจะไม่มี envelope ที่เก็บไว้อ้างถึงมัน key ที่ retire แล้ว
+  เปิด envelope ที่มีอยู่ได้แต่ไม่เคย seal envelope ใหม่
+- ต้องมีชุด key ครบทุกครั้งที่ connect key ที่ active หรือ retire แล้วที่หายไป, envelope ที่ผิดรูปแบบ, authentication tag
+  ที่ไม่ผ่าน, durable context ที่ไม่ตรงกัน หรือแถว plaintext ที่ไม่คาดคิด จะล้มเหลวแบบ fail closed protected storage
+  ไม่เคย fallback ไปใช้ `raw_transaction`
+- ถือว่า `2^32` seal เป็นงบตลอดอายุของ raw key หนึ่งตัว ไม่ใช่ขีดจำกัดที่ reset ต่อฐานข้อมูล ให้ rotate key ที่ active
+  ก่อนการใช้งานรวมถึงเพดานนั้น ขณะที่ client disconnect อยู่ ให้ตั้ง key ใหม่เป็น active, เก็บ key เก่าไว้เป็น retired
+  และรันเมธอด rewrap ของ Rust ก่อนการ connect ครั้งถัดไป
 
-  A restored copy that becomes write-active with the original raw key shares the same budget. Each database
-  reserves and counts its own seals, including migration and rewrap work. It rejects further local use when
-  its counter exhausts the numeric ceiling. But database-local counters cannot enforce the aggregate after
-  copies diverge. The operator must count shared pre-restore history once and every later seal from each copy
-  once.
+  สำเนาที่กู้คืนมาซึ่งกลายเป็นแบบเขียนได้ด้วย raw key เดิมจะใช้งบร่วมกัน แต่ละฐานข้อมูลจองและนับ seal ของตัวเอง
+  รวมถึงงาน migrate และ rewrap และจะปฏิเสธการใช้ในเครื่องเพิ่มเติมเมื่อตัวนับถึงเพดานตัวเลข แต่ตัวนับระดับฐานข้อมูล
+  ไม่สามารถบังคับยอดรวมได้หลังจากสำเนาแยกทางกันแล้ว ผู้ดูแลระบบต้องนับประวัติร่วมก่อนการกู้คืนเพียงครั้งเดียว และนับ
+  seal ภายหลังจากแต่ละสำเนาสำเนาละครั้ง
 
-| Method                                 | Requirement                                                   | Result                                                                                                    |
+| Method                                 | ข้อกำหนด                                                         | ผล                                                                                                        |
 | -------------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `protect_payload_storage()`            | Active key, stable deployment ID, and disconnected clients.   | Records the marker first, then seals plaintext rows in bounded, resumable batches.                        |
-| `check_payload_storage(batch_size)`    | Disconnected client and every referenced key.                 | Authenticates a stable snapshot without returning payload bytes and reports row, key-ID, and role counts. |
-| `rewrap_payload_storage(batch_size)`   | Protected storage, new active key, and all old keys retained. | Rewraps in bounded, resumable batches; a full check must pass before an old key is removed.               |
-| `rollback_payload_storage(batch_size)` | Incident recovery, disconnected clients, and every key.       | Restores and verifies exact plaintext, clears envelopes, and removes the protection marker last.          |
+| `protect_payload_storage()`            | key ที่ active, deployment ID ที่คงที่ และ client ที่ disconnect      | บันทึก marker ก่อน แล้ว seal แถว plaintext เป็น batch ที่มีขอบเขตและทำต่อได้                                    |
+| `check_payload_storage(batch_size)`    | client ที่ disconnect และทุก key ที่ถูกอ้างถึง                      | authenticate snapshot ที่เสถียรโดยไม่คืน byte ของ payload และรายงานจำนวนแถว, key ID และ role                  |
+| `rewrap_payload_storage(batch_size)`   | protected storage, key ใหม่ที่ active และเก็บ key เก่าทั้งหมดไว้        | rewrap เป็น batch ที่มีขอบเขตและทำต่อได้ ต้องผ่านการตรวจสอบเต็มก่อนลบ key เก่า                                  |
+| `rollback_payload_storage(batch_size)` | การกู้คืนจาก incident, client ที่ disconnect และทุก key             | กู้คืนและตรวจสอบ plaintext ที่ตรงพอดี ล้าง envelope และลบ protection marker เป็นขั้นสุดท้าย                        |
 
-Run the full check after protection, restore, rewrap, or rollback. Its role report includes direct table
-owners and roles with `SELECT` grants. The full report also contains protected status, deployment ID,
-plaintext, original, replacement, and authenticated row counts, and referenced key IDs. Superuser and
-inherited privileges still require a server-level review.
+รันการตรวจสอบเต็มหลังการป้องกัน, การกู้คืน, rewrap หรือ rollback report ด้าน role จะรวมเจ้าของตารางโดยตรงและ role
+ที่มีสิทธิ์ `SELECT` report เต็มยังมีสถานะการป้องกัน, deployment ID, จำนวนแถว plaintext, original, replacement
+และที่ authenticate แล้ว และ key ID ที่ถูกอ้างถึง สิทธิ์ของ superuser และสิทธิ์ที่สืบทอดมายังต้อง review ในระดับ server
 
-Rewrap changes one database copy but cannot revoke a transaction or envelope copied before rewrap. Rollback
-leaves execution unavailable until storage is protected and passes a full protected check again. It does not
-remove signed bytes from WAL, replicas, backups, snapshots, or earlier exports.
+rewrap เปลี่ยนสำเนาฐานข้อมูลหนึ่งชุด แต่ไม่สามารถเพิกถอน transaction หรือ envelope ที่ถูกคัดลอกไปก่อน rewrap ได้
+rollback จะทำให้ execution ใช้ไม่ได้จนกว่าที่เก็บข้อมูลจะได้รับการป้องกันและผ่านการตรวจสอบแบบ protected เต็มอีกครั้ง
+และไม่ได้ลบ byte ที่ sign แล้วออกจาก WAL, replica, backup, snapshot หรือ export ก่อนหน้า
 
 :::warning
-Signed transaction bytes remain bearer capabilities until their signer nonce is consumed. Protected storage
-covers live database payloads. It does not cover:
+byte ของ signed transaction ยังคงเป็นสิทธิ์แบบ bearer จนกว่า signer nonce ของมันจะถูกใช้ protected storage
+ครอบคลุม payload ในฐานข้อมูลที่ใช้งานอยู่ แต่ไม่ครอบคลุม:
 
-- Bytes before persistence or in process memory.
-- Dead tuples, WAL, or point-in-time recovery archives.
-- Replicas, backups, snapshots, restores, or operational exports.
+- byte ก่อนการ persist หรือในหน่วยความจำของ process
+- dead tuple, WAL หรือ archive สำหรับ point-in-time recovery
+- replica, backup, snapshot, การกู้คืน หรือ export เพื่อการดำเนินงาน
 
-PostgreSQL statement or bind-parameter logging can also capture plaintext in the default mode and during
-rollback. Debug output, operational checks, and execution RPC errors do not expose the bytes.
+การ log statement หรือ bind parameter ของ PostgreSQL อาจเก็บ plaintext ไว้ได้ทั้งในโหมดเริ่มต้นและระหว่าง rollback
+ส่วน debug output, การตรวจสอบเพื่อการดำเนินงาน และ error ของ execution RPC ไม่เปิดเผย byte เหล่านี้
 
-A restored protected database requires its original `payload_deployment_id` and complete key
-inventory. Each database enforces signer and nonce ownership independently, so never run a restored
-copy against a signer used by another live deployment. Do not point two copies with the same
-deployment ID at the same signer.
+ฐานข้อมูลที่ได้รับการป้องกันซึ่งกู้คืนมาต้องใช้ `payload_deployment_id` เดิมและชุด key ครบ แต่ละฐานข้อมูลบังคับใช้
+ความเป็นเจ้าของ signer และ nonce แยกกัน ดังนั้นห้ามรันสำเนาที่กู้คืนมากับ signer ที่ deployment แบบ live อื่นใช้อยู่
+และอย่าให้สองสำเนาที่มี deployment ID เดียวกันชี้ไปที่ signer เดียวกัน
 :::
 
-### Execution configuration
+### Configuration ของ execution {#execution-configuration}
 
-`BlockchainExecutionClientConfig` follows the `BlockchainDataClientConfig` pattern and exposes
-these fields to Python:
+`BlockchainExecutionClientConfig` ใช้ pattern เดียวกับ `BlockchainDataClientConfig` และมี field ต่อไปนี้:
 
-| Field                            | Default   | Description                                                              |
+| Field                            | Default   | คำอธิบาย                                                                  |
 | -------------------------------- | --------- | ------------------------------------------------------------------------ |
-| `client_id`                      | Required  | Account ID for the client.                                               |
-| `chain`                          | Required  | Blockchain chain configuration.                                          |
-| `wallet_address`                 | Required  | Wallet address for the execution client.                                 |
-| `http_rpc_url`                   | Required  | Sole authoritative RPC endpoint and broadcast destination.               |
-| `verification`                   | Required  | Two read-only providers, local chain anchor, and deployment manifest.    |
-| `signer_private_key_env`         | Required  | Environment variable that holds the signer key.                          |
-| `payload_key_env`                | `None`    | Active 32-byte key variable; required with Postgres execution.           |
-| `payload_key_retired_env`        | `[]`      | Environment variables for old keys that may only open envelopes.         |
-| `payload_deployment_id`          | `None`    | Stable database identity; required with Postgres execution.              |
-| `router_addresses`               | Required  | SwapRouter allowlist; at least one address is required.                  |
-| `max_fee_per_gas_wei`            | Required  | Maximum derived fee per gas in wei.                                      |
-| `base_fee_buffer_bps`            | Required  | Buffer over the unanimous decision-header base fee.                      |
-| `gas_limit`                      | Required  | Gas ceiling; a higher buffered estimate is rejected.                     |
-| `gas_buffer_bps`                 | Required  | Buffer applied over `eth_estimateGas`.                                   |
-| `unlimited_approval`             | `false`   | Request unlimited approval instead of the exact amount.                  |
-| `weth_address`                   | Required  | Wrapped native token used by `wrap`.                                     |
-| `allowed_token_pairs`            | Required  | Directional input/output pairs; BUY needs the reverse pair.              |
-| `quote_spend_limits`             | `None`    | Directed quote-token ceilings; a BUY without a matching entry is denied. |
-| `slippage_bps`                   | Required  | Default slippage used to derive the minimum output.                      |
-| `max_slippage_bps`               | Required  | Ceiling for a per-order slippage override.                               |
-| `max_order_amount`               | Required  | `u64` ceiling on submitted base quantity, in raw base-token units.       |
-| `deadline_seconds`               | Required  | Swap deadline offset from the verified decision-header timestamp.        |
-| `max_quote_age_blocks`           | Required  | Maximum profiler-to-decision ancestry distance, in blocks.               |
-| `receipt_timeout_secs`           | Required  | Deadline for the receipt and finality polling loop.                      |
-| `tokens`                         | `None`    | ERC-20 addresses read and published when the client connects.            |
-| `rpc_requests_per_second`        | `None`    | Per-client HTTP RPC rate limit used by all three sources.                |
-| `postgres_cache_database_config` | `None`    | Durable execution store; transaction submission requires it.             |
-| `transport_backend`              | `Sockudo` | Compatibility field; unused by the execution client.                     |
+| `client_id`                      | Required  | account ID ของ client                                                    |
+| `chain`                          | Required  | configuration ของ blockchain chain                                       |
+| `wallet_address`                 | Required  | wallet address ของ execution client                                      |
+| `http_rpc_url`                   | Required  | RPC endpoint หลักเพียงตัวเดียวและเป็นปลายทางของการ broadcast                   |
+| `verification`                   | Required  | ผู้ให้บริการแบบอ่านอย่างเดียวสองตัว, chain anchor ในเครื่อง และ deployment manifest |
+| `signer_private_key_env`         | Required  | environment variable ที่เก็บ signer key                                   |
+| `payload_key_env`                | `None`    | ตัวแปรของ key ขนาด 32 byte ที่ active จำเป็นเมื่อใช้ execution กับ Postgres     |
+| `payload_key_retired_env`        | `[]`      | environment variable ของ key เก่าที่ใช้ได้เฉพาะเปิด envelope                   |
+| `payload_deployment_id`          | `None`    | identity ของฐานข้อมูลที่คงที่ จำเป็นเมื่อใช้ execution กับ Postgres            |
+| `router_addresses`               | Required  | allowlist ของ SwapRouter ต้องมีอย่างน้อยหนึ่ง address                       |
+| `max_fee_per_gas_wei`            | Required  | ค่าธรรมเนียมต่อ gas สูงสุดที่คำนวณได้ หน่วย wei                                 |
+| `base_fee_buffer_bps`            | Required  | buffer เหนือ base fee ของ decision header ที่ทุกแหล่งเห็นตรงกัน                |
+| `gas_limit`                      | Required  | เพดาน gas ค่าประมาณที่รวม buffer แล้วสูงกว่านี้จะถูกปฏิเสธ                       |
+| `gas_buffer_bps`                 | Required  | buffer ที่ใช้เหนือ `eth_estimateGas`                                      |
+| `unlimited_approval`             | `false`   | ร้องขอ approval แบบไม่จำกัดแทนจำนวนที่ตรงพอดี                                 |
+| `weth_address`                   | Required  | native token แบบ wrapped ที่ใช้โดย `wrap`                                 |
+| `allowed_token_pairs`            | Required  | คู่ input/output แบบมีทิศทาง BUY ต้องมีคู่ในทิศกลับ                           |
+| `quote_spend_limits`             | `None`    | เพดานของ quote token แบบมีทิศทาง BUY ที่ไม่มี entry ที่ตรงกันจะถูกปฏิเสธ          |
+| `slippage_bps`                   | Required  | slippage เริ่มต้นที่ใช้คำนวณ output ขั้นต่ำ                                    |
+| `max_slippage_bps`               | Required  | เพดานของการ override slippage ราย order                                  |
+| `max_order_amount`               | Required  | เพดานแบบ `u64` ของ base quantity ที่ส่ง ในหน่วย raw ของ base token          |
+| `deadline_seconds`               | Required  | offset ของ deadline ของ swap จาก timestamp ของ decision header ที่ตรวจสอบแล้ว |
+| `max_quote_age_blocks`           | Required  | ระยะ ancestry สูงสุดจาก profiler ถึง decision หน่วย block                   |
+| `receipt_timeout_secs`           | Required  | deadline ของ loop การ poll receipt และ finality                           |
+| `tokens`                         | `None`    | address ของ ERC-20 ที่อ่านและ publish เมื่อ client connect                   |
+| `rpc_requests_per_second`        | `None`    | rate limit ของ HTTP RPC ราย client ที่ใช้กับทั้งสามแหล่ง                       |
+| `postgres_cache_database_config` | `None`    | ที่เก็บข้อมูล execution แบบถาวร การส่ง transaction ต้องใช้                       |
+| `transport_backend`              | `Sockudo` | field เพื่อความเข้ากันได้ execution client ไม่ได้ใช้                            |
 
-The adapter enforces these constraints during configuration validation, client setup, connection,
-or transaction authorization:
+adapter บังคับใช้ข้อจำกัดเหล่านี้ระหว่างการตรวจสอบ configuration, การตั้งค่า client, การเชื่อมต่อ หรือการอนุญาต transaction:
 
-| Constraint            | Rule                                                                                                                                                      |
+| ข้อจำกัด               | กฎ                                                                                                                                                      |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Transaction limits    | `allowed_token_pairs`, both slippage fields, `max_order_amount`, `deadline_seconds`, `max_quote_age_blocks`, and `receipt_timeout_secs` must all be set.  |
-| Slippage              | `slippage_bps` must not exceed `max_slippage_bps`, and `max_slippage_bps` must be below 10,000.                                                           |
-| Quote age             | `max_quote_age_blocks` must be in `1..=4095`.                                                                                                             |
-| Routers               | `router_addresses` must contain at least one valid address.                                                                                               |
-| Verification topology | The configuration must contain exactly two verifiers, with distinct provider, operator, endpoint, and failure-domain identities across all three sources. |
-| Remote transport      | Remote execution, verifier, and HyperSync endpoints must use HTTPS; only canonical loopback literals may use HTTP.                                        |
-| Durable execution     | Transaction operations require Postgres, an active payload key, a stable deployment ID, and ready protected storage.                                      |
+| Transaction limits    | ต้องตั้ง `allowed_token_pairs`, field ของ slippage ทั้งสอง, `max_order_amount`, `deadline_seconds`, `max_quote_age_blocks` และ `receipt_timeout_secs` ทั้งหมด |
+| Slippage              | `slippage_bps` ต้องไม่เกิน `max_slippage_bps` และ `max_slippage_bps` ต้องต่ำกว่า 10,000                                                                |
+| Quote age             | `max_quote_age_blocks` ต้องอยู่ใน `1..=4095`                                                                                                            |
+| Routers               | `router_addresses` ต้องมี address ที่ถูกต้องอย่างน้อยหนึ่งตัว                                                                                                  |
+| Verification topology | configuration ต้องมี verifier สองตัวพอดี โดย identity ของ provider, operator, endpoint และ failure-domain ต่างกันทั้งสามแหล่ง                                   |
+| Remote transport      | endpoint ของ execution, verifier และ HyperSync ระยะไกลต้องใช้ HTTPS เฉพาะ loopback literal แบบ canonical เท่านั้นที่ใช้ HTTP ได้                           |
+| Durable execution     | การทำงานกับ transaction ต้องมี Postgres, payload key ที่ active, deployment ID ที่คงที่ และ protected storage ที่พร้อม                                       |
 
-The first allowlisted router executes swaps, so preflight readiness requires allowance on that
-router. `receipt_timeout_secs` controls the polling deadline for swaps, wraps, and approvals. It is
-not a strict upper bound on the full call because final RPC and persistence operations can add time.
+router ตัวแรกใน allowlist เป็นตัวที่ execute swap ดังนั้นความพร้อมของ preflight จึงต้องมี allowance บน router นั้น
+`receipt_timeout_secs` ควบคุม deadline ของการ poll สำหรับ swap, wrap และ approval แต่ไม่ใช่ขอบเขตบนแบบเข้มงวด
+ของการเรียกทั้งหมด เพราะการทำงาน RPC และ persistence ขั้นสุดท้ายอาจใช้เวลาเพิ่ม
 
-`BlockchainVerificationConfig` contains:
+`BlockchainVerificationConfig` ประกอบด้วย:
 
-| Field                 | Requirement                                                                                       |
+| Field                 | ข้อกำหนด                                                                                           |
 | --------------------- | ------------------------------------------------------------------------------------------------- |
-| `authoritative`       | Stable identity for `http_rpc_url`; it has no second URL in this object.                          |
-| `verifiers`           | Exactly two `BlockchainVerificationProviderConfig` values with read-only HTTP URLs.               |
-| `chain_anchor`        | Chain ID and name, finalized checkpoint height/hash/timestamp, and nonzero head freshness limits. |
-| `manifest_version`    | Reviewed deployment version, equal to `deployment_manifest.version`.                              |
-| `manifest_digest`     | Keccak-256 digest of the canonical JSON serialization of `deployment_manifest`.                   |
-| `deployment_manifest` | Reviewed contracts, tokens, pools, proxy bindings, identity probes, and exact call edges.         |
+| `authoritative`       | identity ที่คงที่สำหรับ `http_rpc_url` โดยไม่มี URL ที่สองใน object นี้                                 |
+| `verifiers`           | ค่า `BlockchainVerificationProviderConfig` สองตัวพอดีที่มี HTTP URL แบบอ่านอย่างเดียว                    |
+| `chain_anchor`        | chain ID และชื่อ, finalized checkpoint height/hash/timestamp และขีดจำกัดความใหม่ของ head ที่ไม่เป็นศูนย์    |
+| `manifest_version`    | เวอร์ชันของ deployment ที่ review แล้ว เท่ากับ `deployment_manifest.version`                          |
+| `manifest_digest`     | digest แบบ Keccak-256 ของการ serialize `deployment_manifest` เป็น JSON แบบ canonical               |
+| `deployment_manifest` | contract, token, pool, proxy binding, identity probe และ call edge ที่ตรงพอดีซึ่ง review แล้ว         |
 
-Each `BlockchainProviderIdentity` has a stable `provider_id`, `operator_id`, and one or more opaque
-`failure_domain_ids`. All provider IDs and operator IDs must be distinct. Every pair of failure domain sets
-must be disjoint. The three normalized endpoint URIs must differ. Do not place RPC URLs, credentials, or
-provider response bodies in the manifest or retained evidence.
+`BlockchainProviderIdentity` แต่ละตัวมี `provider_id`, `operator_id` ที่คงที่ และ `failure_domain_ids`
+แบบ opaque อย่างน้อยหนึ่งตัว provider ID และ operator ID ทั้งหมดต้องไม่ซ้ำกัน ชุด failure domain ทุกคู่ต้องไม่ซ้อนกัน
+URI ของ endpoint ที่ normalize แล้วทั้งสามต้องต่างกัน ห้ามใส่ RPC URL, credential หรือ body ของ response
+จากผู้ให้บริการไว้ใน manifest หรือหลักฐานที่เก็บไว้
 
-Python constructs `BlockchainVerificationConfig` with `deployment_manifest_json`. The manifest is
-parsed locally and its configured digest is checked before the client is created. The RPC sources
-cannot create, update, or approve a manifest. A contract upgrade, new token, new pool, or changed
-call edge needs an independently reviewed manifest and checkpoint update before execution resumes.
-Proxy bindings support the EIP-1967 implementation slot and the Zeppelinos unstructured
-implementation slot used by Circle FiatToken deployments. Each binding pins the exact storage
-value, implementation address, and implementation runtime code hash.
+manifest ถูก parse ในเครื่องและตรวจสอบ digest ที่ตั้งค่าไว้ก่อนสร้าง client แหล่ง RPC ไม่สามารถสร้าง, อัปเดต
+หรืออนุมัติ manifest ได้ การ upgrade contract, token ใหม่, pool ใหม่ หรือ call edge ที่เปลี่ยน ต้องมี manifest
+และ checkpoint ที่ review อย่างอิสระและอัปเดตแล้วก่อนกลับมา execute proxy binding รองรับ implementation slot
+ของ EIP-1967 และ unstructured implementation slot ของ Zeppelinos ที่ deployment ของ Circle FiatToken ใช้
+binding แต่ละตัว pin ค่า storage, address ของ implementation และ runtime code hash ของ implementation ไว้ตรงพอดี
 
-The following entry admits a USDC-to-WETH BUY only when the derived USDC input is at most 1,000 USDC.
-Pass the list as `quote_spend_limits` when constructing `BlockchainExecutionClientConfig`:
+entry ต่อไปนี้ใน `quote_spend_limits` อนุญาต BUY แบบ USDC-to-WETH เฉพาะเมื่อ USDC input ที่คำนวณได้ไม่เกิน 1,000 USDC:
 
-```python
-from nautilus_trader.adapters.blockchain import QuoteSpendLimit
+| Field                  | Value                                        |
+| ---------------------- | -------------------------------------------- |
+| `token_in`             | `0xaf88d065e77c8cC2239327C5EDb3A432268e5831` |
+| `token_out`            | `0x82aF49447D8a07e3bd95BD0d56f35241523fBab1` |
+| `spend_token`          | `0xaf88d065e77c8cC2239327C5EDb3A432268e5831` |
+| `spend_token_decimals` | `6`                                          |
+| `max_amount`           | `"1000000000"`                               |
 
-quote_spend_limits = [
-    QuoteSpendLimit(
-        token_in="0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
-        token_out="0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
-        spend_token="0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
-        spend_token_decimals=6,
-        max_amount="1000000000",
-    ),
-]
-```
+> หมายเหตุ: ต้นฉบับแสดง entry นี้เป็นโค้ด Python จึงแปลงเป็นตารางของค่า field
 
-### Validation coverage
+### ขอบเขตของการทดสอบ {#validation-coverage}
 
-The execution tests have two layers:
+การทดสอบ execution มีสองชั้น:
 
-| Layer           | External state                            | Main coverage                                                      |
+| ชั้น              | สถานะภายนอก                                  | ขอบเขตหลัก                                                          |
 | --------------- | ----------------------------------------- | ------------------------------------------------------------------ |
-| Unit/mocked RPC | Scripted three-source JSON-RPC responses. | Typed outcomes, hostile disagreement, signing, and reconciliation. |
-| Postgres        | Temporary schema when Postgres is active. | Evidence ordering, migration, nonce ownership, and crash recovery. |
+| Unit/mocked RPC | JSON-RPC response จากสามแหล่งที่เขียน script ไว้ | typed outcome, ความเห็นไม่ตรงกันแบบมุ่งร้าย, การ sign และ reconciliation   |
+| Postgres        | schema ชั่วคราวเมื่อ Postgres ทำงานอยู่          | ลำดับของหลักฐาน, การ migrate, ความเป็นเจ้าของ nonce และการกู้คืนหลัง crash   |
 
-Default tests do not connect to a live chain. They cover:
+การทดสอบเริ่มต้นไม่เชื่อมต่อกับ chain จริง โดยครอบคลุม:
 
-- Transaction primitives cover these cases:
+- primitive ของ transaction ครอบคลุมกรณีเหล่านี้:
 
-  - `deposit`, `approve`, `allowance`, and `exactInputSingle` calldata.
-  - EIP-1559 signing against a fixed-key vector.
-  - Canonical nonce selection with pending-nonce validation.
-  - Fee and gas derivation, and ceiling rejection.
-- RPC verification covers these cases:
+  - calldata ของ `deposit`, `approve`, `allowance` และ `exactInputSingle`
+  - การ sign แบบ EIP-1559 กับ vector ที่ใช้ key คงที่
+  - การเลือก canonical nonce พร้อมการตรวจสอบ pending nonce
+  - การคำนวณค่าธรรมเนียมและ gas และการปฏิเสธเมื่อเกินเพดาน
+- การตรวจสอบ RPC ครอบคลุมกรณีเหล่านี้:
 
-  - Wrong chain or checkpoint, head skew and freshness, and broken ancestry.
-  - Deployment and proxy changes, and quote disagreement.
-  - Pending and reverted receipts, partial receipt propagation, and disappearing receipts.
-  - Divergent traces and unauthorized internal calls.
-  - Exact-intent same-nonce replacements, `already known`, node rejection, and timeout after send.
-- Safety checks cover these cases:
+  - chain หรือ checkpoint ผิด, head skew และความใหม่ และ ancestry ที่ขาด
+  - การเปลี่ยน deployment และ proxy และ quote ที่เห็นไม่ตรงกัน
+  - receipt ที่ pending และ revert, receipt ที่กระจายไม่ทั่วถึง และ receipt ที่หายไป
+  - trace ที่ต่างกันและ internal call ที่ไม่ได้รับอนุญาต
+  - replacement ที่ใช้ nonce เดียวกันและตรงกับ intent พอดี, `already known`, การถูก node ปฏิเสธ และ timeout หลังส่ง
+- การตรวจสอบด้านความปลอดภัยครอบคลุมกรณีเหล่านี้:
 
-  - Invalid provider independence, signer revocation, and cancellation around persistence and dispatch.
-  - Router/factory/WETH/pool identity, approval transitions and return values, and preflight readiness.
-  - Wrap and approval postconditions, exact wallet snapshots, connect, and repeated account queries.
-  - Order validation, limiter denials, canonical quote provenance, slippage, token orientation, and exact
-    quote-spend boundaries.
-  - Stable event IDs, final fill fields, and commission.
-- Durability: submission ordering, one in-flight transaction, pre-broadcast signature quarantine,
-  authorized exact-byte rebroadcast, authenticated replacement scans, durable ancestry resume,
-  retained-history migration, event retry identity, wallet refresh ownership, and atomic evidence
-  with authorizing transitions. Database tests skip when Postgres is unavailable.
+  - ความเป็นอิสระของผู้ให้บริการที่ไม่ถูกต้อง, การเพิกถอน signer และการยกเลิกระหว่าง persistence และ dispatch
+  - identity ของ router/factory/WETH/pool, การเปลี่ยนสถานะและค่าที่คืนของ approval และความพร้อมของ preflight
+  - postcondition ของ wrap และ approval, wallet snapshot ที่ตรงพอดี, การ connect และการ query account ซ้ำ
+  - การตรวจสอบ order, การปฏิเสธของ limiter, ที่มาของ quote แบบ canonical, slippage, การวางทิศทางของ token
+    และขอบเขต quote-spend ที่ตรงพอดี
+  - event ID ที่คงที่, field สุดท้ายของ fill และ commission
+- ความคงทน: ลำดับการส่ง, transaction ที่กำลังดำเนินการหนึ่งตัว, การกัก signature ก่อน broadcast, การ rebroadcast
+  แบบ byte ตรงพอดีที่ได้รับอนุญาต, การสแกน replacement ที่ authenticate แล้ว, การกลับมาต่อ ancestry แบบถาวร,
+  การ migrate ประวัติที่เก็บไว้, identity ของการ retry event, ความเป็นเจ้าของการ refresh wallet และหลักฐานแบบ atomic
+  พร้อมการเปลี่ยนสถานะที่ใช้อนุญาต การทดสอบฐานข้อมูลจะข้ามเมื่อไม่มี Postgres
 
-JSON-RPC fixtures live under `crates/adapters/blockchain/test_data/execution/`. The shared network
-HTTP unit suite covers redirect rejection.
+fixture ของ JSON-RPC อยู่ใน `crates/adapters/blockchain/test_data/execution/` ชุด unit test ของ HTTP
+ด้าน network ที่ใช้ร่วมกันครอบคลุมการปฏิเสธ redirect
 
-Execution validation on public networks must remain read-only and must not load a signer or call
-`eth_sendRawTransaction`. State-changing validation requires an isolated local environment.
+การทดสอบ execution บน network สาธารณะต้องเป็นแบบอ่านอย่างเดียว ต้องไม่โหลด signer หรือเรียก
+`eth_sendRawTransaction` การทดสอบที่เปลี่ยนสถานะต้องใช้ environment ในเครื่องที่แยกออกมา
 
-## Limitations
+## ข้อจำกัด {#limitations}
 
-- Order submission supports BUY and SELL market orders through a registered Uniswap V3 deployment on the
-  client's chain. Order lists are denied, and modify and cancel operations are rejected. Venue report probes
-  return an error, except mass status, which returns `Ok(None)`. All these unsupported paths fail closed with
-  no on-chain or durable side effects. LiveNode must leave open-order checks off.
+- การส่ง order รองรับ market order แบบ BUY และ SELL ผ่าน deployment ของ Uniswap V3 ที่ลงทะเบียนไว้บน chain
+  ของ client order list จะถูกปฏิเสธ (denied) และการ modify และ cancel จะถูก reject การ probe report ของ venue
+  คืน error ยกเว้น mass status ซึ่งคืน `Ok(None)` เส้นทางที่ไม่รองรับทั้งหมดนี้ล้มเหลวแบบ fail closed โดยไม่มีผลข้างเคียง
+  ทั้งบน chain และในที่เก็บข้อมูลถาวร LiveNode ต้องปิดการตรวจสอบ open order ไว้
 
-  Quote-denominated and multi-hop orders are not supported. See [Execution](#execution).
-- Postgres-backed execution requires authenticated signed-transaction envelopes. Disconnected
-  rollback can restore plaintext for incident work, but the adapter rejects execution until the
-  database is protected and passes a full check again. Treat database storage, replicas, backups,
-  and exports as broadcast-capable material in either representation. See
-  [Signed transaction storage](#signed-transaction-storage).
-- Recovery is not fully automated. A signed intent without a durable `broadcast` transition blocks
-  connect, and a same-nonce replacement search over 4,096 blocks requires an explicit recovery
-  decision. See [Persistence and reconciliation](#persistence-and-reconciliation).
-- Order event publication and its durable marker are separate writes, so the adapter does not
-  guarantee atomic exactly-once event delivery across a process crash.
-- Very large Uniswap V3 pools can still hit provider payload, timeout, or rate limits during
-  final-state Multicall hydration.
-- On-chain snapshot validation supports Uniswap V3 and PancakeSwap V3 through their shared V3 pool
-  read ABI. Pools with a different ABI can sync events and produce replay snapshots, but cannot
-  reach `validation_state = on_chain`.
+  ไม่รองรับ order ในหน่วย quote และแบบ multi-hop ดู [Execution](#execution)
+- execution ที่ใช้ Postgres ต้องใช้ signed-transaction envelope ที่ authenticate แล้ว rollback ขณะ disconnect
+  สามารถกู้ plaintext กลับมาเพื่อจัดการ incident ได้ แต่ adapter จะปฏิเสธ execution จนกว่าฐานข้อมูลจะได้รับการป้องกัน
+  และผ่านการตรวจสอบเต็มอีกครั้ง ให้ถือว่าที่เก็บในฐานข้อมูล, replica, backup และ export เป็นข้อมูลที่ broadcast ได้
+  ไม่ว่าจะอยู่ในรูปแบบใด ดู [ที่เก็บ signed transaction](#signed-transaction-storage)
+- การกู้คืนยังไม่อัตโนมัติทั้งหมด signed intent ที่ไม่มีการเปลี่ยนสถานะ `broadcast` แบบถาวรจะขวางการ connect
+  และการค้นหา replacement ที่ใช้ nonce เดียวกันซึ่งเกิน 4,096 block ต้องมีการตัดสินใจกู้คืนอย่างชัดเจน ดู
+  [Persistence และ reconciliation](#persistence-and-reconciliation)
+- การ publish order event และ marker แบบถาวรของมันเป็นการเขียนแยกกัน adapter จึงไม่รับประกันการส่ง event
+  แบบ exactly-once แบบ atomic ข้ามการ crash ของ process
+- pool ของ Uniswap V3 ที่ใหญ่มากยังอาจชนขีดจำกัด payload, timeout หรือ rate ของผู้ให้บริการระหว่างการเติมสถานะสุดท้าย
+  ด้วย Multicall
+- การตรวจสอบ snapshot บน chain รองรับ Uniswap V3 และ PancakeSwap V3 ผ่าน read ABI ของ V3 pool ที่ใช้ร่วมกัน
+  pool ที่มี ABI ต่างออกไปสามารถ sync event และสร้าง replay snapshot ได้ แต่ไม่สามารถไปถึง
+  `validation_state = on_chain` ได้
