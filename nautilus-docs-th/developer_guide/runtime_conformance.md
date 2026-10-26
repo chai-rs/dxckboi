@@ -30,10 +30,10 @@ event เหล่านี้มี `reconciliation=true` manager จะ retain
 `SubmissionRecoveryPolicy::RetainUnresolved` หรือเมื่อ client ของ order return `true` จาก
 `retain_unresolved_submissions`
 
-- **Implementation**: [Execution manager](../../crates/live/src/execution/manager.rs),
+- **Implementation**: [Execution manager](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/src/execution/manager.rs),
   `check_inflight_orders`, `register_submission_retention`, `submission_is_retained` และ
   `resolve_missing_order`
-- **การตรวจสอบตัวอย่าง**: [Manager integration tests](../../crates/live/tests/integration/manager.rs),
+- **การตรวจสอบตัวอย่าง**: [Manager integration tests](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/tests/integration/manager.rs),
   `test_inflight_order_generates_rejection_after_max_retries`,
   `test_retained_submission_survives_recovery_and_accepts_late_evidence`,
   `test_check_open_orders_submitted_missing_at_venue_obeys_recovery_policy`,
@@ -71,11 +71,11 @@ activation ของคิวครั้งแรกเกิดได้เฉ
 
   | Source                                                       | Symbols                                              |
   | ------------------------------------------------------------ | ---------------------------------------------------- |
-  | [Dispatch](../../crates/common/src/actor/dispatch.rs)        | `PublicationScope` และ `drain`                       |
-  | [Allocation access](../../crates/common/src/actor/access.rs) | `AllocationGuard`                                    |
-  | [Live bounded drain](../../crates/live/src/dispatch.rs)      | `drain_callbacks` ที่ห่อ `actor::drain_callbacks`     |
-  | [Runner](../../crates/live/src/runner.rs)                    | `AsyncRunner::run`                                   |
-  | [Live node](../../crates/live/src/node/mod.rs)               | `run_with_mode` และ `dispose`                        |
+  | [Dispatch](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/actor/dispatch.rs)        | `PublicationScope` และ `drain`                       |
+  | [Allocation access](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/actor/access.rs) | `AllocationGuard`                                    |
+  | [Live bounded drain](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/src/dispatch.rs)      | `drain_callbacks` ที่ห่อ `actor::drain_callbacks`     |
+  | [Runner](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/src/runner.rs)                    | `AsyncRunner::run`                                   |
+  | [Live node](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/src/node/mod.rs)               | `run_with_mode` และ `dispose`                        |
 
 - **การตรวจสอบตัวอย่าง**:
 
@@ -112,9 +112,9 @@ component ของ trader หาก reconciliation error จะยกเลิ�
 order และ fill ที่อยู่ในสถานะสิ้นสุดผ่าน test execution client และตรวจสอบจำนวนที่กู้คืน ราคา identity ของ trade
 ค่า commission จำนวนของ position และสถานะสิ้นสุด
 
-- **Implementation**: [Live node](../../crates/live/src/node/mod.rs),
+- **Implementation**: [Live node](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/src/node/mod.rs),
   `perform_startup_reconciliation` และผู้เรียกของมัน
-- **การตรวจสอบตัวอย่าง**: [Node integration tests](../../crates/live/tests/integration/node.rs),
+- **การตรวจสอบตัวอย่าง**: [Node integration tests](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/tests/integration/node.rs),
   `test_live_node_startup_recovers_terminal_fill_exactly`
 - **ข้อจำกัด**: การตรวจสอบนี้ครอบคลุมการกู้คืนตอน startup จาก report ไม่ใช่ความทนทานของ backing store, การ restart
   โดย supervisor หรือการกู้คืนจาก panic ใด ๆ reconciliation สามารถปิดได้ การ replay จาก event store ก็ข้าม
@@ -129,8 +129,8 @@ Source reviewed at: [16f2163a3cefd5ae212cbddda7dc5253f8fe0bbc](https://github.co
 channel แบบไม่จำกัดขนาด ลำดับความสำคัญของการ poll ไม่ได้สร้าง backpressure ต่อ producer หรือจำกัดความลึกของคิว
 callback dispatcher ภายในบังคับใช้ขีดจำกัดของจำนวนที่ retain, storage ที่รู้จัก และ callback chain แยกต่างหาก
 
-- **Implementation**: [Runner](../../crates/live/src/runner.rs), `AsyncRunner::new` และ `recv`
-  [Dispatch](../../crates/common/src/actor/dispatch.rs): การนับ admission และ `drain`
+- **Implementation**: [Runner](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/src/runner.rs), `AsyncRunner::new` และ `recv`
+  [Dispatch](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/actor/dispatch.rs): การนับ admission และ `drain`
 - **การตรวจสอบตัวอย่าง**: `test_recv_processes_system_event_before_command` ใน runner
   module ตรวจสอบลำดับความสำคัญของ channel คู่นั้น `event_count_limit_latches_after_exact_capacity`
   และ `progress_limit_persists_between_bounded_drains` ใน dispatch module ตรวจสอบขีดจำกัดภายใน

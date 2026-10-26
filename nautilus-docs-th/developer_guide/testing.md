@@ -201,7 +201,7 @@ workflow ของมัน และแยก module ของ Rust เมื�
 - **Step**: นำ step กลับมาใช้ซ้ำเฉพาะเมื่อข้อความมีความหมาย, setup และ assertion contract เหมือนกันในทั้งสองที่
   หลีกเลี่ยง pattern กว้างๆ ที่ match พฤติกรรมที่ไม่เกี่ยวข้อง หรือเลือกผลลัพธ์ที่คาดหวังจาก state ที่ซ่อนอยู่
 - **Fixture**: ใส่ส่วนการสร้างที่ test target อิสระหลายตัวใช้ร่วมกันไว้ใน `tests/common/` เช่น
-  [startup client fixture](../../crates/live/tests/common/startup.rs) ส่วน fixture ที่ใช้ในชุดเดียวให้เก็บไว้ในชุดนั้น
+  [startup client fixture](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/tests/common/startup.rs) ส่วน fixture ที่ใช้ในชุดเดียวให้เก็บไว้ในชุดนั้น
 - **World**: กำหนดขอบเขตให้ตรงกับ workflow ที่ทดสอบ อย่าขยาย `World` ที่ใช้ร่วมกันหรือสร้าง fixture framework
   ทั่วไปเผื่อ feature ในอนาคตที่ยังไม่มีจริง
 
@@ -239,7 +239,7 @@ regression พร้อมกับการแก้ไข การ refactor �
 
 รัน scenario ที่เปลี่ยนแปลงและ test เดิมที่ได้รับผลกระทบ ใช้ Rust test harness มาตรฐานที่มี
 `#[tokio::test]` หนึ่งตัวต่อชุด เพื่อให้ nextest ค้นพบได้ ทำตาม
-[live runner](../../crates/live/tests/spec/main.rs):
+[live runner](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/tests/spec/main.rs):
 
 - ใช้ `fail_on_skipped()` เพื่อให้ step ที่ไม่ match ล้มเหลว
 - assert ว่า `execution_has_failed()` เป็น false และมี step ผ่านอย่างน้อยหนึ่ง step assertion ที่ล้มเหลว,
@@ -330,9 +330,9 @@ state ของ test แบบ deterministic
 
 #### Gherkin startup reconciliation scenario {#gherkin-startup-reconciliation-scenarios}
 
-[feature file](../../crates/live/tests/spec/features/startup_reconciliation.feature) ของ live node
+[feature file](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/tests/spec/features/startup_reconciliation.feature) ของ live node
 อธิบาย startup reconciliation ด้วย step แบบ Given/When/Then
-ส่วน [Rust step definition](../../crates/live/tests/spec/main.rs) รัน node จริงพร้อม response ของ venue
+ส่วน [Rust step definition](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/tests/spec/main.rs) รัน node จริงพร้อม response ของ venue
 ที่ script ไว้ และสังเกต exposure ที่กู้คืนแล้วภายใน start callback ของ strategy
 
 หากต้องการแสดง scenario ทั้งหมดพร้อม step ให้รัน:

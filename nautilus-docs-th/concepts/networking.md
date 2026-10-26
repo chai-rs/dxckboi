@@ -16,7 +16,7 @@ Nautilus อย่างไร หน้านี้ครอบคลุมพ�
 
 ## HTTP client {#http-client}
 
-[`HttpClient`](../../crates/network/src/http/client.rs) ห่อ Hyper client ที่ใช้ซ้ำได้หนึ่งตัวและ rate limiter
+[`HttpClient`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/src/http/client.rs) ห่อ Hyper client ที่ใช้ซ้ำได้หนึ่งตัวและ rate limiter
 ที่ใช้ร่วมกันหนึ่งตัวขึ้นไป request จะรอ quota ทุกตัวที่เกี่ยวข้องก่อนที่ client ภายในจะสร้างและ execute request นั้น
 
 ```mermaid
@@ -75,7 +75,7 @@ HTTP traffic แบบ plaintext ทั้งหมดและ CONNECT tunnel �
 - error `GOAWAY(NO_ERROR)` หรือ `REFUSED_STREAM` ของ HTTP/2 จากฝั่ง remote โดยลองใหม่ได้สองครั้ง
 
 ความล้มเหลวของ transport แบบอื่นและ HTTP status code จะไม่ทำให้เกิดการลองใหม่ adapter สามารถครอบงานที่
-ลองใหม่ได้ด้วย [`RetryManager`](../../crates/network/src/retry.rs) แต่ adapter ต้องตัดสินใจเองว่า error ของ
+ลองใหม่ได้ด้วย [`RetryManager`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/src/retry.rs) แต่ adapter ต้องตัดสินใจเองว่า error ของ
 venue และงานใดบ้างที่ลองใหม่ได้อย่างปลอดภัย
 
 ### การใช้การเชื่อมต่อซ้ำและขอบเขตของ response {#connection-reuse-and-response-bounds}
@@ -120,7 +120,7 @@ body ที่ได้รับและ body ที่ถอดรหัสแ
 
 ### Benchmark ของ HTTP transport {#http-transport-benchmarks}
 
-[HTTP comparison](../../crates/network/benches/BENCHMARKS.md#http-transport-comparison) ซึ่งวัดเมื่อ
+[HTTP comparison](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/benches/BENCHMARKS.md#http-transport-comparison) ซึ่งวัดเมื่อ
 2026-09-09 บน AMD Ryzen Threadripper 9980X เปรียบเทียบ client Reqwest 0.13.4 ตัวเดิมกับ implementation ที่
 ใช้ Hyper โดยตรง ทั้งสองรันใน binary `bench-lto` เดียวกันที่เปิด fat LTO และ codegen unit เดียว CPU governor
 ตั้งเป็น `performance`, ปิด ASLR ราย process และ pin thread ของ client และ server ไว้คนละ physical core
@@ -198,12 +198,12 @@ trip แรกโดยไม่มี traffic ของ probe
 bandwidth ของ loopback แทบไม่มีขีดจำกัด benchmark จึงแสดงประโยชน์ของ body ขนาดใหญ่เกินจริง บนลิงก์จริง
 window จะจำกัด throughput เฉพาะเมื่อเล็กกว่า bandwidth คูณ RTT ที่ RTT 100 ms ขนาด 2 MiB ให้ได้ประมาณ
 20 MiB/s และ 16 MiB ได้ประมาณ 160 MiB/s
-[HTTP/2 flow-control benchmark](../../crates/network/benches/BENCHMARKS.md#http2-flow-control-windows)
+[HTTP/2 flow-control benchmark](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/benches/BENCHMARKS.md#http2-flow-control-windows)
 มีตารางฉบับเต็ม, วิธีการ และผลการรันกับ Cloudflare
 
 ## WebSocket client {#websocket-client}
 
-[`WebSocketClient`](../../crates/network/src/websocket/client.rs) แยกวงจรชีวิตของการเชื่อมต่อออกจากการส่ง
+[`WebSocketClient`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/src/websocket/client.rs) แยกวงจรชีวิตของการเชื่อมต่อออกจากการส่ง
 frame โดย controller เป็นเจ้าของการเปลี่ยนสถานะ reconnect และ shutdown, writer หนึ่งตัวจัดลำดับการเข้าถึง
 sink ทั้งหมด และ handler mode กำหนดให้การเชื่อมต่อแต่ละตัวมี reader task หนึ่งตัว heartbeat task ที่ไม่บังคับ
 จะส่ง traffic เพื่อยืนยัน liveness ผ่าน writer ตัวเดียวกัน
@@ -402,7 +402,7 @@ ownership เปลี่ยนไป และจะไม่ replay บนก�
 
 ### Benchmark ของ backend {#backend-benchmarks}
 
-[WebSocket benchmark](../../crates/network/benches/BENCHMARKS.md) วัดเมื่อ 2026-07-29 ผลลัพธ์ขนาด 512 B
+[WebSocket benchmark](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/benches/BENCHMARKS.md) วัดเมื่อ 2026-07-29 ผลลัพธ์ขนาด 512 B
 ต่อไปนี้เป็นค่ามัธยฐานของการรันติดกันสามครั้งบน host AMD Ryzen Threadripper 9980X เครื่องเดียวกัน:
 
 | Metric                            | `tokio-tungstenite 0.30.0` | `sockudo-ws 2.0.1`       |
@@ -423,7 +423,7 @@ HTTP หรือ raw TCP client และค่าสัมบูรณ์ค�
 
 ## Raw TCP socket client {#raw-tcp-socket-client}
 
-[`SocketClient`](../../crates/network/src/socket/client.rs) รองรับสตรีมไบต์ทั้งแบบ plain และ TLS สำหรับโปรโตคอล
+[`SocketClient`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/src/socket/client.rs) รองรับสตรีมไบต์ทั้งแบบ plain และ TLS สำหรับโปรโตคอล
 ที่แบ่งขอบเขตข้อความด้วย suffix คงที่ controller ประสานการเชื่อมต่อ, reader หนึ่งตัวแยก frame ขาเข้า และ writer
 หนึ่งตัวต่อ suffix ท้ายข้อความพร้อมจัดลำดับการส่งที่เกิดพร้อมกัน
 

@@ -8,7 +8,7 @@ crate `nautilus-lighter` มี data client และ execution client ฝั่
 แบบมี type และ L2 signer ในตัวที่ใช้ Schnorr signature บน ECgFp5
 
 สำหรับ benchmark ของ L2 signing และการเปรียบเทียบกับ Go SDK อย่างเป็นทางการ ดู
-[`crates/adapters/lighter/benches/BENCHMARKS.md`](../../crates/adapters/lighter/benches/BENCHMARKS.md)
+[`crates/adapters/lighter/benches/BENCHMARKS.md`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/adapters/lighter/benches/BENCHMARKS.md)
 ให้เปรียบเทียบส่วนต่างของ benchmark บนเครื่องเดียวกันเท่านั้น เพราะเวลาสัมบูรณ์จะแตกต่างกันไป
 
 ## ภาพรวม {#overview}

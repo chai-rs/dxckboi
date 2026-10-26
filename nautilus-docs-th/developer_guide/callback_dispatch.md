@@ -191,9 +191,9 @@ column สุดท้ายระบุข้อกำหนดของ test �
 | Live fatal failure และ disposal | การปิดระบบที่มีอยู่จัดการ failure disposal ล้างโดยไม่ส่ง callback                        | disposal ของ kernel มาก่อนการปล่อย runner ที่ retain ไว้และการล้างแบบมี guard              | งานที่เกิดจากการ stop ถูกทิ้ง external root ยังคงปฏิเสธการล้าง                                            |
 | Live hosted-run abandonment     | การ drop future ของ run อาจทำให้การปิดระบบไม่สมบูรณ์                                    | report future ถูก drop ก่อน node return disposal ภายหลังจะพยายามเก็บกวาด                  | แยกการยกเลิกแบบ await ออกจากการทิ้ง ตรวจสอบการปล่อย capture และการเก็บกวาดแบบมี guard                    |
 
-ownership ของ live ถูก implement โดย [execution-client facade](../../crates/live/src/execution/client.rs),
-[lifecycle ของ report task](../../crates/live/src/node/reconciliation.rs) และ
-[lifecycle ของ node](../../crates/live/src/node/mod.rs)
+ownership ของ live ถูก implement โดย [execution-client facade](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/src/execution/client.rs),
+[lifecycle ของ report task](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/src/node/reconciliation.rs) และ
+[lifecycle ของ node](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/src/node/mod.rs)
 
 ### boundary ของ backtest {#backtest-boundaries}
 
@@ -305,16 +305,16 @@ shared command access ทำงานต่อได้ขณะที่ report
 busy head ที่ safe drain boundary ที่ประกาศไว้ให้กลายเป็นการ retry แบบไม่จำกัด
 [กฎ fatal stalled-delivery](#draining-and-progress) ยังคงใช้อยู่
 
-[test ของ live node](../../crates/live/tests/integration/node.rs) ที่มีอยู่ครอบคลุมการทำ report แบบทีละตัว,
+[test ของ live node](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/tests/integration/node.rs) ที่มีอยู่ครอบคลุมการทำ report แบบทีละตัว,
 การอัปเดต instrument ที่เลื่อนไว้ และการเก็บกวาดเมื่อ timeout และปิดระบบ แต่ไม่ได้ทดสอบการส่งแบบเข้าคิวให้ actor
 ใน production และใช้แทน test ก่อนเปิดใช้งานเฉพาะเส้นทางเหล่านี้ไม่ได้
 
 ## การ integrate กับ runtime {#runtime-integration}
 
-[test ของการส่งต่อ root](../../crates/common/src/actor/dispatch.rs) ครอบคลุม continuation ที่ retain ไว้ รวมถึง
+[test ของการส่งต่อ root](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/actor/dispatch.rs) ครอบคลุม continuation ที่ retain ไว้ รวมถึง
 data command และ trading command ใน runtime แบบ synchronous และ live รวมถึง trading child ที่เลื่อนไว้ event
 channel ของ data และ execution ใน live ก็รักษา root ผ่านการข้าม channel หลายแบบผสมกันและ
-[startup buffering](../../crates/live/src/node/mod.rs)
+[startup buffering](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/src/node/mod.rs)
 
 ### Backtest {#backtests}
 
@@ -509,7 +509,7 @@ destructor ต้องไม่ panic ระหว่าง unwind ที่ก
 
 ### ความขัดแย้งในการเข้าถึง component {#component-access-conflicts}
 
-[ComponentAccessError](../../crates/common/src/component.rs) อธิบาย resource และการดำเนินการที่พยายามทำ เมื่อ
+[ComponentAccessError](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/component.rs) อธิบาย resource และการดำเนินการที่พยายามทำ เมื่อ
 checked component-state access ล้มเหลว diagnostic เหล่านี้ใช้กับเส้นทาง synchronous อยู่แล้ว และไม่ได้หมายความว่า
 การส่งแบบเข้าคิวเปิดใช้งานแล้ว ความขัดแย้งอาจเกิดจาก callback reentry หรือจาก borrow ปกติที่ถือไว้นานเกินไป
 ข้อความไม่ได้ระบุผู้ถือ borrow หรือ call stack ของมัน
@@ -525,10 +525,10 @@ checked component-state access ล้มเหลว diagnostic เหล่า�
 
 facade ของ Rust แบบ portable ก็รายงานความขัดแย้งในการเข้าถึงเช่นกัน:
 
-- method อ่านแบบ infallible ของ [CacheApi](../../crates/common/src/cache/api.rs) จะ panic ด้วย `ReadConflict` และ
+- method อ่านแบบ infallible ของ [CacheApi](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/cache/api.rs) จะ panic ด้วย `ReadConflict` และ
   operation `cache read` ส่วน `get()` คืนความขัดแย้งผ่าน `anyhow::Result` ด้วย operation `get` การค้นหาแบบ
   fallible `try_*` คืนผ่าน variant `Access` ของ lookup error โดยใช้ชื่อ method เป็น operation เช่น `try_position`
-- [ClockApi](../../crates/common/src/clock/api.rs) ที่มี native backing จะ panic ด้วย `ReadConflict` เมื่ออ่าน
+- [ClockApi](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/clock/api.rs) ที่มี native backing จะ panic ด้วย `ReadConflict` เมื่ออ่าน
   ขัดแย้ง setter ของ timer และ alert คืน `WriteConflict` ผ่าน `anyhow::Result` ส่วน `cancel_timer()` และ
   `cancel_timers()` จะ panic เมื่อเกิดความขัดแย้งนั้น diagnostic ของ clock ระบุ method ที่พยายามเรียก clock ที่มี
   handler เป็น backing จะส่งต่อให้ handler แทนการตรวจ borrow แบบ native เหล่านี้
@@ -549,7 +549,7 @@ allocation guard ภายใน และไม่มีตัวใดพิ�
 
 ### ความล้มเหลวของ callback dispatcher {#callback-dispatcher-failures}
 
-[CallbackDispatchError](../../crates/common/src/actor/dispatch.rs) มี diagnostic ต่อไปนี้ `InvalidDestination`,
+[CallbackDispatchError](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/actor/dispatch.rs) มี diagnostic ต่อไปนี้ `InvalidDestination`,
 `Stalled` และ `Runaway` อธิบายความล้มเหลวของการส่งแบบเข้าคิว เส้นทางใน production ปัจจุบันไม่ได้ admit callback
 เหล่านั้น variant เหล่านี้จึงยังเป็นพฤติกรรมของการ integrate ภายในและ test เท่านั้น diagnostic อื่นอาจเกิดได้แล้วผ่าน
 publication scope, การนับ command root, runtime drain หรือการเก็บกวาด ขณะที่การส่งแบบเข้าคิวให้ actor ยังไม่เปิดใช้งาน

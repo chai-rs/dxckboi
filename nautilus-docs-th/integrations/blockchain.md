@@ -66,7 +66,7 @@ replay ของมันไม่สามารถตรวจสอบกั�
 
 มีตัวอย่าง data client ที่รันได้:
 
-- [Rust LiveNode data tester](../../crates/adapters/blockchain/examples/node_data_tester.rs)
+- [Rust LiveNode data tester](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/adapters/blockchain/examples/node_data_tester.rs)
 
 repository ไม่มีตัวอย่างการตั้งค่า execution ที่รันได้และได้รับการดูแล ให้สร้าง integration ด้าน execution ด้วย Rust
 และปฏิบัติตามข้อจำกัดใน [Execution](#execution)

@@ -4,7 +4,7 @@
 ตัวอย่าง, คำสั่งที่ใช้ในเครื่อง และขั้นตอนการวัดผลสำหรับผลลัพธ์ที่จะเผยแพร่
 
 สำหรับขอบเขตของ benchmark, หลักฐานที่ต้องมี และนโยบาย CI ดูที่
-[`/BENCHMARKING.md`](../../BENCHMARKING.md) ที่ root ของ repository
+[`/BENCHMARKING.md`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/BENCHMARKING.md) ที่ root ของ repository
 
 ---
 
@@ -170,9 +170,9 @@ CARGO_BUILD_JOBS=16 cargo bench --locked -p nautilus-backtest \
 หลังทุกรอบที่วัด
 
 ดู baseline ที่เผยแพร่, บันทึกการวัด และ profile target ปัจจุบันได้ที่
-[`crates/backtest/benches/BENCHMARKS.md`](../../crates/backtest/benches/BENCHMARKS.md)
+[`crates/backtest/benches/BENCHMARKS.md`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/backtest/benches/BENCHMARKS.md)
 
-[คู่มือการย้ายไป v2](../../MIGRATION_V2.md#compare-backtest-performance) มีขั้นตอนการเปรียบเทียบประสิทธิภาพ
+[คู่มือการย้ายไป v2](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/MIGRATION_V2.md#compare-backtest-performance) มีขั้นตอนการเปรียบเทียบประสิทธิภาพ
 backtest ข้ามเวอร์ชัน
 
 ---

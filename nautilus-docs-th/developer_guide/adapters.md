@@ -98,8 +98,8 @@ contract เดียวกันผ่าน implementation ของตัว�
 baseline นี้ไม่ใช้กับ execution client สองตัวที่ implement trait เดียวกันโดยไม่ได้ซื้อขาย
 ผ่าน API ของ venue:
 
-- [Sandbox](../../crates/adapters/sandbox/src/execution.rs) จำลอง fill ที่ฝั่ง local
-- [Blockchain](../../crates/adapters/blockchain/src/execution/client.rs) execute บน chain ภายใต้
+- [Sandbox](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/adapters/sandbox/src/execution.rs) จำลอง fill ที่ฝั่ง local
+- [Blockchain](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/adapters/blockchain/src/execution/client.rs) execute บน chain ภายใต้
   feature `defi`
 
 deterministic simulation เป็นข้อบังคับสำหรับ adapter ที่มีการดูแลรักษา adapter แต่ละตัวต้องเป็นไปตาม
@@ -108,20 +108,20 @@ deterministic simulation เป็นข้อบังคับสำหรั�
 
 | เป้าหมาย                     | ส่วนร่วม                                                                                                  | Contract                                                                     |
 | -------------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
-| หลักฐานผลลัพธ์ของคำสั่ง         | [`CommandFailure`](../../crates/live/src/execution/failure.rs)                                         | [การตั้งชื่อประเภทหลักฐาน](#naming-the-evidence-classes)                         |
-| identity และ context ของ order | [`OrderIdentity` and `OrderContext`](../../crates/live/src/execution/context.rs)                       | [Update ที่ติดตามอยู่และจากภายนอก](#tracked-and-external-execution-updates)        |
-| การตัดรายการซ้ำตอน replay      | [`FifoCache` and `FifoCacheMap`](../../crates/common/src/cache/fifo.rs)                                | [ลำดับของ event และการตัดรายการซ้ำ](#event-ordering-and-deduplication)           |
-| เหตุผลการ deny order          | [`OrderDeniedReason`](../../crates/model/src/events/order/denied_reason.rs)                            | [Diagnostics และเหตุผล](#separate-diagnostics-from-strategy-facing-reasons)      |
-| วงจรชีวิตของ task             | [`TaskGroup`](../../crates/live/src/task.rs) and [`TaskHandles`](../../crates/common/src/live/task.rs) | [การจัดการ task](#task-management)                                            |
+| หลักฐานผลลัพธ์ของคำสั่ง         | [`CommandFailure`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/src/execution/failure.rs)                                         | [การตั้งชื่อประเภทหลักฐาน](#naming-the-evidence-classes)                         |
+| identity และ context ของ order | [`OrderIdentity` and `OrderContext`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/src/execution/context.rs)                       | [Update ที่ติดตามอยู่และจากภายนอก](#tracked-and-external-execution-updates)        |
+| การตัดรายการซ้ำตอน replay      | [`FifoCache` and `FifoCacheMap`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/cache/fifo.rs)                                | [ลำดับของ event และการตัดรายการซ้ำ](#event-ordering-and-deduplication)           |
+| เหตุผลการ deny order          | [`OrderDeniedReason`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/model/src/events/order/denied_reason.rs)                            | [Diagnostics และเหตุผล](#separate-diagnostics-from-strategy-facing-reasons)      |
+| วงจรชีวิตของ task             | [`TaskGroup`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/src/task.rs) and [`TaskHandles`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/live/task.rs) | [การจัดการ task](#task-management)                                            |
 | precision ตอนรับข้อมูลเข้า      | [Domain numeric types](rust.md#domain-numeric-types)                                                   | [การ model payload ของ venue](#modeling-venue-payloads)                        |
-| HTTP transport             | [`HttpClient`](../../crates/network/src/http/client.rs)                                                | [ลำดับการทำงานของ request](#request-flow)                                      |
-| state ของ authentication    | [`AuthTracker`](../../crates/network/src/websocket/auth.rs)                                            | [Authentication](#authentication)                                            |
-| identity ของ subscription   | [`SubscriptionState`](../../crates/network/src/websocket/subscription.rs)                              | [การจัดการ subscription](#subscription-management)                             |
-| คำขอ reconnect              | [`request_reconnect`](../../crates/network/src/websocket/client.rs)                                    | [Reconnection และ shutdown](#reconnection-and-shutdown)                       |
-| กลไก retry                  | [`RetryManager`](../../crates/network/src/retry.rs)                                                    | [การจัดการ error และ retry logic](#error-handling-and-retry-logic)             |
-| commission ของ inferred fill | [`ExecutionClient`](../../crates/common/src/clients/execution.rs)                                      | [การจัดการเมื่อ commission ล้มเหลว](#commission-failure-handling)                 |
-| เวลา, task และ runtime        | [`nautilus_common::live::dst`](../../crates/common/src/live/dst.rs)                                    | [Deterministic simulation](#deterministic-simulation)                        |
-| การอ่าน wall-clock           | [`duration_since_unix_epoch`](../../crates/core/src/time.rs)                                           | [Deterministic simulation](#deterministic-simulation)                        |
+| HTTP transport             | [`HttpClient`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/src/http/client.rs)                                                | [ลำดับการทำงานของ request](#request-flow)                                      |
+| state ของ authentication    | [`AuthTracker`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/src/websocket/auth.rs)                                            | [Authentication](#authentication)                                            |
+| identity ของ subscription   | [`SubscriptionState`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/src/websocket/subscription.rs)                              | [การจัดการ subscription](#subscription-management)                             |
+| คำขอ reconnect              | [`request_reconnect`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/src/websocket/client.rs)                                    | [Reconnection และ shutdown](#reconnection-and-shutdown)                       |
+| กลไก retry                  | [`RetryManager`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/src/retry.rs)                                                    | [การจัดการ error และ retry logic](#error-handling-and-retry-logic)             |
+| commission ของ inferred fill | [`ExecutionClient`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/clients/execution.rs)                                      | [การจัดการเมื่อ commission ล้มเหลว](#commission-failure-handling)                 |
+| เวลา, task และ runtime        | [`nautilus_common::live::dst`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/live/dst.rs)                                    | [Deterministic simulation](#deterministic-simulation)                        |
+| การอ่าน wall-clock           | [`duration_since_unix_epoch`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/core/src/time.rs)                                           | [Deterministic simulation](#deterministic-simulation)                        |
 
 venue อาจส่งค่าที่เป็นค่าไม่ต่อเนื่อง (discrete) เป็นฟิลด์ IEEE-754 แทนที่จะเป็น decimal string หรือ JSON number ใน
 กรณีนี้ให้บันทึกข้อยกเว้นไว้ที่ขอบเขตการ parse และเก็บ `f64` ไว้ภายในขอบเขตนั้น
@@ -133,7 +133,7 @@ code ของ venue และ semantics ของ rate limit แตกต่า
 ### Deterministic simulation {#deterministic-simulation}
 
 adapter ที่มีการดูแลรักษาทุกตัว ซึ่งคือ adapter ระดับ Official ตาม
-[ADAPTERS.md](../../ADAPTERS.md#adapter-tiers) ต้องเป็นไปตาม
+[ADAPTERS.md](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/ADAPTERS.md#adapter-tiers) ต้องเป็นไปตาม
 [adapter DST contract](../concepts/dst.md#adapter-dst-contract) adapter ที่ยังไม่
 conform ต้องมี migration record ระดับ venue ที่ติดตามส่วนที่ยังขาด ส่วน capability ที่ยังไม่ได้อ้างสิทธิ์
 จะอยู่นอก contract จนกว่าจะมี slice ที่พิสูจน์ได้
@@ -233,8 +233,8 @@ adapter crate ใหม่ต้องถูกค้นพบได้โดย
 
 | Surface                       | การเปลี่ยนแปลงที่ต้องทำ                                                                                      | การบังคับใช้หรือการพิสูจน์                                                                                    |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Root Rust workspace           | เพิ่ม crate ลงใน members และ workspace dependencies ใน [`Cargo.toml`](../../Cargo.toml)                     | workspace metadata และ Cargo check เฉพาะจุดจะค้นพบ crate                                                    |
-| Workspace test inventory      | เพิ่ม crate ลงใน `ADAPTER_CRATES` ใน [`Makefile`](../../Makefile)                                          | [workspace coverage check](../../scripts/ci/check-workspace-test-coverage.sh) กำหนดให้มี test inventory หนึ่งชุด |
+| Root Rust workspace           | เพิ่ม crate ลงใน members และ workspace dependencies ใน [`Cargo.toml`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/Cargo.toml)                     | workspace metadata และ Cargo check เฉพาะจุดจะค้นพบ crate                                                    |
+| Workspace test inventory      | เพิ่ม crate ลงใน `ADAPTER_CRATES` ใน [`Makefile`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/Makefile)                                          | [workspace coverage check](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/scripts/ci/check-workspace-test-coverage.sh) กำหนดให้มี test inventory หนึ่งชุด |
 | User guide                    | เพิ่ม integration guide เฉพาะ capability ที่ adapter เปิดให้ใช้                                               | documentation check ครอบคลุม surface นี้                                                                     |
 
 ## ลำดับการ implement adapter {#adapter-implementation-sequence}
@@ -381,7 +381,7 @@ subscription ที่รองรับ
 
 นโยบายการ import ระดับ repository ใช้กับ code ของ adapter ด้วย: ให้ import type ของ Nautilus และใช้ชื่อสั้น
 แทนการเขียนชื่อเต็ม (fully qualified) ที่จุดเรียกใช้
-[Nautilus conventions hook](../../.pre-commit-hooks/check_nautilus_conventions.sh) บังคับใช้
+[Nautilus conventions hook](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/.pre-commit-hooks/check_nautilus_conventions.sh) บังคับใช้
 กฎนี้และอธิบาย marker สำหรับข้อยกเว้นเฉพาะจุดไว้
 
 ### Configuration (`config.rs`) {#configurations-configrs}
@@ -577,8 +577,8 @@ HTTP transport อื่นให้ใช้ policy ที่ไม่ redirect
 | Nautilus และ venue ใช้เครื่องหมายสัญญาต่างกัน              | implement ทั้งสองทิศทางไว้ที่ขอบเขตเดียว              | Binance USD-M `BTCUSDT` -> `BTCUSDT-PERP.BINANCE`   |
 | ตัวพิมพ์เล็กใหญ่ใน transport ต่างจาก identity แบบ canonical | แปลงเฉพาะตอนสร้างค่าสำหรับ transport                 | Binance stream `BTCUSDT-PERP.BINANCE` -> `btcusdt`  |
 
-wrapper [`BybitSymbol`](../../crates/adapters/bybit/src/common/symbol.rs) และ
-[การแปลง symbol ของ Binance](../../crates/adapters/binance/src/common/symbol.rs) แสดงรูปแบบการใช้ suffix
+wrapper [`BybitSymbol`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/adapters/bybit/src/common/symbol.rs) และ
+[การแปลง symbol ของ Binance](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/adapters/binance/src/common/symbol.rs) แสดงรูปแบบการใช้ suffix
 และการแปลงสองทิศทาง ให้ถือเป็นตัวอย่าง ไม่ใช่รูปแบบ suffix ร่วม
 
 อย่า normalize instrument ของ venue ที่แตกต่างกันให้เป็น `InstrumentId` เดียวกัน ให้ test fixture มี
@@ -673,9 +673,9 @@ authoritative model เข้มงวดเสมอ
 
 ### Client trait และ factory (`data.rs`, `execution.rs`, `factories.rs`) {#client-traits-and-factories-datars-executionrs-factoriesrs}
 
-trait ร่วม [`DataClient`](../../crates/common/src/clients/data.rs),
-[`ExecutionClient`](../../crates/common/src/clients/execution.rs) และ
-[client factory](../../crates/common/src/factories/client.rs) กำหนดขอบเขตของ adapter
+trait ร่วม [`DataClient`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/clients/data.rs),
+[`ExecutionClient`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/clients/execution.rs) และ
+[client factory](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/factories/client.rs) กำหนดขอบเขตของ adapter
 ให้ implement method ที่รองรับ และระบุ capability ที่ไม่รองรับไว้อย่างชัดเจนใน integration
 guide
 
@@ -710,7 +710,7 @@ API ใหม่
 #### Input ของ factory และความเป็นเจ้าของ cache {#factory-inputs-and-cache-ownership}
 
 factory ได้รับ `ClientConfig` ที่ downcast แล้ว และ
-[`CacheView`](../../crates/common/src/cache/mod.rs) แบบอ่านอย่างเดียว ส่วน data factory ได้รับ clock ร่วมด้วย
+[`CacheView`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/cache/mod.rs) แบบอ่านอย่างเดียว ส่วน data factory ได้รับ clock ร่วมด้วย
 ใช้ view นี้เพื่อ resolve instrument และ state ที่มีอยู่ การเขียน cache ของ engine ยังคงอยู่ใน engine:
 ให้ emit domain event และ report แทนการแก้ไข cache ของ engine จาก adapter ส่วน protocol cache
 แบบ private ใช้ได้เมื่อการ parse, การ replay subscription หรือการจับคู่ response ต้องใช้
@@ -757,7 +757,7 @@ type ตามธรรมชาติของมัน
 #### การตั้งค่า sender ของ execution event {#execution-event-sender-setup}
 
 สำหรับ execution client ที่ใช้
-[`ExecutionEventEmitter`](../../crates/live/src/execution/emitter.rs) ให้ติดตั้ง sender ทั้งสองขั้นตอน:
+[`ExecutionEventEmitter`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/src/execution/emitter.rs) ให้ติดตั้ง sender ทั้งสองขั้นตอน:
 
 1. **ตอนสร้าง factory**: resolve sender ด้วย `try_get_exec_event_sender` เมื่อคืนค่า `Some` ให้ติดตั้ง
    sender ใน `create` ก่อนคืน client `LiveNodeBuilder` จะ bind sender ของ runner เข้ากับ
@@ -818,7 +818,7 @@ subscription แสดงเจตนาที่ต่อเนื่อง ส
 - emit response เฉพาะข้อมูลที่ตรงกับ identity และ filter ของ request
 - รักษา correlation ID และ parameter ดั้งเดิมของ request ไว้ใน response event
 
-envelope ร่วม [`DataEvent`](../../crates/common/src/messages/mod.rs) เป็นตัวกำหนดว่าข้อมูล
+envelope ร่วม [`DataEvent`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/messages/mod.rs) เป็นตัวกำหนดว่าข้อมูล
 จะเข้าสู่ engine อย่างไร:
 
 | Variant                       | การใช้งาน                                                              | Contract ที่ต้องรักษา                                                                   |
@@ -851,7 +851,7 @@ contract ของ venue โดย map การหายไปเป็น `Not
 
 ### ความเป็นเจ้าของการกู้คืน order book {#order-book-recovery-ownership}
 
-[`nautilus_live::book`](../../crates/live/src/book/mod.rs) มีกลไกการกู้คืนร่วมให้ใช้ ให้เก็บ
+[`nautilus_live::book`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/src/book/mod.rs) มีกลไกการกู้คืนร่วมให้ใช้ ให้เก็บ
 การ synchronize และการกู้คืน book เฉพาะของ venue ไว้ใน `src/book/` ของแต่ละ adapter โดยให้ stream handler
 เป็นผู้ dispatch คำสั่งและ frame
 
@@ -1010,17 +1010,17 @@ order list
 #### Reconciliation report {#reconciliation-reports}
 
 reconciliation อ่าน state ของ venue ผ่าน method สำหรับ report ห้าตัวของ
-[`ExecutionClient`](../../crates/common/src/clients/execution.rs) โดย method เหล่านี้คืน
+[`ExecutionClient`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/clients/execution.rs) โดย method เหล่านี้คืน
 report แทนการ emit order event และปล่อยให้ execution engine ตัดสินว่าความแตกต่าง
 ระหว่าง state ใน cache กับ state ของ venue หมายถึงอะไร
 
 | Method                             | สิ่งที่สร้าง                                                                             | ถูกเรียกโดย                                                               |
 | ---------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| `generate_order_status_report`     | [`OrderStatusReport`](../../crates/model/src/reports/order.rs) แบบ optional หนึ่งตัว   | probe เฉพาะเจาะจงสำหรับ order หนึ่งตัวที่ open-order check ยัง resolve ไม่ได้   |
-| `generate_order_status_reports`    | ค่า [`OrderStatusReport`](../../crates/model/src/reports/order.rs)                     | mass status และ open-order check แบบเป็นรอบ                              |
-| `generate_fill_reports`            | ค่า [`FillReport`](../../crates/model/src/reports/fill.rs)                             | mass status                                                            |
-| `generate_position_status_reports` | ค่า [`PositionStatusReport`](../../crates/model/src/reports/position.rs)               | mass status และ position check แบบเป็นรอบ                                |
-| `generate_mass_status`             | [`ExecutionMassStatus`](../../crates/model/src/reports/mass_status.rs) แบบ optional หนึ่งตัว | reconciliation ตอน startup หนึ่งครั้งต่อ execution client               |
+| `generate_order_status_report`     | [`OrderStatusReport`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/model/src/reports/order.rs) แบบ optional หนึ่งตัว   | probe เฉพาะเจาะจงสำหรับ order หนึ่งตัวที่ open-order check ยัง resolve ไม่ได้   |
+| `generate_order_status_reports`    | ค่า [`OrderStatusReport`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/model/src/reports/order.rs)                     | mass status และ open-order check แบบเป็นรอบ                              |
+| `generate_fill_reports`            | ค่า [`FillReport`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/model/src/reports/fill.rs)                             | mass status                                                            |
+| `generate_position_status_reports` | ค่า [`PositionStatusReport`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/model/src/reports/position.rs)               | mass status และ position check แบบเป็นรอบ                                |
+| `generate_mass_status`             | [`ExecutionMassStatus`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/model/src/reports/mass_status.rs) แบบ optional หนึ่งตัว | reconciliation ตอน startup หนึ่งครั้งต่อ execution client               |
 
 [Execution reconciliation](../concepts/execution/reconciliation.md) อธิบายว่า engine ทำอะไรกับ
 report เหล่านี้ รวมถึงขั้นตอนตอน startup, การตรวจสอบตอน runtime ที่ขับ request แบบเป็นรอบและแบบเฉพาะเจาะจง
@@ -1170,7 +1170,7 @@ execution engine และ live `ExecutionManager` apply report ของทุ�
 #### การจัดการเมื่อ commission ล้มเหลว {#commission-failure-handling}
 
 commission เป็นส่วนหนึ่งของบันทึกทางเศรษฐกิจของ fill ให้คำนวณด้วยเลขคณิตทศนิยมแบบแม่นยำ แล้ว
-สร้างค่า [`Money`](../../crates/model/src/types/money.rs) ในสกุลเงินของ venue โดย hook ร่วม
+สร้างค่า [`Money`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/model/src/types/money.rs) ในสกุลเงินของ venue โดย hook ร่วม
 `ExecutionClient::calculate_commission` แยกแยะผลลัพธ์เหล่านี้:
 
 | ผลลัพธ์                  | ความหมาย                                                                                       |
@@ -1360,7 +1360,7 @@ model ความเป็นเจ้าของแบบติดตาม�
 เก็บการผูก venue order, การจับคู่ request, fill สะสม และ state ของการแทนที่ไว้ใน context ที่ adapter เป็นเจ้าของ
 รอบ ๆ surface ร่วมนั้น
 
-[`OrderIdentity` and `OrderContext`](../../crates/live/src/execution/context.rs) ให้
+[`OrderIdentity` and `OrderContext`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/src/execution/context.rs) ให้
 surface ดังกล่าว ให้เริ่มจากสิ่งเหล่านี้ และคงโครงสร้างเฉพาะ adapter ไว้เฉพาะที่พิสูจน์การตัดสินใจ route
 แบบเดียวกันได้
 
@@ -1419,7 +1419,7 @@ update มา:
   จองไว้ก่อน ให้ปล่อย key หลังจากล้มเหลว เพื่อให้การ replay กู้ event คืนได้
 - จำกัดขนาด state ของการตัดรายการซ้ำที่อยู่นาน แต่เก็บประวัติข้ามการ reconnect ไว้มากพอที่จะครอบคลุมการ replay ของ
   venue และ reset เฉพาะเมื่อโปรโตคอลพิสูจน์ได้ว่า identifier เก่าจะไม่กลับมาอีก
-- ใช้ [`FifoCache` and `FifoCacheMap`](../../crates/common/src/cache/fifo.rs) ร่วมเมื่อ
+- ใช้ [`FifoCache` and `FifoCacheMap`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/cache/fifo.rs) ร่วมเมื่อ
   การ evict แบบ first-in, first-out ตรงกับ contract ของการ replay และคงการ lock เฉพาะ adapter ไว้ในจุดที่
   การเปลี่ยน state หลายอย่างต้องเป็น atomic
 - ทำให้ acknowledgement และ order snapshot ที่ซ้ำเป็น idempotent โดยต้องไม่ทำให้ state ถอยหลังหรือ
@@ -1509,7 +1509,7 @@ rate limit, acknowledgement ที่หายไป และการ parse �
 
 ใช้ชื่อที่สอดคล้องกัน เพื่อให้เปรียบเทียบการจัดประเภทความล้มเหลวของคำสั่งข้าม adapter ได้ และ
 สภาพบน wire แบบเดียวกันถูกจัดประเภทอย่างสม่ำเสมอ ให้จัดประเภทความล้มเหลวของคำสั่ง order ที่เปลี่ยน state ทุกตัวเป็น
-variant หนึ่งของ [`CommandFailure`](../../crates/live/src/execution/failure.rs):
+variant หนึ่งของ [`CommandFailure`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/src/execution/failure.rs):
 
 | ประเภทหลักฐาน                 | Variant ของ `CommandFailure` | Terminal event จากหลักฐานนี้ |
 | -------------------------- | -------------------------- | -------------------------- |
@@ -1557,7 +1557,7 @@ error เพื่อความเข้ากันได้กับผู�
 | Strategy-facing reason | rejection event ที่ strategy ใช้                       | ความหมายจาก venue แบบจำกัดขนาด โดยไม่มี HTTP prefix, response envelope, markup, control character หรือ secret |
 
 format ข้อความ denial ฝั่ง local แบบมาตรฐานจาก
-[`OrderDeniedReason`](../../crates/model/src/events/order/denied_reason.rs) โดยใช้ suffix น้อยที่สุด
+[`OrderDeniedReason`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/model/src/events/order/denied_reason.rs) โดยใช้ suffix น้อยที่สุด
 ที่จำเป็นต่อการระบุ context ของ diagnostic:
 
 - emit `CODE` เมื่อ denial ไม่ต้องการ suffix สำหรับ diagnostic
@@ -1743,9 +1743,9 @@ response ของ venue ที่แจ้งว่า identity ซ้ำแส
 #### จัดการ backoff และการยุติ {#handle-backoff-and-termination}
 
 เคารพสัญญาณ backoff และ rate limit ของ venue และหยุด retry เมื่อถูก cancel ใช้
-[`RetryManager`](../../crates/network/src/retry.rs) ร่วมเมื่อ model การ cancel และ backoff ของมันเหมาะสม
+[`RetryManager`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/src/retry.rs) ร่วมเมื่อ model การ cancel และ backoff ของมันเหมาะสม
 
-`RetryManager` ส่ง [`RetryError`](../../crates/network/src/retry.rs) แบบ typed ไปยัง error
+`RetryManager` ส่ง [`RetryError`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/src/retry.rs) แบบ typed ไปยัง error
 callback ของผู้เรียก: `Canceled`, `OperationTimeout`, `ElapsedBudgetExceeded` หรือ `InvalidConfiguration` ให้ match variant
 เมื่อ adapter ต้องแยกแยะเหตุผลของการควบคุม ห้ามแยก branch ตามข้อความที่แสดง error ที่คืนมาสำหรับ
 `OperationTimeout` จะถูกประเมินโดย `should_retry` ดังนั้นให้ map ไปยัง variant timeout แบบชั่วคราวของ adapter เมื่อ
@@ -1810,7 +1810,7 @@ test ที่เจาะจงจะแยกแยะ:
 
 ### Rate limiting {#rate-limiting}
 
-[`HttpClient`](../../crates/network/src/http/client.rs) ร่วมรองรับ rate
+[`HttpClient`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/src/http/client.rs) ร่วมรองรับ rate
 limiter ได้ตั้งแต่หนึ่งตัวขึ้นไป ให้กำหนดขอบเขต state ของ limiter ตาม quota ของ venue ไม่ใช่ตาม object ของ Rust ที่สะดวก:
 
 - แชร์ bucket ระหว่าง client และ operation ที่ใช้ allowance เดียวกัน
@@ -1912,7 +1912,7 @@ client ที่สร้าง handler พร้อม transport หรือ p
 
 ### Authentication {#authentication}
 
-ใช้ [`AuthTracker`](../../crates/network/src/websocket/auth.rs) เมื่อ state ของ authentication ต้อง
+ใช้ [`AuthTracker`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/src/websocket/auth.rs) เมื่อ state ของ authentication ต้อง
 แชร์ระหว่าง client, handler และเส้นทาง reconnect โดย adapter ยังคงเป็นเจ้าของรายละเอียดของโปรโตคอล:
 
 - เริ่มความพยายาม authenticate หนึ่งครั้งและจับคู่ response
@@ -1927,7 +1927,7 @@ state เฉพาะ adapter ให้เก็บ state นั้นไว้�
 
 ### การจัดการ subscription {#subscription-management}
 
-ใช้ [`SubscriptionState`](../../crates/network/src/websocket/subscription.rs) เมื่อ venue มี
+ใช้ [`SubscriptionState`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/src/websocket/subscription.rs) เมื่อ venue มี
 subscription ที่ต้องตอบรับหรือมีการ replay ตอน reconnect มันแยกเจตนาออกจากการยืนยัน และมี
 reference count สำหรับ subscriber ที่ซ้ำกัน
 
@@ -2060,10 +2060,10 @@ disconnect ยุติ session ขณะที่คำสั่งที่ร
 
 ### การเก็บและการสังเกต task {#task-storage-and-observation}
 
-[`TaskHandles`](../../crates/common/src/live/task.rs) เก็บ unit task handle โดยไม่กำหนด
+[`TaskHandles`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/live/task.rs) เก็บ unit task handle โดยไม่กำหนด
 policy ของ spawn, cancellation, generation หรือ join ให้ใช้ภายใน component ที่กำหนดกฎเหล่านั้น
 
-[`TaskGroup`](../../crates/live/src/task.rs) จัดหา policy ร่วมของ live client สำหรับ session task และ command task
+[`TaskGroup`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/src/task.rs) จัดหา policy ร่วมของ live client สำหรับ session task และ command task
 ที่ output เป็น unit ใช้ `TaskGroup::spawn_named` เมื่อ state ของ client ต้องสังเกตชื่อเชิงตรรกะ, identity
 ของ instance หรือสถานะ terminal ของ task ใน group `TaskRef` ของมันเป็นแบบอ่านอย่างเดียว: group
 ยังคงเป็นเจ้าของการ cancel และการ join แต่เพียงผู้เดียว การสังเกตแบบอ่านอย่างเดียวไม่ได้ทำให้ task เป็น
@@ -2085,7 +2085,7 @@ operation แบบ asynchronous และคืนผลการ validate ฝ�
 ผ่าน `TaskGroup` ของมัน group จะเก็บ handle ก่อนเปิด start gate ของ task ดังนั้น
 shutdown ที่เกิดพร้อมกันจะเป็นเจ้าของ task หรือปฏิเสธการรับเข้าอย่างใดอย่างหนึ่ง
 
-[Tokio usage hook](../../.pre-commit-hooks/check_tokio_usage.sh) ปฏิเสธ `tokio::spawn` ใน
+[Tokio usage hook](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/.pre-commit-hooks/check_tokio_usage.sh) ปฏิเสธ `tokio::spawn` ใน
 production code ของ adapter และกำหนดให้ใช้ path แบบเต็มสำหรับ spawn, time และ sync ของ Tokio
 
 ทำให้ขอบเขตแบบ synchronous เล็กที่สุด:
@@ -2193,7 +2193,7 @@ test พิสูจน์ semantics ของ adapter ที่ขอบเข�
 
 policy การทดสอบร่วมของ repository ใช้ `#[rstest]` สำหรับ test function ของ Rust, อนุญาต
 `#[tokio::test]` สำหรับ async test และไม่อนุญาต comment แบบ arrange/act/assert
-[testing conventions hook](../../.pre-commit-hooks/check_testing_conventions.sh) บังคับใช้กฎ
+[testing conventions hook](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/.pre-commit-hooks/check_testing_conventions.sh) บังคับใช้กฎ
 ระดับ repository เหล่านี้
 
 #### Fixture และ assertion ของ parser {#fixtures-and-parser-assertions}
@@ -2226,7 +2226,7 @@ request, สถานะ connection, สถานะ subscription, จำนว�
 เลือกใช้ notification ที่ test หรือ mock เป็นเจ้าของเมื่อ operation เปิดให้ใช้ ให้ subscribe ก่อน
 อ่าน state ที่เชื่อถือได้ แล้วตรวจซ้ำหลังทุก notification เพื่อไม่ให้พลาด transition ที่เกิดระหว่าง
 การอ่านกับการ await เมื่อไม่มีสัญญาณที่เหมาะสม ให้ใช้
-[`wait_until_async`](../../crates/common/src/testing.rs) การ sleep สั้น ๆ ใช้ได้เมื่อช่วงเวลา
+[`wait_until_async`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/testing.rs) การ sleep สั้น ๆ ใช้ได้เมื่อช่วงเวลา
 นั้นคือสิ่งที่กำลังทดสอบ แต่ไม่ควรใช้ปกปิดจุด synchronization ที่ขาดหายไป
 
 ### การทดสอบเชิงฟังก์ชันและ integration {#functional-and-integration-testing}
@@ -2317,9 +2317,9 @@ suite เหล่านี้เพิ่มความมั่นใจใ�
 
 | Suite               | ขอบเขตแบบ canonical                                                                                                  | อ้างอิง                                                                                                                                |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `benches/data.rs`   | raw frame หรือ payload ของ venue ผ่านการ decode, parse, lookup ใน cache เมื่อจำเป็น และการสร้าง domain ของ Nautilus           | [Lighter data](../../crates/adapters/lighter/benches/data.rs), [Derive data](../../crates/adapters/derive/benches/data.rs)           |
-| `benches/exec.rs`   | คำสั่ง order ผ่านการ serialize และ sign และเมื่อเกี่ยวข้อง payload ของ execution ขาเข้าผ่านการ dispatch event               | [Lighter execution](../../crates/adapters/lighter/benches/exec.rs), [Derive execution](../../crates/adapters/derive/benches/exec.rs) |
-| `benches/micros.rs` | ต้นทุนเฉพาะการ decode, เฉพาะการ parse และ component ที่เจาะจง เพื่อระบุตำแหน่ง regression ที่พบที่ขอบเขตของ pipeline             | [Lighter micros](../../crates/adapters/lighter/benches/micros.rs), [Derive micros](../../crates/adapters/derive/benches/micros.rs)   |
+| `benches/data.rs`   | raw frame หรือ payload ของ venue ผ่านการ decode, parse, lookup ใน cache เมื่อจำเป็น และการสร้าง domain ของ Nautilus           | [Lighter data](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/adapters/lighter/benches/data.rs), [Derive data](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/adapters/derive/benches/data.rs)           |
+| `benches/exec.rs`   | คำสั่ง order ผ่านการ serialize และ sign และเมื่อเกี่ยวข้อง payload ของ execution ขาเข้าผ่านการ dispatch event               | [Lighter execution](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/adapters/lighter/benches/exec.rs), [Derive execution](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/adapters/derive/benches/exec.rs) |
+| `benches/micros.rs` | ต้นทุนเฉพาะการ decode, เฉพาะการ parse และ component ที่เจาะจง เพื่อระบุตำแหน่ง regression ที่พบที่ขอบเขตของ pipeline             | [Lighter micros](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/adapters/lighter/benches/micros.rs), [Derive micros](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/adapters/derive/benches/micros.rs)   |
 
 วาง instrument, payload, state ของ signer และ fixture อื่นที่สมจริงและใช้ร่วมกันไว้ใน
 `benches/common/` สร้าง setup, การ allocate และ state ที่คงที่ไว้นอกช่วงที่จับเวลา เมื่อ
@@ -2334,9 +2334,9 @@ regression ไม่ใช่เพื่อทำให้ suite ใหญ่�
 authentication โดย Lighter มี suite ด้าน cryptography ที่เจาะจง และ Derive มี suite สำหรับการ sign อย่า
 บังคับหมวดที่ adapter ไม่ได้ใช้ ตัวเลขการ sign ของ Lighter ที่บันทึกไว้และการเปรียบเทียบกับ
 Go ทางการอยู่ใน
-[Lighter adapter benchmarks](../../crates/adapters/lighter/benches/BENCHMARKS.md)
+[Lighter adapter benchmarks](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/adapters/lighter/benches/BENCHMARKS.md)
 
-ทำตาม[คู่มือ benchmarking](../../BENCHMARKING.md) ของ repository สำหรับการเลือกเครื่องมือ, baseline, การควบคุม
+ทำตาม[คู่มือ benchmarking](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/BENCHMARKING.md) ของ repository สำหรับการเลือกเครื่องมือ, baseline, การควบคุม
 noise และการรายงานผล และใช้
 [Criterion practitioner guide](benchmarking.md#writing-criterion-benchmarks) สำหรับโครงสร้าง
 benchmark และคำสั่งที่รันบนเครื่อง local
@@ -2379,10 +2379,10 @@ state ของ network ไว้ใน harness
 | Adapter `[package.metadata]`                               | `cargo-fuzz = true`                                                                | ให้ `cargo fuzz` ถือว่า manifest ของ adapter เป็น fuzz package                  |
 | Adapter `[[bin]]`                                          | หนึ่ง entry ต่อหนึ่ง target พร้อม feature `fuzz` และตั้ง `test`, `doc` และ `bench` เป็น false | ลงทะเบียน binary ที่ค้นพบได้โดยไม่เพิ่มเข้าไปในการรัน test ปกติ                      |
 | `fuzz/fuzz_targets/`                                       | target ที่เจาะจงซึ่งอยู่ต่ำกว่าชั้น live network และ runtime                                | ให้ input ใด ๆ อยู่ที่ขอบเขตของ parser, codec, การ normalize หรือ model             |
-| [`scripts/fuzz-adapter.sh`](../../scripts/fuzz-adapter.sh) | การค้นหา target ของ adapter และการรันซ้ำแบบแบ่งช่วงเวลา                                 | ใช้ binary ที่ลงทะเบียนไว้และรักษาตำแหน่งของ corpus และ artifact                     |
+| [`scripts/fuzz-adapter.sh`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/scripts/fuzz-adapter.sh) | การค้นหา target ของ adapter และการรันซ้ำแบบแบ่งช่วงเวลา                                 | ใช้ binary ที่ลงทะเบียนไว้และรักษาตำแหน่งของ corpus และ artifact                     |
 
 adapter crate ต้องไม่พึ่งพา `libfuzzer-sys` โดยตรง
-[Cargo conventions hook](../../.pre-commit-hooks/check_cargo_conventions.sh) บังคับใช้เส้นทาง
+[Cargo conventions hook](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/.pre-commit-hooks/check_cargo_conventions.sh) บังคับใช้เส้นทาง
 feature ร่วม ให้ใช้ [Lighter fuzz README][lighter-fuzz] และ
 [Derive fuzz README][derive-fuzz] ที่เจาะจงสำหรับคำสั่ง setup, corpus, artifact และ target แทนการ
 คัดลอกทุกคำสั่งมาไว้ที่นี่
@@ -2399,7 +2399,7 @@ feature ร่วม ให้ใช้ [Lighter fuzz README][lighter-fuzz] แ�
 - ลิงก์ไปยังเอกสารโปรโตคอลของ venue ที่ implementation ใช้
 
 ทำให้คำกล่าวอ้างเรื่อง capability ทดสอบได้ และระบุข้อยกเว้นที่ชอบธรรม ให้ลิงก์ไปยังคู่มือร่วมด้าน
-[configuration](../concepts/configuration.md), [benchmarking](../../BENCHMARKING.md) และการทดสอบ
+[configuration](../concepts/configuration.md), [benchmarking](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/BENCHMARKING.md) และการทดสอบ
 แทนการคัดลอก policy ของคู่มือเหล่านั้น
 
 ทำตาม[คู่มือเอกสาร](docs.md) และ

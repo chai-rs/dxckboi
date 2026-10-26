@@ -8,8 +8,8 @@
 - [Supply chain policy](https://nautilustrader.io/security/supply-chain/) ซึ่งระบุพันธะสาธารณะเรื่อง
   dependency และความถูกต้องสมบูรณ์ (integrity) ของ release
 - [Releases](releases.md) ซึ่งอธิบาย workflow และ checklist ของการ release
-- [Security Policy](../../SECURITY.md) ซึ่งให้คำสั่งตรวจสอบสำหรับผู้ใช้งาน
-- [GitHub Actions overview](../../.github/OVERVIEW.md#security) ซึ่งอธิบายการควบคุมใน CI/CD
+- [Security Policy](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/SECURITY.md) ซึ่งให้คำสั่งตรวจสอบสำหรับผู้ใช้งาน
+- [GitHub Actions overview](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/.github/OVERVIEW.md#security) ซึ่งอธิบายการควบคุมใน CI/CD
 
 ## เป้าหมายด้านความปลอดภัย {#security-goals}
 
