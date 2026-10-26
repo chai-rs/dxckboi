@@ -622,3 +622,346 @@ report แบบ `OPENING_ONLY` เพียงตัวเดียวทำใ
 - **ขอบเขตของ report**: ตัวกรอง position report และ instrument ยังคงใช้ report ที่ถูกตัดออกจะไม่ถูกตรวจสอบ
 - **ปิด reconciliation**: การปิด reconciliation จะข้ามการตรวจสอบนี้ทั้งหมด
 
+### Fill adjustment {#fill-adjustment}
+
+engine สามารถวิเคราะห์จุดที่ position ตัดผ่านศูนย์ (zero-crossing), ตัด lifecycle ที่ปิดแล้วออก และสร้าง fill สังเคราะห์
+เมื่อ fill ที่รายงานไม่สามารถอธิบาย position ปัจจุบันที่ venue ได้
+
+เงื่อนไขต่อไปนี้ควบคุม fill adjustment:
+
+- การประกาศ `lookback_start` ไม่ได้ทำให้ข้าม adjustment
+- หากไม่มี `avg_px_open` ที่รายงาน engine จะคง order และ fill ดั้งเดิมไว้ แทนที่จะสร้างราคาขึ้นมาเองสำหรับ fill adjustment
+  แบบสังเคราะห์
+- การตั้ง `filter_position_reports` จะข้าม fill adjustment ทั้งสำหรับ window ที่ประกาศและไม่ได้ประกาศ
+
+fill adjustment ใช้คำศัพท์เหล่านี้:
+
+- **Zero-crossing**: ปริมาณ position ตัดผ่านศูนย์ (FLAT) ซึ่งเป็นขอบเขตของ lifecycle
+- **Lifecycle**: ลำดับของ fill ระหว่าง zero-crossing ที่แทนหนึ่งรอบของการเปิด-ปิด
+- **Fill สังเคราะห์**: fill report ที่คำนวณขึ้นเพื่อแทนกิจกรรมที่หายไป โดยกำหนดราคาให้ได้ค่าเฉลี่ย position ที่ถูกต้อง
+- **Tolerance**: fill adjustment ใช้ relative tolerance ของราคาเข้าที่ 0.0001 (0.01%) เพื่อรองรับความต่างเล็กน้อยจากการคำนวณ
+  startup validation ใช้ tolerance ของราคาเดียวกันและ quantity tolerance แยกของ account report ที่ตั้ง
+  `avg_px_open_precision` จะเพิ่มหนึ่งหน่วยที่ precision นั้นเข้าไปใน tolerance ของราคา
+
+เมื่อปิด `generate_missing_orders` engine ยังคงประมวลผล order report ดิบจาก venue และกรอง lifecycle ที่เสร็จแล้วออกเมื่อ
+lifecycle ปัจจุบันอธิบาย position ที่ venue ได้ แต่จะไม่เพิ่มหรือแทนที่ report สังเคราะห์เพื่อปรับ fill window ให้ตรงกับ position
+ที่ venue และจะไม่สร้าง order สำหรับกลุ่ม fill ที่ไม่มี order report
+
+adapter ที่ใช้จุดตัดประวัติควรประกาศผ่าน[สัญญาเรื่องประวัติของ mass status](#mass-status-history-contract) ด้วย การประกาศนี้
+บันทึกที่มาของข้อมูล แต่ไม่ได้อนุญาตให้ปล่อย position report ที่ระบุชัดเจนไว้โดยไม่จับคู่
+
+### ความปลอดภัยของประวัติแบบมีขอบเขต {#bounded-history-safety}
+
+**position report ที่ระบุชัดเจน** เป็นข้อมูลที่เชื่อถือได้สำหรับ position ไม่ว่าจะ open หรือ flat engine จะปรับให้ตรงกับ report
+นั้นภายใน tolerance ของ reconciliation หรือ fail closed โดยไม่ replay window ที่มีขอบเขตเพื่อตัดสินว่า report เชื่อถือได้หรือไม่
+
+engine นำ order และ fill ที่มีไปใช้ และโดยค่าเริ่มต้นจะสร้าง order และ fill ที่จำเป็นเพื่อให้ถึง report การปิด
+`generate_missing_orders` ไม่ได้อนุญาตให้ความไม่ตรงกันคงอยู่
+
+หากไม่มี position report ที่ระบุชัดเจนและอยู่ในขอบเขตสำหรับ instrument นั้น fill แบบมีขอบเขตจะไม่เปิด ปิด หรือเปลี่ยน position
+และไม่อัปเดตผลทางเศรษฐศาสตร์ของ portfolio order ยังคงไปถึงสถานะและปริมาณที่ fill ตามที่รายงาน report ดิบของ reconciliation
+ยังคงมีให้ใช้
+
+เพื่อความเข้ากันได้ mass status ที่ไม่ได้ประกาศ `lookback_start` ยังสามารถนำ fill ย้อนหลังไปใช้ได้เมื่อไม่มี position report
+ข้อยกเว้นนี้ไม่ได้ถือว่า report ที่หายไปเป็น flat การตัดตัวซ้ำของ fill ที่เก็บไว้และการ project lifecycle ที่เก่ากว่ายังคงใช้ในทั้งสองเส้นทาง
+
+report ที่มี `venue_position_id` ระบุชัดเจนจะใช้เส้นทาง reconciliation เฉพาะ position และไม่ต้องอนุมาน lifecycle แบบ NETTING
+
+### การจัดการความล้มเหลว {#failure-handling}
+
+ระหว่าง startup request mass status ของ execution client มีผลลัพธ์สามแบบ:
+
+- **มีข้อมูล (`Ok(Some(...))`)**: reconcile report ที่ได้รับ position report ในขอบเขตที่ยังไม่ resolve จะทำให้ actor และ strategy
+  เริ่มทำงานไม่ได้
+- **ไม่มีข้อมูล (`Ok(None)`)**: log warning และดำเนิน startup ต่อ policy เพื่อความเข้ากันได้นี้ไม่ได้พิสูจน์ว่า venue เป็น flat
+  และไม่สามารถอนุมานเป้าหมายของ position จาก report ที่หายไปได้
+- **ล้มเหลว (`Err(...)`) หรือหมดเวลา**: ยกเลิก startup และทำตามเส้นทางการล้างข้อมูลตอน startup
+
+การประมวลผล report ยังเป็นไปตามกฎเหล่านี้:
+
+- adapter สามารถคงส่วนของ report ที่สำเร็จไว้ได้หลังแหล่งข้อมูลแหล่งใดแหล่งหนึ่งล้มเหลว mass status ที่มีขอบเขตชัดเจนต้อง
+  ทำเครื่องหมายว่าผลลัพธ์ไม่สมบูรณ์ ความไม่สมบูรณ์ไม่ได้ veto position report ที่ระบุชัดเจน fill แบบมีขอบเขตที่ไม่มี position
+  report ที่ระบุชัดเจนจะไม่เปลี่ยน position
+- fill report ที่มาก่อน order status report จะถูกเลื่อนไว้จนกว่า state ของ order จะพร้อม
+
+#### ความล้มเหลวของค่าคอมมิชชัน {#commission-failures}
+
+ค่าคอมมิชชันของ fill จาก adapter ที่คำนวณหรือแสดงค่าไม่ได้จะทำให้ report request ล้มเหลวตาม
+[สัญญาของ adapter](../../developer_guide/adapters.md#commission-failure-handling) adapter จะไม่ทิ้ง fill นั้น หรือแทนค่าคอมมิชชัน
+ด้วยศูนย์หรือสูตรทั่วไป startup จะหยุดก่อนนำ mass status ของ client นั้นไปใช้
+
+engine จะขอให้ execution client ที่รับผิดชอบคำนวณค่าคอมมิชชันของ fill ที่อนุมาน หากล้มเหลวจะเลื่อนปริมาณที่อนุมานและการ
+เปลี่ยนไปสถานะสุดท้ายที่ขึ้นกับมันออกไป จนกว่ารอบ reconciliation ถัดไปจะสำเร็จ fill ที่ระบุชัดเจนและถูกต้องจากชุด report เดียวกัน
+ยังนำไปใช้ได้ สำหรับ external order นั้น engine จะ resolve ค่าคอมมิชชันก่อนเพิ่ม order ลงใน cache หรือ publish event แรกของมัน
+ดังนั้นความล้มเหลวจะเลื่อน external order ทั้งหมดออกไป การที่ execution client ที่รับผิดชอบไม่พร้อมใช้งานก็ให้ผลแบบ fail closed
+เช่นเดียวกัน
+
+ความล้มเหลวของค่าคอมมิชชันของ fill ที่อนุมานระหว่างการนำ mass status ที่สำเร็จในส่วนอื่นไปใช้ ไม่ได้หยุด startup ด้วยตัวเอง
+startup ยังคงล้มเหลวหาก position report ที่ระบุชัดเจนและอยู่ในขอบเขตยังไม่ resolve มิฉะนั้นงานที่ยังไม่ resolve จะรออยู่สำหรับ
+รอบ reconciliation ถัดไป
+
+หาก startup reconciliation ล้มเหลวด้วยเหตุผลอื่นใด ระบบจะ log error และไม่เริ่มทำงาน
+
+## การตรวจสอบระหว่าง runtime {#runtime-checks}
+
+reconciliation แบบต่อเนื่องเริ่มหลัง startup reconciliation เสร็จ โดยจะ:
+
+- เฝ้าดู order ที่อยู่ระหว่างทาง (in-flight) ว่าล่าช้าเกิน threshold ที่ตั้งไว้หรือไม่
+- reconcile order ที่เปิดอยู่กับ venue ตาม interval ที่ตั้งไว้
+- ตรวจสอบสถานะ position กับ venue ตาม interval ที่ตั้งไว้
+- ตรวจสอบ *own* order book ภายในเทียบกับ public book ของ venue
+
+พารามิเตอร์ `reconciliation_startup_delay_secs` เพิ่มความล่าช้า *หลัง* startup reconciliation เสร็จ เพื่อให้ระบบมีเวลา
+เข้าสู่สภาวะคงที่ [สถานการณ์ระหว่าง runtime](#runtime-scenarios) แสดงผลลัพธ์ของการตรวจสอบแต่ละแบบ
+
+### In-flight check {#in-flight-checks}
+
+หลังใช้จำนวน retry ที่ตั้งไว้หมดแล้ว in-flight checker จะ resolve order ที่หมดเวลาดังนี้ เว้นแต่ order นั้นไม่เคยถูก accept และ
+มีการคงการ submit ไว้:
+
+- `SUBMITTED`: reject order ด้วยเหตุผล `INFLIGHT_TIMEOUT`
+- `PENDING_CANCEL` หรือ `PENDING_UPDATE`: resolve order เป็น `CANCELED`
+
+สำหรับ order ที่ไม่เคยถูก accept นั้น `SubmissionRecoveryPolicy::RetainUnresolved` บังคับให้คงไว้ เช่นเดียวกับ Polymarket ไม่ว่า
+policy ที่ตั้งไว้จะเป็นอะไร การคงไว้จะหยุด query กู้คืนอัตโนมัติราย order แต่ยังให้หลักฐานจาก venue ที่มาภายหลัง resolve order ได้
+ดู[การกู้คืนการ submit](#submission-recovery) สำหรับกฎของการคงไว้
+
+[ที่มาของ terminal reconciliation](policies.md#terminal-reconciliation-provenance) แยกการ resolve ตาม policy ภายในออกจาก
+ผลลัพธ์ที่ venue รายงาน
+
+### การตรวจสอบความสอดคล้องของ order {#order-consistency-checks}
+
+การตรวจสอบ order ที่เปิดอยู่จะ query execution client ทุกตัวก่อนรันการประมวลผล report ที่เลื่อนไว้ client แต่ละตัวจะอยู่ในสถานะ
+ไม่ว่างจนกว่างานนั้นจะเสร็จหรือ report ถูกทิ้ง report request อื่นที่ส่งไปยัง client นั้นจะล้มเหลวเพราะกำลังทำงานอยู่
+
+timeout เริ่มนับเมื่อการตรวจสอบเริ่ม และใช้ `timeout_reconciliation` node จะยอมรับ batch เฉพาะก่อนถึง deadline batch ที่พร้อม
+ตรงเวลา deadline พอดีจะถูกทิ้ง
+
+เมื่อยอมรับ batch แล้ว การประมวลผลของ adapter ที่เลื่อนไว้และการนำ report ไปใช้จะทำงานแบบ synchronous โดยไม่มีการตรวจสอบ
+deadline หรือจุดยกเลิกเพิ่มเติม การประมวลผลที่ช้าจะไม่ทิ้ง report ที่ยอมรับแล้ว การทิ้ง batch หรือ response แบบเจาะจงจะข้ามงาน
+ของ adapter ที่เลื่อนไว้ แต่ไม่สามารถย้อนการเปลี่ยนแปลง state ที่ adapter ทำระหว่างการรวบรวมได้
+
+query ติดตามผลแบบเจาะจงใช้งบ timeout เดียวที่เริ่มเมื่อ task เริ่ม สำหรับแต่ละ order node จะลอง client ที่รับผิดชอบซึ่งพร้อมใช้งาน
+ตามลำดับ และหยุดที่สถานะแรกที่ตรงกัน จะ query fill ประกอบที่จำเป็นก่อนเริ่ม query สถานะของ order ถัดไป query สถานะแต่ละครั้ง
+จะทำให้ client ไม่ว่างจนกว่าจะประมวลผลที่เลื่อนไว้หรือทิ้ง query fill ประกอบจะปล่อย client นั้นก่อน query ของ order ถัดไป
+
+node จะยอมรับ response ของสถานะหรือ fill แต่ละตัวเฉพาะก่อน deadline เดิม แล้วจึงรันการประมวลผลที่เลื่อนไว้
+response ที่พร้อมตรงเวลา deadline พอดีจะถูกทิ้ง ผลลัพธ์ที่ยอมรับแล้วจะอยู่ในความดูแลของ node จนถึง reconciliation รวมถึงหลัง
+fill timeout, fill error, การยกเลิก หรือการ shutdown ตามปกติ การประมวลผลที่ช้าไม่สามารถทิ้งผลลัพธ์ที่ยอมรับแล้ว สถานะ canceled
+หรือ expired ที่มี fill ที่ยังไม่ถูกนับจะถูกเลื่อนไว้จนกว่า fill เหล่านั้นจะมาถึง task ที่หมดเวลาหรือถูกยกเลิกจะไม่ resolve order ว่า
+หายไป ความล้มเหลวร้ายแรงของ callback จะหยุดการ dispatch ต่อไปและทิ้งผลลัพธ์ที่เก็บไว้
+
+ตารางด้านล่างใช้เมื่อ state ใน cache ต่างจาก state ที่ venue การไม่มี open-order report ไม่ได้พิสูจน์ผลลัพธ์ของ modify หรือ cancel
+ที่รออยู่ด้วยตัวเอง ดังนั้นการตรวจสอบเหล่านี้จึงปล่อย state เหล่านั้นไว้โดยไม่ resolve จนกว่าการตรวจสอบอื่นจะระบุ state ที่ venue ได้
+
+:::info[การตรวจสอบแบบประวัติเต็ม]
+แถว *Not found* ใช้เฉพาะในโหมดประวัติเต็ม (`open_check_open_only` เป็น false) โหมด open-only เป็นค่าเริ่มต้น การคงการ submit
+ไว้ก็ใช้ที่นี่ด้วย: order `SUBMITTED` ที่ยังไม่ได้รับการตอบรับจะยังไม่ resolve เมื่อ policy หรือ client ของมันบังคับให้คงไว้
+:::
+
+| สถานะใน cache       | สถานะที่ venue | การ resolve   | เหตุผล                                                                     |
+| ------------------ | ------------ | ------------ | ------------------------------------------------------------------------ |
+| `SUBMITTED`        | *Not found*  | `REJECTED`   | venue ไม่เคยยืนยัน order (เช่น หายไประหว่าง network error)                    |
+| `ACCEPTED`         | *Not found*  | `REJECTED`   | order ไม่มีอยู่ที่ venue น่าจะไม่เคยถูกส่งสำเร็จ                                |
+| `ACCEPTED`         | `CANCELED`   | `CANCELED`   | venue ยกเลิก order (ผู้ใช้สั่งหรือ venue เป็นผู้เริ่ม)                           |
+| `ACCEPTED`         | `EXPIRED`    | `EXPIRED`    | order ถึงเวลาหมดอายุแบบ GTD ที่ venue                                       |
+| `ACCEPTED`         | `REJECTED`   | `REJECTED`   | venue reject หลังจาก accept ในตอนแรก (เกิดน้อยแต่เป็นไปได้)                    |
+| `PENDING_UPDATE`   | *Not found*  | *Unresolved* | ยังไม่ทราบผลลัพธ์ของการแก้ไข                                                 |
+| `PENDING_CANCEL`   | *Not found*  | *Unresolved* | ยังไม่ทราบผลลัพธ์ของการยกเลิก                                                |
+| `PARTIALLY_FILLED` | `CANCELED`   | `CANCELED`   | order ถูกยกเลิกที่ venue โดยคง fill ไว้                                       |
+| `PARTIALLY_FILLED` | *Not found*  | `CANCELED`   | order ไม่มีอยู่แต่เคยมี fill (reconcile ประวัติ fill)                           |
+
+#### โหมด open-only {#open-only-mode}
+
+endpoint "open orders" ของ venue ตัด order ที่ปิดแล้วออกโดยการออกแบบ ทำให้แยกไม่ได้ว่า order หายไปหรือเพิ่งปิด order ที่รอ
+cancel/update จะยังไม่ resolve เมื่อการตรวจสอบ order ที่หายไปพิสูจน์ state สุดท้ายที่ venue ไม่ได้
+
+#### การป้องกัน order ล่าสุด {#recent-order-protection}
+
+engine จะข้าม reconciliation สำหรับ order ที่ event ล่าสุดอยู่ภายในช่วง `open_check_threshold_ms` เพื่อป้องกัน false positive
+จาก race condition ที่ venue ยังประมวลผลอยู่
+
+#### มาตรการป้องกันด้วย query แบบเจาะจง {#targeted-query-safeguard}
+
+ก่อนนำการ resolve แบบสุดท้ายว่า "not found" ไปใช้ engine จะส่ง query ราย order ไปยัง venue หนึ่งครั้ง เพื่อจับ false negative
+ที่เกิดจากข้อจำกัดของ query แบบรวมหรือความล่าช้าด้านเวลา
+
+#### Order ที่เสร็จสมบูรณ์ {#completed-orders}
+
+order ที่ `FILLED` ซึ่ง "not found" ที่ venue จะถูกเพิกเฉยอย่างเงียบ ๆ venue มักตัด order ที่เสร็จแล้วออกจากผลลัพธ์ของ query
+
+### การตรวจสอบ position {#position-checks}
+
+#### การยอมรับ report {#report-acceptance}
+
+snapshot ของ position และ query fill ที่เชื่อถือได้ของมันใช้ deadline `timeout_reconciliation` แยกกัน แต่ละขั้นจะรวบรวมผลลัพธ์
+ทั้งหมดก่อนยอมรับ และยอมรับเฉพาะเมื่อ `now < deadline` client แต่ละตัวจะไม่ว่างจนกว่าการประมวลผล report ที่เก็บไว้ทั้งหมด
+จะเสร็จหรือผลลัพธ์ถูกทิ้ง
+
+ขั้นที่ยอมรับแล้วจะรันการประมวลผลที่เลื่อนไว้และส่ง report ให้ reconciliation แบบ synchronous แม้การประมวลผลจะเลย deadline
+ไปแล้ว การหมดอายุหรือการยกเลิกจะข้ามการประมวลผลที่เลื่อนไว้ แต่ไม่สามารถย้อนการเปลี่ยนแปลง state ที่ adapter ทำระหว่าง
+การรวบรวมได้
+
+ระหว่าง shutdown node จะทิ้ง snapshot ของ position ที่ไม่ได้ใช้โดยไม่รันการประมวลผลที่เลื่อนไว้, นำขั้น fill ที่ยอมรับแล้วไปใช้
+และคงความเป็นเจ้าของ worker ที่รวบรวมข้อมูลไว้จนกว่าจะทำงานเสร็จหมด
+
+#### การ retry และ query ที่ล้มเหลว {#retries-and-query-failures}
+
+การตรวจสอบ position ใช้ตัวนับ retry แยกต่อ instrument และ account การจับคู่ position ที่สำเร็จจะล้างตัวนับ ส่วนความคลาดเคลื่อน
+ที่ยังไม่ resolve ซ้ำ ๆ จะหยุด reconciliation แบบ active สำหรับคู่นั้นจนกว่าความคลาดเคลื่อนจะหายไป
+
+หาก query position ของ venue ล้มเหลว engine จะข้าม position ใน cache ของ venue นั้นในรอบนั้น แทนที่จะถือว่า report ที่หายไป
+เป็น flat
+
+### การประสานงานการ retry {#retry-coordination}
+
+loop ของ in-flight จะเพิ่มตัวนับ retry ราย order ของตัวเองเทียบกับ `inflight_check_retries` และสะท้อนค่านั้นไปยังการติดตาม
+order ที่หายไป loop ของ open-order จะเพิ่มตัวนับ order ที่หายไปเทียบกับ `open_check_missing_retries` แต่ละ loop ใช้ขีดจำกัด
+ของตัวเอง ไม่มีค่าใด override อีกค่าโดยอัตโนมัติ
+
+เมื่อ loop ของ open-order ใช้ retry หมด engine จะส่ง probe `GenerateOrderStatusReport` แบบเจาะจงหนึ่งครั้ง ก่อนนำ state สุดท้าย
+ไปใช้ หรือปล่อยให้ cancel/update ที่รออยู่และกำกวมยังไม่ resolve หาก venue คืน order มา reconciliation จะดำเนินต่อและล้างการ
+ติดตาม order ที่หายไป หาก state ที่รออยู่ยังไม่ resolve engine จะ reset ตัวนับ in-flight ด้วย ก่อนตรวจสอบอีกครั้งหลัง threshold
+ที่ตั้งไว้
+
+เมื่อใช้ `RetainUnresolved` หรือ client ที่ลงทะเบียนบังคับให้คงไว้ การ submit ที่ติดตามอยู่ซึ่งยังไม่ได้รับการตอบรับจะคงงบ in-flight
+เดิมไว้แทนการ reset การตรวจสอบ order ที่หายไปซ้ำ ๆ ไม่สามารถเลื่อนการหมดงบนั้นออกไปได้ การหมดความพยายามจะคงการ submit
+ที่ยังไม่ resolve ไว้โดยไม่มี terminal event แบบสังเคราะห์
+
+### การจำกัดอัตรา query ราย order {#single-order-query-throttling}
+
+engine จำกัดจำนวน query ราย order ต่อรอบด้วย `max_single_order_queries_per_cycle` order ที่เหลือจะถูกเลื่อนไปรอบถัดไป
+`single_order_query_delay_ms` เว้นระยะระหว่าง query ที่ต่อเนื่องกันเพื่อหลีกเลี่ยง rate limit วิธีนี้รับมือกับ query แบบรวมที่ล้มเหลว
+กับ order หลายร้อยตัวได้โดยไม่ทำให้ API ของ venue รับภาระเกิน
+
+task แบบเจาะจงจะใช้ delay ระหว่างการลอง query สถานะกับ client ที่พร้อมใช้งานข้ามทุก order ใน task client ที่ไม่พร้อมใช้งานไม่ใช้
+delay request fill ประกอบจะตามหลังสถานะที่ตรงกันโดยไม่มี delay เพิ่ม การลอง query สถานะครั้งถัดไปจะใช้ delay ที่ตั้งไว้และงบ
+timeout ที่เหลือ
+
+## สถานการณ์ reconciliation ที่พบบ่อย {#common-reconciliation-scenarios}
+
+ตารางด้านล่างครอบคลุม startup reconciliation (mass status), การตรวจสอบระหว่าง runtime (in-flight order check, การ poll
+open order, การตรวจสอบ own book), fill adjustment และประวัติแบบมีขอบเขต
+
+### สถานการณ์ตอน startup {#startup-scenarios}
+
+| สถานการณ์                               | คำอธิบาย                                                                                | พฤติกรรมของระบบ                                                                                            |
+| -------------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| **state ของ order ไม่ตรงกัน**            | state ภายในต่างจาก venue (เช่น ภายในเป็น `SUBMITTED`, venue เป็น `REJECTED`)             | อัปเดต order ภายในให้ตรงกับ state ที่ venue และ emit event ที่หายไป                                         |
+| **fill ที่พลาดไป**                        | ประวัติที่ venue แบบสมบูรณ์มี fill ที่ engine พลาดไป                                        | สร้าง event `OrderFilled` ที่หายไปและนำผลทางเศรษฐศาสตร์ไปใช้                                               |
+| **หลาย fill**                           | ชุด report ที่สมบูรณ์และสอดคล้องกันมีหลาย fill ของ order หนึ่ง                               | สร้างประวัติ fill ที่รายงานขึ้นใหม่ตามลำดับ event                                                           |
+| **ประวัติแบบมีขอบเขตที่ไม่สมบูรณ์**          | แหล่ง order, fill หรือ position ที่จำเป็นล้มเหลวหรือ map ไม่ได้                              | ปรับให้ตรงกับ position report ที่ระบุชัดเจน หรือปล่อยไว้โดยไม่ resolve fill ที่ไม่มี report จะเป็นแบบเฉพาะ order |
+| **lifecycle แบบมีขอบเขตที่กำกวม**          | report แบบมีขอบเขตไม่ได้พิสูจน์การเปลี่ยนแปลง position แบบ NETTING ที่สอดคล้องกันหนึ่งครั้ง        | position report ที่ระบุชัดเจนยังเป็นเป้าหมายของปริมาณ fill ที่ไม่มี report จะเป็นแบบเฉพาะ order                |
+| **External order**                     | order มีอยู่ที่ venue แต่ไม่มีใน cache ภายใน                                                | สร้าง order ที่ไม่ถูก claim ด้วย strategy ID `EXTERNAL` และ tag `VENUE`                                    |
+| **ไม่มี client origin**                  | order ใน cache ที่อยู่ใน mass status ไม่มี execution-client origin ที่บันทึกไว้                 | log warning แบบรวมหนึ่งครั้งพร้อมจำนวนและตัวอย่าง ID แล้ว reconcile กับ client ที่รายงาน                      |
+| **client origin ขัดแย้งกัน**              | origin ของ order ใน cache ต่างจาก client ที่ส่ง report                                     | log warning เรื่อง deprecation แบบรวมหนึ่งครั้ง reconciliation ดำเนินต่อในช่วงเวลาเพื่อความเข้ากันได้            |
+| **fill บางส่วนแล้วถูกยกเลิก**               | order ถูก fill บางส่วนแล้ว venue ยกเลิก                                                   | อัปเดต state เป็น `CANCELED` และคงประวัติ fill ไว้                                                       |
+| **ข้อมูล fill ต่างกัน**                    | venue รายงานราคา/ค่าคอมมิชชันของ fill ต่างจากใน cache                                      | คงข้อมูลใน cache ไว้ และ log ความคลาดเคลื่อน                                                              |
+| **order ที่ถูกกรอง**                      | order ที่ถูกทำเครื่องหมายให้กรองผ่าน config                                                 | ข้ามตาม `filtered_client_order_ids` หรือตัวกรอง instrument                                               |
+| **instrument ที่ resolve ไม่ได้**          | report อ้างถึง instrument ในขอบเขตที่ adapter ยังไม่ได้โหลด                                  | startup ล้มเหลวสำหรับ report ของ order และ position ที่เปิดอยู่ กรณีอื่นจะ warning และทำเครื่องหมายว่าประวัติแบบมีขอบเขตไม่สมบูรณ์ |
+| **ค่าคอมมิชชันของ fill ล้มเหลว**            | adapter แสดงค่าคอมมิชชันของ fill ที่จำเป็นไม่ได้ระหว่างสร้าง report                             | การสร้าง mass status ล้มเหลว และหยุด startup ก่อนนำ report ของ client นั้นไปใช้                            |
+| **ค่าคอมมิชชันของ fill ที่อนุมานล้มเหลว**     | execution client ที่รับผิดชอบคำนวณค่าคอมมิชชันที่จำเป็นไม่ได้                                  | เลื่อนงานที่อนุมานออกไป external order จะยังไม่มี ขณะที่ fill ที่ระบุชัดเจนและถูกต้องยังนำไปใช้ได้              |
+| **order report ซ้ำ**                    | order หลายตัวใช้ตัวระบุเดียวกัน                                                             | ตัดตัวซ้ำพร้อม log warning                                                                               |
+| **ปริมาณ position ไม่ตรงกัน (long)**      | position ฝั่ง long ภายในต่างจาก venue (เช่น 100 กับ 150)                                   | สร้าง BUY MARKET ด้วยราคาที่คำนวณ เมื่อ `generate_missing_orders` เป็น true                               |
+| **ปริมาณ position ไม่ตรงกัน (short)**     | position ฝั่ง short ภายในต่างจาก venue (เช่น -100 กับ -150)                                | สร้าง SELL MARKET ด้วยราคาที่คำนวณ เมื่อ `generate_missing_orders` เป็น true                              |
+| **position ลดลง**                       | position ที่ venue เล็กกว่าภายใน (เช่น ภายใน long 150, venue long 100)                       | สร้าง MARKET order ฝั่งตรงข้ามด้วยราคาที่คำนวณ                                                            |
+| **position กลับฝั่ง**                     | position ภายในอยู่ฝั่งตรงข้ามกับ venue (เช่น ภายใน long 100, venue short 50)                   | สร้าง MARKET order เพื่อปิด position ภายในและเปิด position ตามภายนอก                                       |
+| **order ภายในจาก reconciliation**        | order ที่สร้างขึ้นเพื่อปรับความคลาดเคลื่อนของ position                                          | ใส่ tag `RECONCILIATION` ใช้ claim เมื่อตั้งค่าไว้ มิฉะนั้นใช้ `EXTERNAL`                                   |
+
+### สถานการณ์ระหว่าง runtime {#runtime-scenarios}
+
+| สถานการณ์                            | คำอธิบาย                                                  | พฤติกรรมของระบบ                                    |
+| ----------------------------------- | --------------------------------------------------------- | ----------------------------------------------- |
+| **submit แบบ in-flight หมดเวลา**      | `SUBMITTED` ยังไม่ได้รับการยืนยันหลังใช้ retry หมด            | resolve เป็น `REJECTED` ด้วย `INFLIGHT_TIMEOUT`  |
+| **cancel/update แบบ in-flight หมดเวลา** | `PENDING_CANCEL` หรือ `PENDING_UPDATE` เกินจำนวน retry      | resolve เป็น `CANCELED` ผ่าน reconciliation      |
+| **การตรวจสอบ open order พบความคลาดเคลื่อน** | การ poll ตามรอบตรวจพบการเปลี่ยน state ที่ venue               | ยืนยันสถานะและนำการเปลี่ยนสถานะไปใช้               |
+| **การตรวจสอบ position พบความคลาดเคลื่อน** | การ poll ตามรอบตรวจพบ position ไม่ตรงกัน                     | สร้าง event ของ reconciliation เมื่อเข้าเงื่อนไข     |
+| **การสร้างค่าคอมมิชชันล้มเหลว**          | แสดงค่าคอมมิชชันของ fill ที่จำเป็นไม่ได้                         | เลื่อนงานที่ได้รับผลกระทบไปรอบถัดไป                    |
+| **การตรวจสอบ own book ไม่ตรงกัน**       | own order book แตกต่างจาก public book ของ venue              | ตรวจสอบและ log ความไม่สอดคล้อง                     |
+
+แถว in-flight timeout ไม่ใช้กับ order ที่ยังไม่ได้รับการตอบรับ เมื่อ policy หรือ client ของมันบังคับให้คงการ submit ไว้ order นั้น
+จะยังไม่ resolve ดู[In-flight check](#in-flight-checks)
+
+### สถานการณ์ของ fill adjustment {#fill-adjustment-scenarios}
+
+สถานการณ์เหล่านี้ใช้ไม่ว่า mass status จะประกาศ `lookback_start` หรือไม่:
+
+| สถานการณ์                                  | คำอธิบาย                                                 | พฤติกรรมของระบบ                                                                                                                                                                                  |
+| ----------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Lifecycle สมบูรณ์**                      | จับ fill ได้ครบตั้งแต่เปิดจนถึง state ปัจจุบัน                  | ไม่มีการปรับ                                                                                                                                                                                     |
+| **Lifecycle เดียวที่ไม่สมบูรณ์**              | report ขาด fill ที่เปิด position และไม่มี zero-crossing      | เพิ่ม fill เปิด position แบบสังเคราะห์ด้วยราคาที่คำนวณ                                                                                                                                              |
+| **หลาย lifecycle, lifecycle ปัจจุบันตรงกัน**  | zero-crossing แบ่ง lifecycle ก่อนหน้าและปัจจุบัน              | กรอง lifecycle เก่าออกและเก็บ lifecycle ปัจจุบันไว้ order ที่ fill คร่อมจุดตัดจะคง fill ก่อนหน้าไว้ โดย project ไปยัง state ของ order เท่านั้น จึงไม่อนุมานปริมาณที่ fill                                |
+| **หลาย lifecycle, lifecycle ปัจจุบันไม่ตรงกัน** | lifecycle ปัจจุบันต่างจาก position ที่ venue                 | สร้าง fill ของ position แบบสังเคราะห์ และคง order ที่รายงานไว้เพื่อการตัดตัวซ้ำตอน replay โดย project fill ก่อนหน้าไปยัง state ของ order เท่านั้น                                                        |
+| **Position แบบ flat**                      | venue รายงานว่า flat ไม่ว่าประวัติ fill จะเป็นอย่างไร            | ไม่มีการปรับ                                                                                                                                                                                     |
+| **ไม่มี fill**                              | ชุด report ไม่มี fill เลย                                  | คืนชุด fill ว่าง                                                                                                                                                                                 |
+
+### สถานการณ์ของประวัติแบบมีขอบเขต {#bounded-history-scenarios}
+
+| Position report   | report ย้อนหลัง                                            | พฤติกรรมของระบบ                                                                                                                     |
+| ----------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **Open ที่ระบุชัดเจน** | ประวัติแบบมีขอบเขตที่สมบูรณ์ ไม่สมบูรณ์ หรือกำกวม                  | นำ report ที่มีไปใช้และพยายามกู้คืนให้ได้ปริมาณและราคาเข้าเฉลี่ยตามที่รายงาน ส่วนต่างที่ยังไม่ resolve จะ block startup                    |
+| **Flat ที่ระบุชัดเจน** | ประวัติแบบมีขอบเขตที่สมบูรณ์ ไม่สมบูรณ์ หรือกำกวม                  | นำ report ที่มีไปใช้และปิด exposure ที่เหลือเมื่อเปิดการสร้าง ส่วนต่างของปริมาณที่ยังไม่ resolve จะ block startup                          |
+| **ไม่มี**          | ประวัติแบบมีขอบเขต มีหรือไม่มี state ก่อนหน้าใน cache              | กู้คืนเฉพาะ state ของ order fill ไม่เปลี่ยน position หรือผลทางเศรษฐศาสตร์ของ portfolio                                                 |
+| **ถูกกรอง**        | ตัวกรอง position report หรือ instrument ตัด report ออก           | การกรอง position report ทำให้ fill แบบมีขอบเขตเป็นแบบเฉพาะ order การกรอง instrument จะตัดทั้ง order และ position ออก                       |
+
+## ปัญหา reconciliation ที่พบบ่อย {#common-reconciliation-issues}
+
+:::tip
+สำหรับปัญหาที่เกิดซ้ำ ให้ตรวจสอบ report จาก venue และความเป็นเจ้าของใน cache ก่อนทิ้ง state หรือ flatten account
+:::
+
+### Trade report หายไป {#missing-trade-reports}
+
+บาง venue กรอง trade ที่เก่ากว่าออก ให้เพิ่ม `reconciliation_lookback_mins` หรือ persist event ทั้งหมดไว้ภายใน adapter ที่มี
+ขอบเขตชัดเจนจะทำเครื่องหมายประวัติที่ไม่สมบูรณ์ เพื่อให้ fill ที่ไม่มีหลักฐานรองรับไม่เปลี่ยน position หรือผลทางเศรษฐศาสตร์ของ portfolio
+
+### Position ไม่ตรงกัน {#position-mismatches}
+
+external order ที่เกิดก่อน lookback window ทำให้ position คลาดเคลื่อน ให้ขยาย window, restore state ที่เก็บไว้ หรือให้
+position report ที่เชื่อถือได้ reconcile ปริมาณปัจจุบัน flatten account เฉพาะเมื่อเป็นขั้นตอนกู้คืนเชิงปฏิบัติการที่ตั้งใจเท่านั้น
+
+### ความเป็นเจ้าของแบบ NETTING ที่ถูกแบ่ง {#split-netting-ownership}
+
+หลาย strategy อาจถือ position ใน cache สำหรับ account และ instrument เดียวกัน แต่ venue รายงาน net position ระดับ account
+เพียงตัวเดียว ควรมี strategy ที่ claim เพียงตัวเดียวต่อคู่ account/instrument แบบ NETTING เมื่อกลับมาจัดการ state ภายนอก
+
+### Order ID ซ้ำ {#duplicate-order-ids}
+
+reconciliation จะตัดตัวซ้ำและ log warning การซ้ำบ่อย ๆ อาจบ่งชี้ปัญหาความถูกต้องของข้อมูลจาก venue
+
+### Instrument ที่ resolve ไม่ได้ {#unresolved-instruments}
+
+report อ้างถึง instrument ที่ adapter ไม่เคยโหลด ให้เพิ่มลงใน `load_ids` หรือตั้ง `load_all` เป็น true report ที่อยู่นอกขอบเขต
+`load_ids` ที่ระบุชัดเจนจะถูกทิ้งโดยการออกแบบและไม่ต้องดำเนินการใด ๆ
+
+### ความต่างของ precision {#precision-differences}
+
+tolerance ของ reconciliation รองรับความต่างเล็กน้อยของปริมาณและราคาเข้า ความคลาดเคลื่อนขนาดใหญ่อาจบ่งชี้ว่ามี order หายไป
+
+### Report ที่มาไม่ตามลำดับ {#out-of-order-reports}
+
+fill report ที่มาก่อน order status report จะถูกเลื่อนไว้จนกว่า state ของ order จะพร้อม
+
+## Invariant ของ reconciliation {#reconciliation-invariants}
+
+เส้นทาง reconciliation คง invariant เหล่านี้ไว้สำหรับ report และ position ที่ประมวลผล:
+
+1. **State ของ order**: report ที่เชื่อถือได้จะกู้คืนสถานะและปริมาณที่ fill ของ order ได้ตรงทุกประการ แม้ fill ย้อนหลังจะใช้กับ
+   state ของ order เท่านั้น
+1. **Position report ที่ระบุชัดเจน**: report แบบ open หรือ flat ที่ระบุชัดเจนคือเป้าหมายของปริมาณ engine จะปรับให้ตรง โดยสร้าง
+   order และ fill เมื่อตั้งค่าไว้ หรือปล่อยไว้โดยไม่ resolve report ที่หายไปไม่ใช่ flat
+1. **Position report ที่หายไป**: fill ย้อนหลังที่มีขอบเขตชัดเจนและไม่มี position report ในขอบเขต จะอัปเดตเฉพาะ state ของ order
+   โดยไม่เปลี่ยน position หรือผลทางเศรษฐศาสตร์ของ portfolio
+1. **ปริมาณของ position**: position ที่ reconcile แล้วตรงกับ report ที่เชื่อถือได้จาก venue ภายใน quantity tolerance ที่ใช้
+1. **ราคาเข้า**: ราคาเข้าเฉลี่ยที่รายงานต้องตรงกันภายใน tolerance ก่อน startup จะดำเนินต่อ ยกเว้นค่าเฉลี่ยที่ report ทำเครื่องหมาย
+   `OPENING_ONLY` fill สังเคราะห์ใช้ราคาที่รายงานหรือที่คำนวณ และไม่ได้สร้าง PnL ย้อนหลังที่หายไปขึ้นใหม่
+1. **ความ deterministic ของ ID**: ค่า `trade_id` และ `venue_order_id` แบบสังเคราะห์เป็นฟังก์ชันแบบ deterministic ของ event
+   เชิงตรรกะ การ replay จึงตัดตัวซ้ำได้ข้ามการ restart
+
+## คู่มือที่เกี่ยวข้อง {#related-guides}
+
+- [Live trading](../live.md) - lifecycle ของ node, การตั้งค่า, metric และการ shutdown
+- [การตั้งค่า live trading node](../../how_to/configure_live_trading.md) - การตั้งค่า node และ engine
+- [Adapters](../adapters.md) - การเชื่อมต่อกับ venue
+- [Execution](index.md) - ผลลัพธ์ของ command และ execution flow
+- [Execution policies](policies.md) - หลักฐานของ command, การ persist และขอบเขตของการกู้คืน
