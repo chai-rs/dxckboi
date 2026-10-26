@@ -1884,3 +1884,294 @@ flowchart LR
 ```
 
 แผนภาพแสดงขอบเขตความเป็นเจ้าของที่พบบ่อย ไม่ใช่ชื่อ type หรือชื่อฟิลด์ที่บังคับ
+
+#### Handshake ตอน initialize handler (`SetClient`) {#handler-initialization-handshake-setclient}
+
+หลาย adapter ย้าย `WebSocketClient` ที่เชื่อมต่อแล้วเข้าไปใน handler ที่ทำงานอยู่แล้วผ่านคำสั่ง
+`SetClient` ส่วนตัวอื่นสร้างหรือ publish handler ด้วยวิธีอื่น ไม่ว่าจะออกแบบแบบใด ให้รักษา invariant นี้
+ไว้:
+
+> ไม่มีคำสั่ง subscribe, order หรือ control แบบ public ใดที่แซงหน้าการ initialize handler ได้
+
+สำหรับ client ที่ทำงานด้วยคำสั่ง ให้ใช้ลำดับการเริ่มต้นนี้:
+
+1. สร้าง transport และ command channel แบบ private
+1. เข้าคิว `SetClient`, การ initialize cache ที่จำเป็น และการ replay subscription เริ่มต้น
+1. publish sender ที่ initialize แล้วภายใต้ publication lock ที่มีอยู่
+1. publish connection epoch หากมี แล้วจึงตามด้วยสถานะ connection แบบ active
+
+ให้ writer ของ cache synchronize กับ startup snapshot และการ publish sender เพื่อให้ update เข้าไปอยู่ใน
+snapshot หรือไปถึง handler ใหม่อย่างใดอย่างหนึ่ง หากการ dispatch ของ cache ขึ้นกับสถานะ active ให้ publish สถานะนั้น
+ก่อนปล่อย guard ส่วน writer ของ cache แบบ synchronous ต้องรักษาลำดับเดียวกัน
+
+ให้ authentication ที่ต้องรอ response จาก handler อยู่หลังการเริ่ม handler และอยู่นอก lock เหล่านี้
+
+client ที่สร้าง handler พร้อม transport หรือ publish slot ของ connection pool ที่ initialize แล้ว
+ต้องรักษา invariant เดียวกัน ให้ทดสอบคำสั่งที่ส่งตรงขอบเขตของ connection เพื่อไม่ให้ race
+ทิ้งคำสั่งนั้นไปอย่างเงียบ ๆ และทดสอบด้วยว่า client ยังคง inactive ขณะที่การ publish sender ถูก block
+
+### Authentication {#authentication}
+
+ใช้ [`AuthTracker`](../../crates/network/src/websocket/auth.rs) เมื่อ state ของ authentication ต้อง
+แชร์ระหว่าง client, handler และเส้นทาง reconnect โดย adapter ยังคงเป็นเจ้าของรายละเอียดของโปรโตคอล:
+
+- เริ่มความพยายาม authenticate หนึ่งครั้งและจับคู่ response
+- ทำเครื่องหมายความสำเร็จหรือความล้มเหลวที่ชัดเจนจาก frame ของ venue ที่ชัดเจน
+- ทำให้ authentication เป็นโมฆะเมื่อ connection หลุดแบบที่ reconnect ได้
+- ทำให้ผู้ที่รออยู่ล้มเหลวเมื่อ shutdown แบบ terminal
+- กั้นการ replay แบบ private และคำสั่งไว้จนกว่า authentication จะสำเร็จ
+
+token ที่รีเฟรชได้, session ของหลาย account และ endpoint แบบผสม public/private ต้องใช้
+state เฉพาะ adapter ให้เก็บ state นั้นไว้ใกล้กับเส้นทางของ credential และ subscription และครอบคลุม
+การหมุนเวียน (rotation) หรือการหมดอายุด้วย test ที่เจาะจง
+
+### การจัดการ subscription {#subscription-management}
+
+ใช้ [`SubscriptionState`](../../crates/network/src/websocket/subscription.rs) เมื่อ venue มี
+subscription ที่ต้องตอบรับหรือมีการ replay ตอน reconnect มันแยกเจตนาออกจากการยืนยัน และมี
+reference count สำหรับ subscriber ที่ซ้ำกัน
+
+| State               | ความหมาย                                                                        |
+| ------------------- | ----------------------------------------------------------------------------- |
+| Pending subscribe   | client ตั้งใจจะ subscribe และกำลังรอการยืนยันจาก venue หรือข้อมูลแรก                  |
+| Confirmed           | venue ตอบรับ subscription แล้ว หรือส่งข้อมูลที่เชื่อถือได้ของ subscription นั้นมาแล้ว         |
+| Pending unsubscribe | client ตั้งใจจะลบ subscription และกำลังรอการยืนยัน                                  |
+
+| Trigger                                                | Operation ร่วม                            | ผลลัพธ์                                                             |
+| ------------------------------------------------------ | ---------------------------------------- | ----------------------------------------------------------------- |
+| subscriber ฝั่ง local ตัวแรก                              | `try_mark_subscribe` or `mark_subscribe` | บันทึกเจตนา pending subscribe และส่งเมื่อจำเป็น                        |
+| acknowledgement ของ subscribe หรือ frame แรกที่เชื่อถือได้    | `confirm_subscribe`                      | ย้ายเจตนาที่ pending ไปเป็น confirmed                                  |
+| subscribe ล้มเหลว                                       | `mark_failure`                           | คงเจตนา subscribe ไว้เป็น pending เพื่อการกู้คืน                       |
+| subscriber ฝั่ง local ตัวสุดท้าย                           | `mark_unsubscribe`                       | ลบเจตนาที่ active และบันทึก pending unsubscribe                       |
+| acknowledgement ของ unsubscribe                         | `confirm_unsubscribe`                    | ลบ pending unsubscribe โดยไม่ลบ resubscribe ที่เกิดขึ้นภายหลัง          |
+
+ให้ยืนยันจาก acknowledgement ที่ชัดเจนของ venue เมื่อโปรโตคอลมีให้ หาก acknowledgement
+ไม่มีหรือเชื่อถือไม่ได้ ข้อมูลแรกที่เชื่อถือได้สามารถยืนยัน topic ได้ ทั้งสองเส้นทางอยู่ร่วมกันได้
+เพราะการยืนยันเป็น idempotent ห้ามยืนยันจากการส่งฝั่ง local สำเร็จเพียงอย่างเดียว
+
+เมื่อผล subscribe เป็นลบ ให้เรียก `mark_failure` เพื่อให้ reconnect ยังคงเจตนาไว้ ให้จับคู่
+ผลของ unsubscribe แยกกัน เพื่อไม่ให้ acknowledgement ของ subscribe ที่มาช้าทำให้เจตนาที่ลบไปแล้วกลับมา
+และไม่ให้ acknowledgement ของ unsubscribe ที่เก่าแล้วลบ resubscription ที่เกิดขึ้นภายหลัง
+
+สร้าง topic key ที่คงที่จาก argument ของ subscription ของ venue หากการ replay จะต้อง parse key นั้น
+แบบสูญเสียข้อมูล ให้เก็บ argument ดั้งเดิมไว้ เมื่อ reconnect:
+
+1. ทำให้ state ของ connection และ authentication เป็นโมฆะ
+1. สร้าง transport ใหม่
+1. authenticate เมื่อจำเป็น
+1. replay เจตนา subscribe ที่ active และที่ pending
+1. ยืนยัน subscription จาก acknowledgement ที่ชัดเจนหรือข้อมูลที่เชื่อถือได้
+1. แจ้งผู้ใช้ปลายทางเมื่อต้อง reset state ของโปรโตคอล
+
+อย่า replay unsubscription ที่ pending อยู่ และจัดการ acknowledgement ที่มาช้าหรือเก่าแล้วโดยไม่ทำให้
+subscription ที่ลบไปแล้วกลับมา `SubscriptionState` จัดหา state transition เหล่านี้ ส่วน adapter จัดหาการจับคู่
+บน wire
+
+### การ route message {#message-routing}
+
+ให้ขอบเขตของการ route ตรวจสอบได้:
+
+- decode raw frame เพียงครั้งเดียว
+- จัดการ transport control, authentication และ acknowledgement ของ subscription ก่อนข้อมูล domain
+- validate identity ของ channel และผลิตภัณฑ์ก่อนเลือก parser
+- แปลง payload ของ venue เป็น typed adapter message หนึ่งตัวหรือลำดับ message ที่มีขอบเขต
+- dispatch domain event นอก state ของโปรโตคอลที่แก้ไขได้เท่าที่ทำได้
+- รักษา identity ไว้มากพอที่จะจับคู่ execution response และตัดรายการซ้ำจากแหล่งที่ซ้อนทับกัน
+
+handler เป็นเจ้าของ transport control, authentication, acknowledgement ของ subscription, การ decode frame
+และการจับคู่ของโปรโตคอล ส่วน data client หรือ execution client ที่ใช้งานเป็นเจ้าของการ route และการ emit ด้าน domain
+การ parse อาจอยู่ใน handler ได้เมื่อขึ้นกับ state ของโปรโตคอลที่ handler เป็นเจ้าของ แต่การตัดสินความเป็นเจ้าของ
+execution แบบ tracked หรือ external ยังคงเป็นการตัดสินใจของ client
+
+เมื่อรายงาน frame ที่ผิดรูปแบบ ให้ log parse error แยกจากข้อความบางส่วนของ payload ที่ sanitize และจำกัดขนาดแล้ว
+ห้าม log raw authentication frame หรือ frame ที่ schema อาจมี secret material ให้ log close
+code ของ peer ที่ชั้น transport ที่ได้รับ เก็บเหตุผลที่ server ควบคุมได้ตามอำเภอใจไว้นอก diagnostic
+แต่รักษาไว้สำหรับการจัดประเภท retry หรือการส่งต่อเมื่อจำเป็น adapter ไม่ควร log ซ้ำกับ
+log ของ transport ร่วม
+
+การจัดวาง dispatch module, ชื่อ enum ระหว่างกลาง, context registry, การผูก venue และ container ของ state ยังคง
+เป็นเรื่องเฉพาะของ adapter ให้เลือกการออกแบบที่เล็กที่สุดที่ทำให้ความเป็นเจ้าของโปรโตคอลและ state transition ทดสอบได้
+แยก component ออกมาเพิ่มเฉพาะเมื่อหลาย adapter ใช้ semantics และความเป็น atomic ของมันร่วมกัน
+
+### Reconnection และ shutdown {#reconnection-and-shutdown}
+
+reconnection ต้องกู้คืน state ของโปรโตคอล ไม่ใช่แค่ socket:
+
+- สร้างใหม่หรือแทนที่เส้นทางคำสั่งก่อนรายงานว่า client active
+- authenticate private session ใหม่
+- กู้คืนเจตนาของ subscription และ context ของ instrument ที่จำเป็น
+- reset state ของ sequence, snapshot หรือ gap เมื่อ venue ต้องการ bootstrap ใหม่
+- รักษา state ของ execution ที่ in-flight ซึ่งจำเป็นต่อการจับคู่ response ที่มาช้าหรือ reconciliation
+
+รองรับทั้ง WebSocket control frame และ text heartbeat ของ venue เมื่อเกี่ยวข้อง ปล่อยให้ client ร่วมจัดการ
+protocol control frame และเก็บ application heartbeat message ไว้ใน venue handler
+
+#### ความเป็นเจ้าของการ reconnect {#reconnect-ownership}
+
+client แบบ handler mode ขอ reconnect ผ่าน client ร่วมแทน reconnect loop แบบ private
+`request_reconnect` ของมันคืน `true` เฉพาะเมื่อการเรียกนั้นย้าย client ที่ active ไปเป็นสถานะ reconnecting หาก adapter
+ต้องแยกแยะ variant ของ `ReconnectRequestOutcome` ให้ใช้ `request_reconnect` ของ reconnect handle
+transport ที่กำลัง reconnect อยู่แล้ว, กำลัง disconnect, ปิดแล้ว หรือไม่รองรับ ต่างต้องการ
+การตอบสนองที่ต่างกัน client แบบ stream mode เป็นเจ้าของ reconnect loop ของตัวเอง และ handle ของมันจะรายงาน `Unsupported`
+
+:::note
+อย่ากำหนดให้ socket เดิมต้องยังทำงานจนกว่าตัวแทนที่จะพร้อม ให้ใช้เส้นทาง reconnect
+ที่มีอยู่ แทนการเพิ่มความเป็นเจ้าของ connection แบบขนาน, buffering และการประสาน epoch เพื่อเลี่ยง
+ช่องว่างตอน reconnect
+
+execution reconciliation มักกู้ state ของ order และ fill ที่พลาดไปได้ ส่วนช่องว่างของ market data ให้ใช้ snapshot
+หรือ replay ที่ venue รองรับ การกู้คืนขึ้นกับ coverage ของ venue และไม่รับประกันว่าจะได้รับ
+ทุก message ที่พลาดไป
+:::
+
+#### Shutdown {#shutdown}
+
+shutdown ส่งสัญญาณให้ task, ขอให้ transport ปิด แล้ว join หรือ abort งานที่เป็นเจ้าของตาม
+policy แบบมีขอบเขต ทำให้ shutdown ซ้ำปลอดภัย และอย่าคิดว่า `JoinHandle` ของ handler มี
+เจ้าของเดียวเมื่อ object ของ client สามารถ clone ได้
+
+### Backpressure {#backpressure}
+
+WebSocket transport ร่วมและเส้นทาง event ของ adapter ใช้ Tokio channel แบบ **unbounded** เพื่อให้ receive
+loop ไม่ต้องรอความจุของคิว ให้รักษาแนวทางนี้สำหรับเส้นทาง live event การเพิ่ม
+bounded channel, การรวม (coalescing), การทิ้ง หรือ policy แบบ disconnect-on-full จะเปลี่ยน semantics ของแพลตฟอร์ม และ
+ต้องมีการออกแบบร่วมที่ชัดเจน ไม่ใช่การเปลี่ยนแปลงเฉพาะใน adapter
+
+คิวแบบ unbounded แลก backpressure กับการเติบโตของหน่วยความจำ ให้งานใน receive loop กระชับ, เปิดเผย
+ความล้มเหลวของ handler และทดสอบการกู้คืนจาก consumer ที่หลุดการเชื่อมต่อ ห้ามทิ้ง execution event เด็ดขาด
+market data สามารถใช้ snapshot และ resynchronization ได้เฉพาะเมื่อ contract ของโปรโตคอลกำหนด
+การกู้คืนนั้นไว้
+
+## การจัดการ task {#task-management}
+
+จัดประเภททุก task ใน production ตามเจ้าของก่อนเลือกที่เก็บและเส้นทาง shutdown ของมัน
+
+| ความเป็นเจ้าของ         | การใช้งาน                                                                                      | พฤติกรรมที่ต้องมี                                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Session-scoped      | stream consumer, keepalive, health poll, refresh loop และ reconnect driver                    | session group หนึ่งเป็นเจ้าของ task ตั้งแต่รับเข้าสำเร็จจนถึง disconnect หรือ startup ล้มเหลว                  |
+| Command-scoped      | งานที่ spawn จาก data request แบบ synchronous หรือคำสั่ง execution                              | command group แยกต่างหากเป็นเจ้าของ task โดยไม่ผูกผลลัพธ์ไว้กับ transport session                           |
+| Explicitly singular | task เดียวที่ handle หรือผลลัพธ์แบบ typed ต้องอยู่ใน state ของเจ้าของเพื่อ join โดยตรง                   | เก็บ handle ที่มีชื่อหนึ่งตัว และใช้กฎเดียวกันเรื่อง bounded join, forced abort และการรายงานความล้มเหลว          |
+| Handler-local       | retry future, send worker และงานลูกที่สร้างและ join ภายใน handler เดียว                          | handler ระบายงานให้หมดก่อนออก และเปิดเผยความล้มเหลวต่อเจ้าของ                                           |
+| Protocol exception  | ผลลัพธ์ fan-out แบบ typed, timeout แบบมี key หรืองานที่การ join ฝั่ง local รักษาความหมายของโปรโตคอล  | เก็บข้อยกเว้นไว้เฉพาะที่, ระบุว่าทำไม group ร่วมจะทำให้ความหมายหายไป และทดสอบเส้นทาง shutdown ของมัน          |
+
+ใช้ session group และ command group แยกกันแม้ทั้งสอง group จะมี timeout policy เดียวกัน
+disconnect ยุติ session ขณะที่คำสั่งที่รับแล้วอาจยังต้องการ reconciliation หรือ
+ผลลัพธ์แบบกำกวมที่ระบุชัด อย่าปล่อยให้ transport shutdown จัดประเภทผลลัพธ์ของคำสั่งนั้นใหม่อย่างเงียบ ๆ
+
+### การเก็บและการสังเกต task {#task-storage-and-observation}
+
+[`TaskHandles`](../../crates/common/src/live/task.rs) เก็บ unit task handle โดยไม่กำหนด
+policy ของ spawn, cancellation, generation หรือ join ให้ใช้ภายใน component ที่กำหนดกฎเหล่านั้น
+
+[`TaskGroup`](../../crates/live/src/task.rs) จัดหา policy ร่วมของ live client สำหรับ session task และ command task
+ที่ output เป็น unit ใช้ `TaskGroup::spawn_named` เมื่อ state ของ client ต้องสังเกตชื่อเชิงตรรกะ, identity
+ของ instance หรือสถานะ terminal ของ task ใน group `TaskRef` ของมันเป็นแบบอ่านอย่างเดียว: group
+ยังคงเป็นเจ้าของการ cancel และการ join แต่เพียงผู้เดียว การสังเกตแบบอ่านอย่างเดียวไม่ได้ทำให้ task เป็น
+explicitly singular
+
+`TaskRef::is_active` และ `TaskRef::is_finished` เปิดเผย state ของวงจรชีวิตแบบทางเดียวเดียวกัน active หมายความว่า task
+ได้รับเข้าแล้วและยังไม่ถึงสถานะ terminal task อาจเสร็จก่อนที่ `spawn_named` จะคืนค่า และไม่มี
+state ใดพิสูจน์ว่า future ของผู้ใช้ได้รับการ poll ครั้งแรกแล้ว
+
+function `finish_task` ใน task module เดียวกันใช้ policy แบบมีขอบเขตกับ handle แบบ explicitly singular
+โดยไม่ลบผลลัพธ์แบบ typed สำหรับรูปแบบความเป็นเจ้าของแบบระบุชัดอื่น ให้ spawn ผ่าน
+`nautilus_common::live::get_runtime().spawn()` ตามที่อธิบายใน
+[Async code](rust.md#async-code) แล้วเก็บไว้หรือ await handle ที่ได้คืนมาในที่นั้น
+
+### Spawn ผ่าน task group {#spawn-through-a-task-group}
+
+method ของ client trait แบบ synchronous ต้องไม่ block Tokio runtime ที่ active ให้ clone input ที่เป็นเจ้าของ, spawn
+operation แบบ asynchronous และคืนผลการ validate ฝั่ง local ลงทะเบียนงานที่ client เป็นเจ้าของ
+ผ่าน `TaskGroup` ของมัน group จะเก็บ handle ก่อนเปิด start gate ของ task ดังนั้น
+shutdown ที่เกิดพร้อมกันจะเป็นเจ้าของ task หรือปฏิเสธการรับเข้าอย่างใดอย่างหนึ่ง
+
+[Tokio usage hook](../../.pre-commit-hooks/check_tokio_usage.sh) ปฏิเสธ `tokio::spawn` ใน
+production code ของ adapter และกำหนดให้ใช้ path แบบเต็มสำหรับ spawn, time และ sync ของ Tokio
+
+ทำให้ขอบเขตแบบ synchronous เล็กที่สุด:
+
+```rust
+fn spawn_request<F>(&self, description: &'static str, future: F)
+where
+    F: Future<Output = anyhow::Result<()>> + Send + 'static,
+{
+    let future = async move {
+        if let Err(e) = future.await {
+            log::warn!("{description} failed: {e:?}");
+        }
+    };
+
+    if let Err(e) = self.command_tasks.spawn(future) {
+        log::warn!("Skipping {description} after shutdown began: {e}");
+    }
+}
+```
+
+validate คำสั่งและ clone input แต่ละตัวก่อนสร้าง future งานที่อยู่นานกว่าการเรียก trait
+ต้องไม่ capture ค่าเหล่านี้:
+
+- การยืม `RefCell`
+- cache guard
+- การยืม clock
+- reference ไปยังคำสั่ง
+
+เมื่อ task อายุยาวสร้าง task ลูก ให้ capture `TaskSpawner` จาก group ที่เป็นเจ้าของ ใช้
+`TaskSpawner::spawn_named` เมื่อ task ลูกเหล่านั้นต้องมี identity ในความล้มเหลวตอน shutdown ด้วย spawner จาก
+generation ที่เก่ากว่าไม่สามารถลงทะเบียนงานใน generation ที่มาแทนได้
+
+ให้แต่ละ task มี:
+
+- เจ้าของหนึ่งรายที่รับผิดชอบการ join หรือ abort
+- คำอธิบายที่คงที่สำหรับ log ความล้มเหลว
+- เส้นทางการ cancel
+- input ที่เป็นเจ้าของซึ่งไม่ถือการยืม `RefCell` หรือ engine ค้างไว้
+
+เก็บผลลัพธ์แบบ typed ของ task ไว้เฉพาะใน component ที่ await มัน อย่าลบ type ของ `JoinHandle<T>` เพื่อ
+ให้เข้ากับ group แบบ unit-output เมื่อ `T` มีหลักฐานของ order, transport หรือ startup
+
+### Shut down และเปิด task generation ใหม่ {#shut-down-and-reopen-task-generations}
+
+task shutdown แบ่งเป็นช่วง synchronous และ asynchronous แยกกัน:
+
+1. `stop`, `reset` และ `dispose` เรียก `begin_shutdown` ซึ่งปิดการรับเข้าและ cancel
+   generation ปัจจุบันโดยไม่ block runtime
+   ใช้ `abort` แทนเฉพาะเมื่อ contract แบบ synchronous ที่มีอยู่ต้องการให้ cancel task
+   ทันที
+1. `disconnect` หรือ `connect` แบบ asynchronous ครั้งถัดไป จะปิด transport ของ generation ตาม
+   ลำดับโปรโตคอลที่กำหนด และเรียก `finish_shutdown` ด้วยช่วงเวลา graceful และ forced ที่มีขอบเขต
+1. `finish_shutdown` ระบาย task ที่ลงทะเบียนเข้ามาจาก race ที่อนุญาตซ้ำ ๆ และรายงานการ cancel
+   และความล้มเหลวของการ join ที่ไม่คาดคิด หลังช่วง graceful มันจะ abort งานที่ยังไม่เสร็จ และรอ
+   การ forced abort ภายในขอบเขตที่สอง
+1. `start_generation` เปิด group ใหม่หลังจาก generation ก่อนหน้าระบายหมดแล้วเท่านั้น timeout จะเก็บ
+   handle ที่เหลือไว้และคงการรับเข้าไว้ในสถานะปิด
+
+เมื่อ `connect` ล้มเหลวหลังจากสร้าง transport หรือรับ task เข้าแล้ว ให้ใช้ลำดับเดียวกันก่อนคืน
+startup error ปิด transport ทั้งหมดที่สร้างโดยความพยายามนั้น ระบายทั้งงาน session และงาน command ที่
+อยู่รอดจากความล้มเหลวไม่ได้ และรวมความล้มเหลวของการ teardown ไว้ในหลักฐานที่คืนหรือ log
+
+ทำให้การเรียก `begin_shutdown` และ `finish_shutdown` ซ้ำปลอดภัย method ของวงจรชีวิตแบบ synchronous อาจ
+เริ่ม teardown มากกว่าหนึ่งครั้งก่อนที่ขอบเขต asynchronous จะทำให้เสร็จ
+
+### ห้ามใช้ `block_on` ใน trait method {#never-use-block_on-in-trait-methods}
+
+live runner เรียก method ของ data และ execution แบบ synchronous จากภายใน Tokio การเรียก `block_on`
+ในจุดนั้นอาจ panic เพราะมี runtime ทำงานอยู่แล้ว
+
+| ขอบเขต                                          | สิ่งที่ adapter ทำ                                             | เหตุผล                                                                  |
+| ---------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `DataClient` หรือ `ExecutionClient` แบบ synchronous | clone input ที่เป็นเจ้าของ, spawn operation แล้ว return         | live runner อาจกำลังรัน method นั้นภายใน Tokio อยู่แล้ว                    |
+| method ของ async client, handler หรือ task      | await operation หรือ select คู่กับการ cancel                   | ขอบเขต async มีส่วนร่วมกับ runtime ที่ active อยู่แล้ว                       |
+| binary ระดับบนสุดหรือ thread เฉพาะที่ไม่ใช่ Tokio     | block เฉพาะเมื่อขอบเขตนั้นเป็นเจ้าของวงจรชีวิตของ runtime           | ไม่มี runtime แวดล้อมอยู่เมื่อสร้างขอบเขตนั้นอย่างถูกต้อง                      |
+| Test                                           | ใช้ `#[tokio::test]` หรือ runtime ที่ test เป็นเจ้าของ            | harness เป็นเจ้าของการตั้งค่า runtime และหลีกเลี่ยงการเรียก `block_on` ซ้อน     |
+
+อย่าใช้ข้อยกเว้นของระดับบนสุดและ test มาอ้างเพื่อ block ภายใน method ของ live client trait
+ให้ออกแบบขอบเขตที่กำกวมใหม่เป็น async
+
+### Graceful shutdown ด้วย `CancellationToken` {#graceful-shutdown-with-cancellationtoken}
+
+ใช้ `CancellationToken` เมื่อหลาย task มีวงจรชีวิตร่วมกัน ให้ select การ cancel ควบคู่กับ
+stream, timer หรือ response channel สำหรับ task ใน group ให้ขอ child token จาก generation
+group หรือ spawner และปล่อยให้ `begin_shutdown` cancel parent ของมัน ขอ token สำหรับตัวแทนที่
+หลังจาก `finish_shutdown` ระบายทุก handle และ `start_generation` เปิด group ใหม่แล้วเท่านั้น การใช้
+token ที่ถูก cancel แล้วซ้ำจะทำให้ task ที่มาแทนออกทันที ขณะที่การแทนที่ก่อนระบายเสร็จจะปล่อยให้
+งานเก่าข้ามขอบเขตของการ reconnect

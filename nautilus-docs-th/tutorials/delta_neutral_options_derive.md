@@ -340,7 +340,6 @@ hedge instrument อยู่แล้ว timer สำหรับ rehedge เ�
 **รูปที่ 4** *heuristic การเลือก strike เทียบกับ IV smile แบบสมมติ strike ของ call อยู่ใกล้ percentile
 `(1 - target_call_delta)` และ strike ของ put อยู่ใกล้ `abs(target_put_delta)`*
 
-
 ## ข้อพิจารณาด้านความเสี่ยง {#risk-considerations}
 
 - **ความเสี่ยงด้าน gamma**: short strangle มี gamma เป็นลบ การเคลื่อนไหวขนาดใหญ่ของ ETH อาจเพิ่ม delta exposure

@@ -1,16 +1,14 @@
-# On-Chain Grid Market Making with Short-Term Orders (dYdX)
+# Grid market making แบบ on-chain ด้วย short-term order (dYdX)
 
-This tutorial runs the shipped `GridMarketMaker` strategy on dYdX v4 through the Rust `LiveNode`. The strategy
-places symmetric limit orders around the mid and skews the grid to manage inventory. The venue cycles
-short-term orders through time-to-block expiry instead of explicit cancels.
+tutorial นี้รัน strategy `GridMarketMaker` ที่มาพร้อมกับโปรเจกต์บน dYdX v4 ผ่าน `LiveNode` ของ Rust strategy
+จะวาง limit order แบบสมมาตรรอบราคา mid และเอียง (skew) grid เพื่อจัดการ inventory ส่วน venue จะหมุนเวียน
+short-term order ผ่านการหมดอายุตาม block (time-to-block expiry) แทนการ cancel อย่างชัดเจน
 
-## Introduction
+## บทนำ {#introduction}
 
-A grid market maker maintains a ladder of resting buy and sell limits at
-fixed price intervals around the current mid. When an order fills, the
-strategy profits from the spread between the buy and sell levels.
-Inventory management keeps net exposure within `max_position` so the grid
-does not accumulate a directional position.
+grid market maker ดูแลขั้นบันไดของ buy limit และ sell limit ที่วางรออยู่ตามระยะราคาคงที่รอบ mid ปัจจุบัน
+เมื่อ order ถูก fill strategy จะได้กำไรจาก spread ระหว่างระดับ buy และ sell การจัดการ inventory จะคุม net
+exposure ให้อยู่ภายใน `max_position` เพื่อไม่ให้ grid สะสม position ที่เอียงไปทางใดทางหนึ่ง
 
 ```mermaid
 flowchart LR
@@ -41,38 +39,33 @@ flowchart LR
     CL -->|no| LT
 ```
 
-### Inventory skewing (Avellaneda-Stoikov inspired)
+### การเอียง inventory (ได้แรงบันดาลใจจาก Avellaneda-Stoikov) {#inventory-skewing-avellaneda-stoikov-inspired}
 
-When the long position increases, the entire grid shifts down (cheaper buys, cheaper sells) to encourage a
-sell-side fill. When the short position increases, the grid shifts up. This follows the Avellaneda-Stoikov
-framework, adapted to a discrete grid.
+เมื่อ position ฝั่ง long เพิ่มขึ้น grid ทั้งหมดจะเลื่อนลง (buy ถูกลง, sell ถูกลง) เพื่อกระตุ้นให้เกิด fill ฝั่ง sell
+เมื่อ position ฝั่ง short เพิ่มขึ้น grid จะเลื่อนขึ้น แนวทางนี้ตาม framework ของ Avellaneda-Stoikov ที่ปรับให้ใช้กับ
+grid แบบไม่ต่อเนื่อง
 
-### Why dYdX v4
+### ทำไมต้อง dYdX v4 {#why-dydx-v4}
 
-dYdX v4 has these features for market making:
+dYdX v4 มีคุณสมบัติต่อไปนี้ที่เหมาะกับ market making:
 
-- **Short-term orders** with ~20-second expiry: low-latency placement, no
-  on-chain storage cost.
-- **~0.5-second block times** for fast confirmation cycles.
-- **No gas fees for cancellations**: short-term cancels are free under GTB
-  replay protection.
-- **On-chain order book** with deterministic per-block matching.
-- **Batch cancel**: one `MsgBatchCancel` clears every short-term order.
+- **Short-term order** ที่หมดอายุราว 20 วินาที: วาง order ได้ด้วย latency ต่ำ และไม่มีค่าใช้จ่ายในการเก็บข้อมูล on-chain
+- **Block time ราว 0.5 วินาที** ทำให้รอบการยืนยันเร็ว
+- **ไม่มีค่า gas สำหรับการ cancel**: การ cancel short-term order ฟรีภายใต้การป้องกัน replay แบบ GTB
+- **On-chain order book** ที่ match แบบ deterministic ในแต่ละ block
+- **Batch cancel**: `MsgBatchCancel` ครั้งเดียวล้าง short-term order ทั้งหมด
 
-## Prerequisites
+## สิ่งที่ต้องเตรียม {#prerequisites}
 
-### Funded dYdX account
+### Account dYdX ที่มีเงินทุน {#funded-dydx-account}
 
-You need a dYdX account with USDC collateral. The example trades on
-mainnet by default; [Run the example](#run-the-example) shows how to switch
-to testnet. See the
-[Testnet setup](../integrations/dydx.md#testnet-setup) section in the
-integration guide for instructions on creating and funding a testnet
-account. An API trading key is optional: the adapter signs with the
-account's own private key unless you set up
-[permissioned key trading](../integrations/dydx.md#permissioned-key-trading).
+คุณต้องมี account dYdX ที่มี collateral เป็น USDC ตัวอย่างนี้เทรดบน mainnet โดยค่าเริ่มต้น หัวข้อ
+[รันตัวอย่าง](#run-the-example) แสดงวิธีสลับไปใช้ testnet ดูหัวข้อ
+[Testnet setup](../integrations/dydx.md#testnet-setup) ในคู่มือ integration สำหรับวิธีสร้างและเติมเงินเข้า
+account บน testnet ส่วน API trading key เป็นทางเลือก: adapter จะ sign ด้วย private key ของ account เอง
+เว้นแต่คุณจะตั้งค่า [permissioned key trading](../integrations/dydx.md#permissioned-key-trading)
 
-### Environment variables
+### Environment variable {#environment-variables}
 
 ```bash
 # Mainnet
@@ -84,20 +77,20 @@ export DYDX_TESTNET_PRIVATE_KEY="0x..."
 export DYDX_TESTNET_WALLET_ADDRESS="dydx1..."
 ```
 
-## Strategy overview
+## ภาพรวมของ strategy {#strategy-overview}
 
-### Geometric grid pricing
+### การตั้งราคา grid แบบ geometric {#geometric-grid-pricing}
 
-Each level is a fixed percentage (basis points) away from mid:
+แต่ละระดับห่างจาก mid เป็นเปอร์เซ็นต์คงที่ (basis point):
 
 ```text
 Buy level N:  mid * (1 - bps/10000)^N - skew
 Sell level N: mid * (1 + bps/10000)^N - skew
 ```
 
-Where `skew = skew_factor * net_position`.
+โดยที่ `skew = skew_factor * net_position`
 
-For a 3-level grid with `grid_step_bps=100` (1%) around a mid of 1000.00:
+สำหรับ grid 3 ระดับที่ `grid_step_bps=100` (1%) รอบ mid ที่ 1000.00:
 
 ```text
                         Sell 3: 1030.30
@@ -109,8 +102,7 @@ For a 3-level grid with `grid_step_bps=100` (1%) around a mid of 1000.00:
                         Buy 3:  970.30
 ```
 
-With a long-2 position and `skew_factor=1.0`, the entire grid shifts down
-by 2.0:
+เมื่อมี position long 2 และ `skew_factor=1.0` grid ทั้งหมดจะเลื่อนลง 2.0:
 
 ```text
                         Sell 3: 1028.30
@@ -122,124 +114,109 @@ by 2.0:
                         Buy 3:  968.30
 ```
 
-### Inventory management
+### การจัดการ inventory {#inventory-management}
 
-The strategy enforces position limits through two mechanisms:
+strategy บังคับขีดจำกัด position ผ่านกลไกสองแบบ:
 
-- **`max_position`**: a hard cap on net exposure (long or short).
-  The strategy skips a level if its projected exposure would exceed this cap.
-- **Projected exposure**: before each level, the strategy tracks worst-case exposure per side
-  (current position + all pending buy / sell orders). This prevents commitments beyond the limit.
+- **`max_position`**: เพดานตายตัวของ net exposure (long หรือ short)
+  strategy จะข้ามระดับใดก็ตามที่ exposure ที่คาดการณ์จะเกินเพดานนี้
+- **Exposure ที่คาดการณ์**: ก่อนแต่ละระดับ strategy จะติดตาม exposure กรณีเลวร้ายที่สุดต่อฝั่ง
+  (position ปัจจุบัน + buy / sell order ที่ค้างอยู่ทั้งหมด) เพื่อป้องกันการผูกมัดเกินขีดจำกัด
 
-The `cancel_all_orders` call is asynchronous. Pending orders can still fill between the cancel request and
-acknowledgement. The worst-case exposure check per side prevents momentary over-exposure during cancel-requote
-transitions.
+การเรียก `cancel_all_orders` เป็นแบบ asynchronous order ที่ค้างอยู่อาจยังถูก fill ระหว่าง cancel request กับ
+การยืนยัน การตรวจ exposure กรณีเลวร้ายที่สุดต่อฝั่งช่วยป้องกัน exposure เกินชั่วขณะระหว่างช่วง cancel-requote
 
-### Requote threshold
+### เกณฑ์การ requote {#requote-threshold}
 
-`requote_threshold_bps` controls how much the mid must move before the
-strategy cancels all open orders and places a fresh grid:
+`requote_threshold_bps` ควบคุมว่า mid ต้องเคลื่อนไหวมากแค่ไหนก่อนที่ strategy จะ cancel order ที่เปิดอยู่ทั้งหมด
+และวาง grid ใหม่:
 
-- **Lower threshold** (5 bps): faster response, more cancel/place
-  transactions.
-- **Higher threshold** (50 bps): fewer transactions, but orders may sit
-  further from the current price.
+- **เกณฑ์ต่ำ** (5 bps): ตอบสนองเร็วขึ้น มีธุรกรรม cancel/place มากขึ้น
+- **เกณฑ์สูง** (50 bps): ธุรกรรมน้อยลง แต่ order อาจอยู่ห่างจากราคาปัจจุบันมากขึ้น
 
-## Configuration
+## Configuration {#configuration}
 
-| Parameter               | Type           | Default    | Description                                                              |
+| Parameter               | Type           | ค่าเริ่มต้น    | คำอธิบาย                                                                  |
 | ----------------------- | -------------- | ---------- | ------------------------------------------------------------------------ |
-| `instrument_id`         | `InstrumentId` | *required* | Instrument to trade (e.g. `ETH-USD-PERP.DYDX`).                          |
-| `max_position`          | `Quantity`     | *required* | Maximum net exposure (long or short).                                    |
-| `trade_size`            | `Quantity`     | `None`     | Size per grid level. If `None`, uses instrument's `min_quantity` or 1.0. |
-| `num_levels`            | `usize`        | `3`        | Number of buy and sell levels.                                           |
-| `grid_step_bps`         | `u32`          | `10`       | Grid spacing in basis points (10 = 0.1%).                                |
-| `skew_factor`           | `f64`          | `0.0`      | How aggressively to shift the grid based on inventory.                   |
-| `requote_threshold_bps` | `u32`          | `5`        | Minimum mid-price move in bps before re-quoting.                         |
-| `expire_time_secs`      | `Option<u64>`  | `None`     | Order expiry in seconds. Uses GTD when set, GTC otherwise.               |
-| `on_cancel_resubmit`    | `bool`         | `false`    | Resubmit grid on next quote after an unexpected cancel.                  |
+| `instrument_id`         | `InstrumentId` | *required* | instrument ที่จะเทรด (เช่น `ETH-USD-PERP.DYDX`)                            |
+| `max_position`          | `Quantity`     | *required* | net exposure สูงสุด (long หรือ short)                                       |
+| `trade_size`            | `Quantity`     | `None`     | ขนาดต่อระดับของ grid ถ้าเป็น `None` จะใช้ `min_quantity` ของ instrument หรือ 1.0 |
+| `num_levels`            | `usize`        | `3`        | จำนวนระดับ buy และ sell                                                    |
+| `grid_step_bps`         | `u32`          | `10`       | ระยะห่างของ grid เป็น basis point (10 = 0.1%)                               |
+| `skew_factor`           | `f64`          | `0.0`      | ความแรงในการเลื่อน grid ตาม inventory                                        |
+| `requote_threshold_bps` | `u32`          | `5`        | การเคลื่อนไหวของ mid ขั้นต่ำเป็น bps ก่อน requote                              |
+| `expire_time_secs`      | `Option<u64>`  | `None`     | เวลาหมดอายุของ order เป็นวินาที ใช้ GTD เมื่อตั้งไว้ มิฉะนั้นใช้ GTC                |
+| `on_cancel_resubmit`    | `bool`         | `false`    | ส่ง grid ใหม่ที่ quote ถัดไปหลังการ cancel ที่ไม่คาดคิด                          |
 
-### Choosing parameters
+### การเลือก parameter {#choosing-parameters}
 
-- **`grid_step_bps`**: [50, 100] bps in volatile markets, [5, 20] bps in calm
-  conditions. Wider grids capture more spread per fill but fill less
-  often.
-- **`skew_factor`**: start at `0.0`. A value of `0.5` shifts the grid by
-   0.5 price units per unit of net position. Too much skew can move
-  the grid entirely above or below mid.
-- **`expire_time_secs`**: for dYdX short-term orders, set to `8` seconds.
-   This fits inside the 40-block (~20 s) short-term window and keeps the
-  orders on the fast short-term path. When `None`, orders use GTC and the
-  long-term path.
-- **`on_cancel_resubmit`**: triggers a resubmission on the next quote tick
-  after a cancel that the strategy did not initiate (short-term order
-  expiry from the indexer, self-trade prevention, risk limits). The indexer emits a cancel event for each short-term order shortly after it expires.
-   This flag resets the requote anchor so the next quote rebuilds the grid,
-   even if the mid has not moved beyond `requote_threshold_bps`.
+- **`grid_step_bps`**: [50, 100] bps ในตลาดที่ผันผวน และ [5, 20] bps ในสภาวะสงบ grid ที่กว้างกว่าได้ spread
+  ต่อ fill มากกว่าแต่ fill น้อยครั้งกว่า
+- **`skew_factor`**: เริ่มที่ `0.0` ค่า `0.5` จะเลื่อน grid 0.5 หน่วยราคาต่อ net position หนึ่งหน่วย skew ที่มาก
+  เกินไปอาจทำให้ grid ทั้งหมดอยู่เหนือหรือต่ำกว่า mid
+- **`expire_time_secs`**: สำหรับ short-term order ของ dYdX ให้ตั้งเป็น `8` วินาที ซึ่งพอดีภายในหน้าต่าง
+  short-term 40 block (ราว 20 วินาที) และทำให้ order อยู่บนเส้นทาง short-term ที่เร็ว เมื่อเป็น `None` order
+  จะใช้ GTC และเส้นทาง long-term
+- **`on_cancel_resubmit`**: กระตุ้นการส่งใหม่ที่ quote tick ถัดไปหลังการ cancel ที่ strategy ไม่ได้เริ่มเอง
+  (short-term order หมดอายุจาก indexer, self-trade prevention, risk limit) indexer จะปล่อย cancel event
+  สำหรับ short-term order แต่ละตัวไม่นานหลังจากหมดอายุ flag นี้จะ reset จุดยึด (anchor) ของการ requote
+  เพื่อให้ quote ถัดไปสร้าง grid ใหม่ แม้ mid จะยังเคลื่อนไหวไม่เกิน `requote_threshold_bps`
 
-## dYdX-specific considerations
+## ข้อพิจารณาเฉพาะของ dYdX {#dydx-specific-considerations}
 
-### Short-term order expiry
+### การหมดอายุของ short-term order {#short-term-order-expiry}
 
-When `expire_time_secs=8`, orders are classified as short-term by the
-adapter:
+เมื่อ `expire_time_secs=8` adapter จะจัด order เป็นประเภท short-term:
 
-1. The adapter checks `8s < max_short_term_secs (40 blocks * ~0.5s = ~20s)`.
-1. The adapter submits the order as short-term with
-   `GoodTilBlock = current_height + N`.
-1. The order expires on chain after approximately eight seconds if it does not fill.
-   Expiry costs no gas (GTB replay protection handles it on chain).
-   The indexer still emits an `OrderCanceled` event for each expired order shortly after the expiry block.
-   Thus, the strategy observes expiry through the normal cancel event path.
+1. adapter ตรวจว่า `8s < max_short_term_secs (40 blocks * ~0.5s = ~20s)`
+1. adapter ส่ง order เป็น short-term พร้อม `GoodTilBlock = current_height + N`
+1. order หมดอายุบน chain หลังจากราวแปดวินาทีถ้าไม่ถูก fill การหมดอายุไม่มีค่า gas (การป้องกัน replay แบบ GTB
+   จัดการบน chain) indexer ยังปล่อย event `OrderCanceled` สำหรับ order ที่หมดอายุแต่ละตัวไม่นานหลัง block
+   ที่หมดอายุ strategy จึงเห็นการหมดอายุผ่านเส้นทาง cancel event ปกติ
 
-This is the recommended configuration for market making because:
+นี่คือ configuration ที่แนะนำสำหรับ market making เพราะ:
 
-- Short-term orders have lower latency.
-- Expiry has no on-chain gas cost.
-- Continuous requoting (driven by the indexer-emitted cancel events when
-  `on_cancel_resubmit=true`) replaces expired orders.
+- short-term order มี latency ต่ำกว่า
+- การหมดอายุไม่มีค่า gas บน chain
+- การ requote อย่างต่อเนื่อง (ขับเคลื่อนด้วย cancel event ที่ indexer ปล่อยเมื่อ `on_cancel_resubmit=true`)
+  จะแทนที่ order ที่หมดอายุ
 
-See the [order classification](../integrations/dydx.md#order-classification)
-section in the integration guide for full details.
+ดูรายละเอียดทั้งหมดได้ที่หัวข้อ [order classification](../integrations/dydx.md#order-classification)
+ในคู่มือ integration
 
-### Unexpected cancels and `on_cancel_resubmit`
+### การ cancel ที่ไม่คาดคิดและ `on_cancel_resubmit` {#unexpected-cancels-and-on_cancel_resubmit}
 
-The `pending_self_cancels` set distinguishes self-initiated from
-unexpected cancels:
+set `pending_self_cancels` ใช้แยกการ cancel ที่ strategy เริ่มเองออกจากการ cancel ที่ไม่คาดคิด:
 
-1. When the strategy calls `cancel_all_orders`, it records all open order
-   IDs in `pending_self_cancels`.
-1. When `on_order_canceled` runs:
-   - If the order ID is in `pending_self_cancels`, it is a self-cancel and requires no action.
-   - Otherwise, the strategy did not initiate the cancel (short-term order expiry, self-trade prevention, or a risk limit).
-     With `on_cancel_resubmit=true`, it resets `last_quoted_mid` so the next quote triggers a full grid resubmission.
+1. เมื่อ strategy เรียก `cancel_all_orders` จะบันทึก order ID ที่เปิดอยู่ทั้งหมดไว้ใน `pending_self_cancels`
+1. เมื่อ `on_order_canceled` ทำงาน:
+   - ถ้า order ID อยู่ใน `pending_self_cancels` แสดงว่าเป็นการ cancel ของตัวเองและไม่ต้องทำอะไร
+   - มิฉะนั้น strategy ไม่ได้เป็นผู้เริ่ม cancel (short-term order หมดอายุ, self-trade prevention หรือ risk limit)
+     เมื่อ `on_cancel_resubmit=true` จะ reset `last_quoted_mid` เพื่อให้ quote ถัดไปกระตุ้นการส่ง grid ใหม่ทั้งหมด
 
-This prevents unnecessary requotes during the strategy's own cancel requests, while it still responds to
-unexpected cancels.
+วิธีนี้ป้องกันการ requote ที่ไม่จำเป็นระหว่าง cancel request ของ strategy เอง ขณะที่ยังตอบสนองต่อการ cancel
+ที่ไม่คาดคิด
 
-The `on_order_filled` callback also removes fully filled orders from `pending_self_cancels`. If an order fills
-before the cancel acknowledgement arrives, this prevents stale entries from accumulating. Partial fills retain
-the order ID so a later self-cancel is still identified correctly.
+callback `on_order_filled` ยังลบ order ที่ fill ครบแล้วออกจาก `pending_self_cancels` ด้วย ถ้า order ถูก fill
+ก่อนการยืนยัน cancel จะมาถึง วิธีนี้ป้องกันไม่ให้รายการที่ค้างเก่าสะสม partial fill จะคง order ID ไว้ เพื่อให้
+การ cancel ของตัวเองในภายหลังยังถูกระบุได้ถูกต้อง
 
-### Order quantization
+### การ quantize order {#order-quantization}
 
-The adapter's `OrderMessageBuilder` automatically quantizes price and size for dYdX markets. No manual
-rounding or conversion is needed. See [Price and size
-quantization](../integrations/dydx.md#price-and-size-quantization) for details.
+`OrderMessageBuilder` ของ adapter quantize ราคาและขนาดสำหรับ market ของ dYdX ให้อัตโนมัติ ไม่ต้องปัดหรือ
+แปลงค่าเอง ดูรายละเอียดได้ที่ [Price and size quantization](../integrations/dydx.md#price-and-size-quantization)
 
-### Post-only orders
+### Post-only order {#post-only-orders}
 
-The strategy submits all grid orders with `post_only=true`. The exchange accepts, then immediately cancels,
-any post-only order that would cross the spread at match time. The strategy sees `OrderCanceled`, not
-`OrderRejected`. Thus, every fill uses the maker fee rate, and the grid never takes its own offers during
-requote transitions.
+strategy ส่ง order ของ grid ทั้งหมดด้วย `post_only=true` exchange จะ accept แล้ว cancel ทันทีสำหรับ order
+แบบ post-only ใดๆ ที่จะข้าม spread ตอน match strategy จะเห็น `OrderCanceled` ไม่ใช่ `OrderRejected` ดังนั้น
+ทุก fill จึงใช้อัตราค่าธรรมเนียม maker และ grid จะไม่กิน offer ของตัวเองระหว่างช่วง requote
 
-## Running and stopping
+## การรันและการหยุด {#running-and-stopping}
 
-### Environment setup
+### การตั้งค่าสภาพแวดล้อม {#environment-setup}
 
-Credentials load from environment variables or a `.env` file at the project root (loaded automatically through
-`dotenvy`):
+credential โหลดจาก environment variable หรือไฟล์ `.env` ที่ root ของโปรเจกต์ (โหลดอัตโนมัติผ่าน `dotenvy`):
 
 ```bash
 # Direct export
@@ -253,35 +230,34 @@ DYDX_PRIVATE_KEY=0x...
 DYDX_WALLET_ADDRESS=dydx1...
 ```
 
-### Run the example
+### รันตัวอย่าง {#run-the-example}
 
 :::warning
-This command places real orders on **dYdX mainnet** by default.
-The `DYDX_NETWORK` constant near the top of `crates/adapters/dydx/examples/node_grid_mm.rs` is `DydxNetwork::Mainnet`.
-The example reads `DYDX_PRIVATE_KEY` and `DYDX_WALLET_ADDRESS`.
-To run against testnet, set `DYDX_NETWORK` to `DydxNetwork::Testnet` and rebuild.
-The example then reads
-`DYDX_TESTNET_PRIVATE_KEY` and `DYDX_TESTNET_WALLET_ADDRESS`.
+คำสั่งนี้วาง order จริงบน **dYdX mainnet** โดยค่าเริ่มต้น
+ค่าคงที่ `DYDX_NETWORK` ใกล้ส่วนบนของ `crates/adapters/dydx/examples/node_grid_mm.rs` คือ `DydxNetwork::Mainnet`
+ตัวอย่างนี้อ่าน `DYDX_PRIVATE_KEY` และ `DYDX_WALLET_ADDRESS`
+หากต้องการรันบน testnet ให้ตั้ง `DYDX_NETWORK` เป็น `DydxNetwork::Testnet` แล้ว build ใหม่
+จากนั้นตัวอย่างจะอ่าน `DYDX_TESTNET_PRIVATE_KEY` และ `DYDX_TESTNET_WALLET_ADDRESS`
 :::
 
 ```bash
 cargo run --example dydx-grid-mm --package nautilus-dydx --features examples
 ```
 
-### Graceful shutdown
+### การหยุดอย่างนุ่มนวล {#graceful-shutdown}
 
-Press **Ctrl+C** to stop the node. The shutdown sequence:
+กด **Ctrl+C** เพื่อหยุด node ลำดับการ shutdown:
 
-1. The node receives SIGINT, the trader stops, and `on_stop` runs.
-1. The strategy cancels all orders and closes positions.
-1. The node processes residual events during a 5-second grace period (`delay_post_stop_secs`).
-1. The clients disconnect and the node exits.
+1. node ได้รับ SIGINT, trader หยุด และ `on_stop` ทำงาน
+1. strategy cancel order ทั้งหมดและปิด position
+1. node ประมวลผล event ที่เหลือในช่วงผ่อนผัน 5 วินาที (`delay_post_stop_secs`)
+1. client disconnect และ node จบการทำงาน
 
-## Code walkthrough
+## อธิบายโค้ด {#code-walkthrough}
 
-The `main` function lives at
-[`crates/adapters/dydx/examples/node_grid_mm.rs`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/dydx/examples/node_grid_mm.rs).
-This simplified copy inlines the example's constants:
+function `main` อยู่ที่
+[`crates/adapters/dydx/examples/node_grid_mm.rs`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/dydx/examples/node_grid_mm.rs)
+สำเนาแบบย่อนี้ใส่ค่าคงที่ของตัวอย่างไว้ในโค้ดโดยตรง:
 
 ```rust
 const DYDX_NETWORK: DydxNetwork = DydxNetwork::Mainnet;
@@ -345,16 +321,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-Configuration points:
+จุดสำคัญของ configuration:
 
-- **`dotenvy::dotenv().ok()`**: loads `.env` from the project root if
-  present.
-- **`with_reconciliation(false)`**: disabled for simplicity; enable in
-  production to resume state across restarts.
-- **`with_delay_post_stop_secs(5)`**: grace period for pending cancel and
-  close events to finalize during shutdown.
+- **`dotenvy::dotenv().ok()`**: โหลด `.env` จาก root ของโปรเจกต์ถ้ามี
+- **`with_reconciliation(false)`**: ปิดไว้เพื่อความเรียบง่าย ควรเปิดใน production เพื่อกู้คืน state ข้ามการ restart
+- **`with_delay_post_stop_secs(5)`**: ช่วงผ่อนผันให้ event การ cancel และการปิดที่ค้างอยู่เสร็จสิ้นระหว่าง shutdown
 
-### Event flow
+### Flow ของ event {#event-flow}
 
 ```mermaid
 flowchart TB
@@ -373,19 +346,19 @@ flowchart TB
     K[on_stop] --> L[cancel_all_orders + close positions]
 ```
 
-## Strategy internals
+## กลไกภายในของ strategy {#strategy-internals}
 
-The following Rust snippets simplify the strategy source in
-[`crates/trading/src/examples/strategies/grid_mm/strategy.rs`](https://github.com/nautechsystems/nautilus_trader/blob/develop/crates/trading/src/examples/strategies/grid_mm/strategy.rs),
-which includes error handling and state tracking that these snippets omit.
+snippet Rust ต่อไปนี้เป็นฉบับย่อของ source ของ strategy ใน
+[`crates/trading/src/examples/strategies/grid_mm/strategy.rs`](https://github.com/nautechsystems/nautilus_trader/blob/develop/crates/trading/src/examples/strategies/grid_mm/strategy.rs)
+ซึ่งมีการจัดการ error และการติดตาม state ที่ snippet เหล่านี้ละไว้
 
-### Trade size resolution (`on_start`)
+### การกำหนดขนาด trade (`on_start`) {#trade-size-resolution-on_start}
 
-The strategy resolves trade size from the instrument cache in this order:
+strategy กำหนดขนาด trade จาก cache ของ instrument ตามลำดับนี้:
 
-1. The configured value.
-1. The instrument's `min_quantity`.
-1. `1.0` as a final fallback.
+1. ค่าที่ตั้งค่าไว้
+1. `min_quantity` ของ instrument
+1. `1.0` เป็นค่าสำรองสุดท้าย
 
 ```rust
 fn on_start(&mut self) -> anyhow::Result<()> {
@@ -414,7 +387,7 @@ fn on_start(&mut self) -> anyhow::Result<()> {
 }
 ```
 
-### Quote handler (`on_quote`, abbreviated)
+### Quote handler (`on_quote`, ฉบับย่อ) {#quote-handler-on_quote-abbreviated}
 
 ```rust
 fn on_quote(&mut self, quote: &QuoteTick) -> anyhow::Result<()> {
@@ -472,9 +445,9 @@ fn on_quote(&mut self, quote: &QuoteTick) -> anyhow::Result<()> {
 }
 ```
 
-### Grid pricing (`grid_orders`)
+### การตั้งราคา grid (`grid_orders`) {#grid-pricing-grid_orders}
 
-The `grid_orders` method calculates geometric grid prices and enforces `max_position` per level:
+method `grid_orders` คำนวณราคา grid แบบ geometric และบังคับ `max_position` ต่อระดับ:
 
 ```rust
 fn grid_orders(
@@ -525,102 +498,94 @@ fn grid_orders(
 }
 ```
 
-## What a 35-second mainnet run produces
+## ผลลัพธ์จากการรันบน mainnet 35 วินาที {#what-a-35-second-mainnet-run-produces}
 
-A 35-second mainnet run on `ETH-USD-PERP.DYDX` with the example config (`grid_step_bps=100`, `num_levels=3`,
-`skew_factor=0.5`, `requote_threshold_bps=10`, `expire_time_secs=8`) captures 47 requote events, 276 order
-submissions, 67 accepts, and 54 cancels. ETH was trading near 2,281 USD. The price never moved sufficiently to
-trigger the 10 bps requote threshold. Thus, most cycles start from periodic 8-second short-term order expiry
-rather than price movement.
+การรันบน mainnet 35 วินาทีกับ `ETH-USD-PERP.DYDX` ด้วย config ของตัวอย่าง (`grid_step_bps=100`, `num_levels=3`,
+`skew_factor=0.5`, `requote_threshold_bps=10`, `expire_time_secs=8`) จับได้ 47 requote event, การส่ง order 276 ครั้ง,
+accept 67 ครั้ง และ cancel 54 ครั้ง ขณะนั้น ETH เทรดอยู่ใกล้ 2,281 USD ราคาไม่เคยเคลื่อนไหวมากพอจะกระตุ้นเกณฑ์
+requote 10 bps รอบส่วนใหญ่จึงเริ่มจากการหมดอายุของ short-term order ทุก 8 วินาที แทนการเคลื่อนไหวของราคา
 
 ![ETH-USD-PERP mid with theoretical grid bands](./assets/grid_market_maker_dydx/panel_a_grid_overlay.png)
 
-**Figure 1.** *ETH-USD-PERP mid at every requote with the six theoretical grid bands (3 levels each side, 100
-bps step). Mid is near 2,281 USD. The inner buy and sell levels are at ~2,258 and ~2,304 USD.*
+**รูปที่ 1** *mid ของ ETH-USD-PERP ที่แต่ละ requote พร้อมแถบ grid ตามทฤษฎีหกแถบ (ฝั่งละ 3 ระดับ, step 100 bps)
+mid อยู่ใกล้ 2,281 USD ระดับ buy และ sell ด้านในอยู่ที่ราว 2,258 และ 2,304 USD*
 
 ![Order lifetime distribution](./assets/grid_market_maker_dydx/panel_b_order_lifetime.png)
 
-**Figure 2.** *Time from `OrderAccepted` to `OrderCanceled` per short-term order, in seconds. The mass near
-[7, 8] seconds matches the `expire_time_secs=8` setting. The smaller cluster below 6 seconds is
-strategy-initiated cancels during requote transitions.*
+**รูปที่ 2** *เวลาจาก `OrderAccepted` ถึง `OrderCanceled` ต่อ short-term order หนึ่งตัว เป็นวินาที กลุ่มก้อนใหญ่
+ใกล้ [7, 8] วินาทีตรงกับการตั้งค่า `expire_time_secs=8` กลุ่มเล็กที่ต่ำกว่า 6 วินาทีคือการ cancel ที่ strategy
+เริ่มเองระหว่างช่วง requote*
 
 ![Orders submitted per 250-ms bucket](./assets/grid_market_maker_dydx/panel_c_orders_per_cycle.png)
 
-**Figure 3.** *Order submission count per 250-ms bucket, split by side. Each requote cycle places six orders
-(3 buys + 3 sells). The spacing between bursts is the requote interval.*
+**รูปที่ 3** *จำนวนการส่ง order ต่อช่วง 250 ms แยกตาม side แต่ละรอบ requote วาง order หกตัว (buy 3 + sell 3)
+ระยะห่างระหว่างแต่ละชุดคือ interval ของการ requote*
 
 ![Short-term order timeline](./assets/grid_market_maker_dydx/panel_d_short_term_timeline.png)
 
-**Figure 4.** *Theoretical short-term order timeline with
-`expire_time_secs=8` and 0.5-second blocks. The bottom panel tracks how
-the chain block height advances; each order's `GoodTilBlock` target is
-set to ~16 blocks ahead, giving the eight-second expiry.*
+**รูปที่ 4** *timeline ตามทฤษฎีของ short-term order ที่ `expire_time_secs=8` และ block 0.5 วินาที แผงด้านล่าง
+ติดตามการเพิ่มขึ้นของ block height ของ chain โดยเป้าหมาย `GoodTilBlock` ของแต่ละ order ตั้งไว้ล่วงหน้าราว 16 block
+ทำให้หมดอายุในแปดวินาที*
 
-### Regenerate the panels
+### สร้าง panel ใหม่ {#regenerate-the-panels}
 
 :::warning
-The capture run places real orders on dYdX mainnet by default. To capture a testnet run instead,
-set `DYDX_NETWORK` to `DydxNetwork::Testnet` before building (see [Run the example](#run-the-example)).
+การรันเพื่อจับข้อมูลจะวาง order จริงบน dYdX mainnet โดยค่าเริ่มต้น หากต้องการจับข้อมูลจากการรันบน testnet แทน
+ให้ตั้ง `DYDX_NETWORK` เป็น `DydxNetwork::Testnet` ก่อน build (ดู [รันตัวอย่าง](#run-the-example))
 :::
 
-After building NautilusTrader from source, run these commands from the repository root:
+หลัง build NautilusTrader จาก source แล้ว ให้รันคำสั่งเหล่านี้จาก root ของ repository เพื่อ build ตัวอย่างและ
+จับ log จากการรันบน mainnet 35 วินาที:
 
 ```bash
-make sync
-
 cargo build --release --example dydx-grid-mm --package nautilus-dydx --features examples
 
 # Capture a 35-second mainnet run.
 timeout 35 ./target/release/examples/dydx-grid-mm > /tmp/dydx_main.log 2>&1
-
-DYDX_LOG=/tmp/dydx_main.log \
-    uv run --project python --no-sync \
-        python docs/tutorials/assets/grid_market_maker_dydx/render_panels.py
 ```
 
-## Monitoring and understanding output
+> หมายเหตุ: ต้นฉบับใช้ script Python (`docs/tutorials/assets/grid_market_maker_dydx/render_panels.py`) วาด panel จาก log นี้ จึงตัดขั้นตอนนั้นออก
 
-### Log messages
+## การติดตามและทำความเข้าใจ output {#monitoring-and-understanding-output}
 
-| Log message                                         | Meaning                                                           |
+### Log message {#log-messages}
+
+| Log message                                         | ความหมาย                                                            |
 | --------------------------------------------------- | ----------------------------------------------------------------- |
-| `Requoting grid: mid=X, last_mid=Y`                 | Grid refresh after a threshold move, anchor reset, or empty grid. |
-| `Submit short-term order N`                         | Order submitted through short-term broadcast path.                |
-| `BatchCancel N short-term orders`                   | Batch cancel executed for expired/stale orders.                   |
-| `benign cancel error, treating as success`          | Cancel for an already-filled or expired order (normal).           |
-| `Sequence mismatch detected, will resync and retry` | Cosmos SDK sequence error, auto-recovering.                       |
+| `Requoting grid: mid=X, last_mid=Y`                 | refresh grid หลังการเคลื่อนไหวเกินเกณฑ์, การ reset anchor หรือ grid ว่าง  |
+| `Submit short-term order N`                         | ส่ง order ผ่านเส้นทาง broadcast แบบ short-term                        |
+| `BatchCancel N short-term orders`                   | execute batch cancel สำหรับ order ที่หมดอายุ/ค้างเก่า                   |
+| `benign cancel error, treating as success`          | cancel order ที่ fill หรือหมดอายุไปแล้ว (ปกติ)                          |
+| `Sequence mismatch detected, will resync and retry` | sequence error ของ Cosmos SDK กำลังกู้คืนอัตโนมัติ                     |
 
-The `Submit short-term order`, `BatchCancel`, and benign cancel lines log at DEBUG level. The
-example sets `stdout_level: LevelFilter::Info`, so change it to `LevelFilter::Debug` to see them.
+บรรทัด `Submit short-term order`, `BatchCancel` และ benign cancel ถูก log ที่ระดับ DEBUG ตัวอย่างตั้ง
+`stdout_level: LevelFilter::Info` ไว้ จึงต้องเปลี่ยนเป็น `LevelFilter::Debug` เพื่อดูบรรทัดเหล่านี้
 
-### Expected behavior patterns
+### รูปแบบพฤติกรรมที่คาดหวัง {#expected-behavior-patterns}
 
-1. **Startup**: instruments load, WebSocket connects, first quote
-   triggers initial grid.
-1. **Steady state**: the grid persists across ticks.
-   Requotes occur when mid moves by at least `requote_threshold_bps`, the grid is empty, or an event resets the anchor.
-   Rejections and expiry events reset the anchor. Unexpected cancels reset it with `on_cancel_resubmit=true`.
-1. **Fills**: position updates, skew adjusts, the next requote shifts the
-   grid.
-1. **Expiry**: short-term orders expire on chain after approximately eight seconds.
-   The indexer emits a cancel event for each, and the next quote refreshes the grid.
-1. **Shutdown**: all orders canceled, positions closed, WebSocket
-   disconnected.
+1. **Startup**: instrument โหลด, WebSocket เชื่อมต่อ, quote แรกกระตุ้น grid เริ่มต้น
+1. **Steady state**: grid คงอยู่ข้าม tick การ requote เกิดเมื่อ mid เคลื่อนไหวอย่างน้อย `requote_threshold_bps`,
+   grid ว่าง หรือมี event ที่ reset anchor การปฏิเสธและ event การหมดอายุจะ reset anchor ส่วนการ cancel ที่ไม่คาดคิด
+   จะ reset เมื่อ `on_cancel_resubmit=true`
+1. **Fill**: position อัปเดต, skew ปรับ และการ requote ครั้งถัดไปจะเลื่อน grid
+1. **Expiry**: short-term order หมดอายุบน chain หลังราวแปดวินาที indexer ปล่อย cancel event สำหรับแต่ละตัว
+   และ quote ถัดไปจะ refresh grid
+1. **Shutdown**: order ทั้งหมดถูก cancel, position ปิด, WebSocket disconnect
 
-## Customization tips
+## เคล็ดลับการปรับแต่ง {#customization-tips}
 
-### High vs low volatility
+### ความผันผวนสูงกับต่ำ {#high-vs-low-volatility}
 
-| Condition       | Adjustment                                                                   |
+| สภาวะ             | การปรับ                                                                        |
 | --------------- | ---------------------------------------------------------------------------- |
-| High volatility | Wider `grid_step_bps` ([100, 200]), fewer `num_levels`, lower `skew_factor`. |
-| Low volatility  | Tighter `grid_step_bps` ([10, 30]), more `num_levels`, higher `skew_factor`. |
-| Thin liquidity  | Increase `requote_threshold_bps` to reduce cancel frequency.                 |
+| ผันผวนสูง          | `grid_step_bps` กว้างขึ้น ([100, 200]), `num_levels` น้อยลง, `skew_factor` ต่ำลง |
+| ผันผวนต่ำ          | `grid_step_bps` แคบลง ([10, 30]), `num_levels` มากขึ้น, `skew_factor` สูงขึ้น    |
+| liquidity บาง    | เพิ่ม `requote_threshold_bps` เพื่อลดความถี่ของการ cancel                         |
 
-### Multiple instruments
+### หลาย instrument {#multiple-instruments}
 
-Run separate `GridMarketMaker` instances per instrument. Each instance
-manages its own grid, position, and cancel state independently:
+รัน instance ของ `GridMarketMaker` แยกกันต่อ instrument แต่ละ instance ดูแล grid, position และ state ของการ
+cancel ของตัวเองอย่างอิสระ:
 
 ```rust
 let btc_config = GridMarketMakerConfig::builder()
@@ -651,17 +616,13 @@ node.add_strategy(GridMarketMaker::new(btc_config))?;
 node.add_strategy(GridMarketMaker::new(eth_config))?;
 ```
 
-### Mainnet vs testnet toggle
+### สลับระหว่าง mainnet กับ testnet {#mainnet-vs-testnet-toggle}
 
-The example selects the network from the `DYDX_NETWORK` constant near the top of the file
-(`DydxNetwork::Mainnet` by default). Change it to `DydxNetwork::Testnet` and rebuild to run
-against testnet.
+ตัวอย่างเลือก network จากค่าคงที่ `DYDX_NETWORK` ใกล้ส่วนบนของไฟล์ (`DydxNetwork::Mainnet` โดยค่าเริ่มต้น)
+เปลี่ยนเป็น `DydxNetwork::Testnet` แล้ว build ใหม่เพื่อรันบน testnet
 
-## Further reading
+## อ่านเพิ่มเติม {#further-reading}
 
-- [dYdX v4 Integration Guide](../integrations/dydx.md): full adapter
-  reference.
-- [dYdX Protocol Documentation](https://docs.dydx.xyz/): official protocol
-  docs.
-- [Order types](https://docs.dydx.xyz/concepts/trading/orders):
-  protocol-level order mechanics.
+- [dYdX v4 Integration Guide](../integrations/dydx.md): reference ฉบับเต็มของ adapter
+- [dYdX Protocol Documentation](https://docs.dydx.xyz/): เอกสารทางการของ protocol
+- [Order types](https://docs.dydx.xyz/concepts/trading/orders): กลไกของ order ระดับ protocol

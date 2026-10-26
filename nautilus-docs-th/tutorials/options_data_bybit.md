@@ -1,30 +1,30 @@
-# Options Data and Greeks (Bybit)
+# ข้อมูล option และ Greeks (Bybit)
 
 :::note
-This **Rust-only** tutorial uses the Rust `LiveNode`
-with the Bybit adapter to stream live option Greeks and aggregated chain
-snapshots.
+tutorial นี้ใช้ **Rust เท่านั้น** โดยใช้ `LiveNode` ของ Rust
+ร่วมกับ adapter ของ Bybit เพื่อ stream option Greeks แบบ live และ snapshot ของ chain
+ที่รวมไว้แล้ว
 :::
 
-This tutorial connects to Bybit's live options market and consumes Greeks
-and option chain data through two `DataActor` examples. It covers
-instrument discovery, venue-provided Greeks subscriptions, and periodic
-chain snapshots with ATM-relative strike filtering.
+tutorial นี้เชื่อมต่อกับตลาด option แบบ live ของ Bybit และรับข้อมูล Greeks
+และ option chain ผ่านตัวอย่าง `DataActor` สองตัว ครอบคลุมการค้นหา
+instrument, การ subscribe Greeks ที่ venue ให้มา และ snapshot ของ chain
+เป็นระยะพร้อมการกรอง strike แบบอิงกับ ATM
 
-## Introduction
+## บทนำ {#introduction}
 
-Bybit publishes Greeks (delta, gamma, vega, theta) and implied volatility
-alongside every option ticker update. NautilusTrader exposes this data at
-two levels:
+Bybit publish Greeks (delta, gamma, vega, theta) และ implied volatility
+มาพร้อมกับการอัปเดต option ticker ทุกครั้ง NautilusTrader เปิดให้ใช้ข้อมูลนี้ใน
+สองระดับ:
 
-- **Per-instrument Greeks**: subscribe to a single option contract and
-  receive an `OptionGreeks` event on every ticker update.
-- **Option chain snapshots**: subscribe to an entire expiry series and
-  receive periodic `OptionChainSlice` events that aggregate quotes and
-  Greeks across all active strikes.
+- **Greeks ราย instrument**: subscribe สัญญา option เดียวแล้ว
+  รับ event `OptionGreeks` ทุกครั้งที่ ticker อัปเดต
+- **Snapshot ของ option chain**: subscribe ทั้งชุดวันหมดอายุ (expiry series) แล้ว
+  รับ event `OptionChainSlice` เป็นระยะ ซึ่งรวม quote และ
+  Greeks ของทุก strike ที่ active ไว้
 
-Two example binaries show these patterns. The first subscribes to individual Greeks streams. The second
-subscribes to an aggregated chain with ATM-relative strike filtering.
+binary ตัวอย่างสองตัวแสดงรูปแบบเหล่านี้ ตัวแรก subscribe stream ของ Greeks ทีละตัว ตัวที่สอง
+subscribe chain ที่รวมไว้แล้วพร้อมการกรอง strike แบบอิงกับ ATM
 
 ```mermaid
 flowchart LR
@@ -48,37 +48,37 @@ flowchart LR
     AGG -->|interval timer| C
 ```
 
-## Prerequisites
+## สิ่งที่ต้องมีก่อน {#prerequisites}
 
-- A working Rust toolchain ([rustup.rs](https://rustup.rs)).
-- The NautilusTrader repository cloned and building.
+- Rust toolchain ที่ใช้งานได้ ([rustup.rs](https://rustup.rs))
+- repository ของ NautilusTrader ที่ clone มาแล้วและ build ได้
 
-The examples need no Bybit API key. They leave `api_key` and `api_secret` unset. The data client then uses
-Bybit's public market data endpoints. It does not read credentials from the environment.
+ตัวอย่างไม่ต้องใช้ API key ของ Bybit โดยปล่อย `api_key` และ `api_secret` ไว้โดยไม่ตั้งค่า data client จึงใช้
+endpoint market data สาธารณะของ Bybit และไม่อ่าน credential จาก environment
 
 :::warning
-Bybit demo trading uses `stream-demo.bybit.com` only for private streams.
-Public option market data uses the mainnet public stream
-`wss://stream.bybit.com/v5/public/option`.
+demo trading ของ Bybit ใช้ `stream-demo.bybit.com` สำหรับ private stream เท่านั้น
+market data ของ option แบบสาธารณะใช้ public stream ของ mainnet
+`wss://stream.bybit.com/v5/public/option`
 :::
 
-## The DataActor pattern
+## รูปแบบของ DataActor {#the-dataactor-pattern}
 
-A Rust `DataActor` needs three pieces:
+`DataActor` ใน Rust ต้องมีสามส่วน:
 
-1. A struct with a `core: DataActorCore` field plus your own state.
-1. The `nautilus_actor!(YourType)` macro plus a `Debug` implementation.
-1. A `DataActor` trait implementation with your callbacks.
+1. struct ที่มีฟิลด์ `core: DataActorCore` และสถานะของคุณเอง
+1. macro `nautilus_actor!(YourType)` และ implementation ของ `Debug`
+1. implementation ของ trait `DataActor` พร้อม callback ของคุณ
 
-The macro supplies the native runtime connections that the blanket `Actor` and `Component` implementations
-require. You only implement the callbacks you need. Every callback has a default no-op implementation.
+macro จะจัดการการเชื่อมต่อกับ runtime แบบ native ที่ implementation แบบ blanket ของ `Actor` และ `Component`
+ต้องการ คุณ implement เฉพาะ callback ที่ต้องการ เพราะทุก callback มี implementation เริ่มต้นที่ไม่ทำอะไร (no-op)
 
-## Part 1: per-instrument Greeks
+## ส่วนที่ 1: Greeks ราย instrument {#part-1-per-instrument-greeks}
 
-The `bybit-greeks-tester` example subscribes to `OptionGreeks` for all
-BTC CALL options at the nearest expiry and logs each update.
+ตัวอย่าง `bybit-greeks-tester` จะ subscribe `OptionGreeks` ของ
+BTC CALL option ทั้งหมดที่วันหมดอายุใกล้ที่สุด และ log ทุกการอัปเดต
 
-### Actor structure
+### โครงสร้างของ actor {#actor-structure}
 
 ```rust
 #[derive(Debug)]
@@ -104,14 +104,14 @@ impl GreeksTester {
 }
 ```
 
-The macro requires the `core` field. The `client_id` identifies the data client for subscriptions. The
-`subscribed_instruments` vector records subscriptions so the actor can remove them on stop.
+macro ต้องการฟิลด์ `core` ส่วน `client_id` ระบุ data client สำหรับการ subscribe และ vector
+`subscribed_instruments` จะบันทึก subscription ไว้เพื่อให้ actor ลบออกได้ตอน stop
 
-### Discovering instruments
+### การค้นหา instrument {#discovering-instruments}
 
-On start, the actor queries the cache for all option instruments,
-filters for BTC CALLs that have not expired, and finds the nearest
-expiry:
+ตอน start actor จะ query cache เพื่อหา option instrument ทั้งหมด
+กรองเฉพาะ BTC CALL ที่ยังไม่หมดอายุ แล้วหาวันหมดอายุ
+ที่ใกล้ที่สุด:
 
 ```rust
 fn on_start(&mut self) -> anyhow::Result<()> {
@@ -148,15 +148,15 @@ fn on_start(&mut self) -> anyhow::Result<()> {
 ```
 
 :::warning
-Release the cache borrow before calling any subscription methods. The
-cache uses `Rc<RefCell<...>>` internally, and subscription methods may
-need to borrow it. Collect owned data into a local `Vec`, drop the cache
-reference, then subscribe.
+ให้ปล่อยการยืม (borrow) cache ก่อนเรียก method สำหรับ subscribe ใดๆ
+cache ใช้ `Rc<RefCell<...>>` ภายใน และ method สำหรับ subscribe อาจ
+ต้องยืมมันด้วย ให้รวบรวมข้อมูลที่เป็นเจ้าของเองไว้ใน `Vec` ในเครื่อง ทิ้ง reference
+ของ cache แล้วจึง subscribe
 :::
 
-### Subscribing to Greeks
+### การ subscribe Greeks {#subscribing-to-greeks}
 
-After discovering instruments, subscribe to each one:
+หลังค้นหา instrument แล้ว ให้ subscribe ทีละตัว:
 
 ```rust
 let client_id = self.client_id;
@@ -166,10 +166,10 @@ for (instrument_id, _, _) in &options {
 }
 ```
 
-### Handling updates
+### การจัดการการอัปเดต {#handling-updates}
 
-Each ticker update from Bybit triggers `on_option_greeks` with an
-`OptionGreeks` event:
+การอัปเดต ticker แต่ละครั้งจาก Bybit จะ trigger `on_option_greeks` พร้อม
+event `OptionGreeks`:
 
 ```rust
 fn on_option_greeks(&mut self, greeks: &OptionGreeks) -> anyhow::Result<()> {
@@ -192,34 +192,34 @@ fn on_option_greeks(&mut self, greeks: &OptionGreeks) -> anyhow::Result<()> {
 }
 ```
 
-The `OptionGreeks` fields:
+ฟิลด์ของ `OptionGreeks`:
 
-| Field              | Type               | Description                                                     |
-| ------------------ | ------------------ | --------------------------------------------------------------- |
-| `instrument_id`    | `InstrumentId`     | The option contract.                                            |
-| `convention`       | `GreeksConvention` | Greeks convention (`BlackScholes` or `PriceAdjusted`).          |
-| `delta`            | `f64`              | Price sensitivity to underlying.                                |
-| `gamma`            | `f64`              | Delta sensitivity to underlying.                                |
-| `vega`             | `f64`              | Price sensitivity to a 1% change in volatility.                 |
-| `theta`            | `f64`              | Daily time decay.                                               |
-| `rho`              | `f64`              | Sensitivity to interest rate changes.                           |
-| `mark_iv`          | `Option<f64>`      | Mark price implied volatility.                                  |
-| `bid_iv`           | `Option<f64>`      | Bid implied volatility.                                         |
-| `ask_iv`           | `Option<f64>`      | Ask implied volatility.                                         |
-| `underlying_price` | `Option<f64>`      | Venue reference price for this expiry.                          |
-| `open_interest`    | `Option<f64>`      | Open interest for this contract.                                |
-| `ts_event`         | `UnixNanos`        | UNIX timestamp (nanoseconds) when the event occurred.           |
-| `ts_init`          | `UnixNanos`        | UNIX timestamp (nanoseconds) when the instance was initialized. |
+| ฟิลด์               | Type               | คำอธิบาย                                                        |
+| ------------------ | ------------------ | ------------------------------------------------------------- |
+| `instrument_id`    | `InstrumentId`     | สัญญา option                                                  |
+| `convention`       | `GreeksConvention` | convention ของ Greeks (`BlackScholes` หรือ `PriceAdjusted`)    |
+| `delta`            | `f64`              | ความอ่อนไหวของราคาต่อ underlying                                |
+| `gamma`            | `f64`              | ความอ่อนไหวของ delta ต่อ underlying                             |
+| `vega`             | `f64`              | ความอ่อนไหวของราคาต่อการเปลี่ยนแปลงของ volatility 1%              |
+| `theta`            | `f64`              | การลดลงของมูลค่าตามเวลารายวัน                                    |
+| `rho`              | `f64`              | ความอ่อนไหวต่อการเปลี่ยนแปลงของอัตราดอกเบี้ย                         |
+| `mark_iv`          | `Option<f64>`      | implied volatility ของ mark price                              |
+| `bid_iv`           | `Option<f64>`      | bid implied volatility                                        |
+| `ask_iv`           | `Option<f64>`      | ask implied volatility                                        |
+| `underlying_price` | `Option<f64>`      | ราคาอ้างอิงของ venue สำหรับวันหมดอายุนี้                          |
+| `open_interest`    | `Option<f64>`      | open interest ของสัญญานี้                                      |
+| `ts_event`         | `UnixNanos`        | UNIX timestamp (นาโนวินาที) เมื่อ event เกิดขึ้น                  |
+| `ts_init`          | `UnixNanos`        | UNIX timestamp (นาโนวินาที) เมื่อ instance ถูก initialize         |
 
-The `delta`, `gamma`, `vega`, `theta`, and `rho` values are in a nested `greeks: OptionGreekValues` struct.
-The `OptionGreeks` implementation of `Deref<Target = OptionGreekValues>` permits direct access through
-`greeks.delta` and the other fields, as shown above.
+ค่า `delta`, `gamma`, `vega`, `theta` และ `rho` อยู่ใน struct ซ้อน `greeks: OptionGreekValues`
+implementation `Deref<Target = OptionGreekValues>` ของ `OptionGreeks` ทำให้เข้าถึงได้โดยตรงผ่าน
+`greeks.delta` และฟิลด์อื่นๆ ดังที่แสดงข้างต้น
 
-Bybit does not provide rho. The adapter sets it to `0.0`.
+Bybit ไม่ได้ให้ค่า rho adapter จึงตั้งเป็น `0.0`
 
-### Cleanup
+### การเก็บกวาด {#cleanup}
 
-On stop, unsubscribe from all instruments:
+ตอน stop ให้ unsubscribe จากทุก instrument:
 
 ```rust
 fn on_stop(&mut self) -> anyhow::Result<()> {
@@ -233,25 +233,25 @@ fn on_stop(&mut self) -> anyhow::Result<()> {
 }
 ```
 
-## Part 2: option chain snapshots
+## ส่วนที่ 2: snapshot ของ option chain {#part-2-option-chain-snapshots}
 
-The `bybit-option-chain` example subscribes to an aggregated option chain
-and logs periodic snapshots showing calls and puts at each strike with
-their quotes and Greeks.
+ตัวอย่าง `bybit-option-chain` จะ subscribe option chain ที่รวมไว้แล้ว
+และ log snapshot เป็นระยะ โดยแสดง call และ put ที่แต่ละ strike พร้อม
+quote และ Greeks ของมัน
 
-### Why use option chains
+### ทำไมต้องใช้ option chain {#why-use-option-chains}
 
-Per-instrument subscriptions give control over individual contracts. For an entire surface, you must manage
-individual streams and correlate updates across strikes. An option chain subscription does this through the
-`DataEngine`. It aggregates quotes and Greeks across all strikes in a series and publishes a single
-`OptionChainSlice` on a timer.
+subscription ราย instrument ให้การควบคุมสัญญาแต่ละตัว แต่สำหรับทั้ง surface คุณต้องจัดการ
+stream แต่ละตัวและเชื่อมโยงการอัปเดตข้าม strike เอง subscription แบบ option chain ทำสิ่งนี้ให้ผ่าน
+`DataEngine` โดยรวม quote และ Greeks ของทุก strike ในชุดเดียวกัน แล้ว publish
+`OptionChainSlice` เดียวตาม timer
 
-This aggregation occurs inside NautilusTrader. Bybit publishes option market data for each contract. The V5
-public WebSocket documentation does not specify a native option chain stream.
+การรวมนี้เกิดขึ้นภายใน NautilusTrader Bybit publish market data ของ option แยกตามสัญญา และเอกสาร
+public WebSocket ของ V5 ไม่ได้ระบุ stream ของ option chain แบบ native ไว้
 
-### Chain types
+### Type ที่เกี่ยวกับ chain {#chain-types}
 
-**`OptionSeriesId`** identifies a single expiry series:
+**`OptionSeriesId`** ระบุชุดวันหมดอายุหนึ่งชุด:
 
 ```rust
 let series_id = OptionSeriesId::new_derived(
@@ -262,19 +262,19 @@ let series_id = OptionSeriesId::new_derived(
 );
 ```
 
-**`StrikeRange`** controls which strikes are active:
+**`StrikeRange`** ควบคุมว่า strike ใดจะ active:
 
-| Variant       | Description                                                                 |
-| ------------- | --------------------------------------------------------------------------- |
-| `Fixed`       | A fixed set of strike prices.                                               |
-| `AtmRelative` | `strikes_above` above and `strikes_below` below ATM.                        |
-| `AtmPercent`  | All strikes within `pct` of the ATM price.                                  |
-| `Delta`       | Strikes whose call or put absolute delta is within `tolerance` of `target`. |
+| Variant       | คำอธิบาย                                                                         |
+| ------------- | ------------------------------------------------------------------------------ |
+| `Fixed`       | ชุดราคา strike ที่กำหนดตายตัว                                                     |
+| `AtmRelative` | `strikes_above` strike เหนือ ATM และ `strikes_below` strike ใต้ ATM                |
+| `AtmPercent`  | ทุก strike ที่อยู่ภายใน `pct` ของราคา ATM                                           |
+| `Delta`       | strike ที่ค่าสัมบูรณ์ของ delta ของ call หรือ put อยู่ภายใน `tolerance` จาก `target`    |
 
-For dynamic strike ranges, subscriptions wait until the engine determines the ATM price from the
-venue-provided reference price.
+สำหรับช่วง strike แบบ dynamic subscription จะรอจนกว่า engine จะกำหนดราคา ATM ได้จาก
+ราคาอ้างอิงที่ venue ให้มา
 
-### Subscribing
+### การ subscribe {#subscribing}
 
 ```rust
 let strike_range = StrikeRange::AtmRelative {
@@ -293,13 +293,13 @@ self.subscribe_option_chain(
 );
 ```
 
-For raw mode, pass `None` for `snapshot_interval_ms`. In this mode, every quote or Greeks update publishes a
-slice immediately.
+สำหรับโหมด raw ให้ส่ง `None` เป็น `snapshot_interval_ms` ในโหมดนี้ การอัปเดต quote หรือ Greeks ทุกครั้งจะ publish
+slice ทันที
 
-### Handling snapshots
+### การจัดการ snapshot {#handling-snapshots}
 
-The `on_option_chain` callback receives an `OptionChainSlice` containing
-all active strikes with their call and put data:
+callback `on_option_chain` จะได้รับ `OptionChainSlice` ที่มี
+strike ที่ active ทั้งหมดพร้อมข้อมูล call และ put:
 
 ```rust
 fn on_option_chain(&mut self, slice: &OptionChainSlice) -> anyhow::Result<()> {
@@ -347,26 +347,26 @@ fn on_option_chain(&mut self, slice: &OptionChainSlice) -> anyhow::Result<()> {
 }
 ```
 
-The `OptionChainSlice` fields and methods:
+ฟิลด์และ method ของ `OptionChainSlice`:
 
-| Name             | Type / Returns              | Description                          |
-| ---------------- | --------------------------- | ------------------------------------ |
-| `series_id`      | `OptionSeriesId`            | The series this snapshot covers.     |
-| `atm_strike`     | `Option<Price>`             | ATM strike from the reference price. |
-| `call_count()`   | `usize`                     | Number of call strikes with data.    |
-| `put_count()`    | `usize`                     | Number of put strikes with data.     |
-| `strike_count()` | `usize`                     | Union of all strikes.                |
-| `strikes()`      | `Vec<Price>`                | Sorted list of all strike prices.    |
-| `get_call(k)`    | `Option<&OptionStrikeData>` | Call quote and Greeks at strike `k`. |
-| `get_put(k)`     | `Option<&OptionStrikeData>` | Put quote and Greeks at strike `k`.  |
+| ชื่อ              | Type / ค่าที่คืน              | คำอธิบาย                                |
+| ---------------- | --------------------------- | ------------------------------------- |
+| `series_id`      | `OptionSeriesId`            | ชุดที่ snapshot นี้ครอบคลุม                |
+| `atm_strike`     | `Option<Price>`             | strike ATM จากราคาอ้างอิง                |
+| `call_count()`   | `usize`                     | จำนวน strike ของ call ที่มีข้อมูล           |
+| `put_count()`    | `usize`                     | จำนวน strike ของ put ที่มีข้อมูล            |
+| `strike_count()` | `usize`                     | ยูเนียนของ strike ทั้งหมด                 |
+| `strikes()`      | `Vec<Price>`                | list ของราคา strike ทั้งหมดที่เรียงแล้ว       |
+| `get_call(k)`    | `Option<&OptionStrikeData>` | quote และ Greeks ของ call ที่ strike `k`   |
+| `get_put(k)`     | `Option<&OptionStrikeData>` | quote และ Greeks ของ put ที่ strike `k`    |
 
-Each `OptionStrikeData` contains a `quote: QuoteTick` (bid/ask) and an
-optional `greeks: Option<OptionGreeks>`.
+`OptionStrikeData` แต่ละตัวมี `quote: QuoteTick` (bid/ask) และ
+`greeks: Option<OptionGreeks>` แบบ optional
 
-## Node setup
+## การตั้งค่า node {#node-setup}
 
-Both examples use the same `LiveNode` pattern. No execution client is
-needed for data-only use:
+ทั้งสองตัวอย่างใช้รูปแบบ `LiveNode` เดียวกัน และไม่ต้องใช้ execution client
+สำหรับการใช้งานเฉพาะข้อมูล:
 
 ```rust
 #[tokio::main]
@@ -400,10 +400,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-With `product_types` set to `[BybitProductType::Option]`, the client loads only option instruments. Startup
-waits while the instrument provider retrieves and parses every listed option.
+เมื่อตั้ง `product_types` เป็น `[BybitProductType::Option]` client จะโหลดเฉพาะ option instrument ตอน startup
+จะรอขณะที่ instrument provider ดึงและ parse option ทุกตัวที่ list ไว้
 
-## Running the examples
+## การรันตัวอย่าง {#running-the-examples}
 
 ```bash
 # Per-instrument Greeks
@@ -413,17 +413,17 @@ cargo run --example bybit-greeks-tester --package nautilus-bybit --features exam
 cargo run --example bybit-option-chain --package nautilus-bybit --features examples
 ```
 
-Stop either example with Ctrl+C. The actor's `on_stop` callback
-unsubscribes from all streams before shutdown.
+หยุดตัวอย่างใดก็ได้ด้วย Ctrl+C callback `on_stop` ของ actor
+จะ unsubscribe ทุก stream ก่อนปิดระบบ
 
-## What the examples produce
+## ผลลัพธ์ที่ตัวอย่างสร้างขึ้น {#what-the-examples-produce}
 
-A 30-second mainnet run on April 28 (BTC near 76,800 USDT, expiry 2026-04-28 08:00 UTC) gives these results:
+การรันบน mainnet 30 วินาทีในวันที่ 28 เมษายน (BTC ใกล้ 76,800 USDT, วันหมดอายุ 2026-04-28 08:00 UTC) ให้ผลดังนี้:
 
-- The per-instrument tester captures **938 Greeks updates** across 22 BTC CALL contracts.
-- The chain tester captures **5 chain snapshots** with 7 strikes each.
+- tester ราย instrument จับ **การอัปเดต Greeks ได้ 938 ครั้ง** จากสัญญา BTC CALL 22 สัญญา
+- tester ของ chain จับ **snapshot ของ chain ได้ 5 ครั้ง** แต่ละครั้งมี 7 strike
 
-### Per-instrument Greeks output
+### Output ของ Greeks ราย instrument {#per-instrument-greeks-output}
 
 ```text
 Found 22 BTC CALL options at nearest expiry (ts=1777359600000000000)
@@ -433,7 +433,7 @@ GREEKS | BTC-28APR26-71000-C-USDT-OPTION.BYBIT | delta=0.4733 gamma=0.000000 veg
 GREEKS | BTC-28APR26-73000-C-USDT-OPTION.BYBIT | delta=0.4733 gamma=0.000000 vega=0.0000 theta=-0.0000 rho=0.000000 | mark_iv=0.57 bid_iv=0.00 ask_iv=5.00 | underlying=76782.43 oi=0.0
 ```
 
-### Option chain output
+### Output ของ option chain {#option-chain-output}
 
 ```text
 OPTION_CHAIN | BYBIT:BTC:USDT:2026-04-28T08:00:00Z | atm=77000 | calls=7 puts=7 | strikes=7
@@ -442,71 +442,58 @@ OPTION_CHAIN | BYBIT:BTC:USDT:2026-04-28T08:00:00Z | atm=77000 | calls=7 puts=7 
   K=76500 | CALL: bid=265 ask=370 [d=0.442 g=0.00000 v=0.07 iv=29.9%] | PUT: bid=0 ask=5 [d=-0.003 g=0.00000 v=0.07 iv=29.9%]
 ```
 
-### Panels
+### แผงภาพ {#panels}
 
 ![BTC CALL delta vs strike](./assets/options_data_bybit/panel_a_delta_vs_strike.png)
 
-**Figure 1.** *Last delta per BTC CALL strike at the nearest expiry,
-underlying ~77,000 USDT marked. Delta drops from ~0.45 below the
-underlying to near zero past the underlying. Bybit's delta on near-zero
-gamma contracts close to expiry compresses to a step-like profile around
-ATM.*
+**รูปที่ 1.** *delta ล่าสุดของแต่ละ strike ของ BTC CALL ที่วันหมดอายุใกล้ที่สุด
+โดยทำเครื่องหมาย underlying ที่ ~77,000 USDT ไว้ delta ลดลงจาก ~0.45 เมื่อต่ำกว่า
+underlying ไปจนเกือบเป็นศูนย์เมื่อเลย underlying ไป delta ของ Bybit บนสัญญาที่ gamma
+ใกล้ศูนย์และใกล้วันหมดอายุจะถูกบีบให้เป็นลักษณะขั้นบันไดรอบ
+ATM*
 
 ![IV smile per strike](./assets/options_data_bybit/panel_b_iv_smile.png)
 
-**Figure 2.** *Mark IV per strike for the latest chain snapshot (CALL and PUT overlaid). The smile is
-symmetric around ATM at 77,000 USDT. IV decreases from 36% at 75,500 to 30% at 77,000, then increases to 38%
-at 78,500.*
+**รูปที่ 2.** *Mark IV ของแต่ละ strike สำหรับ snapshot ของ chain ล่าสุด (CALL และ PUT ซ้อนกัน) smile
+สมมาตรรอบ ATM ที่ 77,000 USDT โดย IV ลดลงจาก 36% ที่ 75,500 เหลือ 30% ที่ 77,000 แล้วเพิ่มขึ้นเป็น 38%
+ที่ 78,500*
 
 ![Underlying trajectory and open interest](./assets/options_data_bybit/panel_c_underlying_oi.png)
 
-**Figure 3.** *Bybit's underlying price reported in each Greeks update (top) and open interest by strike at
-the last update (bottom). OI concentrates in the [70,000, 76,000] USDT band: at-the-money to slightly
-out-of-the-money strikes.*
+**รูปที่ 3.** *ราคา underlying ของ Bybit ที่รายงานในการอัปเดต Greeks แต่ละครั้ง (บน) และ open interest ตาม strike
+ณ การอัปเดตล่าสุด (ล่าง) OI กระจุกตัวในช่วง [70,000, 76,000] USDT: strike ที่ at-the-money ไปจนถึง
+out-of-the-money เล็กน้อย*
 
 ![CALL spread per chain snapshot](./assets/options_data_bybit/panel_d_call_spread.png)
 
-**Figure 4.** *Average CALL bid-ask spread per chain snapshot in USDT.
-Snapshots arrive every five seconds (`snapshot_interval_ms=5000`).*
+**รูปที่ 4.** *bid-ask spread เฉลี่ยของ CALL ต่อ snapshot ของ chain หน่วยเป็น USDT
+snapshot มาถึงทุกห้าวินาที (`snapshot_interval_ms=5000`)*
 
-### Regenerate the panels
+### การสร้างแผงภาพใหม่ {#regenerate-the-panels}
 
-After building NautilusTrader from source, run these commands from the repository root:
+> หมายเหตุ: ต้นฉบับใช้สคริปต์ Python ในการ render แผงภาพ จึงตัดออก
 
-```bash
-make sync
-
-cargo build --release --package nautilus-bybit --features examples \
-    --example bybit-greeks-tester --example bybit-option-chain
-timeout 30 ./target/release/examples/bybit-greeks-tester > /tmp/bybit_greeks.log 2>&1
-timeout 30 ./target/release/examples/bybit-option-chain > /tmp/bybit_chain.log 2>&1
-
-GREEKS_LOG=/tmp/bybit_greeks.log CHAIN_LOG=/tmp/bybit_chain.log \
-    uv run --project python --no-sync \
-        python docs/tutorials/assets/options_data_bybit/render_panels.py
-```
-
-## Complete source
+## Source code ฉบับเต็ม {#complete-source}
 
 - [`crates/adapters/bybit/examples/node_greeks.rs`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/bybit/examples/node_greeks.rs)
 - [`crates/adapters/bybit/examples/node_option_chain.rs`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/bybit/examples/node_option_chain.rs)
 
-## Next steps
+## ขั้นตอนถัดไป {#next-steps}
 
-- **Combined patterns**: Use per-instrument Greeks for near-ATM
-  contracts alongside the aggregated chain view in a single actor.
-  Subscribe to Greeks for contracts you want to track individually, and
-  the chain for a surface-level view.
-- **Quote subscriptions**: Call `subscribe_quotes` for
-  top-of-book `QuoteTick` updates on individual option contracts.
-- **Options execution**: The
-  [delta-neutral strategy tutorial](delta_neutral_options_bybit.md) walks
-  through a short strangle with perpetual hedging, including IV-based
-  order placement through Bybit's `order_iv` parameter.
+- **ผสมรูปแบบ**: ใช้ Greeks ราย instrument สำหรับสัญญาที่ใกล้ ATM
+  ควบคู่กับมุมมอง chain ที่รวมไว้แล้วใน actor เดียว
+  subscribe Greeks สำหรับสัญญาที่ต้องการติดตามทีละตัว และ
+  subscribe chain สำหรับมุมมองระดับ surface
+- **การ subscribe quote**: เรียก `subscribe_quotes` เพื่อรับการอัปเดต
+  `QuoteTick` ระดับ top-of-book ของสัญญา option แต่ละตัว
+- **การ execute option**:
+  [tutorial strategy แบบ delta-neutral](delta_neutral_options_bybit.md) อธิบาย
+  short strangle พร้อมการ hedge ด้วย perpetual รวมถึงการวาง order แบบอิง IV
+  ผ่านพารามิเตอร์ `order_iv` ของ Bybit
 
-## See also
+## ดูเพิ่มเติม {#see-also}
 
-- [Options](../concepts/options.md): option instrument types, Greeks
-  data types, and chain architecture.
-- [Bybit integration](../integrations/bybit.md): full Bybit adapter
-  reference including options order parameters and limitations.
+- [Options](../concepts/options.md): ประเภทของ option instrument, data type ของ Greeks
+  และสถาปัตยกรรมของ chain
+- [Bybit integration](../integrations/bybit.md): ข้อมูลอ้างอิงฉบับเต็มของ adapter Bybit
+  รวมถึงพารามิเตอร์ order ของ option และข้อจำกัด

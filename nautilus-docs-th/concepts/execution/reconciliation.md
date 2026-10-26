@@ -305,3 +305,320 @@ engine จะเลือก fallback เฉพาะเมื่อมี posit
 [การ project fill เฉพาะ order](#order-only-fill-projection) ข้ามการตรวจสอบการลดเหล่านี้ เพราะเป็นการซ่อมประวัติของ order
 โดยไม่เปลี่ยน position
 
+## การตั้งค่า reconciliation {#reconciliation-configuration}
+
+เว้นแต่จะตั้ง `reconciliation` เป็น false live node จะทำ startup reconciliation สำหรับ execution client แต่ละตัว พารามิเตอร์
+`reconciliation_lookback_mins` ควบคุมว่าจะขอประวัติย้อนหลังไปไกลแค่ไหนผ่าน execution engine การเปิดใช้ตอน startup และ
+interval ของการ polling อยู่ใน `LiveExecutionEngineConfig` ของ node ส่วน manager จะได้รับ threshold, ขีดจำกัดการ retry,
+ตัวกรอง และ lookback ที่ใช้ในการตัดสินใจเรื่อง reconciliation
+
+:::tip
+ปล่อย `reconciliation_lookback_mins` ไว้โดยไม่ตั้งค่า เพื่อใช้ค่าเริ่มต้นที่ adapter ระบุไว้ adapter จำนวนมากจะขอประวัติ
+execution สูงสุดที่ venue มีให้ ขณะที่บางตัวใช้ค่าเริ่มต้นแบบมีขอบเขตให้ตรงกับระยะเวลาเก็บข้อมูลและขีดจำกัด request ของ
+venue ดูคู่มือ integration ของ venue ที่เลือก
+:::
+
+:::warning
+history window ที่มีขอบเขตอาจเริ่มหลัง fill ที่เปิด position บาง venue ยังกรองหรือทิ้งข้อมูล execution ที่เก่ากว่าด้วย แต่สิ่งนี้
+ไม่ได้เปลี่ยนกฎของ position report ข้างต้น: report ที่ระบุชัดเจนยังคงเป็นเป้าหมายของปริมาณ
+:::
+
+สำหรับ option ทั้งหมดของ live trading ดู `LiveExecutionEngineConfig` ใน
+[Rust API docs](https://nautilustrader.io/docs/core-latest/)
+
+### ความเป็นเจ้าของ order และ tag {#order-ownership-and-tags}
+
+แต่ละ strategy สามารถตั้ง `external_order_instrument_ids` เป็นเจตนาในการ claim external order ที่มาจาก venue และกิจกรรม
+reconciliation ที่ถูกสร้างขึ้นสำหรับ instrument ที่ระบุ การลงทะเบียน strategy แบบ live จะสร้างเจตนานั้นเป็น claim ที่ active
+ซึ่ง strategy สามารถแทนที่ได้ระหว่าง runtime ทำให้ strategy กลับมาจัดการ order และ position ที่เปิดอยู่ได้แม้ไม่มี state ใน cache
+
+strategy ID และ tag ระบุที่มาของ external order ขึ้นกับแหล่งที่มาและขึ้นกับว่ามี strategy claim instrument ของมันหรือไม่
+order และ fill ที่ถูก claim จะใช้ strategy ID ของ strategy ที่ claim เพื่อให้ strategy จัดการ state ที่กู้คืนได้ต่อไป
+
+| แหล่งที่มาของ order                | ไม่ถูก claim                       | ถูก claim                                 |
+| ----------------------------- | -------------------------------- | --------------------------------------- |
+| order จาก venue               | `EXTERNAL`, tag `VENUE`          | strategy ที่ claim, ไม่มี tag             |
+| order จาก position reconciliation | `EXTERNAL`, tag `RECONCILIATION` | strategy ที่ claim, tag `RECONCILIATION` |
+
+:::tip
+หากต้องการตรวจจับ external order ที่ไม่ถูก claim ใน strategy ให้ตรวจสอบ `order.strategy_id.value == "EXTERNAL"`
+ความเป็นเจ้าของไม่ได้ตัด order เหล่านี้ออกจากการติดตาม position หรือการคำนวณ portfolio fill ย้อนหลังยังคงเป็นไปตามกฎ
+[ความปลอดภัยของประวัติแบบมีขอบเขต](#bounded-history-safety) เมื่อเกี่ยวข้อง
+:::
+
+### การกู้คืนการ submit {#submission-recovery}
+
+`submission_recovery_policy` มีค่าเริ่มต้นเป็น `ResolveLocally` การเลือก `RetainUnresolved` จะเปิดใช้:
+
+- การติดตามตัวตนของการ submit
+- การวินิจฉัยเมื่อหมดความพยายาม (exhaustion diagnostic)
+- การคงงบการกู้คืนของการ submit ไว้จนกว่าจะได้รับการตอบรับ
+
+การ submit ที่ยังไม่ได้รับการตอบรับและหมดความพยายามแล้วจะยังคงไม่ resolve และหยุด query กู้คืนอัตโนมัติราย order
+client ยังสามารถบังคับใช้การป้องกันนี้ได้เองโดยไม่ขึ้นกับ policy ที่ตั้งค่าไว้ Polymarket เปิดการป้องกันนี้ให้อัตโนมัติ
+
+การ submit ที่ถูกคงไว้ยังส่งผลต่อ[ผลลัพธ์ตอน shutdown ของ node](../live.md#submission-recovery-at-shutdown) ด้วย
+`LiveNode::stop` และ `run` ของ Rust รวมถึงการรันแบบ hosted จะรายงาน client order ID ที่ยังไม่ resolve หลัง teardown เมื่อการ
+กู้คืนการ submit ยังไม่เสร็จที่ขอบเขต `delay_post_stop` ซึ่งรวมถึง Polymarket แม้ไม่ได้ opt-in อย่างชัดเจน exhaustion
+diagnostic และ teardown ที่สำเร็จไม่ได้พิสูจน์ผลลัพธ์ที่ venue หรือว่า position เป็น flat
+
+#### Exhaustion diagnostic {#exhaustion-diagnostic}
+
+เมื่อเปิดการติดตาม `LiveNode` แบบ native จะ publish `SubmissionRecoveryExhausted` บน
+`reconciliation.SubmissionRecoveryExhausted` เมื่อการ submit ที่ยังไม่ได้รับการตอบรับถึงขีดจำกัดการกู้คืนที่มีอยู่ โดย publish
+diagnostic หลังประมวลผล event ของ reconciliation หนึ่งครั้งต่อการ submit ที่ติดตามอยู่
+
+diagnostic นี้บรรจุตัวตนของการ submit ดั้งเดิม, แหล่งที่มาของการกู้คืน, จำนวนครั้งที่ตรวจสอบ และ timestamp ของ event
+diagnostic นี้ไม่ใช่ order event และไม่ได้พิสูจน์ผลลัพธ์ที่ venue
+
+#### งบการกู้คืน {#recovery-budget}
+
+cancel หรือ modify ที่ dispatch ก่อนได้รับการตอบรับจะใช้งบการกู้คืนที่เหลือของการ submit ร่วมกัน การลงทะเบียนซ้ำและการ
+บันทึก order ที่หายไปไม่สามารถเริ่มงบนั้นใหม่ได้ การตอบรับจะปิดงบโดยไม่โอนการกู้คืนไปยัง command ที่ซ้อนกัน
+
+command ที่ dispatch หลังได้รับการตอบรับจะเริ่ม in-flight check ของตัวเองตอน dispatch แม้ event ที่รออยู่จะยังไม่มาถึง โดยใช้
+กฎการล้างข้อมูลของ command ที่มีอยู่ เช่น order status report แบบ `PARTIALLY_FILLED` จะหยุด timeout ของ cancel ที่รออยู่
+ภายใต้ทั้งสอง policy กฎการล้างนี้ไม่ใช้กับ fill report แบบเดี่ยว
+
+หากไม่มีการติดตามการ submit (`ResolveLocally` และไม่มีการคงไว้ที่ client บังคับ) การ dispatch command จะเริ่มงบการกู้คืนใหม่
+และ event fill หรือ `Triggered` แบบ native จะไม่ปิด timeout ของ command ที่รออยู่
+
+#### การตอบรับ {#acknowledgement}
+
+report `Submitted` ที่ตรงกันและมี venue order ID จะปิดการกู้คืนของการ submit ดั้งเดิม report ที่เข้ามา และ response ของ query
+แบบรวมหรือแบบเจาะจง ใช้การตรวจสอบการยืนยันเดียวกัน `OrderUpdated` ที่ถูกนำไปใช้และมีตัวตนจาก venue ก็ยืนยันการ submit
+ด้วย ส่วนการอัปเดตภายในที่ไม่มีตัวตนจาก venue ไม่นับ
+
+registry จะคงตัวตนของการ submit ไว้ตลอดกิจกรรมที่ตามมา:
+
+- **การ submit ที่ยืนยันแล้ว**: การยืนยันจาก report อย่างเดียวจะถูกจดจำไว้ รวมถึงสำหรับ order ใน cache ที่ยังไม่ได้ลงทะเบียน
+  เพื่อการกู้คืน ดังนั้นการลงทะเบียนการ submit ซ้ำจะไม่เริ่ม timeout ใหม่ การบันทึก order ที่หายไปจะไม่ลงทะเบียนการ submit
+  ที่ได้รับการตอบรับแล้วซ้ำ
+- **การ submit ที่หมดความพยายามแล้ว**: ตัวตนของมันจะคงอยู่ใน registry จนกว่าหลักฐานจาก venue จะ resolve ได้ การลงทะเบียนซ้ำ
+  และการ dispatch cancel หรือ modify ไม่สามารถเริ่มการกู้คืนอัตโนมัติใหม่ได้
+
+command ที่ตามมาจะไม่สร้าง diagnostic เรื่องการ submit หมดความพยายาม
+
+#### การลงทะเบียน {#registration}
+
+- **Live node**: `LiveNode` ลงทะเบียนตัวตนของการ submit ก่อน dispatch และการคงไว้ที่ client บังคับให้อัตโนมัติ
+- **ผู้เรียก `ExecutionManager` โดยตรง**: ใช้ `register_submission` สำหรับการ submit ส่วน `register_inflight` เพียงเริ่ม
+  การกู้คืน command และไม่อนุมานตัวตนของการ submit จาก cache host ที่ใช้ manager โดยตรงต้องเลือก `RetainUnresolved`
+  หรือรัน `check_open_orders` กับ client ของตนก่อนพึ่งพาการคงไว้ที่ client บังคับใน in-flight check
+
+#### ขีดจำกัดการกู้คืน {#recovery-limits}
+
+ขีดจำกัดและการตรวจสอบความครอบคลุมที่มีอยู่ยังคงใช้:
+
+- **In-flight check**: `inflight_check_retries` นับจำนวนการตรวจสอบ ขีดจำกัด `N` อนุญาตให้ query order ระหว่างทางได้
+  `N - 1` ครั้งก่อนหมดความพยายาม
+- **การตรวจสอบ order ที่หายไป**: ใช้ `open_check_missing_retries` และต้องมีความครอบคลุมของ client ที่เสร็จสมบูรณ์และตรงกัน
+  พร้อม query แบบเจาะจงที่สำเร็จและไม่พบ order ก่อนรายงานการหมดความพยายาม query แบบเจาะจงที่ล้มเหลวหรือถูกเลื่อนจะไม่
+  สร้าง diagnostic นั้น
+
+### ความพร้อมของ instrument {#instrument-availability}
+
+adapter parse reconciliation report โดยใช้ instrument ดังนั้นทุก instrument ที่ report อ้างถึงต้องถูกโหลดไว้แล้ว adapter
+จะไม่ดึง instrument ที่หายไปจาก venue ระหว่าง reconciliation
+
+ขอบเขตของ instrument มาจาก config ของ provider ใน adapter ไม่ใช่จาก engine `InstrumentProviderConfig.load_ids` กำหนดว่า
+adapter ถือ instrument ใดบ้าง ขณะที่ `reconciliation_instrument_ids` กรอง report หลังจาก adapter สร้าง report แล้วเท่านั้น
+
+report ของ instrument ที่อยู่นอกขอบเขต `load_ids` ที่ระบุชัดเจนเป็นเรื่องที่คาดไว้แล้ว และจะถูกทิ้งที่ระดับ debug ดังนั้น node
+ที่จำกัดขอบเขตไว้ที่ instrument เดียวจะไม่ส่งเสียงเกี่ยวกับส่วนที่เหลือของ venue ส่วน instrument ในขอบเขตที่ resolve ไม่ได้
+แปลว่ามีบางอย่างผิดปกติ ไม่ว่าจะระบุใน `load_ids` หรือครอบคลุมด้วย `load_all` เป็น true ผลลัพธ์ขึ้นกับสิ่งที่ report อธิบาย:
+
+- report ของ order หรือ position ที่เปิดอยู่จะทำให้ reconciliation ล้มเหลว ระบบจึงไม่เริ่มทำงาน position แบบ live ที่ประเมิน
+  ราคาไม่ได้จะไม่ถูกทิ้งอย่างเงียบ ๆ เด็ดขาด
+- record ที่ปิดแล้วหรือเป็นประวัติจะ log warning แทนการยกเลิก startup เมื่อ adapter ประกาศประวัติแบบมีขอบเขต record นั้นจะ
+  ทำเครื่องหมายว่าชุด report ไม่สมบูรณ์ด้วย โดยใช้กฎ[ความปลอดภัยของประวัติแบบมีขอบเขต](#bounded-history-safety) การหมดอายุ
+  มักทำให้ instrument ที่ fill เก่ายังอ้างถึงถูกเลิกใช้ไปตามปกติ
+
+## Startup reconciliation {#startup-reconciliation}
+
+execution client ของ adapter ทุกตัวใช้ขั้นตอน reconciliation เดียวกัน โดยเรียกสามเมธอดเพื่อสร้าง execution mass status:
+
+- `generate_order_status_reports`
+- `generate_fill_reports`
+- `generate_position_status_reports`
+
+```mermaid
+flowchart TD
+    Start[Startup Reconciliation] --> Fetch[Fetch venue reports<br/>orders, fills, positions]
+    Fetch --> Dedup[Deduplicate reports<br/>log warnings for duplicates]
+    Dedup --> Orders[Order Reconciliation<br/>align order states, generate missing events]
+    Orders --> Fills[Fill Reconciliation<br/>verify fills, generate missing OrderFilled events]
+    Fills --> Pos[Position Reconciliation<br/>compare net positions per instrument]
+    Pos --> Match{Positions<br/>match venue?}
+    Match -->|Yes| Done[Reconciliation complete<br/>system ready for trading]
+    Match -->|No| Gen[Generate missing orders<br/>strategy: EXTERNAL, tag: RECONCILIATION]
+    Gen --> Recovered{In-scope reports match<br/>within tolerances?}
+    Recovered -->|Yes| Done
+    Recovered -->|No| Abort[Startup fails<br/>actors and strategies do not start]
+```
+
+report เหล่านี้แทนความเป็นจริงภายนอก ขั้นตอนนี้ประมวลผลตามลำดับที่แสดง เพื่อให้การตรวจสอบ position แต่ละครั้งต่อยอดจาก
+state ของ order และ fill ที่ reconcile แล้ว
+
+### สัญญาเรื่องประวัติของ mass status {#mass-status-history-contract}
+
+`ExecutionMassStatus` สามารถประกาศที่มาของ report ย้อนหลังได้:
+
+- `lookback_start=None` หมายความว่า adapter ไม่ได้ประกาศขอบเขตเวลาล่างอย่างชัดเจน
+- `lookback_start=Some(timestamp)` หมายความว่า report ของ order และ fill ย้อนหลังไม่รวมกิจกรรมที่ venue ก่อน timestamp นั้น
+- `reports_complete=true` หมายความว่าแหล่ง order, fill และ position ทุกแหล่งที่จำเป็นต่อการตีความประวัติแบบมีขอบเขต
+  ทำงานเสร็จ และ record ที่จำเป็นทั้งหมด map ได้สำเร็จ
+
+adapter ยังสามารถคืน active order และ position report ที่เชื่อถือได้เมื่อแหล่งประวัติล้มเหลว โดยจะทำเครื่องหมายว่า mass status
+ไม่สมบูรณ์เพื่อบันทึกว่าประวัติขาดหาย ความไม่สมบูรณ์นี้ไม่ได้ขัดขวางการกู้คืนจาก position report ที่ระบุชัดเจน
+
+### การตัด report ซ้ำ {#report-deduplication}
+
+- ตัด order report ที่ซ้ำภายใน batch และ log warning
+- log trade ID ที่ซ้ำเป็น warning เพื่อการตรวจสอบ
+- นับ position report เพียงครั้งเดียวใน startup validation และการตรวจสอบ position ต่อเนื่อง เมื่อตรงกับ report ก่อนหน้า
+  ยกเว้น `report_id` และ `ts_init` และ log warning สำหรับตัวซ้ำแต่ละตัว report ที่ต่างกันในฟิลด์อื่นใด รวมถึง `ts_last`
+  จะนับแยกกัน
+
+### Order reconciliation {#order-reconciliation}
+
+- สร้างและนำ event ไปใช้เพื่อย้าย order จาก state ใน cache ไปเป็น state ปัจจุบัน
+- สร้าง event ของ external order สำหรับ client order ID ที่ไม่รู้จัก หรือ report ที่ไม่มี client order ID
+
+### Fill reconciliation {#fill-reconciliation}
+
+- อนุมาน event `OrderFilled` สำหรับ trade report ที่หายไป
+- ตรวจสอบความสอดคล้องของข้อมูล fill report ด้วยการเปรียบเทียบราคาและค่าคอมมิชชันแบบมี tolerance
+- ทิ้งกลุ่ม fill ที่ไม่มีทั้ง order report และ order ใน cache และ log warning แบบรวมหนึ่งครั้งต่อ mass status สำหรับกลุ่มที่ถูกทิ้ง
+  กลุ่มที่ fill มี `venue_position_id` จะถูกจัดการแยก engine จะสร้าง order ที่ fill แล้วจากกลุ่มนั้นเมื่อเปิด
+  `generate_missing_orders` และข้ามไปในกรณีอื่น
+
+### ลำดับของ event {#event-ordering}
+
+startup reconciliation นำ event ของ order และ fill ที่สร้างขึ้นไปใช้ตามลำดับเวลา:
+
+- fill จะถูกนำไปใช้ตามลำดับเวลาของ event: เวลา execute ที่ venue จาก `FillReport.ts_event` หรือ `ts_last` ของ report
+  สำหรับ fill ที่อนุมาน
+- event อื่นของ venue order แต่ละตัว เช่น การ accept จะถูกนำไปใช้ไม่ช้ากว่า fill แรกสุดที่ตามมาของ venue order นั้น การ accept
+  ที่รายงานอาจมาหลัง fill ของ order เองได้ หาก venue รายงานเวลาอัปเดตล่าสุดหรือ adapter ใช้เวลาภายใน order ยังคงถูก accept
+  ก่อนที่ fill จะถูกนำไปใช้
+- event ของ venue order ต่างตัวกันจะคงเวลาของตัวเอง รวมถึง order ที่ถูกแทนที่ซึ่งใช้ client order ID เดียวกับ order ที่มาแทน
+
+ลำดับเปลี่ยนเฉพาะตอนที่ event ถูกนำไปใช้ event แต่ละตัวยังคง timestamp ที่รายงานไว้
+
+### Position reconciliation {#position-reconciliation}
+
+- จับคู่ net position ต่อ account และ instrument กับ position report ของ venue โดยใช้ quantity tolerance ของ account
+- สร้าง event ของ external order เมื่อ order reconciliation ทิ้ง position ที่ต่างจาก venue ไว้
+- เมื่อเปิด `generate_missing_orders` (ค่าเริ่มต้น: true) จะสร้าง order ที่มี strategy ID `EXTERNAL` และ tag
+  `RECONCILIATION` เพื่อปรับความคลาดเคลื่อน
+- log warning เมื่อความเป็นเจ้าของแบบ NETTING ถูกแบ่งระหว่างหลาย strategy สำหรับ account และ instrument เดียวกัน เพราะ
+  position report ของ venue เป็น net position ระดับ account
+
+#### Order สังเคราะห์ {#synthetic-orders}
+
+reconciliation สร้าง report ของ MARKET order และ fill แบบสังเคราะห์ด้วยราคาที่ทราบ:
+
+- การเปิดจาก flat ใช้ `avg_px_open` ที่รายงาน
+- การเพิ่ม position ที่มีอยู่ใช้ราคาที่คำนวณให้ได้ราคาเข้าเฉลี่ยตามที่รายงาน
+- การลด position ที่มีอยู่ใช้ราคาเข้าเฉลี่ยที่รายงาน และ fallback ไปใช้ค่าเฉลี่ยใน cache เมื่อ report ไม่มีค่านี้ การลดไม่เปลี่ยน
+  ราคาเข้าเฉลี่ยของ position ที่เหลือ
+- การปิดเป็น flat ใช้ราคาเข้าเฉลี่ยใน cache
+- การกลับทิศจะปิด position ใน cache แล้วเปิด position ที่รายงานที่ราคาเข้าเฉลี่ยของมัน
+
+report ที่ทำเครื่องหมายค่าเฉลี่ยไว้จะเปลี่ยนราคาบางส่วนเหล่านี้ ดู[ราคาเข้าเฉลี่ยที่รายงาน](#reported-entry-averages)
+
+engine จะข้ามส่วนต่างของปริมาณที่ปัดแล้วเป็นศูนย์ตาม size precision ของ instrument startup validation ยังคงตรวจสอบส่วนต่าง
+ที่เหลือเทียบกับ quantity tolerance ของ account
+
+#### Fill ที่ถูก replay {#replayed-fills}
+
+reconciliation อาจเปิด position จาก position report ของ venue ตราบใดที่ position นั้นยังเปิดอยู่ fill report ของ instrument และ
+account เดียวกันที่มี `ts_event` เก่ากว่าจะอัปเดต order ของมันแต่ไม่อัปเดต position เพราะ report รวม execution เหล่านั้นไว้แล้ว
+ดังนั้น venue ที่ส่ง execution เหล่านั้นซ้ำหลัง restart (เช่น Interactive Brokers TWS) จะไม่ทำให้ position เพิ่มเป็นสองเท่า fill
+ที่เก่ากว่ายังคงถูกนำไปใช้เมื่อไม่มี position แบบนั้นเปิดอยู่สำหรับ instrument และ account นั้น
+
+การป้องกันนี้มีช่องโหว่ที่ทราบดังนี้:
+
+- **ช่วงเวลาของ reconciliation**: fill เปิด position แบบสังเคราะห์ใช้เวลาของ reconciliation แทนเวลาของ report ดังนั้น fill จริงที่
+  เกิดระหว่างการ query position report กับ reconciliation ก็จะไม่ถูกนับใน position ด้วย การตรวจสอบ position ต่อเนื่องจะปรับให้
+  ตรงเฉพาะเมื่อรันโดยเปิด `generate_missing_orders`
+- **การ purge order ที่เปิด position**: การป้องกันต้องมี order เปิด position แบบสังเคราะห์อยู่ใน cache เมื่อเปิดการ purge order
+  ที่ปิดแล้ว `purge_closed_orders_buffer_mins` ที่สั้นกว่าความล่าช้าในการ replay ของ venue อาจลบ order นั้นออกไปก่อน
+- **Fill ที่มาเป็นชุด**: fill ที่มาพร้อมกับ order status report จะข้ามการป้องกันนี้
+
+fill ที่ไม่ถูกนับใน position จะอยู่บน order เท่านั้น เช่นเดียวกับ[การ project fill เฉพาะ order](#order-only-fill-projection)
+โดยมีผลดังนี้:
+
+- **การ restore จาก event store**: การ restore cache จาก event store จะนำ fill ไปใช้กับ position ดังนั้น position ที่ restore
+  แล้วอาจมีปริมาณเกินกว่าที่ venue รายงาน
+- **Fill void**: fill void จาก venue สำหรับ fill นั้นจะถูกปฏิเสธ order จึงยังคงเป็น filled
+- **Locked balance**: order ที่เปิดอยู่ซึ่ง fill นั้นปิดไป จะยังคง locked balance ไว้จนกว่าจะมี order event ถัดไปของ instrument
+  และ account นั้น
+- **การตรวจสอบ position**: หาก position ที่ reconcile แล้วปิดก่อนที่การตรวจสอบ position ต่อเนื่องจะปรับให้ตรง การตรวจสอบ
+  ครั้งถัดไปจะหยุดที่ fill นั้น และรอจนครบ `position_check_threshold_ms` นับจากครั้งแรกที่นำไปใช้ไม่สำเร็จ แล้วจึงปรับ position
+  แบบสังเคราะห์
+
+#### การตรวจสอบ position ตอน startup {#startup-position-validation}
+
+หลังนำ report ตอน startup ไปใช้ live node จะตรวจสอบ **position report ที่ระบุชัดเจนและอยู่ในขอบเขตทุกตัว รวมถึง report
+แบบ flat** เทียบกับ cache position ที่ยังไม่ resolve จะหยุด startup **ก่อน `on_start` ของ actor หรือ strategy** error จะระบุ
+account, instrument, ปริมาณที่ venue และความล้มเหลวในการกู้คืน
+
+| กรณีของ position                             | ตัวตนใน cache            | ข้อกำหนดเรื่องปริมาณ        |
+| ------------------------------------------ | ----------------------- | ------------------------ |
+| HEDGING ที่มี venue position ID             | venue position ID ตรงกันทุกประการ | ปริมาณตรงกันทุกประการ    |
+| NETTING ที่มีหรือไม่มี venue position ID      | account และ instrument   | ภายใน tolerance ของ account |
+| net report ที่ไม่มี position ID              | account และ instrument   | ภายใน tolerance ของ account |
+
+เมื่อ venue รายงานทั้ง position ฝั่ง long และ short ยอดรวมของแต่ละฝั่งต้องตรงกันด้วย net quantity ที่เท่ากันอย่างเดียวไม่เพียงพอ
+ส่วนต่างที่เหลือซึ่งอยู่นอก tolerance ของ account จะยังไม่ resolve แม้จะปัดเป็นศูนย์ได้ตาม size precision ของ instrument
+ส่วนต่างที่อยู่ภายใน tolerance ยังยอมรับได้ รวมถึงเศษเล็ก ๆ รอบศูนย์
+
+สำหรับ position ที่เปิดอยู่และมี `avg_px_open` ที่รายงาน startup ยังตรวจสอบราคาเข้าเฉลี่ยด้วย relative tolerance ของ fill
+adjustment ที่ 0.01% ราคาเข้าเฉลี่ยอาจตกอยู่ระหว่าง tick ราคาของ instrument การเปรียบเทียบจะไม่ปัดค่าให้เป็นตาม price precision
+ของ instrument
+
+report แบบ NETTING ใช้ราคาเข้าเฉลี่ยถ่วงน้ำหนักตามปริมาณของแต่ละฝั่งที่รายงาน หากฝั่งหนึ่งกระจายอยู่ในหลาย report ทุก report
+ที่มีส่วนต้องให้ค่าเฉลี่ย จึงจะกำหนดเป้าหมายราคาของฝั่งนั้นได้ report สามารถข้ามการตรวจสอบนี้หรือขยาย tolerance ได้ ตามที่อธิบายใน
+[ราคาเข้าเฉลี่ยที่รายงาน](#reported-entry-averages)
+
+ปริมาณที่ตรงกันอย่างเดียวไม่ได้แก้ปัญหาราคาเข้าที่รายงานไม่ตรงกัน เมื่อปริมาณตรงกันอยู่แล้ว position reconciliation จะไม่สร้างการ
+แก้ไขเพียงเพื่อเปลี่ยนราคาเข้าเฉลี่ย ราคาที่ยังไม่ตรงกันจะทำให้ startup ล้มเหลว เมื่อแก้ไขปริมาณแล้ว startup ยังคงล้มเหลวหาก
+ค่าเฉลี่ยที่ได้ยังอยู่นอก tolerance การกู้คืนแบบสังเคราะห์ไม่ได้สร้าง realized PnL ย้อนหลังขึ้นมา
+
+#### ราคาเข้าเฉลี่ยที่รายงาน {#reported-entry-averages}
+
+ฟิลด์สองตัวของ `PositionStatusReport` บอก reconciliation ว่าควรอ่าน `avg_px_open` อย่างไร ค่าเริ่มต้นของทั้งสองคงพฤติกรรม
+ตามที่อธิบายข้างต้น
+
+- `avg_px_open_reconciliation`: `MATCH` (ค่าเริ่มต้น) เปรียบเทียบค่าเฉลี่ยกับราคาเข้าเฉลี่ยใน cache และใช้กำหนดราคาของ fill
+  สังเคราะห์ `OPENING_ONLY` ทำเครื่องหมายว่าค่าเฉลี่ยคำนวณด้วยวิธีอื่น เช่น lot แบบ FIFO ที่เหลือ ค่าเฉลี่ยนี้ต่างจากค่าเฉลี่ย
+  ถ่วงน้ำหนักตามปริมาณใน cache ได้อย่างถูกต้อง เมื่อ position ถูกลดลงแล้ว
+- `avg_px_open_precision`: จำนวนตำแหน่งทศนิยมที่ venue เก็บไว้เมื่อปัดหรือตัดค่าเฉลี่ย หากไม่ตั้งค่า การเปรียบเทียบจะไม่เผื่อ
+  ส่วนต่างใด ๆ
+
+| การใช้ค่าเฉลี่ย                       | `OPENING_ONLY`                                         | ตั้ง `avg_px_open_precision` ไว้                                            |
+| --------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------ |
+| การตรวจสอบราคาเข้าตอน startup        | ข้ามสำหรับฝั่งนั้น การตรวจสอบปริมาณยังคงใช้                  | ผ่านเมื่ออยู่ภายใน 0.01% บวกหนึ่งหน่วยที่ precision หยาบที่สุดของฝั่งนั้น         |
+| การจับคู่ของ fill adjustment         | ปริมาณเท่านั้น ดังนั้นส่วนต่างของราคาจะคง fill จริงไว้          | ใช้ส่วนเผื่อราคาเดียวกัน ปริมาณยังต้องตรงกันทุกประการ                       |
+| การเปิดจาก flat หรือการกลับทิศ        | ใช้ค่าเฉลี่ยที่รายงาน                                      | ใช้ค่าเฉลี่ยที่รายงาน                                                       |
+| การเพิ่มหรือลด position             | ใช้ค่าเฉลี่ยใน cache                                      | ใช้ค่าเฉลี่ยใน cache เมื่อตรงกับ report อยู่แล้ว                              |
+
+สำหรับ `OPENING_ONLY` การเปิดจาก flat รวมถึง fill เปิด position แบบสังเคราะห์ที่[fill adjustment](#fill-adjustment) เพิ่มไว้ก่อน
+window ที่ไม่ครบ report ที่ทำเครื่องหมาย precision ไว้จะกำหนดราคาของ fill นั้นที่ค่าเฉลี่ยของ fill ใน window หากเข้าเงื่อนไขสองข้อ
+คือ position ใน window ต้องอยู่ฝั่งเดียวกับ report และค่าเฉลี่ยของมันต้องตรงกับ report อยู่แล้ว หากไม่เข้าเงื่อนไขข้อใดข้อหนึ่ง
+fill จะใช้ราคาเริ่มต้น
+
+report แบบ `OPENING_ONLY` เพียงตัวเดียวทำให้ทั้งฝั่งนั้นเปรียบเทียบไม่ได้ เพราะค่าเฉลี่ยถ่วงน้ำหนักของฝั่งนั้นจะปนวิธีคำนวณ
+การกำหนดราคาของการเปลี่ยนแปลง position ที่มีอยู่ด้วยค่าเฉลี่ยใน cache จะคงราคาเข้าเฉลี่ยไว้ และไม่บันทึก trading PnL แบบสังเคราะห์
+เมื่อลด position หากไม่มีค่าเฉลี่ยใน cache fill สังเคราะห์จะ fallback ไปใช้ค่าเฉลี่ยที่รายงาน
+
+#### เงื่อนไขเบื้องต้นและตัวกรองของการกู้คืน {#recovery-prerequisites-and-filters}
+
+การสร้าง position ใน cache ว่างจาก report ที่ไม่มีประวัติ order หรือ fill ต้องมี `avg_px_open` engine จะไม่สร้างราคาเข้าขึ้นมาเอง
+
+- **การสร้าง order ที่หายไป**: การปิด `generate_missing_orders` ไม่ได้ข้าม startup validation
+- **ขอบเขตของ report**: ตัวกรอง position report และ instrument ยังคงใช้ report ที่ถูกตัดออกจะไม่ถูกตรวจสอบ
+- **ปิด reconciliation**: การปิด reconciliation จะข้ามการตรวจสอบนี้ทั้งหมด
+

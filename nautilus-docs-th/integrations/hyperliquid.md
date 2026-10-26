@@ -1192,3 +1192,426 @@ CARGO_BUILD_JOBS=16 bash scripts/strip-adapter-env.bash \
 
 harness ต้องใช้สตรีม WebSocket ของ mainnet และ info API สาธารณะ ดู
 [Stress harnesses](../developer_guide/spec_data_testing.md#stress-harnesses) สำหรับ flag ที่ใช้ร่วมกันและรูปแบบ output
+
+## การจัดการ account และ position {#account-and-position-management}
+
+`AccountState` รวม margin ของ perp และ balance ของ spot เข้าด้วยกันตามโหมด account `userAbstraction`:
+
+- **Unified หรือ portfolio margin**: balance และ hold ทั้งหมดมาจาก `spotClearinghouseState` โดย `hold` ของ USDC
+  ฝั่ง spot คือ margin ระดับทั้ง account
+- **โหมดอื่น**: margin ของ perp และการใช้ cross-margin มาจาก `clearinghouseState` ส่วน spot holding ที่ไม่เป็นศูนย์มาจาก
+  `spotClearinghouseState` รวมถึง USDC, USDH, HYPE, vault token และ side token ของ HIP-4 โดย USDC ใช้สรุปของ perp
+  เมื่อ collateral, margin หรือ balance ที่ถอนได้ไม่เป็นศูนย์ มิฉะนั้นใช้ USDC ฝั่ง spot โหมดที่ไม่รู้จักจะ log คำเตือนและใช้
+  เส้นทางนี้
+
+รายการ spot ที่เป็นศูนย์จะล้าง balance ที่ขายหมดหรือถอนออกไปแล้ว และ account ที่ไม่มี USDC จะรายงาน USDC เป็นศูนย์
+นอกโหมด unified และ portfolio margin ทั้งสองกรณีของ balance เป็นศูนย์ต้องมีสรุปของ perp ใน response หากไม่มี balance
+ก่อนหน้าจะยังคงอยู่
+
+ความล้มเหลวในการดึงหรืออ่านโหมด account จะทำให้ทั้ง request สถานะ account และการ connect ล้มเหลว
+
+perp มาตรฐานใช้ cross margin เป็นค่าเริ่มต้น ส่วน HIP-3 perp ใช้ isolated ตอน connect, execution client จะ reconcile order,
+fill และ position กับสถานะ clearinghouse ของ Hyperliquid position ของ spot ถูกสร้างขึ้นใหม่จาก balance ที่ถืออยู่ (long
+อย่างเดียว) side token ของ HIP-4 จะ reconcile กับ instrument `BinaryOption` ที่ตรงกัน ดู
+[HIP-3 reconciliation](#open-order-and-position-reconciliation) สำหรับการกระจาย query ของ open order และ position ราย dex
+
+:::note
+leverage จัดการโดยตรงผ่าน web UI หรือ API ของ Hyperliquid ไม่ใช่ผ่าน adapter ให้ตั้ง leverage ที่ต้องการราย instrument
+บน Hyperliquid ก่อนเทรด
+:::
+
+## การจัดการ liquidation และ ADL {#liquidation-and-adl-handling}
+
+subscription `userEvents` ระบุการปิดที่ venue เป็นผู้เริ่มได้สามแบบ:
+
+- **event `liquidation`**: รายงาน liquidation ID, address ของผู้ liquidate, ผู้ใช้ที่ถูก liquidate, notional ของ position และ
+  มูลค่า account เมื่อ account ถูก liquidate adapter จะ log เป็นคำเตือน
+- **metadata `liquidation` ระดับ fill**: แต่ละรายการใน array `fills` อาจมี object `liquidation` (ไม่บังคับ) ที่มี `method`,
+  `markPx` และ `liquidatedUser` ค่า `method` เป็น `market` (ถูก liquidate เข้า book) หรือ `backstop` (ปิดกับ backstop vault
+  ซึ่งเทียบเท่ากับการปิดแบบ ADL เมื่อกลไกประกันเข้ามาทำงาน)
+- **ทิศทาง fill แบบ `Auto-Deleveraging`**: fill ที่มี `dir` เป็น `Auto-Deleveraging` คือการปิดแบบ ADL กับ position ของ
+  คู่สัญญา ซึ่งไม่มี object `liquidation` adapter จึงรู้จากทิศทางอย่างเดียว และ log ที่ระดับคำเตือนพร้อม instrument, order ID,
+  ราคา และขนาด
+
+แต่ละ fill จะ emit `FillReport` มาตรฐาน พร้อม log รายละเอียดของ liquidation หรือ deleveraging เพื่อเชื่อมโยงกับ event ของ venue
+risk และ reconciliation จัดการเหมือน fill แบบ TAKER อื่นๆ โดยไม่ต้องเปลี่ยน strategy
+
+เอกสารอ้างอิงจากต้นทาง:
+
+- [WebSocket `userEvents` (`liquidation` and `FillLiquidation`)](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/websocket/subscriptions)
+- [Liquidation mechanics](https://hyperliquid.gitbook.io/hyperliquid-docs/trading/liquidations)
+
+## การกู้คืน fill ของ order {#order-fill-recovery}
+
+`QueryOrder` จะกู้คืน fill จาก venue ที่พลาดไปก่อนส่งต่อ status report ของ order ที่ fill เต็มแล้ว
+
+### Order ที่มีสิทธิ์ {#eligible-orders}
+
+การกู้คืนต้องเป็นไปตามเงื่อนไขทั้งหมดนี้:
+
+- order เป็น limit order ปกติใน cache ที่กำหนดขนาดเป็น base currency และถูกติดตามโดย client นี้ตั้งแต่ส่ง โดยไม่มี
+  พฤติกรรม reduce-only หรือความสัมพันธ์แบบ contingent
+- ตอนเริ่ม query มี venue order ID เดียว ไม่มีประวัติการ modify หรือ modify ที่ค้างอยู่ และไม่มี fill ที่นำไปใช้แล้ว
+- venue รายงาน order เดียวกันเป็น `Filled` โดยมีปริมาณและปริมาณที่ fill เท่ากับปริมาณใน cache
+
+### การกู้คืนและ fallback {#recovery-and-fallback}
+
+หลังค้นหาสถานะ adapter จะอ่าน `userFills` หนึ่งครั้งด้วย `aggregateByTime=false` การกู้คืนต้องมี identity ของ fill
+ที่ถูกต้อง, ครอบคลุม trade ที่ไม่ซ้ำได้ครบ และไม่สูญเสียความละเอียดในปริมาณ, ราคา หรือค่าธรรมเนียมของ fill ที่ตรงกัน
+record ที่เหมือนกันนับเป็นหนึ่ง ส่วน record ที่ขัดกันสำหรับ trade ID เดียวจะทำให้ปฏิเสธการกู้คืน การครอบคลุมที่ครบอนุญาต
+ให้กู้คืนได้แม้ที่เพดาน response 2,000 fill
+
+adapter จะ emit fill ที่ตรวจสอบแล้วตามลำดับเวลา แล้วตามด้วย status report ปกติ โดยจะทิ้ง fill เหล่านั้นหาก binding หรือ
+เงื่อนไขของ order เปลี่ยนระหว่างการอ่านประวัติ หรือมี modify ค้างอยู่หลังจากนั้น การ deduplicate ของ engine จัดการ fill
+แบบ live ที่มาถึงระหว่าง request
+
+ประวัติที่ใช้ไม่ได้, การครอบคลุมที่ไม่ครบ หรือแถวใดที่ไม่สามารถ decode, resolve เป็น instrument หรือแปลงเป็น report ได้
+จะไม่ให้ fill สำหรับการกู้คืน การตรวจนี้รวมถึง fill ของ order อื่นด้วย reconciliation ของสถานะปกติยังดำเนินต่อ fill ที่อนุมาน
+ขึ้นจะไม่มี commission (ดู [Inferred-fill commissions](#inferred-fill-commissions))
+
+### ค่าธรรมเนียม {#fees}
+
+การกู้คืนคงค่าธรรมเนียมที่เป็นศูนย์, rebate ที่เป็นลบ และสกุลเงินค่าธรรมเนียมที่รองรับไว้ `fee` รวม `builderFee` ค่าธรรมเนียม
+ศูนย์ใน token ที่ไม่ได้ลงทะเบียนหรือใน side token ของ outcome จะใช้ quote currency ของ instrument ส่วนค่าธรรมเนียมที่ไม่เป็น
+ศูนย์ในทั้งสองแบบจะทำให้ปฏิเสธการกู้คืน
+
+### ข้อจำกัด {#limits}
+
+`GenerateOrderStatusReport` และการรวบรวม mass status ไม่กระตุ้นการกู้คืนนี้ และไม่ครอบคลุม order ที่ fill บางส่วนหรือ
+ถูกยกเลิก, สายการแทนที่, external order ที่ไม่รู้จัก หรือ order ที่โหลดกลับมาหลัง restart
+
+การอ่านสถานะและประวัติเป็น request แยกกันไปยัง venue การกู้คืนจึงแทนที่ execution ที่ reconciliation อื่นอนุมานไว้ก่อนที่
+fill ที่กู้คืนจะนำไปใช้ หรือซ่อม commission ของมันไม่ได้ และไม่มี pagination หรือ loop การลองใหม่เพิ่ม timeout, การลองใหม่
+และการรอ rate limit ของ HTTP ที่มีอยู่ยังมีผล
+
+## การจัดการการเชื่อมต่อ {#connection-management}
+
+การ disconnect ของ WebSocket จะกระตุ้นการ reconnect อัตโนมัติด้วย exponential backoff ตั้งแต่ 250 ms ถึง 5 วินาที การ
+reconnect จะเข้าคิว subscription ที่ active ทั้งหมดแล้วส่งต่อ `Reconnected` order book จะสร้างใหม่จาก snapshot โดยแต่ละตัว
+รอได้ถึง `book_snapshot_timeout_secs` ก่อนที่[การกู้คืน](#order-book-recovery)จะเริ่ม ไม่ต้องดำเนินการด้วยมือ
+
+heartbeat ping ถูกส่งทุก 30 วินาทีเพื่อรักษาการเชื่อมต่อ (Hyperliquid ปิดการเชื่อมต่อที่ว่างหลัง 60 วินาที) transport กลาง
+ถือว่าการไม่มี frame ขาเข้าเลย 90 วินาทีเป็น peer ที่ตายแล้วและเริ่มเส้นทาง reconnect เดียวกัน
+
+data client และ execution client แบบ live จะ publish `SocketStateChanged` บน `hyperliquid-data-streams` และ
+`hyperliquid-user-streams` ทั้งสอง endpoint ลงทะเบียน reconnect handle ไว้ `reconnect_socket` จึงเล็งไปที่ endpoint
+เหล่านี้ได้โดยไม่ต้องวนรอบ client ที่ครอบอยู่
+
+### การกู้คืน execution หลัง reconnect {#execution-recovery-after-reconnect}
+
+การ resubscribe `orderUpdates` และ `userEvents` ไม่ให้ snapshot สตรีมจึงไม่ส่ง event ในช่วงที่ขาดการเชื่อมต่อ หลัง reconnect,
+execution client จะรอการยืนยัน subscription ทั้งสองแล้วอ่าน `historicalOrders` ของ account ตามด้วย `userFills` ผ่าน REST
+
+การ reconnect จะใช้หน้าต่างการกู้คืนที่ค้างอยู่ซ้ำ หากไม่มี จะเปิดหน้าต่างที่ 30 วินาทีก่อนเวลาของ venue ของ report ล่าสุดที่
+ส่งมา หรือก่อนเริ่มสตรีมหากยังไม่มี report การกู้คืนจะประมวลผล fill และสถานะล่าสุดของ venue order แต่ละตัวจากเก่าไปใหม่ผ่าน
+เส้นทาง stream-update การอัปเดตใหม่จากสตรีมจะรอการกู้คืน event ที่กู้คืนจึงถูกนำไปใช้ก่อน
+
+ประวัติอาจล้าหลังสถานะ live หลายวินาทีและขาด event ก่อน reconnect ไม่นาน ห้าวินาทีหลังการอ่านครั้งแรก การอ่านประวัติ
+ติดตามผลจะครอบคลุมหน้าต่างเดิมผ่านเส้นทางเดิม นำ event ที่พลาดไปมาใช้และข้ามที่ใช้ไปแล้ว การอัปเดตจากสตรีมดำเนินต่อระหว่าง
+การติดตามผล event ที่กู้คืนจึงอาจมาถึงหลังการอัปเดตที่ใหม่กว่าของ order เดียวกัน fill ของ order ที่ถูกปิดไปแล้วโดยการอัปเดต
+ที่ใหม่กว่าจะไปถึง reconciliation เป็น external fill report
+
+- client จะข้าม fill ที่ emit ไปแล้วและการอัปเดตแบบ `filled` ที่มีแต่สถานะ ซึ่งสถานะนั้นมีอยู่ใน fill ที่กู้คืนแล้ว engine จะ
+  deduplicate fill อื่นที่นำไปใช้แล้วด้วย trade ID
+- การอัปเดตของ order ที่ client นี้ส่งจะ resolve เป็น client order ID ผ่าน CLOID ของ venue การอัปเดตของ order อื่นจะไปถึง
+  reconciliation เป็น external report เหมือนบนสตรีม
+- modify ทำให้ order ได้ venue order ID ใหม่ order ที่ถูก modify ระหว่าง disconnect จึงครอบคลุมหลาย venue order การกู้คืน
+  จะเปิด venue order แต่ละตัวที่ client ยังไม่เคยเห็นตามลำดับการวาง order จึงผูกใหม่กับแต่ละตัวตามลำดับด้วย `OrderUpdated`
+  และ fill ของแต่ละตัวถูกนำไปใช้หลังจากนั้น การกู้คืนจะทิ้งการยกเลิกของ venue order ที่ถูกแทนที่และนำเฉพาะสถานะของตัวใหม่ที่สุด
+  มาใช้
+- modify หรือ corrective reduce ที่ยังค้างอยู่กับ venue order ตัวใหม่ที่สุดจะกั้นการปิดของ venue order นั้นไว้จนกว่า venue จะ
+  สรุปผล request ตามที่อธิบายใน [Early cancel before the replacement](#early-cancel-before-the-replacement) การอ่านที่แสดง
+  การปิดก่อนที่ตัวแทนจะปรากฏจึงไม่สามารถปิด order ที่ modify แทนที่ไปแล้วได้
+- หาก venue ไม่ยืนยัน subscription ภายใน 10 วินาที client จะ log คำเตือนและอ่านประวัติต่อไป
+- หาก request ประวัติล้มเหลว client จะ log error และกลับไปใช้สตรีม หน้าต่างการกู้คืนจะค้างอยู่จนกว่าการอ่านประวัติติดตามผล
+  ของ reconnect ล่าสุดจะสำเร็จ การ reconnect ครั้งต่อๆ ไปจะลองใหม่จากจุดเริ่มหน้าต่างเดิม แม้สตรีมจะส่ง report ที่ใหม่กว่ามา
+  จนกว่าการกู้คืนจะสำเร็จ การตรวจ in-flight และการตรวจ open order (เมื่อตั้ง `open_check_interval_secs`) เป็นทางสำรอง
+
+endpoint ประวัติแต่ละตัวคืนเฉพาะ 2,000 record ล่าสุดของ account การกู้คืนจึงไปไม่ถึง event ที่เก่ากว่านั้น
+
+### สุขภาพของสตรีมและการกู้คืน {#stream-health-and-recovery}
+
+data client ติดตามความสดของการรับข้อมูลสำหรับ order book delta, depth-10 snapshot และ BBO quote:
+
+- `stale_stream_receive_timeout_secs` ตั้งเกณฑ์ความล้าสมัย
+- `stale_stream_warning_cooldown_secs` ควบคุมคำเตือนซ้ำ
+- สตรีม BBO ที่สดของ instrument เดียวกันจะเปลี่ยนคำเตือน book ล้าสมัยเป็นคำเตือนความล้าสมัยเชิงเปรียบเทียบ BBO quote เป็น
+  เพียงจุดอ้างอิงความสด ไม่ใช่ input ของ order book
+
+การกู้คืนปิดอยู่โดยค่าเริ่มต้น เมื่อตั้ง `stale_stream_recovery_enabled` ไว้:
+
+- การตรวจความล้าสมัยครั้งแรกจะเตือนเสมอ
+- สตรีมที่ยังล้าสมัยจะถูกจัดการหนึ่งครั้งต่อ `stale_stream_recovery_cooldown_secs`
+- สตรีม order book delta ที่ล้าสมัย หรือสตรีม depth ที่ใช้ร่วมกัน จะเริ่ม[การกู้คืน order book](#order-book-recovery) ซึ่งจะ
+  resubscribe จนกว่าจะได้ snapshot ใหม่และไม่ร้องขอ reconnect
+- สตรีมที่มีแต่ depth หรือ BBO ที่ล้าสมัยจะได้รับการ resubscribe แบบเจาะจง การ resubscribe `l2Book` จะคง option ความละเอียด
+  เดิมไว้
+- หลังการ resubscribe แบบเจาะจงของสตรีมที่มีแต่ depth หรือ BBO ครบ `stale_stream_max_targeted_resubscribes` ครั้ง
+  client จะร้องขอ reconnect WebSocket ทั้งหมด
+- ข้อมูลที่สดจะรีเซ็ตลำดับขั้นการกู้คืนของสตรีม
+
+## API credentials {#api-credentials}
+
+ส่ง credential ใน config ของ client หรือใช้ environment variable ต่อไปนี้:
+
+| Environment                     | ตัวแปร                                                                          |
+| ------------------------------- | ------------------------------------------------------------------------------- |
+| Mainnet                         | `HYPERLIQUID_PK`; `HYPERLIQUID_VAULT` (ไม่บังคับ สำหรับ vault trading)              |
+| Testnet                         | `HYPERLIQUID_TESTNET_PK`; `HYPERLIQUID_TESTNET_VAULT` (ไม่บังคับ สำหรับ vault trading) |
+| ทั้งสองแบบ สำหรับ agent (API) wallet | `HYPERLIQUID_ACCOUNT_ADDRESS` (address ของ master account ใช้ร่วมกันทั้งสองแบบ)         |
+
+:::tip
+แนะนำให้ใช้ environment variable ในการจัดการ credential
+:::
+
+## Agent wallet {#agent-wallets}
+
+master account สามารถอนุมัติ [agent wallet](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/nonces-and-api-wallets)
+(API wallet หรือ sub-key) ให้เซ็น order แทนได้ order เหล่านี้เป็นของ master account ไม่ใช่ address ของ agent
+
+หาก `HYPERLIQUID_PK` หรือ `HYPERLIQUID_TESTNET_PK` เป็น key ของ agent ให้ตั้ง `account_address` หรือ
+`HYPERLIQUID_ACCOUNT_ADDRESS` เป็น master account มิฉะนั้น query และ WebSocket subscription จะเล็งไปที่ account
+ของ agent ที่ว่างเปล่า: order ที่ส่งจะไม่มีวัน reconcile โดยไม่มี `OrderStatusReport` หรือ fill ใดปรากฏ
+
+execution factory ใช้ address ที่ resolve แล้วตัวเดียวสำหรับ account query ผ่าน REST และ WebSocket user subscription
+การเซ็นใช้ private key ที่ตั้งไว้ ส่วน vault trading จะใส่ `vaultAddress` ใน payload ที่เซ็น
+
+`account_address` และ `HYPERLIQUID_ACCOUNT_ADDRESS` รับ hex แบบตัวพิมพ์เล็กที่ขึ้นต้นด้วย `0x` หรือแบบ checksum ตาม
+EIP-55 whitespace รอบๆ จะถูกตัดออกและ address ที่รับจะถูก normalize เป็นตัวพิมพ์เล็ก address ที่ไม่ถูกต้อง รวมถึง
+`account_address` ที่ระบุเป็นค่าว่าง จะล้มเหลวก่อนเริ่ม network I/O ส่วน environment variable ที่ว่างจะถูกเพิกเฉย
+
+environment variable จะเติมเฉพาะค่า config ที่ไม่ได้ระบุ ค่าที่ระบุชัดเจนมีลำดับความสำคัญกว่า
+
+ลำดับการ resolve address ของ execution account ที่ใช้โดย info query และ WebSocket subscription:
+
+1. `account_address` (master account เมื่อใช้ agent wallet)
+2. `vault_address` (vault sub-account)
+3. `HYPERLIQUID_ACCOUNT_ADDRESS`
+4. `HYPERLIQUID_VAULT` หรือ `HYPERLIQUID_TESTNET_VAULT`
+5. address ที่ได้จาก private key (ตัว wallet เอง)
+
+:::note
+`HYPERLIQUID_ACCOUNT_ADDRESS` ใช้ร่วมกันระหว่าง mainnet และ testnet ต่างจากตัวแปร private key ที่แยกกัน ค่าเดียวจึงครอบคลุม
+ทั้งสอง environment เมื่อ agent wallet มี master account เดียวกันในแต่ละ environment
+:::
+
+:::tip
+wallet ที่ login ด้วย email จะสร้าง address ต่างกันระหว่าง mainnet และ testnet ให้ตั้ง `account_address` อย่างชัดเจนราย
+environment ใน `HyperliquidExecutionClientConfig` เมื่อ master account ต่างกัน
+:::
+
+## Vault trading {#vault-trading}
+
+Hyperliquid รองรับ [vault trading](https://hyperliquid.gitbook.io/hyperliquid-docs/trading/vaults) ซึ่ง wallet จะทำงานแทน
+vault (sub-account) order จะเซ็นด้วย private key ของ wallet แต่ใส่ vault address ใน payload ของ signature
+
+หากต้องการเทรดผ่าน vault ให้ตั้ง `vault_address` ใน config ของ execution client (หรือตั้ง environment variable
+`HYPERLIQUID_VAULT` / `HYPERLIQUID_TESTNET_VAULT`)
+
+:::warning
+สำหรับ vault trading ปกติ ให้ปล่อย `account_address` ว่างไว้ เพื่อให้ `vault_address` เป็น account address ที่ใช้สำหรับ
+query ผ่าน REST และ WebSocket user subscription หากตั้งทั้ง `account_address` และ `vault_address` ไว้ `account_address`
+จะมีผลกับ query และ subscription ขณะที่ `vault_address` ยังถูกใส่ใน exchange payload ที่เซ็น
+:::
+
+## Funding rate {#funding-rates}
+
+perpetual futures ของ Hyperliquid ใช้ช่วง funding คงที่ 1 ชั่วโมง adapter ตั้ง `interval` เป็น `60` (นาที) ให้กับ object
+`FundingRateUpdate` ทุกตัว
+
+## Rate limiting {#rate-limiting}
+
+Hyperliquid ใช้ limit ตาม IP address และ user address โดย adapter ใช้ limit คงที่ของ venue จาก
+[เอกสาร rate limit ของ Hyperliquid](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/rate-limits-and-user-limits)
+และไม่เปิดให้ override เป็นค่าที่สูงกว่า
+
+### REST limit {#rest-limits}
+
+#### ขอบเขตการใช้ร่วมกัน {#sharing-scope}
+
+client ใน process เดียวกันใช้ token bucket ขนาด 1,200 weight ต่อนาทีร่วมกัน เมื่อ environment, origin ของ HTTP endpoint
+และเส้นทาง proxy ตรงกัน `/info` และ `/exchange` บน origin เดียวกันใช้ bucket เดียวกัน
+
+process, โปรแกรม, เส้นทาง proxy และ HTTP client ภายนอกที่แยกกันไม่ได้ใช้ bucket ในหน่วยความจำนี้ร่วมกัน ให้เผื่อ
+ความจุไว้สำหรับ traffic นั้นเมื่อใช้ egress IP ร่วมกัน
+
+#### Weight ของ request {#request-weights}
+
+| Endpoint    | Request                  | Weight พื้นฐาน                    |
+| ----------- | ------------------------ | -----------------------------: |
+| `/exchange` | All actions              | `1 + floor(batch length / 40)` |
+| `/info`     | `l2Book`                 |                              2 |
+| `/info`     | `allMids`                |                              2 |
+| `/info`     | `clearinghouseState`     |                              2 |
+| `/info`     | `orderStatus`            |                              2 |
+| `/info`     | `spotClearinghouseState` |                              2 |
+| `/info`     | `exchangeStatus`         |                              2 |
+| `/info`     | `userRole`               |                             60 |
+| `/info`     | request อื่นทั้งหมด         |                             20 |
+
+batch ของ order หรือการยกเลิกนับเป็น IP request เดียว response ของ `/info` บางตัวจะเพิ่ม weight ตามจำนวนรายการที่คืนมา:
+
+| ข้อมูล                      | Request                                                         | Weight ที่เพิ่ม               |
+| ------------------------- | --------------------------------------------------------------- | -----------------------: |
+| Candles                   | `candleSnapshot`                                                | +1 ต่อ 60 รายการที่คืนมา    |
+| Trades และ orders          | `recentTrades`, `historicalOrders`                              | +1 ต่อ 20 รายการที่คืนมา    |
+| Fills                     | `userFills`, `userFillsByTime`                                  | +1 ต่อ 20 รายการที่คืนมา    |
+| Funding                   | `fundingHistory`, `userFunding`, `nonUserFundingUpdates`        | +1 ต่อ 20 รายการที่คืนมา    |
+| TWAP                      | `twapHistory`, `userTwapSliceFills`, `userTwapSliceFillsByTime` | +1 ต่อ 20 รายการที่คืนมา    |
+| Delegators และ validators  | `delegatorHistory`, `delegatorRewards`, `validatorStats`        | +1 ต่อ 20 รายการที่คืนมา    |
+
+#### การลองใหม่ {#retries}
+
+ความพยายาม HTTP แต่ละครั้งใช้ weight เต็มของ request
+
+| Request หรือ response                       | พฤติกรรม                                            |
+| --------------------------------------- | ------------------------------------------------- |
+| transport ล้มเหลวหรือ timeout บน `/info`     | ลองใหม่ภายในงบการลองใหม่ของ info                       |
+| HTTP 408, 429 หรือ 5xx จาก `/info`         | ลองใหม่ภายในงบการลองใหม่ของ info                       |
+| response ที่ลองใหม่ได้และมี `Retry-After`      | รอตามจำนวนวินาทีใน header หรือจนถึงวันที่ HTTP ที่ระบุ        |
+| ความล้มเหลวที่ลองใหม่ได้แต่ไม่มี delay ที่ถูกต้อง     | ใช้ full-jitter backoff แบบมีเพดาน                     |
+| response ล้มเหลวจาก `/exchange`             | ไม่ลองใหม่ เพราะอาจไม่รู้ผลจาก venue                      |
+
+การลองใหม่ของ `/info` ใน execution client รวมถึง account query และ reconciliation ใช้:
+
+- `max_retries=3`: ลองใหม่ได้สูงสุดสามครั้งหลังความพยายามแรก รวมสี่ครั้ง ตั้ง `0` เพื่อปิดการลองใหม่
+- `retry_delay_initial_ms=100` และ `retry_delay_max_ms=5000`: ขอบเขตของ exponential full-jitter ค่าสูงสุดยังจำกัด
+  ขอบเขตเริ่มต้นด้วย และค่าใดค่าหนึ่งเป็น `0` จะปิด backoff
+- `Retry-After` ที่ถูกต้อง: มีลำดับความสำคัญกว่าและอาจเกินเพดาน backoff ได้
+
+data client และ HTTP client แบบ standalone ใช้การลองใหม่สามครั้ง ขอบเขตเริ่มต้น 125 ms และเพดาน 5,000 ms
+
+การตั้งค่าเหล่านี้ไม่รวม exchange action (submit, modify, cancel และอื่นๆ) และ WebSocket post exchange action ที่เซ็นแต่ละตัว
+ได้ nonce ใหม่ [การป้องกัน replay ด้วย nonce](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/nonces-and-api-wallets)
+จึงไม่ทำให้การส่งซ้ำปลอดภัยหลัง timeout หรือ response หาย adapter จะคืน error โดยไม่ส่งซ้ำ ส่วน WebSocket post ยังคง
+[การลองใหม่ก่อนเขียน](#post-deadlines-and-retries)
+
+### WebSocket limit {#websocket-limits}
+
+#### ขอบเขตการใช้ร่วมกัน {#sharing-scope-1}
+
+client ใน process เดียวกันใช้ WebSocket limit ร่วมกันเมื่อ environment, origin ของ WebSocket endpoint และเส้นทาง proxy ตรงกัน
+
+#### Limit ที่บังคับใช้ {#enforced-limits}
+
+| Limit             | สูงสุด         | ใช้กับ                                                            |
+| ----------------- | -----------: | ---------------------------------------------------------------- |
+| Outbound messages | 2,000/นาที    | subscription, unsubscription, post, heartbeat และ pong           |
+| In-flight posts   |          100 | post request ที่เกิดพร้อมกัน                                         |
+| Connections       |           10 | การเชื่อมต่อที่เกิดพร้อมกัน                                           |
+| New connections   |    30/นาที    | การเชื่อมต่อครั้งแรกและความพยายาม reconnect                             |
+| Subscriptions     |        1,000 | subscription ที่ active และที่ค้างอยู่                                  |
+| Unique users      |           10 | subscription เฉพาะผู้ใช้ โดยจับคู่ address แบบไม่สนตัวพิมพ์เล็กใหญ่          |
+
+#### Reconnect และการปล่อยคืน {#reconnects-and-releases}
+
+การ reconnect อัตโนมัติจะคง slot ของการเชื่อมต่อเชิงตรรกะและการจอง subscription ที่ active ไว้ แต่ยังใช้อัตราการเชื่อมต่อใหม่
+การ unsubscribe ที่ได้รับการยืนยัน, การ disconnect client อย่างชัดเจน หรือการจบของ handler แบบ terminal จะปล่อยการจอง
+subscription ที่เกี่ยวข้องคืน
+
+#### Deadline ของ post และการลองใหม่ {#post-deadlines-and-retries}
+
+deadline ของผู้เรียกหนึ่งค่าครอบคลุมการรอ in-flight slot, command channel, outbound quota, การเชื่อมต่อที่ active และ response
+post จะถูกลองใหม่เฉพาะเมื่อชั้น network พิสูจน์ได้ว่ายังไม่เริ่มเขียน timeout หรือ disconnect หลังเริ่มเขียนแล้วทำให้ไม่รู้ผลจาก
+venue adapter จะคืน error โดยไม่ส่งซ้ำ
+
+### Limit ของ address และ exchange {#address-and-exchange-limits}
+
+Hyperliquid ยังบังคับใช้ limit ฝั่ง server ที่ process ของ adapter ตัวเดียวคำนวณได้ไม่แม่นยำ
+
+#### Limit ของ action {#action-limits}
+
+แต่ละ address เริ่มต้นด้วย action request 10,000 ครั้ง และได้เพิ่มหนึ่งครั้งต่อ USDC ที่เทรดสะสม เมื่อถูกจำกัดแล้ว address นั้น
+ส่ง request ได้หนึ่งครั้งทุก 10 วินาที subaccount มี limit แยกเป็นอิสระ
+
+#### โควตาการยกเลิก {#cancel-allowance}
+
+การยกเลิกได้ request `min(action limit + 100,000, action limit * 2)` ครั้ง batch ของ `n` action ใช้ IP request หนึ่งครั้ง
+แต่ใช้ address request `n` ครั้ง
+
+#### Limit ของ open order {#open-order-limits}
+
+แต่ละ address เริ่มต้นด้วย open order 1,000 ตัว ได้เพิ่มหนึ่งตัวต่อ volume สะสม $5 ล้าน และมีเพดานที่ 5,000 Hyperliquid จะ
+ปฏิเสธ reduce-only หรือ trigger order ใหม่เมื่อ address มี open order อื่นอยู่แล้วอย่างน้อย 1,000 ตัว
+
+#### ความแออัด {#congestion}
+
+ระหว่างที่ระบบแออัด สัดส่วน maker ของ address ในวัน UTC ก่อนหน้าและ fee tier ของ asset จะกำหนดโควตา block space ของ address นั้น
+อย่าส่งการยกเลิกซ้ำหลังจาก Hyperliquid ตอบกลับแล้ว
+
+#### ขอบเขตการบังคับใช้ {#enforcement-boundary}
+
+Hyperliquid ยังเป็นผู้มีอำนาจตัดสินสำหรับ limit เหล่านี้ เพราะ volume, open order และ request อาจมาจาก process และ client อื่น
+การปฏิเสธจาก venue จะถูกส่งคืนให้ผู้เรียก
+
+adapter ไม่ได้ใช้ explorer API ของ Hyperliquid หรือ EVM JSON-RPC endpoint อย่างเป็นทางการ weight และ request limit ที่แยกกัน
+ของสิ่งเหล่านั้นจึงอยู่นอก limiter ของ adapter นี้
+
+## การตั้งค่า {#configuration}
+
+### Option ของ data client {#data-client-configuration-options}
+
+| Option                                   | ค่าเริ่มต้น   | คำอธิบาย                                                                                          |
+| ---------------------------------------- | --------- | ---------------------------------------------------------------------------------------------------- |
+| `private_key`                            | `None`    | EVM signing key (ไม่บังคับ) สำหรับ endpoint ที่ต้องยืนยันตัวตน                                           |
+| `base_url_ws`                            | `None`    | override URL ของ WebSocket                                                                          |
+| `base_url_http`                          | `None`    | override URL ของ HTTP info                                                                          |
+| `proxy_url`                              | `None`    | proxy สำหรับ HTTP และ WebSocket (ไม่บังคับ)                                                            |
+| `environment`                            | `None`    | `MAINNET` หรือ `TESTNET` โดย `None` จะ resolve เป็น `MAINNET`                                         |
+| `http_timeout_secs`                      | `60`      | timeout ของ REST หน่วยวินาที                                                                         |
+| `ws_timeout_secs`                        | `30`      | timeout ของการเชื่อมต่อ WebSocket หน่วยวินาที                                                           |
+| `stale_stream_receive_timeout_secs`      | `120`     | เกณฑ์การรับข้อมูลล้าสมัยหน่วยวินาที `0` ปิดการเฝ้าดูสุขภาพสตรีม                                               |
+| `stream_health_check_interval_secs`      | `15`      | ช่วงการตรวจสุขภาพสตรีมหน่วยวินาที `0` ปิดการเฝ้าดู                                                         |
+| `stale_stream_warning_cooldown_secs`     | `60`      | จำนวนวินาทีระหว่างคำเตือนความล้าสมัยของสตรีมเดียวกัน                                                        |
+| `stale_stream_recovery_enabled`          | `False`   | การกู้คืนสตรีมล้าสมัย: กู้คืน book สำหรับ delta, resubscribe แล้ว reconnect สำหรับสตรีมที่มีแต่ depth และ BBO    |
+| `stale_stream_recovery_cooldown_secs`    | `120`     | จำนวนวินาทีระหว่างการดำเนินการกู้คืนแต่ละครั้งต่อสตรีม ต้องเป็นค่าบวกการกู้คืนจึงจะทำงาน                             |
+| `stale_stream_max_targeted_resubscribes` | `3`       | จำนวนครั้งการ resubscribe สตรีมที่มีแต่ depth หรือ BBO ก่อน reconnect WebSocket ทั้งหมด                       |
+| `book_snapshot_timeout_secs`             | `10`      | เวลารอ snapshot ตอนเริ่มต้น, reconnect และกู้คืน หน่วยวินาที `0` ปิด deadline                                |
+| `update_instruments_interval_mins`       | `60`      | ช่วงการ refresh instrument หน่วยนาที `0` ปิดการ refresh เป็นระยะ                                         |
+| `transport_backend`                      | `Sockudo` | backend ของ WebSocket transport                                                                      |
+
+### Option ของ execution client {#execution-client-configuration-options}
+
+| Option                          | ค่าเริ่มต้น   | คำอธิบาย                                                                                                                                |
+| ------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `account_id`                    | `Venue`   | account ID ของ Nautilus ค่าเริ่มต้นคือ `HYPERLIQUID-001`                                                                                    |
+| `private_key`                   | `None`    | EVM key อ่านจาก `HYPERLIQUID_PK` หรือ `HYPERLIQUID_TESTNET_PK` เมื่อไม่ได้ระบุ                                                              |
+| `vault_address`                 | `None`    | vault address อ่านจาก `HYPERLIQUID_VAULT` หรือ `HYPERLIQUID_TESTNET_VAULT` เมื่อไม่ได้ระบุ                                                  |
+| `account_address`               | `None`    | master address สำหรับ agent wallet อ่านจาก `HYPERLIQUID_ACCOUNT_ADDRESS` เมื่อไม่ได้ระบุ                                                    |
+| `environment`                   | `None`    | `MAINNET` หรือ `TESTNET` โดย `None` จะ resolve เป็น `MAINNET`                                                                               |
+| `base_url_ws`                   | `None`    | override URL ของ WebSocket                                                                                                                |
+| `base_url_http`                 | `None`    | override URL ของ HTTP info                                                                                                                |
+| `base_url_exchange`             | `None`    | override URL ของ Exchange API                                                                                                             |
+| `max_retries`                   | `3`       | จำนวนการลองใหม่ของ `/info` แบบอ่านอย่างเดียวหลังความพยายามแรก `0` ปิดการลองใหม่                                                                  |
+| `retry_delay_initial_ms`        | `100`     | ขอบเขตเริ่มต้นของ full-jitter backoff หน่วยมิลลิวินาทีสำหรับการลองใหม่ของ `/info`                                                                 |
+| `retry_delay_max_ms`            | `5,000`   | ขอบเขตสูงสุดของ backoff ของ `/info` หน่วยมิลลิวินาที โดย `Retry-After` ที่ถูกต้องอาจเกินค่านี้ได้                                                     |
+| `http_timeout_secs`             | `60`      | timeout ของ REST หน่วยวินาที                                                                                                               |
+| `ws_post_timeout_secs`          | `10`      | timeout ของ request การเทรดผ่าน WebSocket หน่วยวินาที                                                                                       |
+| `normalize_prices`              | `True`    | normalize ราคา order เป็นเลขนัยสำคัญ 5 ตัวก่อนส่ง                                                                                              |
+| `include_builder_attribution`   | `True`    | builder attribution ของ Nautilus แบบไม่มีค่าธรรมเนียมบน order mainnet ที่มีสิทธิ์                                                                   |
+| `market_order_slippage_bps`     | `50`      | slippage ของ MARKET และ stop-trigger หน่วย bps override ได้ใน `SubmitOrder.params`                                                         |
+| `outcome_settlement_poll_secs`  | `0`       | ช่วงการ poll `outcomeMeta` ของ HIP-4 หน่วยวินาที ปิดไว้เพราะ fill จาก venue ครอบคลุม settlement แล้ว                                               |
+| `scheduled_cancel_timeout_secs` | `None`    | timeout ระดับ account หน่วยวินาที อย่างน้อย 15 และ refresh ทุกหนึ่งในสามของ timeout ดู [Scheduled cancellation](#scheduled-cancellation)          |
+| `proxy_url`                     | `None`    | proxy สำหรับ HTTP และ WebSocket (ไม่บังคับ)                                                                                                  |
+| `transport_backend`             | `Sockudo` | backend ของ WebSocket transport                                                                                                            |
+
+:::note
+[การตั้งค่าการลองใหม่ของ `/info` แบบอ่านอย่างเดียว](#retries) ไม่รวม exchange action และ WebSocket post
+:::
+
+### การตั้งค่า live node {#live-node-configuration}
+
+บน node builder ให้ลงทะเบียน `HyperliquidDataClientConfig` กับ `HyperliquidDataClientFactory` และ
+`HyperliquidExecutionClientConfig` กับ `HyperliquidExecutionClientFactory` โดย node เป็นผู้ให้ `TraderId` ส่วน execution
+config เป็นผู้ให้ `AccountId` ดูตัวอย่างการตั้งค่าได้ที่
+[ตัวอย่าง Rust](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/hyperliquid/examples/)
+
+เมื่อ `environment=HyperliquidEnvironment.TESTNET`, adapter จะใช้ `HYPERLIQUID_TESTNET_PK` และ
+`HYPERLIQUID_TESTNET_VAULT` แทน environment variable ของ mainnet
+
+## การมีส่วนร่วม {#contributing}
+
+:::info
+สำหรับคำขอฟีเจอร์หรือการมีส่วนร่วม ดู
+[contributing guide](https://github.com/nautechsystems/nautilus_trader/blob/develop/CONTRIBUTING.md)
+:::
