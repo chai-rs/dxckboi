@@ -142,3 +142,75 @@ code[data-line-numbers-max-digits="2"] > [data-line]::before {
 code[data-line-numbers-max-digits="3"] > [data-line]::before {
   width: 3rem;
 }
+/* NautilusTrader docs (Thai) */
+.docs-root {
+  font-family: var(--font-sans), var(--font-thai), sans-serif;
+}
+
+.docs-prose :where(h2, h3, h4, h5, h6)[id] {
+  scroll-margin-top: 2rem;
+}
+
+.docs-prose :where(code):not(:where(pre *)) {
+  @apply rounded bg-muted px-1 py-0.5 text-[0.85em] font-normal;
+  overflow-wrap: anywhere;
+}
+
+.docs-prose :where(a) {
+  overflow-wrap: anywhere;
+}
+
+.docs-prose :where(code):not(:where(pre *))::before,
+.docs-prose :where(code):not(:where(pre *))::after {
+  content: none;
+}
+
+.docs-prose pre {
+  @apply border bg-muted/40;
+}
+
+.docs-prose .table-wrapper {
+  @apply my-6 overflow-x-auto;
+}
+
+.docs-prose .table-wrapper table {
+  @apply my-0 text-sm;
+}
+
+.docs-prose .admonition {
+  @apply my-6 rounded-lg border-l-4 px-4 py-1;
+  border-color: hsl(var(--admonition, 210 80% 55%));
+  background-color: hsl(var(--admonition, 210 80% 55%) / 0.08);
+}
+
+.docs-prose .admonition .admonition-title {
+  @apply mb-1 font-semibold;
+  color: hsl(var(--admonition, 210 80% 55%));
+}
+
+.docs-prose .admonition-tip { --admonition: 150 60% 40%; }
+.docs-prose .admonition-warning,
+.docs-prose .admonition-caution { --admonition: 38 92% 45%; }
+.docs-prose .admonition-danger { --admonition: 0 72% 51%; }
+.docs-prose .admonition-note { --admonition: 220 9% 46%; }
+
+.docs-prose .mermaid {
+  @apply my-6 flex justify-center overflow-x-auto whitespace-pre text-sm text-muted-foreground;
+}
+
+.docs-prose img {
+  @apply rounded-lg border;
+}
+
+/* Follow the site theme toggle for highlighted code, not only the OS preference. */
+.dark code[data-theme*=" "],
+.dark code[data-theme*=" "] span {
+  color: var(--shiki-dark);
+  background-color: var(--shiki-dark-bg);
+}
+
+:root:not(.dark) code[data-theme*=" "],
+:root:not(.dark) code[data-theme*=" "] span {
+  color: var(--shiki-light);
+  background-color: var(--shiki-light-bg);
+}

@@ -1,5 +1,5 @@
 import { Icons } from '@/components/icons';
-import { HomeIcon } from 'lucide-react';
+import { BookOpenIcon, HomeIcon } from 'lucide-react';
 
 export const DATA = {
   title: 'anonydxck',
@@ -14,6 +14,7 @@ export const DATA = {
   skills: ['Golang', 'Rust', 'Typescript', 'Python', 'React', 'Next.js', 'Tailwind CSS', 'Docker', 'PostgreSQL', 'Redis', 'MongoDB', 'MySQL', 'Git'],
   navbar: [
     { href: '/', icon: HomeIcon, label: 'Home' },
+    { href: '/docs/nautilus', icon: BookOpenIcon, label: 'NautilusTrader Docs (TH)' },
     // { href: '/blog', icon: NotebookIcon, label: 'Blog' },
   ],
   contact: {
