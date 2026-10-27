@@ -1,4 +1,6 @@
-# Event Sourcing
+---
+title: "Event Sourcing"
+---
 
 Event sourcing ทำให้ NautilusTrader มีบันทึกของ message ที่เปลี่ยนสถานะของ engine อย่างคงทนและเรียงลำดับ
 event store บันทึก message เหล่านั้นที่ขอบเขตของระบบ จากนั้น reader, เครื่องมือ replay และ verifier จะใช้
@@ -20,7 +22,7 @@ log เดียวกันนี้เพื่อสร้างสิ่ง�
 กับ [docs.rs](https://docs.rs/nautilus-event-store) เป็นเอกสารอ้างอิง API
 :::
 
-## ทำไมต้อง event sourcing {#why-event-sourcing}
+## ทำไมต้อง event sourcing [#why-event-sourcing]
 
 cache ตอบคำถามว่า "ตอนนี้อะไรเป็นจริง" ส่วน event store ตอบว่า "Nautilus มาถึงจุดนี้ได้อย่างไร" มันให้
 ประวัติในขอบเขตของ run แก่ reader, เครื่องมือ replay และ verifier ประวัตินี้อธิบายสถานะในอดีตได้โดยไม่ต้องใช้
@@ -34,7 +36,7 @@ event store เป็นพื้นฐานที่คงทนสำหร�
 - ติดตาม intent ผ่าน message ฝั่ง engine ที่ตามมาจากมัน
 - seal ไฟล์ run ที่ค้างอยู่ก่อนเริ่ม run ถัดไป หลังจาก process ออกหรือ writer halt
 
-## คำศัพท์ {#terms}
+## คำศัพท์ [#terms]
 
 - **Run**: kernel session หนึ่งครั้งสำหรับ instance, binary และ config หนึ่งชุด
 - **Entry**: message ที่ capture ไว้หนึ่งตัวพร้อม metadata สำหรับ replay
@@ -43,7 +45,7 @@ event store เป็นพื้นฐานที่คงทนสำหร�
 - **Snapshot anchor**: high-watermark ที่บันทึกไว้พร้อม cache snapshot
 - **Headers**: metadata ด้าน correlation และ causation ที่ส่งต่อไปพร้อมกับ message ที่ capture ไว้
 
-## สิ่งที่ store บันทึก {#what-the-store-records}
+## สิ่งที่ store บันทึก [#what-the-store-records]
 
 event store บันทึก traffic บน message bus ที่มีผลต่อสถานะสำหรับ trading instance หนึ่งตัวและ run หนึ่งครั้ง
 run เริ่มเมื่อ kernel เริ่ม และจบเมื่อ process หยุดอย่างปกติหรือ crash
@@ -71,7 +73,7 @@ stream, raw report, event ที่ถูกสร้าง และ metadata �
 - **Instrument close**: `InstrumentClose` ทุกตัวที่ publish จะถูก capture เพราะการหมดอายุของสัญญาจะ settle
   position
 
-## ขอบเขต {#boundaries}
+## ขอบเขต [#boundaries]
 
 event store ถูกออกแบบให้แคบโดยเจตนา:
 
@@ -80,7 +82,7 @@ event store ถูกออกแบบให้แคบโดยเจตน�
 - ไม่ได้รวม trader instance หลายตัวเข้าเป็น consensus log
 - ยังไม่ได้กำหนดเรื่อง redaction, encryption-at-rest หรือ tamper evidence
 
-## Flow การ capture {#capture-flow}
+## Flow การ capture [#capture-flow]
 
 การ capture เกิดขึ้นที่ขอบเขตการ dispatch ของ message bus ดังนั้น tap จะเห็น message ที่มีผลต่อสถานะแต่ละตัว
 ก่อนที่ handler ปลายทางจะเห็น
@@ -130,7 +132,7 @@ handler ของมัน เมื่อ halt แล้ว tap จะหยุ
 โดยเทียบกับหน้าต่างแบบจำกัดขนาดของ identity ของ message ที่ capture ไปเมื่อเร็ว ๆ นี้ (event id, command id) message
 เชิงตรรกะแต่ละตัวจะกลายเป็น entry เดียว และ replay จะไม่นำ event เดียวกันไปใช้สองครั้ง
 
-## Lifecycle option {#lifecycle-options}
+## Lifecycle option [#lifecycle-options]
 
 `EventStoreConfig` คือ run policy ที่ serialize ได้ ส่วน policy การสร้างระดับ process อยู่ใน
 `EventStoreLifecycleOptions` ซึ่งผู้เรียกขั้นสูงส่งผ่าน
@@ -151,7 +153,7 @@ entry ที่ capture ไว้ภายใน process หลัง seal ไ�
 ภายใต้ `cfg(madsim)` writer จะ commit แต่ละ submit แบบ synchronous ดังนั้นลำดับ `seq` ที่ capture ได้จึง
 deterministic
 
-## โมเดลของ entry {#entry-model}
+## โมเดลของ entry [#entry-model]
 
 entry แต่ละตัวใน event store คือ message ที่ capture ไว้หนึ่งตัวพร้อม metadata:
 
@@ -170,7 +172,7 @@ secondary index รองรับการค้นหาด้วย `client_o
 ได้เมื่อมีผู้เรียกเพื่อการตรวจสอบที่ต้องการรูปแบบการค้นหานั้นจริง ๆ ระหว่างนี้การสแกน correlation สามารถไล่ดู
 stream ที่ capture ไว้ได้
 
-## โมเดลของ correlation {#correlation-model}
+## โมเดลของ correlation [#correlation-model]
 
 โมเดลเป้าหมายใช้ identity สามระดับเพื่อแยกขอบเขต สายเชื้อสาย (lineage) และ identity ของ message:
 
@@ -212,7 +214,7 @@ response extractor เหล่านั้นส่งต่อสิ่งท�
 - "แสดงทุกอย่างใน workflow นี้": กรองหรือสแกนด้วย `correlation_id`
 - "แสดงว่าทำไม event นี้จึงเกิดขึ้น": ไล่ `causation_id` ย้อนกลับไปยัง message แม่โดยตรง
 
-## ไฟล์ run และ manifest {#run-files-and-manifests}
+## ไฟล์ run และ manifest [#run-files-and-manifests]
 
 backend แบบ default คือ `redb` ซึ่งเก็บไฟล์หนึ่งไฟล์ต่อ run ไว้ที่:
 
@@ -254,7 +256,7 @@ manifest บันทึก identity ของ run และ input สำหร�
 
 สถานะของ run เป็นหนึ่งใน `Running`, `Ended`, `CrashedRecovered` หรือ `Quarantined`
 
-## Lifecycle ของ run {#run-lifecycle}
+## Lifecycle ของ run [#run-lifecycle]
 
 ```mermaid
 flowchart TD
@@ -279,7 +281,7 @@ manifest ยังเป็น `Running`
   halt signal มีขอบเขตอยู่ที่ run ที่ส่งมันออกมา การเรียก `open()` ครั้งต่อไปจะตั้ง signal ใหม่ ดังนั้นการ halt หนึ่งครั้ง
   จะไม่ส่งผลเสียต่อ run ถัด ๆ ไปใน process เดียวกัน
 
-## การ seal เพื่อ recovery {#recovery-sealing}
+## การ seal เพื่อ recovery [#recovery-sealing]
 
 predecessor คือไฟล์ run ที่เก่ากว่าของ instance เดียวกันซึ่ง manifest ยังระบุว่า `Running` อยู่ ซึ่ง
 หมายความว่า process ก่อนหน้าไม่ได้ทำ lifecycle ปกติจนจบ หรือ writer halt ก่อนที่การ seal
@@ -325,7 +327,7 @@ recovery ตอน boot จะสแกน predecessor ที่เป็น `Ru
 verifier แบบ read-only จะตรวจสอบ run ที่ seal แล้วแยกต่างหากโดยไม่แก้ไขมัน และรายงาน
 `quarantine=not-performed`
 
-## Input ของ replay {#replay-inputs}
+## Input ของ replay [#replay-inputs]
 
 replay ใช้กฎการเรียงลำดับข้อเดียว คือนำ entry ใน event store ไปใช้ตามลำดับ `seq` ส่วน `ts_init` และ
 `ts_publish` อธิบายว่า message เกิดขึ้นเมื่อใด แต่ `seq` คือลำดับ replay ที่คงทน
@@ -361,7 +363,7 @@ API เหล่านี้ **ไม่**:
 - ลบไฟล์
 - replay lifecycle การลงทะเบียน/ยกเลิกของ clock
 
-## Cache replay {#cache-replay}
+## Cache replay [#cache-replay]
 
 replay ที่ kernel จัดการใช้ `EventStoreConfig::replay_from_run_id` เมื่อตั้งค่านี้ kernel จะกู้คืนสถานะ cache
 จาก run ที่ seal แล้ว และบันทึก run นั้นเป็น parent ของ child run ใหม่ โดยข้าม live engine, client,
@@ -395,7 +397,7 @@ loader **ไม่**:
 `TimeEvent` ที่ทำงานแล้วและ raw venue report เป็นเพียง record สำหรับการตรวจสอบในเส้นทางนี้ replay จะนำ
 order, position และ account event ที่สังเคราะห์และ capture ไว้ภายหลังใน run ไปใช้
 
-## Data marker sidecar {#data-marker-sidecar}
+## Data marker sidecar [#data-marker-sidecar]
 
 :::note
 marker sidecar เป็นแบบ opt-in ผ่าน `EventStoreConfig.data_markers` และปิดอยู่โดย default
@@ -422,7 +424,7 @@ marker แทนที่จะทำให้ผู้เรียกค้า�
 - `Overflow`: submit ครั้งถัดไปจะ flush ช่วงที่ถูกทิ้ง
 - `WriterClosed`: writer ปิดขณะที่ช่วงที่ถูกทิ้งยัง pending อยู่
 
-### ลำดับและ identity {#ordering-and-identity}
+### ลำดับและ identity [#ordering-and-identity]
 
 marker ไม่ได้ใช้ค่า `seq` ของ event store และไม่สร้างช่องว่างในตาราง entry marker แต่ละตัวมี
 `marker_seq` ของตัวเองที่เพิ่มขึ้นเสมอ และ `event_seq_before` ซึ่งคือ `seq` ที่มากที่สุดของ event store ที่ถูกกำหนด
@@ -450,7 +452,7 @@ sidecar มี marker สองชนิด:
 timestamp เดียวกัน ในกรณีนี้ sidecar พิสูจน์ได้ว่า Nautilus สังเกตเห็นการส่งสองครั้งตามลำดับ
 marker ที่เจาะจง แต่ไม่สามารถระบุแถวทางกายภาพที่ไม่ซ้ำใน catalog ได้หลังจากการ compaction ของ catalog เขียนลำดับแถวใหม่
 
-### ขอบเขตของ verification และ replay {#verification-and-replay-boundaries}
+### ขอบเขตของ verification และ replay [#verification-and-replay-boundaries]
 
 marker verification พิสูจน์ว่าลำดับ `marker_seq` ถูกนับครบทั้งหมด โดยนับ gap ที่บันทึกไว้
 เป็นส่วนที่ครอบคลุมด้วย **ให้อ่าน gap record** เพื่อดูว่าอะไรถูกทิ้งไป
@@ -463,7 +465,7 @@ marker sequence และกฎการ join กับ catalog เครื่�
 sidecar นี้ snapshot-tail replay ยังคงนำ entry ของ event store ไปใช้ตามลำดับ `seq` live restart ยังคง boot
 จากสถานะที่ cache เป็นเจ้าของบวกกับ parent link ของ event store
 
-## การกู้คืนที่อิงกับ snapshot anchor {#snapshot-anchored-recovery}
+## การกู้คืนที่อิงกับ snapshot anchor [#snapshot-anchored-recovery]
 
 cache snapshot เป็นของ cache ส่วน event store เก็บเพียง snapshot anchor ซึ่งประกอบด้วย
 high-watermark ณ เวลาที่ทำ snapshot, `blob_ref` แบบ opaque ที่ cache เป็นเจ้าของซึ่งระบุชื่อ snapshot และ
@@ -506,7 +508,7 @@ capture coverage และกฎของ replay ครอบคลุมทุ�
 - reader ตรวจพบช่องว่างภายใน high-watermark
 - แผนของ snapshot replay จะปฏิเสธ anchor ที่ชี้เลย high-watermark ที่คงทน
 
-## การวางแผน retention {#retention-planning}
+## การวางแผน retention [#retention-planning]
 
 retention ใช้ไฟล์ run ทั้งไฟล์เป็นหน่วยของการเรียกคืนพื้นที่ event store มี planner แบบไม่ทำลายข้อมูล ซึ่ง
 list manifest ของ run ที่ seal แล้ว ตรวจสอบสถานะ snapshot anchor ล่าสุด และ return ไฟล์ run ที่เป็นตัวเลือก
@@ -533,7 +535,7 @@ entry สุดท้ายบนดิสก์แทนค่าที่บ�
 **ข้อจำกัดของการตรวจสอบ**: planner ไม่เคยโหลด snapshot blob การตรวจสอบหยุดที่ anchor จึง
 ไม่สามารถตัดความเป็นไปได้ของการกู้คืนล้มเหลวที่เกิดจาก blob ที่หายไปหรือถูกแก้ไข
 
-## Integrity และ verification {#integrity-and-verification}
+## Integrity และ verification [#integrity-and-verification]
 
 entry แต่ละตัวมี canonical hash ของเนื้อหาทั้งหมด reader และ verifier จะคำนวณ hash ใหม่และรายงาน
 ความไม่ตรงกัน verifier ยังตรวจสอบสถานะของ manifest/high-watermark และตรวจ secondary index เทียบกับ
@@ -621,7 +623,7 @@ verifier รายงานความเสียหายแต่ไม่�
 supervisor
 :::
 
-## Verification coverage {#verification-coverage}
+## Verification coverage [#verification-coverage]
 
 test suite ของ event store ยึดการรับประกันความถูกต้องหลักเหล่านี้สำหรับส่วนที่เป็น alpha:
 
@@ -642,7 +644,7 @@ test suite ของ event store ยึดการรับประกัน�
 - recovery ตอน boot ซ่อมแซมไฟล์ run ที่ crash แบบ hard และข้ามไฟล์ที่อ่านไม่ได้แทนที่จะทำให้
   การ sweep ล้มเหลว
 
-## ความสัมพันธ์กับ DST {#relationship-to-dst}
+## ความสัมพันธ์กับ DST [#relationship-to-dst]
 
 event store และ [deterministic simulation testing](dst.md) (DST) แก้ปัญหาคนละส่วนของ
 replay

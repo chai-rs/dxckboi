@@ -1,4 +1,6 @@
-# DST
+---
+title: "DST"
+---
 
 <!-- Keep this title as "DST"; longer titles do not render well in the left navigation. -->
 
@@ -17,7 +19,7 @@ NautilusTrader ที่ pin ไว้ การเปลี่ยนแปล�
 review ในฐานะนั้น
 :::
 
-## DST คืออะไร {#what-dst-is}
+## DST คืออะไร [#what-dst-is]
 
 DST ควบคุมแหล่งที่มาของความไม่ deterministic ในระบบ concurrent ภายในข้อกำหนดที่นิยามไว้ด้านล่าง seed เดียวเป็นตัวกำหนด
 การจัดลำดับ task, การ fire ของ timer และค่าสุ่ม การรันสองครั้งที่ใช้ seed, binary, configuration และ platform เดียวกัน
@@ -48,7 +50,7 @@ DST มุ่งเป้าไปที่ข้อบกพร่องด้�
 Test ชั้นอื่นไม่สามารถครอบคลุม interleaving เหล่านี้ได้ทั้งหมด scheduler แบบ deterministic สามารถสำรวจได้ข้าม seed ต่าง ๆ
 และ replay schedule ที่ล้มเหลวได้
 
-## เป้าหมาย {#goals}
+## เป้าหมาย [#goals]
 
 | เป้าหมาย                        | ข้อกำหนด                                                                                                     |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------- |
@@ -57,12 +59,12 @@ Test ชั้นอื่นไม่สามารถครอบคลุม
 | การบังคับใช้ใน source              | Static check ปฏิเสธ pattern ที่ห้ามใช้บนเส้นทาง DST ก่อนที่จะต้องพึ่งความใส่ใจของ reviewer                             |
 | ดักจับเท่าที่จำเป็นขั้นต่ำ             | เวลา, การจัดลำดับ task และค่าสุ่มจะผ่านแหล่งแบบ deterministic เฉพาะในจุดที่ข้อกำหนดต้องการเท่านั้น                     |
 
-## แนวทาง {#approach}
+## แนวทาง [#approach]
 
 Implementation มีสองชั้น ชั้นแรกแทนที่ primitive บางตัวของ `tokio` ด้วย `madsim` ชั้นที่สองควบคุมแหล่งความไม่
 deterministic ที่อยู่นอก primitive เหล่านั้น
 
-### ชั้นที่ 1: สลับ runtime {#layer-1-runtime-swap}
+### ชั้นที่ 1: สลับ runtime [#layer-1-runtime-swap]
 
 ภายใต้ Cargo feature `simulation` ของ `nautilus-common` มี facade submodule สี่ตัวที่จะเลือกพฤติกรรมแบบ simulation
 เมื่อตั้ง `RUSTFLAGS="--cfg madsim"`:
@@ -81,11 +83,11 @@ Submodule `sync`, `io`, `fs` และ `net` รวมถึง macro `select!` 
 [transport boundary](#simulated-http-and-websocket-transport) แยกต่างหากสำหรับการเชื่อมต่อ HTTP แบบ plaintext และ
 Tungstenite WebSocket โดยไม่ได้แทนที่ Tokio ภายใน dependency
 
-### ชั้นที่ 2: แทนที่แหล่งความไม่ deterministic {#layer-2-nondeterminism-substitution}
+### ชั้นที่ 2: แทนที่แหล่งความไม่ deterministic [#layer-2-nondeterminism-substitution]
 
 ความไม่ deterministic ที่อยู่นอก runtime ที่ทำ alias ไว้ต้องมี seam ที่ชัดเจน
 
-#### เวลาแบบ wall-clock {#wall-clock-time}
+#### เวลาแบบ wall-clock [#wall-clock-time]
 
 การอ่าน wall-clock จะผ่าน `nautilus_core::time::duration_since_unix_epoch` ภายใต้ simulation seam นี้จะเรียก
 `madsim::time::TimeHandle::try_current()` เพื่อคง semantics แบบ Unix epoch สำหรับ timestamp ของ order และ fill
@@ -93,29 +95,29 @@ Tungstenite WebSocket โดยไม่ได้แทนที่ Tokio ภา
 Body ของ `#[rstest]` ธรรมดาจะรันนอก madsim runtime ในบริบทนั้น seam จะ fallback ไปใช้ `SystemTime::now()` ซึ่งใช้ syscall
 จริงตัวเดียวกับ build ปกติ ส่วนเส้นทาง production ภายใต้ simulation จะรันใน madsim runtime และได้รับเวลาเสมือน
 
-#### เวลาแบบ monotonic {#monotonic-time}
+#### เวลาแบบ monotonic [#monotonic-time]
 
 การอ่านเวลาแบบ monotonic จะผ่าน `nautilus_common::live::dst::time::Instant` build ปกติจะ resolve type นี้เป็น
 `tokio::time::Instant` เพื่อให้ใช้ร่วมกับ `#[tokio::test(start_paused = true)]` ได้ ส่วน build แบบ simulation จะ resolve
 เป็น `madsim::time::Instant`
 
-#### เวลาแบบ monotonic ภายใน network {#network-local-monotonic-time}
+#### เวลาแบบ monotonic ภายใน network [#network-local-monotonic-time]
 
 โค้ดด้าน network อ่านเวลาแบบ monotonic ผ่าน `nautilus_network::dst::time` เนื่องจาก `nautilus-network` อยู่ต่ำกว่า
 `nautilus-common` ใน dependency graph จึงมี module re-export ภายในของตัวเองที่ทำงานแบบเดียวกัน
 
-#### ลำดับการ iterate {#iteration-order}
+#### ลำดับการ iterate [#iteration-order]
 
 ลำดับการ iterate ที่สังเกตได้ใช้ `IndexMap`, `IndexSet` หรือการ sort อย่างชัดเจน แทนการพึ่ง `AHashMap` หรือ `AHashSet`
 เพราะ `AHash` สุ่ม hasher ต่อ process ลำดับที่คงที่เป็นสิ่งจำเป็นเมื่อการ iterate ควบคุมการ publish event หรือลำดับการสุ่ม
 จาก `FillModel` ที่มี seed
 
-#### ลำดับการ poll ของ select {#select-polling-order}
+#### ลำดับการ poll ของ select [#select-polling-order]
 
 `tokio::select!` ทุกจุดใน production บนเส้นทาง DST ขึ้นต้นด้วย `biased;` หากไม่มี RNG ที่ไม่ได้ถูกดักจับจะเป็นตัวเลือก
 ลำดับการ poll ของ branch
 
-## ข้อกำหนดด้าน determinism {#determinism-contract}
+## ข้อกำหนดด้าน determinism [#determinism-contract]
 
 ภายใต้เงื่อนไขด้านล่าง run ที่ระบุด้วย `(seed, binary hash, configuration hash)` บน platform เดียวกันจะให้ผลที่เหมือนกัน
 ระดับ bit ใน:
@@ -125,7 +127,7 @@ Body ของ `#[rstest]` ธรรมดาจะรันนอก madsim run
 - ผลลัพธ์ RNG จาก `madsim::rand`
 - ลำดับการส่งบน channel ของ `tokio::sync`
 
-### เงื่อนไขที่จำเป็น {#required-conditions}
+### เงื่อนไขที่จำเป็น [#required-conditions]
 
 ข้อกำหนดนี้เป็นจริง **เฉพาะเมื่อทุกแถวด้านล่างได้รับการปฏิบัติ**:
 
@@ -140,7 +142,7 @@ Body ของ `#[rstest]` ธรรมดาจะรันนอก madsim run
 | Local task               | Gate `tokio::task::LocalSet` ออกภายใต้ simulation                          | `madsim` ไม่มี `LocalSet` ให้ใช้ `spawn_local` โดยไม่ต้องมีมัน                                                                                               |
 | Blocking task            | Gate ออกหรือลบ `tokio::task::spawn_blocking`                               | Blocking call จะหลุดออกจาก scheduler แบบ deterministic                                                                                                   |
 
-### ข้อกำหนด DST สำหรับ adapter {#adapter-dst-contract}
+### ข้อกำหนด DST สำหรับ adapter [#adapter-dst-contract]
 
 Adapter จะถือว่าเป็นไปตาม DST ก็ต่อเมื่อทุกข้อกำหนดด้านล่างเป็นจริงสำหรับทุก **เส้นทางที่อ้างว่ารองรับ (claimed path)**
 [คู่มือนักพัฒนา adapter](../developer_guide/adapters.md#deterministic-simulation) ระบุ implementation อ้างอิงและ
@@ -159,7 +161,7 @@ Adapter จะถือว่าเป็นไปตาม DST ก็ต่อ�
 ความสามารถที่ adapter ไม่ได้อ้างว่ารองรับจะอยู่นอกข้อกำหนดจนกว่าจะมี slice ที่พิสูจน์ได้ slice ต่าง ๆ จะขยายชุดที่พิสูจน์แล้ว
 และ gate จะป้องกันการถดถอย
 
-## การบังคับใช้แบบ static {#static-enforcement}
+## การบังคับใช้แบบ static [#static-enforcement]
 
 การบังคับใช้แบบ static มีสองชั้น:
 
@@ -203,7 +205,7 @@ Hook จะไม่รวม:
 
 Path เหล่านี้ไม่ใช่ส่วนหนึ่งของข้อกำหนด DST สำหรับ production
 
-### Crate ที่อยู่ในขอบเขต {#in-scope-crates}
+### Crate ที่อยู่ในขอบเขต [#in-scope-crates]
 
 Transitive closure ของ `nautilus-live` มี crate ที่อยู่ในขอบเขต 16 ตัว:
 
@@ -235,7 +237,7 @@ runtime slice ที่ test `dst` ของ adapter พิสูจน์ได
 runtime slice ที่พิสูจน์แล้วด้วย
 :::
 
-## Transport HTTP และ WebSocket แบบจำลอง {#simulated-http-and-websocket-transport}
+## Transport HTTP และ WebSocket แบบจำลอง [#simulated-http-and-websocket-transport]
 
 เมื่อใช้ `simulation` และ `cfg(madsim)` `nautilus-network` จะ execute HTTP/1.1 request แบบ plaintext และการเชื่อมต่อ
 Tungstenite WebSocket ผ่าน byte stream ของ Madsim
@@ -271,12 +273,12 @@ keep-alive กลับมาใช้
 
 Network test ครอบคลุมพฤติกรรมของ transport แต่ไม่ได้ยืนยันความสอดคล้องแบบ end-to-end ของ adapter, ผลิตภัณฑ์ หรือ channel
 
-## Network seed soak {#network-seed-soaks}
+## Network seed soak [#network-seed-soaks]
 
 [Turmoil](https://crates.io/crates/turmoil) จำลอง network ภายใต้ scheduler ที่มี seed transport test ของ
 `nautilus-network` ใช้มันเพื่อเข้าถึงลำดับของ link และ reconnect ที่อยู่นอกการสลับ runtime ของ madsim
 
-### Nightly test แบบ seed คงที่ {#fixed-seed-nightly-tests}
+### Nightly test แบบ seed คงที่ [#fixed-seed-nightly-tests]
 
 ชุด nightly รันสถานการณ์ที่ทำซ้ำได้สำหรับ:
 
@@ -287,7 +289,7 @@ Network test ครอบคลุมพฤติกรรมของ transport
 - การปิดระหว่าง backoff
 - การที่ server หลุดซ้ำ ๆ พร้อม assertion ลำดับ message แบบตรงตัว
 
-### Reconnect seed soak {#reconnect-seed-soak}
+### Reconnect seed soak [#reconnect-seed-soak]
 
 Reconnect test ที่ถูก ignore ไว้จะไล่ seed ของ Turmoil ไปเรื่อย ๆ จนกว่าจะถูกหยุดหรือถึงขีดจำกัดที่ตั้งไว้ ในแต่ละ seed soak
 จะรัน backend Tungstenite WebSocket ก่อน แล้วจึงรัน Sockudo เมื่อเปิด feature `transport-sockudo` ทำให้ backend ทั้งสอง
@@ -299,7 +301,7 @@ Reconnect test ที่ถูก ignore ไว้จะไล่ seed ของ
 | `NAUTILUS_TURMOIL_SOAK_COUNT`             | ไม่จำกัด    | หยุดหลังจากครบจำนวน seed ที่ระบุ                         |
 | `NAUTILUS_TURMOIL_SOAK_PROGRESS_INTERVAL` | `100`     | Log ความคืบหน้าทุก ๆ จำนวน seed นี้ต่อ backend           |
 
-### รัน soak {#run-the-soak}
+### รัน soak [#run-the-soak]
 
 รัน soak แบบต่อเนื่องด้วย:
 
@@ -319,21 +321,21 @@ env NAUTILUS_TURMOIL_SOAK_COUNT=100 scripts/soak-network-turmoil.sh
 Soak ไม่ได้เปิด `fail_rate` ของ Turmoil สำหรับ TCP การสูญเสีย packet โดยไม่มี model การ retransmit จะทำให้ข้อกำหนดการส่ง
 ของ client ดูเกินจริงใน test ที่ตรวจการรักษาลำดับ
 
-### การครอบคลุม platform {#platform-coverage}
+### การครอบคลุม platform [#platform-coverage]
 
 Turmoil test ใช้ network แบบจำลองและไม่ได้ gate ไว้เฉพาะ Linux การไล่ seed จึงรันบน macOS ได้ด้วย unit test ของ socket และ
 WebSocket บน localhost จริงหลายตัวใช้ `target_os = "linux"` เพื่อความเสถียรของ CI การรันบน macOS จึงไม่ได้ครอบคลุม TCP
 ของ host ส่วนนั้น ให้ถือว่าชุด network test ทั้งหมดครอบคลุมแล้วก็ต่อเมื่อรันบน Linux CI หรือ Linux workstation แล้วเท่านั้น
 
-## หมายเหตุด้าน implementation {#implementation-notes}
+## หมายเหตุด้าน implementation [#implementation-notes]
 
 ส่วนเหล่านี้ map seam แบบ deterministic แต่ละตัวไปยัง source, วัตถุประสงค์ และข้อยกเว้น
 
-### Seam ด้านลำดับการ iterate {#iteration-order-seams}
+### Seam ด้านลำดับการ iterate [#iteration-order-seams]
 
 จุดใน production ใช้ collection ที่มีลำดับหรือการ sort อย่างชัดเจนเมื่อการ iterate สังเกตได้บนเส้นทาง DST
 
-#### Matching engine {#matching-engine}
+#### Matching engine [#matching-engine]
 
 `crates/execution/src/matching_engine/mod.rs` ใช้ collection ที่มีลำดับสิบเอ็ดตัว:
 
@@ -352,12 +354,12 @@ WebSocket บน localhost จริงหลายตัวใช้ `target_os
 การลบออกจาก `queue_pending`, `queue_ahead_orders` และ `queue_ahead_total` ใช้ `.shift_remove()` เพื่อให้การลบรายการ
 ไม่เปลี่ยนลำดับของรายการที่เหลือ
 
-#### Reconciliation manager {#reconciliation-manager}
+#### Reconciliation manager [#reconciliation-manager]
 
 กฎข้อ 5 ครอบคลุม `crates/live/src/execution/manager.rs` map `orders` และ `fills` ใน `ReconciliationResult` ใช้ `IndexMap`
 ใน `crates/execution/src/reconciliation/types.rs`
 
-#### Balance ของ account {#account-balances}
+#### Balance ของ account [#account-balances]
 
 Account trait คืน `IndexMap` จาก:
 
@@ -370,26 +372,26 @@ Account trait คืน `IndexMap` จาก:
 การจัดเก็บ balance และ margin บน `BaseAccount` และ `MarginAccount` ก็ใช้ `IndexMap` เช่นกัน ส่วน field `commissions` และ
 `leverages` ยังเป็น `AHashMap`
 
-#### Commission ของ position {#position-commissions}
+#### Commission ของ position [#position-commissions]
 
 `Position::commissions` ใน `crates/model/src/position.rs` ใช้ `IndexMap` position snapshot ใช้ map นี้ผ่าน `.values()` ใน
 `crates/model/src/events/position/snapshot.rs` ทำให้ลำดับของมันสังเกตได้
 
-#### การ aggregate ระดับ portfolio {#portfolio-aggregation}
+#### การ aggregate ระดับ portfolio [#portfolio-aggregation]
 
 `crates/portfolio/src/portfolio.rs` เก็บ `unrealized_pnls`, `realized_pnls` และ `net_positions` ใน `IndexMap` ส่วน
 `accumulate_mark_values` สร้าง `IndexMap<Currency, Decimal>`
 
-#### Data engine {#data-engine}
+#### Data engine [#data-engine]
 
 `crates/data/src/engine/` ใช้การจัดเก็บที่มีลำดับสำหรับ `book_snapshot_counts`, `bar_aggregators` และ `BookSnapshotInfos`
 การลบระหว่าง iterate ใช้ `.shift_remove()`
 
-#### Execution engine {#execution-engine}
+#### Execution engine [#execution-engine]
 
 `ExecutionEngine.clients` ใช้ `IndexMap` ตัวสะสม `client_ids` และ `venues` ใน `get_clients_for_orders()` ใช้ `IndexSet`
 
-#### Backtest engine และ exchange {#backtest-engine-and-exchange}
+#### Backtest engine และ exchange [#backtest-engine-and-exchange]
 
 `BacktestEngine.venues` และ `SimulatedExchange.matching_engines` คงลำดับการ iterate ของ venue และ instrument ไว้สำหรับ:
 
@@ -400,26 +402,26 @@ Account trait คืน `IndexMap` จาก:
 
 ตำแหน่งใน source คือ `crates/backtest/src/engine.rs` และ `crates/backtest/src/exchange.rs`
 
-#### Trading algorithm {#trading-algorithm}
+#### Trading algorithm [#trading-algorithm]
 
 `strategy_event_handlers` ใน `crates/trading/src/algorithm/core.rs` ใช้ `IndexMap` เพื่อขับเคลื่อนการ fan-out
 `msgbus::unsubscribe_*` แบบมีลำดับ
 
-#### Analyzer {#analyzer}
+#### Analyzer [#analyzer]
 
 `account_balances` และ `account_balances_starting` ใน `crates/analysis/src/analyzer.rs` ใช้ `IndexMap`
 
-#### Cache API {#cache-api}
+#### Cache API [#cache-api]
 
 `get_orders_for_ids` และ `get_positions_for_ids` ใน `crates/common/src/cache/mod.rs` จะ sort vector ที่คืนกลับตาม
 `client_order_id` และ `position_id` ส่วนการจัดเก็บเบื้องล่างยังใช้ `AHashSet` เพราะมี semantics แบบ set
 
-#### Instrument store {#instrument-store}
+#### Instrument store [#instrument-store]
 
 `InstrumentStore.instruments` ใน `crates/common/src/providers.rs` ใช้ `IndexMap` กับ hasher `ahash` ลำดับนี้สังเกตได้ใน
 adapter ที่ publish `DataEvent::Instrument` หนึ่งตัวต่อหนึ่งรายการจาก `get_all()` หรือ `list_all()`
 
-#### Order emulator {#order-emulator}
+#### Order emulator [#order-emulator]
 
 `on_reset` ใน `crates/execution/src/order_emulator/emulator.rs` จะ sort set สามตัวที่ drain ออกมาก่อนการ fan-out
 `msgbus::unsubscribe_*` แบบมีลำดับ:
@@ -430,19 +432,19 @@ adapter ที่ publish `DataEvent::Instrument` หนึ่งตัวต่
 
 เส้นทางของ quote และ trade ยังทำให้ลำดับการสุ่มของ `UUID4::new` ที่มี seed เดินหน้าด้วย การจัดเก็บยังคงใช้ `AHashSet`
 
-#### WebSocket subscription {#websocket-subscriptions}
+#### WebSocket subscription [#websocket-subscriptions]
 
 `topics_from_map` ใน `crates/network/src/websocket/subscription.rs` จะ sort vector ที่คืนกลับเพื่อคงลำดับการ replay ตอน
 reconnect ที่อยู่เบื้องหลัง `all_topics()` ขณะที่การจัดเก็บยังใช้ `DashMap` ที่มีค่าเป็น `AHashSet`
 
-#### ข้อจำกัดของ collection ที่ไม่มีลำดับ {#unordered-collection-limits}
+#### ข้อจำกัดของ collection ที่ไม่มีลำดับ [#unordered-collection-limits]
 
 จุดที่ใช้ `AHashMap` / `AHashSet` ใน closure ของ `nautilus-live` ใช้เพื่อ lookup อย่างเดียว, อยู่หลัง wrapper แบบ shared
 ownership ที่ทำงานพร้อมกันได้ (`Arc<DashMap>`, `AtomicMap`) หรือส่งต่อไปยังการ aggregate แบบสลับที่ได้ (commutative)
 `backtest` มี hash collection เพิ่มเติมที่อยู่นอกขอบเขตการบังคับใช้สองไฟล์ของกฎข้อ 5 รวมถึงการตรวจสอบก่อนรันและ map
 ของผลลัพธ์ ให้ถือว่าลำดับการ iterate ของสิ่งเหล่านี้อยู่นอกการรับประกันแบบ static จนกว่าแต่ละเส้นทางจะได้รับการตรวจสอบ
 
-### Seam ด้านเวลา {#time-seams}
+### Seam ด้านเวลา [#time-seams]
 
 จุดที่ยังเหลือของ `Instant::now` และ `SystemTime::now` เป็น test, ตำแหน่งที่อยู่ใน file allowlist หรือข้อยกเว้นที่มี marker:
 
@@ -459,11 +461,11 @@ bridge และ writer ซึ่งถูกตัดออกจากขอ�
 `crates/core/src/datetime.rs::is_within_last_24_hours` เรียกผ่าน `nautilus_core::time::nanos_since_unix_epoch()` และ
 เปรียบเทียบเป็น nanos แบบ `u64` โดยตรง
 
-### Seam ด้านค่าสุ่ม {#randomness-seams}
+### Seam ด้านค่าสุ่ม [#randomness-seams]
 
 ค่าสุ่มใน production บนเส้นทาง DST ใช้ seam ดังต่อไปนี้
 
-#### การสร้าง UUID {#uuid-generation}
+#### การสร้าง UUID [#uuid-generation]
 
 `crates/core/src/uuid.rs::UUID4::new()` ใช้ `madsim::rand::thread_rng()` ภายใน madsim runtime เมื่ออยู่ภายใต้
 simulation ส่วน build ปกติและ body ของ `#[rstest]` ธรรมดาที่อยู่นอก madsim runtime ใช้ `rand::rng()`
@@ -471,23 +473,23 @@ simulation ส่วน build ปกติและ body ของ `#[rstest]` �
 เส้นทาง simulation ของ production รันภายใน runtime และใช้ byte ที่มี seed factory ของ order และ event ใน `nautilus-common`
 และ `nautilus-risk` จะเรียกถึง seam นี้
 
-#### ค่าสุ่มของ fill model {#fill-model-randomness}
+#### ค่าสุ่มของ fill model [#fill-model-randomness]
 
 `crates/execution/src/models/fill.rs::default_std_rng()` แยกตาม runtime แบบเดียวกัน `ProbabilisticFillState::new()` จะ
 เรียกมันเมื่อไม่มี seed ให้ เมื่อผู้เรียกระบุ seed `StdRng::seed_from_u64` จะ deterministic ได้โดยไม่ต้องใช้ seam
 
-#### ID แบบสุ่มของ matching engine {#random-matching-engine-ids}
+#### ID แบบสุ่มของ matching engine [#random-matching-engine-ids]
 
 เส้นทาง `use_random_ids` ใน `crates/execution/src/matching_engine/ids_generator.rs` จะเรียก `nautilus_core::UUID4::new()`
 สำหรับ position ID และ venue order ID ส่วนรูปแบบ ID เริ่มต้น `{venue}-{raw_id}-{count}` เป็น deterministic โดยไม่ต้องใช้
 byte สุ่ม
 
-#### Jitter ของการ reconnect {#reconnect-jitter}
+#### Jitter ของการ reconnect [#reconnect-jitter]
 
 `crates/network/src/backoff.rs` สุ่มจาก `madsim::rand::thread_rng()` ภายใน simulation runtime ส่วน build ปกติและการเรียก
 นอก Madsim runtime ใช้ `rand::rng()` การเริ่ม runtime ใหม่ด้วย seed เดิมจะเริ่มลำดับ jitter แบบจำลองใหม่ด้วย
 
-### การแบ่ง submodule ของ Tokio {#tokio-submodule-split}
+### การแบ่ง submodule ของ Tokio [#tokio-submodule-split]
 
 Facade ส่วนกลางส่ง `time`, `task`, `runtime` และ `signal` ผ่าน `madsim` ส่วนการใช้ submodule `sync`, `io`, `fs` และ `net`
 ของ Tokio โดยตรง รวมถึง `select!` ยังคงใช้ `tokio` จริงภายใต้ simulation ขอบเขต `dst::net` ภายใน network จะเลือก byte
@@ -516,7 +518,7 @@ simulation นี้
 เป็นผู้จัด schedule ของ task ฝั่ง sender และ receiver ลำดับการส่งบน channel จึงยังเป็นส่วนหนึ่งของข้อกำหนดการจัด schedule
 แบบ deterministic
 
-### กฎการหลุดออกของ thread แบบดิบ {#raw-thread-escape-rules}
+### กฎการหลุดออกของ thread แบบดิบ [#raw-thread-escape-rules]
 
 กฎข้อ 4 ของ hook ห้ามการ spawn thread แบบดิบ ยกเว้นสามกรณี:
 
@@ -528,7 +530,7 @@ simulation นี้
 `tokio::task::LocalSet` และ `tokio::task::spawn_blocking` ไม่รองรับภายใต้ `madsim` การตรวจสอบ codebase ไม่พบการใช้ทั้งสอง
 ใน production ภายใน crate ที่อยู่ในขอบเขต จุดใหม่ต้องมี cfg gate หรือ marker `// dst-ok`
 
-### Logging test ภายใต้ simulation {#logging-tests-under-simulation}
+### Logging test ภายใต้ simulation [#logging-tests-under-simulation]
 
 Thread ของ logging writer ถูก gate ออกด้วย cfg ภายใต้ simulation และภายใต้ `cfg(madsim)` log event จะถูกทิ้ง test ที่
 initialize file-logging writer จะค้างหรือ assert กับไฟล์ log ที่ว่างเปล่า submodule ที่ได้รับผลกระทบจึงถูก gate ออกที่ขอบเขต
@@ -540,12 +542,12 @@ initialize file-logging writer จะค้างหรือ assert กับ�
 `logger.rs::tests::sim_tests::test_init_under_madsim_skips_writer_thread_and_forces_bypass` รันภายใต้ simulation และ
 pin พฤติกรรมที่ถูก gate ไว้
 
-## ขอบเขตของข้อกำหนด {#scope-boundaries}
+## ขอบเขตของข้อกำหนด [#scope-boundaries]
 
 ข้อกำหนดถูกจำกัดด้วยขอบเขตด้านล่าง แต่ละหัวข้อย่อยระบุพฤติกรรมที่อาจแตกต่างกันระหว่างการรัน หรืออยู่นอกเส้นทาง DST
 ที่ตรวจสอบแล้ว
 
-### Python และ FFI ไม่อยู่ในขอบเขตของ DST {#python-and-ffi-are-not-in-dst-scope}
+### Python และ FFI ไม่อยู่ในขอบเขตของ DST [#python-and-ffi-are-not-in-dst-scope]
 
 DST รันภายใต้ test harness แบบ native ของ Rust ข้อกำหนดนี้ไม่รวม binding ใต้ `crates/*/src/python/`, FFI module ใต้
 `crates/core/src/ffi/` และ `crates/model/src/ffi/` รวมถึงโค้ดที่เข้าถึงได้ผ่าน binding เหล่านี้เท่านั้น เส้นทาง Rust ใดก็ตาม
@@ -557,12 +559,12 @@ threading ที่อยู่หลัง path เหล่านั้นไ�
 DST ครอบคลุม state machine ของวงจรชีวิต order, reconciliation, matching, risk และ execution ใน Rust engine เป็นหลัก
 strategy ของผู้ใช้จะ replay ได้ก็ต่อเมื่อเขียนด้วย Rust หรือขับเคลื่อนผ่าน test harness แบบ Rust-native เท่านั้น
 
-### จำกัดตาม platform {#platform-scoped}
+### จำกัดตาม platform [#platform-scoped]
 
 การ override libc ของ `madsim` สำหรับ `clock_gettime` และ `getrandom` ขึ้นกับ platform ข้อกำหนดนี้ไม่ได้อ้างว่าทำซ้ำได้
 ระดับ bit ข้าม platform seed ที่ทำซ้ำความล้มเหลวได้บน Linux x86_64 อาจทำซ้ำไม่ได้บน macOS aarch64
 
-### Dependency ที่ไม่ได้ทำ alias จะหลุดออกไปเงียบ ๆ {#non-aliased-dependencies-escape-silently}
+### Dependency ที่ไม่ได้ทำ alias จะหลุดออกไปเงียบ ๆ [#non-aliased-dependencies-escape-silently]
 
 Dependency จะหลุดออกจาก simulator โดยไม่มี error เมื่อเข้าถึง OS ผ่าน:
 
@@ -573,7 +575,7 @@ Dependency จะหลุดออกจาก simulator โดยไม่ม�
 Crate ที่อยู่ในขอบเขตได้รับการตรวจสอบแล้ว adapter crate และ infrastructure crate ต้องได้รับการตรวจสอบแยกต่างหากก่อน
 เข้าสู่เส้นทาง DST
 
-### ข้อจำกัดด้านขอบเขตของ transport {#transport-scope-limits}
+### ข้อจำกัดด้านขอบเขตของ transport [#transport-scope-limits]
 
 Dependency ต่อไปนี้ใช้ `tokio` จริงภายใน:
 
@@ -606,20 +608,20 @@ Retry module ใน `crates/network/src/retry.rs` รันได้ทั้ง
 เสมือนอย่างชัดเจนใช้ฟังก์ชัน `advance_clock` ที่ gate ด้วย cfg body ของ test ชุดเดียวกันจึงครอบคลุมทั้ง build ปกติและ
 build แบบ simulation
 
-### การจัดการ signal {#signal-handling}
+### การจัดการ signal [#signal-handling]
 
 `nautilus_common::live::dst::signal` เปิดเผย re-export `ctrl_c` และ `terminate` ที่ส่งผ่าน seam แล้ว run loop ใน
 `crates/live/src/node/mod.rs` ใช้สิ่งเหล่านี้ ภายใต้ `cfg(madsim)` test สามารถ inject การ shutdown ของ node ผ่าน
 `madsim::runtime::Handle::send_ctrl_c` ได้ ส่วน entry point ของ binary ของ adapter ยังเรียก `tokio::signal::ctrl_c` โดยตรง
 และอยู่นอกขอบเขต
 
-### Logging ทำงานบน OS thread จริง {#logging-runs-on-real-os-threads}
+### Logging ทำงานบน OS thread จริง [#logging-runs-on-real-os-threads]
 
 ระบบย่อย logging spawn writer thread ผ่าน `std::thread::Builder` และใช้ `std::sync::mpsc` ภายใต้ simulation thread นี้
 จะไม่ถูก spawn และ log event จะถูกทิ้ง ผลลัพธ์ของ log อยู่นอกข้อกำหนดด้าน determinism: writer ทำหน้าที่เขียนอย่างเดียว
 ไม่เคยอ่านหรือเปลี่ยนแปลงสถานะของ simulation
 
-### Adapter {#adapters}
+### Adapter [#adapters]
 
 พฤติกรรมแบบ end-to-end ของ adapter อยู่นอกขอบเขตของ simulation test ฝั่ง upstream เส้นทางที่ยังไม่ได้ตรวจสอบอาจมี
 สิ่งต่อไปนี้ ขึ้นอยู่กับ adapter:
@@ -631,7 +633,7 @@ build แบบ simulation
 
 Adapter ต้องได้รับการตรวจสอบจุดเหล่านี้ก่อน ข้อกำหนด DST จึงจะครอบคลุมพฤติกรรมของมัน
 
-## ความสัมพันธ์กับการทดสอบชั้นอื่น {#relationship-to-other-testing-layers}
+## ความสัมพันธ์กับการทดสอบชั้นอื่น [#relationship-to-other-testing-layers]
 
 DST เสริมการทดสอบที่มีอยู่ ไม่ได้มาแทนที่ส่วนใดเลย
 
@@ -650,30 +652,30 @@ DST ครอบคลุม concurrency แบบ async และความ�
 
 การทดสอบชั้นอื่นยังคงรับผิดชอบขอบเขตเดิมของตน
 
-## สถานะ {#status}
+## สถานะ [#status]
 
-### การสลับ runtime {#runtime-swap}
+### การสลับ runtime [#runtime-swap]
 
 ชั้นที่ 1 implement แล้ว `nautilus_common::live::dst` เปิดเผย re-export ที่ส่งผ่าน seam สำหรับ `time`, `task`, `runtime`
 และ `signal` call site ใน production สำหรับ `time`, `task` และ `runtime` ใช้ seam นี้ ส่วนการนำ signal มาใช้ยังเป็นเพียงบางส่วน
 ดู [การจัดการ signal](#signal-handling)
 
-### การแทนที่แหล่งความไม่ deterministic {#nondeterminism-substitution}
+### การแทนที่แหล่งความไม่ deterministic [#nondeterminism-substitution]
 
 ชั้นที่ 2 implement แล้วใน crate ที่อยู่ในขอบเขตทั้ง 17 ตัว seam ครอบคลุมเวลาแบบ wall-clock, เวลาแบบ monotonic, ค่าสุ่ม
 และลำดับการ iterate ที่สังเกตได้ [หมายเหตุด้าน implementation](#implementation-notes) แสดงรายการเส้นทางที่ตรวจสอบแล้ว
 และข้อยกเว้นที่เหลืออยู่
 
-### สถานะของการบังคับใช้แบบ static {#static-enforcement-status}
+### สถานะของการบังคับใช้แบบ static [#static-enforcement-status]
 
 `check-dst-conventions` รันใน pre-commit และ CI ครอบคลุมเงื่อนไขเชิงโครงสร้างที่เป็นแกนสำคัญ และอนุญาตข้อยกเว้นรายบรรทัด
 ที่ review แล้วผ่าน `// dst-ok`
 
-### ข้อจำกัดของการยืนยันที่ runtime {#runtime-verification-limit}
+### ข้อจำกัดของการยืนยันที่ runtime [#runtime-verification-limit]
 
 การยืนยันครอบคลุม test ของ seam และ static check repository นี้ไม่ได้เปรียบเทียบการรัน adapter แบบเต็มข้าม process ใหม่
 
-### Simulation smoke gate {#simulation-smoke-gate}
+### Simulation smoke gate [#simulation-smoke-gate]
 
 Nightly workflow และ pre-flight แบบ local ใช้ DST target ชุดเดียวกัน:
 
@@ -699,7 +701,7 @@ Nextest compile library และ test target ที่เลือกไว้ 
 ชุด feature เพียงครั้งเดียวข้าม package ในชุดนั้น เมื่อรวมกันแล้วจะทดสอบเส้นทาง `QuantityRaw` (`u64` / `u128`) และ
 `PriceRaw` (`i64` / `i128`) ที่ส่งผ่าน seam ในความกว้าง fixed-point ทั้งสองแบบ
 
-#### Common test {#common-tests}
+#### Common test [#common-tests]
 
 การรันแบบ standard precision จะ execute test ทั้งหมดของ `nautilus-common` ที่เข้ากันได้กับ simulation feature graph ของมัน
 ส่งต่อ `nautilus-core/simulation` ทำให้เลือก cfg branch `wall_clock_now` ตลอดทั้งชุด
@@ -713,7 +715,7 @@ madsim runtime และส่วนใหญ่รอให้ wall-clock เ�
 `live::dst::tests::test_dst_wall_clock_advances_with_virtual_time` รันภายใต้ `#[madsim::test]` และ assert ว่า
 `nanos_since_unix_epoch` เดินหน้าไปพร้อมกับ `madsim::time::sleep` ซึ่ง pin พฤติกรรมของ wall-clock เสมือนภายใน runtime
 
-#### Event store test {#event-store-tests}
+#### Event store test [#event-store-tests]
 
 การรันแบบ standard precision จะ execute test ทั้งหมดของ `nautilus-event-store` ที่เข้ากันได้กับ simulation โดยทดสอบ event
 writer และ marker writer แบบ synchronous ภายใต้ `cfg(madsim)` รวมถึงการจัดลำดับ sequence แบบ deterministic test ที่พึ่ง
@@ -723,13 +725,13 @@ OS thread แบบ blocking ยังคงมีการทดสอบแบ
 Smoke lane ของ event-store จะ compile และทดสอบ implementation ด้าน simulation ที่มีอยู่ โดยไม่ได้ขยาย static convention
 hook ไปยังโค้ด production ของ event-store
 
-#### Reconciliation ตอน startup ของ live {#live-startup-reconciliation}
+#### Reconciliation ตอน startup ของ live [#live-startup-reconciliation]
 
 Regression test เฉพาะจุดของ `nautilus-live` รันภายใต้ madsim โดยยืนยันว่า mass-status request ที่ค้างอยู่จะถึง timeout ที่ตั้งไว้
 และรายงาน error ที่คาดไว้ และยืนยันการ cleanup ของ node ด้วย flow ของ timeout และ cleanup ทั้งหมดไม่เคยเข้าไปใช้ timer
 ของ Tokio จริงเลย
 
-#### Network test {#network-tests}
+#### Network test [#network-tests]
 
 การรันจะ execute test ทั้งหมดของ `nautilus-network` ยกเว้น module ที่ผูกกับ transport ซึ่งถูก gate ออกด้วย cfg ที่ source
 การครอบคลุมรวมถึง test ของ seam เวลาเสมือนสำหรับ sleep, timeout และ rate limiter รวมถึงชุด retry ที่ทดสอบจังหวะของ backoff
@@ -742,29 +744,29 @@ job `dst smoke (cfg madsim)` ใน `.github/workflows/nightly-tests.yml` เล
 `GITHUB_RUN_NUMBER * MADSIM_TEST_NUM` test การ reset runtime ของ jitter จะ pin seed ของตัวเองและเสริมการตรวจสอบ network
 แบบข้าม seed
 
-#### Execution test {#execution-tests}
+#### Execution test [#execution-tests]
 
 การรันจะ execute test ทั้งหมดของ `nautilus-execution` case แบบ `#[rstest]` ธรรมดาเหล่านี้ทดสอบ branch ที่ gate ด้วย cfg ใน
 matching engine, fill model และ execution engine โดยไม่เข้าไปใน madsim runtime `default_std_rng()` จึงใช้ fallback ไปยัง
 RNG ของ host ใน test เหล่านี้
 
-#### Core seam test {#core-seam-tests}
+#### Core seam test [#core-seam-tests]
 
 การเลือก test เฉพาะจุดของ `nautilus-core` pin `wall_clock_now` เทียบกับเวลาเสมือน
 
-#### Adapter test {#adapter-tests}
+#### Adapter test [#adapter-tests]
 
 Adapter ที่ตรวจสอบแล้วแต่ละตัวรัน integration test `dst` ของตนภายใต้ `simulation` โดยไม่มี default feature ของ crate
 case แบบ `#[madsim::test]` เหล่านั้น pin slice ที่บันทึกไว้ในคู่มือ integration ของ adapter ได้แก่ subscribe byte, พฤติกรรม
 reconnect, frame ของ authentication และ wire field ราย operation
 
-#### การครอบคลุมโดยรวมของ gate {#overall-gate-coverage}
+#### การครอบคลุมโดยรวมของ gate [#overall-gate-coverage]
 
 Case แบบ `#[madsim::test]` ใน `nautilus-common`, `nautilus-core`, `nautilus-network`, `nautilus-live` และ adapter ที่ตรวจสอบแล้ว
 ให้การครอบคลุมด้วย scheduler แบบ deterministic gate ทั้งหมดจับการเบี่ยงเบนใน seam ที่ gate ด้วย cfg ได้ แต่ไม่ได้ยืนยัน
 ความ deterministic แบบ end-to-end ของ adapter
 
-## อ่านเพิ่มเติม {#further-reading}
+## อ่านเพิ่มเติม [#further-reading]
 
 - `.pre-commit-hooks/check_dst_conventions.sh` นิยามกฎการบังคับใช้ทั้งเจ็ดข้อแบบเต็ม และอธิบายข้อตกลงเรื่อง marker `// dst-ok`
 - [FoundationDB testing philosophy](https://apple.github.io/foundationdb/testing.html)

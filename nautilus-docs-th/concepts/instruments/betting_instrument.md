@@ -1,4 +1,6 @@
-# Betting Instrument
+---
+title: "Betting Instrument"
+---
 
 `BettingInstrument` แทนตัวเลือก (selection) หนึ่งตัวในตลาดกีฬาหรือเกม โดยเก็บ metadata ของ event,
 competition, market และ selection ไว้ เพื่อให้ Nautilus ปฏิบัติต่อ selection นั้นเหมือน instrument ที่มีราคา,
@@ -6,7 +8,7 @@ competition, market และ selection ไว้ เพื่อให้ Nauti
 
 ตัวอย่างเช่น selection ในตลาด match odds และตลาด handicap ของ Betfair
 
-## ฟิลด์ {#fields}
+## ฟิลด์ [#fields]
 
 | ฟิลด์                 | Rust type          | จำเป็น/ค่าเริ่มต้น  | หมายเหตุ                                    |
 | -------------------- | ------------------ | ---------------- | ---------------------------------------- |
@@ -46,14 +48,14 @@ competition, market และ selection ไว้ เพื่อให้ Nauti
 | `ts_event`           | `UnixNanos`        | Required         | timestamp ของ event หน่วยนาโนวินาที         |
 | `ts_init`            | `UnixNanos`        | Required         | timestamp ตอนสร้าง หน่วยนาโนวินาที           |
 
-## พฤติกรรม {#behavior}
+## พฤติกรรม [#behavior]
 
 - `BettingInstrument` มี asset class เป็น `Alternative` และ instrument class เป็น `SportsBetting`
 - แต่ละ selection หรือ runner ถูกจำลองเป็น instrument ของตัวเอง
 - betting instrument มักใช้ tick scheme ที่ลงทะเบียนไว้เพื่อกำหนดขั้นของ odds ที่ใช้ได้
 - margin มีค่าเริ่มต้นเป็นหนึ่ง เพราะการวางเดิมพันมักกันเงินเดิมพันไว้เต็มจำนวน
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 ```rust tab="Rust"
 use jiff::Timestamp;
@@ -107,12 +109,12 @@ let selection = BettingInstrument::builder()
     .unwrap();
 ```
 
-## Adapter {#adapters}
+## Adapter [#adapters]
 
 adapter [Betfair](../../integrations/betfair.md) สร้างหรือใช้ instrument แบบ `BettingInstrument`
 สำหรับตลาดเดิมพันกีฬา
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Accounting](../accounting.md) อธิบายพฤติกรรมของ betting account
 - [Data](../data/) อธิบายข้อมูลตลาดที่อ้างอิงถึง instrument

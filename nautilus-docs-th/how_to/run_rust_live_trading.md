@@ -1,4 +1,6 @@
-# การรัน Live Trading (Rust)
+---
+title: "การรัน Live Trading (Rust)"
+---
 
 `LiveNode` เชื่อมต่อกับ venue และแหล่งข้อมูลจริงผ่าน adapter client คู่มือนี้จะพาตั้งค่า live trading
 แบบครบวงจร โดยใช้ OKX เป็นตัวอย่าง
@@ -8,7 +10,7 @@
 [Execution reconciliation](../concepts/execution/reconciliation.md) สำหรับการตั้งค่าโปรเจกต์และ feature flag
 ดูคู่มือแนวคิด [Rust](../concepts/rust.md#project-setup)
 
-## Dependencies {#dependencies}
+## Dependencies [#dependencies]
 
 เพิ่ม crate live, adapter ของ venue ที่ใช้ และ crate สนับสนุนอื่น ๆ ลงใน `Cargo.toml`:
 
@@ -26,7 +28,7 @@ log = "0.4"
 tokio = { version = "1", features = ["full"] }
 ```
 
-## สร้าง node {#build-the-node}
+## สร้าง node [#build-the-node]
 
 `LiveNode` ใช้ builder pattern ให้เพิ่ม factory ของ data client และ execution client สำหรับ venue ของคุณ
 ตั้งค่า logging แล้ว build
@@ -83,7 +85,7 @@ let mut node = LiveNode::builder(trader_id, Environment::Live)?
 [Execution reconciliation](../concepts/execution/reconciliation.md)
 :::
 
-## เพิ่ม strategy และรัน {#add-strategies-and-run}
+## เพิ่ม strategy และรัน [#add-strategies-and-run]
 
 ```rust
 use nautilus_model::{identifiers::InstrumentId, types::Quantity};
@@ -113,7 +115,7 @@ node.run().await?;
 
 node จะทำงานไปจนกว่าจะถูก interrupt (Ctrl+C) หรือถูกสั่ง shut down จากโค้ด
 
-## Environment variable {#environment-variables}
+## Environment variable [#environment-variables]
 
 OKX อ่าน API credential จาก environment variable ใช้ไฟล์ `.env` ร่วมกับ `dotenvy` หรือตั้งค่าใน shell:
 
@@ -128,7 +130,7 @@ API credential สำหรับ demo จาก OKX
 
 adapter แต่ละตัวระบุ environment variable ที่ต้องใช้ไว้ใน[คู่มือ integration](../integrations/) ของ venue นั้น
 
-## Async runtime {#async-runtime}
+## Async runtime [#async-runtime]
 
 `LiveNode::run()` เป็น async และต้องใช้ Tokio runtime ใส่ `#[tokio::main]` ที่ฟังก์ชัน main:
 
@@ -144,7 +146,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-## ตัวอย่างของ adapter {#adapter-examples}
+## ตัวอย่างของ adapter [#adapter-examples]
 
 adapter ส่วนใหญ่มีตัวอย่างที่รันได้ ทั้ง data tester และ execution tester:
 

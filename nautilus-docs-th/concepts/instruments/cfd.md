@@ -1,11 +1,13 @@
-# CFD
+---
+title: "CFD"
+---
 
 `Cfd` แทน contract for difference (สัญญาส่วนต่าง) ที่อ้างอิงราคาสินทรัพย์อ้างอิงโดยไม่มีการโอนกรรมสิทธิ์
 ในสินทรัพย์อ้างอิงนั้น venue เป็นผู้กำหนด quote currency, precision, increment, limit, margin และ fee
 
 ตัวอย่างเช่น สัญญา CFD บน FX, หุ้น, ดัชนี และสินค้าโภคภัณฑ์
 
-## Fields {#fields}
+## Fields [#fields]
 
 | Field             | Rust type          | จำเป็น/ค่าเริ่มต้น  | หมายเหตุ                                    |
 | ----------------- | ------------------ | ---------------- | ------------------------------------------ |
@@ -34,7 +36,7 @@
 
 **หมายเหตุ**: builder ใช้ชื่อ `instrument_id` แต่ Rust เก็บค่าเดียวกันไว้ใน field `id`
 
-## พฤติกรรม {#behavior}
+## พฤติกรรม [#behavior]
 
 - `Cfd` มี instrument class เป็น `Cfd`
 - ไม่เป็น inverse และใช้ multiplier เท่ากับหนึ่งเสมอ
@@ -42,7 +44,7 @@
 - หาก venue มีทั้ง instrument แบบ cash และแบบ CFD บนสินทรัพย์อ้างอิงเดียวกัน ให้ใช้ `Cfd` เฉพาะกับ CFD
   และใช้ cash type ที่ตรงกันสำหรับตลาดของสินทรัพย์อ้างอิง
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -73,12 +75,12 @@ let audusd = Cfd::builder()
     .unwrap();
 ```
 
-## Adapters {#adapters}
+## Adapters [#adapters]
 
 Adapter ของ [Interactive Brokers](../../integrations/interactive_brokers.md) สร้างหรือใช้ instrument แบบ
 `Cfd` สำหรับสัญญา CFD
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Currency Pair](currency_pair.md) ครอบคลุมคู่เงิน FX แบบ cash และคู่ crypto แบบ spot
 - [Commodity](commodity.md) ครอบคลุม instrument สินค้าโภคภัณฑ์แบบ spot

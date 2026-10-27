@@ -1,4 +1,6 @@
-# Execution Reconciliation
+---
+title: "Execution Reconciliation"
+---
 
 execution reconciliation ทำให้ state จริงของ order และ position ที่ venue ตรงกับ state ภายในของระบบที่สร้างแบบ
 event sourcing คู่มือนี้อธิบายการกู้คืน state ตอนเริ่มทำงาน และการตรวจสอบต่อเนื่องที่ใช้ตรวจจับความคลาดเคลื่อนระหว่าง runtime
@@ -9,7 +11,7 @@ event sourcing คู่มือนี้อธิบายการกู้�
 สำหรับ lifecycle ของ node ทั้งหมด ดู[Live trading](../live.md) สำหรับการตั้งค่าที่มีและค่าที่แนะนำ ดู
 [การตั้งค่า live trading node](../../how_to/configure_live_trading.md#executionengine-configuration)
 
-## โมเดลของ reconciliation {#reconciliation-model}
+## โมเดลของ reconciliation [#reconciliation-model]
 
 live execution จะ reconcile state ภายในกับ report จาก venue ส่วน backtest ควบคุมทั้งการ execute order และ state ที่เกิดขึ้น
 จึงไม่ต้องทำ reconciliation กับ venue
@@ -48,7 +50,7 @@ persist execution event ทั้งหมดลง cache database วิธี�
 order และ position ที่เก็บไว้ ซึ่งจำเป็นสำหรับการตีความช่วงประวัติที่สั้น
 :::
 
-### หน้าที่ของ component {#component-responsibilities}
+### หน้าที่ของ component [#component-responsibilities]
 
 `LiveNode` เป็นเจ้าของ `ExecutionManager` และจัดตารางการทำ reconciliation ซ้ำ ๆ manager ติดตามกิจกรรม, การ retry และ
 ตัวตนของ fill, ตีความ state ใน cache และเตรียม event ของ reconciliation ส่วน `ExecutionEngine` นำ event ไปใช้กับ order
@@ -119,7 +121,7 @@ manager ยังใช้งานได้โดยไม่ต้องเป
 ที่คืนมาไปใช้เองได้ การ polling position แบบ standalone จะคืน event สังเคราะห์ของความคลาดเคลื่อนโดยตรง ส่วน node จะเพิ่ม
 ลำดับการกู้คืนด้วย fill ที่เชื่อถือได้เข้าไป
 
-### Origin ของ execution client {#execution-client-origins}
+### Origin ของ execution client [#execution-client-origins]
 
 **execution-client origin** คือการผูกแบบเขียนครั้งเดียวระหว่าง order กับ client ที่รับผิดชอบการ execute order นั้น
 
@@ -153,7 +155,7 @@ cache backend ในตัวจะเข้าคิว origin ที่ resolv
 เรื่องนี้แยกจาก[การ claim external order](#external-order-creation) ซึ่งระบุว่า order ที่มาจาก venue เป็นของ *strategy*
 ใด ส่วน execution-client origin บันทึกว่า order เป็นของ *client* ใด
 
-### Reconciliation report {#reconciliation-reports}
+### Reconciliation report [#reconciliation-reports]
 
 execution engine ใช้ reconciliation report สี่ variant จาก live adapter แต่ละ variant มีบทบาทปกติต่างกันเมื่อ order ที่ตรงกัน
 ไม่มีอยู่ใน cache ประวัติที่มีขอบเขตชัดเจนสามารถใช้[การ project fill เฉพาะ order](#order-only-fill-projection) แทนได้
@@ -165,7 +167,7 @@ execution engine ใช้ reconciliation report สี่ variant จาก liv
 | `OrderWithFills`       | state ของ order พร้อม fill | สร้าง order, นำ fill ไปใช้ และอนุมานส่วนที่เหลือ           |
 | `PositionStatusReport` | snapshot ของ position ที่ venue | log report position ยังคงคำนวณจาก fill              |
 
-#### ควรใช้ variant ใดเมื่อไร {#when-to-use-each-variant}
+#### ควรใช้ variant ใดเมื่อไร [#when-to-use-each-variant]
 
 adapter เลือก variant ที่ตรงกับ event ของ venue:
 
@@ -175,7 +177,7 @@ adapter เลือก variant ที่ตรงกับ event ของ venu
 - ใช้ `OrderWithFills` เมื่อ event เดียวของ venue มีทั้งสถานะ order และ fill ของมัน Binance Futures ใช้แบบนี้สำหรับ order
   ที่ exchange สร้างขึ้นจาก ADL, liquidation และ settlement
 
-### ความสดใหม่ของ snapshot และการแก้ไข fill {#snapshot-freshness-and-fill-corrections}
+### ความสดใหม่ของ snapshot และการแก้ไข fill [#snapshot-freshness-and-fill-corrections]
 
 snapshot ต้องไม่ย้อนกลับ fill ที่เกิดขึ้นหลัง state ที่ snapshot อธิบาย การได้รับ snapshot หลัง event ของ stream ไม่ได้ทำให้
 snapshot ใหม่กว่า: REST request และการส่งของ stream อาจซ้อนกันระหว่างการกู้คืน เช่น request หนึ่งอาจเห็นปริมาณที่ fill
@@ -216,7 +218,7 @@ snapshot ที่มาทีหลังสามารถนำการแ�
 สำหรับการป้องกันระหว่าง runtime นั้น adapter ต้องบันทึก timestamp ของ mass status ก่อนรวบรวม report โดยใช้ clock ภายใน
 ตัวเดียวกับ fill event ขอบเขตนี้ป้องกันกิจกรรมภายในที่ซ้อนกัน แต่ตรวจจับ state ของ venue ที่เก่าอยู่แล้วตอนเริ่มรวบรวมไม่ได้
 
-### การ project fill เฉพาะ order {#order-only-fill-projection}
+### การ project fill เฉพาะ order [#order-only-fill-projection]
 
 ระหว่าง startup reconciliation นั้น fill ย้อนหลังที่มีขอบเขตจะไม่เปลี่ยน position หรือ portfolio เมื่อ instrument นั้นไม่มี
 position report ที่ระบุชัดเจนอยู่ในขอบเขต การไม่มี report ไม่ใช่ report แบบ flat แต่ order ยังคงไปถึงสถานะและปริมาณที่ fill
@@ -229,7 +231,7 @@ position report ที่ระบุชัดเจน ไม่ว่าจะ
 fill ย้อนหลังที่มีขอบเขตเป็นแบบเฉพาะ order แม้ mass status จะมี position report ก็ตาม ดู[ความปลอดภัยของประวัติแบบมีขอบเขต](#bounded-history-safety)
 สำหรับข้อยกเว้นของ window ที่ไม่ได้ประกาศ และกฎของ fill ที่เก็บไว้
 
-### การสร้าง external order {#external-order-creation}
+### การสร้าง external order [#external-order-creation]
 
 เมื่อ report อ้างถึง order ที่ไม่มีอยู่ใน cache engine จะสร้าง **external order** ซึ่งครอบคลุม ADL, liquidation หรือ settlement
 ที่ venue เป็นผู้เริ่ม, order ที่ process อื่นส่ง และ order ที่ยังไม่ถูกสังเกตเห็นภายใน
@@ -273,11 +275,11 @@ external order ใช้ `client_order_id` ของ report หากมี ม�
 
 ดู[การ claim external order](../strategies.md#claiming-external-orders) สำหรับการตั้งค่า strategy และการอัปเดตระหว่าง runtime
 
-### การลด external position {#reducing-external-positions}
+### การลด external position [#reducing-external-positions]
 
 strategy สามารถใช้ fill แบบ reduce-only เพื่อลด inventory `EXTERNAL` ที่รับช่วงมาภายใต้ NETTING ได้
 
-#### การเลือก position {#position-selection}
+#### การเลือก position [#position-selection]
 
 ลิงก์ position ที่มีอยู่ใน cache ยังคงเป็นข้อมูลที่เชื่อถือได้ หากไม่มีลิงก์ใน cache fill แบบ reduce-only จะใช้ position ที่เปิด
 อยู่ของ strategy เองหากมี หาก position นั้นไม่มีหรือปิดแล้ว engine จะหา position ที่ตรงตามเงื่อนไขทั้งหมดนี้:
@@ -290,14 +292,14 @@ engine จะเลือก fallback เฉพาะเมื่อมี posit
 แม้ปริมาณคงเหลือของ order จะมากกว่าได้ หากไม่มี fallback ที่ปลอดภัย fill ที่ถูกต้องในด้านอื่นจะอัปเดต order แต่จะไม่เปิด
 หรืออัปเดต position
 
-#### ความเป็นเจ้าของและ event {#ownership-and-events}
+#### ความเป็นเจ้าของและ event [#ownership-and-events]
 
 หลังลดสำเร็จ engine จะลิงก์ order กับ external position เพื่อให้ fill ถัดไปใช้เป้าหมายเดียวกัน position ยังคงเป็นของ `EXTERNAL`:
 
 - `OrderFilled` คง ID ของ strategy ที่ลด position และระบุ external position
 - `PositionChanged` และ `PositionClosed` ใช้ event topic ของ strategy `EXTERNAL`
 
-#### การตรวจสอบการลดที่ลิงก์ไว้ {#linked-reduction-checks}
+#### การตรวจสอบการลดที่ลิงก์ไว้ [#linked-reduction-checks]
 
 เมื่อนำผลทางเศรษฐศาสตร์ของ position ไปใช้ การลดที่ลิงก์ไว้แต่ละครั้งต้องตรงกับ account ของ external position และลดปริมาณ
 ที่เปิดอยู่โดยไม่กลับทิศหรือเปิดใหม่ หาก fill ละเมิดการตรวจสอบเหล่านี้ engine จะปฏิเสธ fill **ก่อนเปลี่ยน order หรือ position**
@@ -305,7 +307,7 @@ engine จะเลือก fallback เฉพาะเมื่อมี posit
 [การ project fill เฉพาะ order](#order-only-fill-projection) ข้ามการตรวจสอบการลดเหล่านี้ เพราะเป็นการซ่อมประวัติของ order
 โดยไม่เปลี่ยน position
 
-## การตั้งค่า reconciliation {#reconciliation-configuration}
+## การตั้งค่า reconciliation [#reconciliation-configuration]
 
 เว้นแต่จะตั้ง `reconciliation` เป็น false live node จะทำ startup reconciliation สำหรับ execution client แต่ละตัว พารามิเตอร์
 `reconciliation_lookback_mins` ควบคุมว่าจะขอประวัติย้อนหลังไปไกลแค่ไหนผ่าน execution engine การเปิดใช้ตอน startup และ
@@ -326,7 +328,7 @@ history window ที่มีขอบเขตอาจเริ่มหล�
 สำหรับ option ทั้งหมดของ live trading ดู `LiveExecutionEngineConfig` ใน
 [Rust API docs](https://nautilustrader.io/docs/core-latest/)
 
-### ความเป็นเจ้าของ order และ tag {#order-ownership-and-tags}
+### ความเป็นเจ้าของ order และ tag [#order-ownership-and-tags]
 
 แต่ละ strategy สามารถตั้ง `external_order_instrument_ids` เป็นเจตนาในการ claim external order ที่มาจาก venue และกิจกรรม
 reconciliation ที่ถูกสร้างขึ้นสำหรับ instrument ที่ระบุ การลงทะเบียน strategy แบบ live จะสร้างเจตนานั้นเป็น claim ที่ active
@@ -346,7 +348,7 @@ order และ fill ที่ถูก claim จะใช้ strategy ID ขอ
 [ความปลอดภัยของประวัติแบบมีขอบเขต](#bounded-history-safety) เมื่อเกี่ยวข้อง
 :::
 
-### การกู้คืนการ submit {#submission-recovery}
+### การกู้คืนการ submit [#submission-recovery]
 
 `submission_recovery_policy` มีค่าเริ่มต้นเป็น `ResolveLocally` การเลือก `RetainUnresolved` จะเปิดใช้:
 
@@ -362,7 +364,7 @@ client ยังสามารถบังคับใช้การป้อ�
 กู้คืนการ submit ยังไม่เสร็จที่ขอบเขต `delay_post_stop` ซึ่งรวมถึง Polymarket แม้ไม่ได้ opt-in อย่างชัดเจน exhaustion
 diagnostic และ teardown ที่สำเร็จไม่ได้พิสูจน์ผลลัพธ์ที่ venue หรือว่า position เป็น flat
 
-#### Exhaustion diagnostic {#exhaustion-diagnostic}
+#### Exhaustion diagnostic [#exhaustion-diagnostic]
 
 เมื่อเปิดการติดตาม `LiveNode` แบบ native จะ publish `SubmissionRecoveryExhausted` บน
 `reconciliation.SubmissionRecoveryExhausted` เมื่อการ submit ที่ยังไม่ได้รับการตอบรับถึงขีดจำกัดการกู้คืนที่มีอยู่ โดย publish
@@ -371,7 +373,7 @@ diagnostic หลังประมวลผล event ของ reconciliation �
 diagnostic นี้บรรจุตัวตนของการ submit ดั้งเดิม, แหล่งที่มาของการกู้คืน, จำนวนครั้งที่ตรวจสอบ และ timestamp ของ event
 diagnostic นี้ไม่ใช่ order event และไม่ได้พิสูจน์ผลลัพธ์ที่ venue
 
-#### งบการกู้คืน {#recovery-budget}
+#### งบการกู้คืน [#recovery-budget]
 
 cancel หรือ modify ที่ dispatch ก่อนได้รับการตอบรับจะใช้งบการกู้คืนที่เหลือของการ submit ร่วมกัน การลงทะเบียนซ้ำและการ
 บันทึก order ที่หายไปไม่สามารถเริ่มงบนั้นใหม่ได้ การตอบรับจะปิดงบโดยไม่โอนการกู้คืนไปยัง command ที่ซ้อนกัน
@@ -383,7 +385,7 @@ command ที่ dispatch หลังได้รับการตอบร�
 หากไม่มีการติดตามการ submit (`ResolveLocally` และไม่มีการคงไว้ที่ client บังคับ) การ dispatch command จะเริ่มงบการกู้คืนใหม่
 และ event fill หรือ `Triggered` แบบ native จะไม่ปิด timeout ของ command ที่รออยู่
 
-#### การตอบรับ {#acknowledgement}
+#### การตอบรับ [#acknowledgement]
 
 report `Submitted` ที่ตรงกันและมี venue order ID จะปิดการกู้คืนของการ submit ดั้งเดิม report ที่เข้ามา และ response ของ query
 แบบรวมหรือแบบเจาะจง ใช้การตรวจสอบการยืนยันเดียวกัน `OrderUpdated` ที่ถูกนำไปใช้และมีตัวตนจาก venue ก็ยืนยันการ submit
@@ -399,14 +401,14 @@ registry จะคงตัวตนของการ submit ไว้ตลอ
 
 command ที่ตามมาจะไม่สร้าง diagnostic เรื่องการ submit หมดความพยายาม
 
-#### การลงทะเบียน {#registration}
+#### การลงทะเบียน [#registration]
 
 - **Live node**: `LiveNode` ลงทะเบียนตัวตนของการ submit ก่อน dispatch และการคงไว้ที่ client บังคับให้อัตโนมัติ
 - **ผู้เรียก `ExecutionManager` โดยตรง**: ใช้ `register_submission` สำหรับการ submit ส่วน `register_inflight` เพียงเริ่ม
   การกู้คืน command และไม่อนุมานตัวตนของการ submit จาก cache host ที่ใช้ manager โดยตรงต้องเลือก `RetainUnresolved`
   หรือรัน `check_open_orders` กับ client ของตนก่อนพึ่งพาการคงไว้ที่ client บังคับใน in-flight check
 
-#### ขีดจำกัดการกู้คืน {#recovery-limits}
+#### ขีดจำกัดการกู้คืน [#recovery-limits]
 
 ขีดจำกัดและการตรวจสอบความครอบคลุมที่มีอยู่ยังคงใช้:
 
@@ -416,7 +418,7 @@ command ที่ตามมาจะไม่สร้าง diagnostic เร
   พร้อม query แบบเจาะจงที่สำเร็จและไม่พบ order ก่อนรายงานการหมดความพยายาม query แบบเจาะจงที่ล้มเหลวหรือถูกเลื่อนจะไม่
   สร้าง diagnostic นั้น
 
-### ความพร้อมของ instrument {#instrument-availability}
+### ความพร้อมของ instrument [#instrument-availability]
 
 adapter parse reconciliation report โดยใช้ instrument ดังนั้นทุก instrument ที่ report อ้างถึงต้องถูกโหลดไว้แล้ว adapter
 จะไม่ดึง instrument ที่หายไปจาก venue ระหว่าง reconciliation
@@ -434,7 +436,7 @@ report ของ instrument ที่อยู่นอกขอบเขต `lo
   ทำเครื่องหมายว่าชุด report ไม่สมบูรณ์ด้วย โดยใช้กฎ[ความปลอดภัยของประวัติแบบมีขอบเขต](#bounded-history-safety) การหมดอายุ
   มักทำให้ instrument ที่ fill เก่ายังอ้างถึงถูกเลิกใช้ไปตามปกติ
 
-## Startup reconciliation {#startup-reconciliation}
+## Startup reconciliation [#startup-reconciliation]
 
 execution client ของ adapter ทุกตัวใช้ขั้นตอน reconciliation เดียวกัน โดยเรียกสามเมธอดเพื่อสร้าง execution mass status:
 
@@ -460,7 +462,7 @@ flowchart TD
 report เหล่านี้แทนความเป็นจริงภายนอก ขั้นตอนนี้ประมวลผลตามลำดับที่แสดง เพื่อให้การตรวจสอบ position แต่ละครั้งต่อยอดจาก
 state ของ order และ fill ที่ reconcile แล้ว
 
-### สัญญาเรื่องประวัติของ mass status {#mass-status-history-contract}
+### สัญญาเรื่องประวัติของ mass status [#mass-status-history-contract]
 
 `ExecutionMassStatus` สามารถประกาศที่มาของ report ย้อนหลังได้:
 
@@ -472,7 +474,7 @@ state ของ order และ fill ที่ reconcile แล้ว
 adapter ยังสามารถคืน active order และ position report ที่เชื่อถือได้เมื่อแหล่งประวัติล้มเหลว โดยจะทำเครื่องหมายว่า mass status
 ไม่สมบูรณ์เพื่อบันทึกว่าประวัติขาดหาย ความไม่สมบูรณ์นี้ไม่ได้ขัดขวางการกู้คืนจาก position report ที่ระบุชัดเจน
 
-### การตัด report ซ้ำ {#report-deduplication}
+### การตัด report ซ้ำ [#report-deduplication]
 
 - ตัด order report ที่ซ้ำภายใน batch และ log warning
 - log trade ID ที่ซ้ำเป็น warning เพื่อการตรวจสอบ
@@ -480,12 +482,12 @@ adapter ยังสามารถคืน active order และ position rep
   ยกเว้น `report_id` และ `ts_init` และ log warning สำหรับตัวซ้ำแต่ละตัว report ที่ต่างกันในฟิลด์อื่นใด รวมถึง `ts_last`
   จะนับแยกกัน
 
-### Order reconciliation {#order-reconciliation}
+### Order reconciliation [#order-reconciliation]
 
 - สร้างและนำ event ไปใช้เพื่อย้าย order จาก state ใน cache ไปเป็น state ปัจจุบัน
 - สร้าง event ของ external order สำหรับ client order ID ที่ไม่รู้จัก หรือ report ที่ไม่มี client order ID
 
-### Fill reconciliation {#fill-reconciliation}
+### Fill reconciliation [#fill-reconciliation]
 
 - อนุมาน event `OrderFilled` สำหรับ trade report ที่หายไป
 - ตรวจสอบความสอดคล้องของข้อมูล fill report ด้วยการเปรียบเทียบราคาและค่าคอมมิชชันแบบมี tolerance
@@ -493,7 +495,7 @@ adapter ยังสามารถคืน active order และ position rep
   กลุ่มที่ fill มี `venue_position_id` จะถูกจัดการแยก engine จะสร้าง order ที่ fill แล้วจากกลุ่มนั้นเมื่อเปิด
   `generate_missing_orders` และข้ามไปในกรณีอื่น
 
-### ลำดับของ event {#event-ordering}
+### ลำดับของ event [#event-ordering]
 
 startup reconciliation นำ event ของ order และ fill ที่สร้างขึ้นไปใช้ตามลำดับเวลา:
 
@@ -506,7 +508,7 @@ startup reconciliation นำ event ของ order และ fill ที่ส�
 
 ลำดับเปลี่ยนเฉพาะตอนที่ event ถูกนำไปใช้ event แต่ละตัวยังคง timestamp ที่รายงานไว้
 
-### Position reconciliation {#position-reconciliation}
+### Position reconciliation [#position-reconciliation]
 
 - จับคู่ net position ต่อ account และ instrument กับ position report ของ venue โดยใช้ quantity tolerance ของ account
 - สร้าง event ของ external order เมื่อ order reconciliation ทิ้ง position ที่ต่างจาก venue ไว้
@@ -515,7 +517,7 @@ startup reconciliation นำ event ของ order และ fill ที่ส�
 - log warning เมื่อความเป็นเจ้าของแบบ NETTING ถูกแบ่งระหว่างหลาย strategy สำหรับ account และ instrument เดียวกัน เพราะ
   position report ของ venue เป็น net position ระดับ account
 
-#### Order สังเคราะห์ {#synthetic-orders}
+#### Order สังเคราะห์ [#synthetic-orders]
 
 reconciliation สร้าง report ของ MARKET order และ fill แบบสังเคราะห์ด้วยราคาที่ทราบ:
 
@@ -531,7 +533,7 @@ report ที่ทำเครื่องหมายค่าเฉลี่�
 engine จะข้ามส่วนต่างของปริมาณที่ปัดแล้วเป็นศูนย์ตาม size precision ของ instrument startup validation ยังคงตรวจสอบส่วนต่าง
 ที่เหลือเทียบกับ quantity tolerance ของ account
 
-#### Fill ที่ถูก replay {#replayed-fills}
+#### Fill ที่ถูก replay [#replayed-fills]
 
 reconciliation อาจเปิด position จาก position report ของ venue ตราบใดที่ position นั้นยังเปิดอยู่ fill report ของ instrument และ
 account เดียวกันที่มี `ts_event` เก่ากว่าจะอัปเดต order ของมันแต่ไม่อัปเดต position เพราะ report รวม execution เหล่านั้นไว้แล้ว
@@ -559,7 +561,7 @@ fill ที่ไม่ถูกนับใน position จะอยู่บ�
   ครั้งถัดไปจะหยุดที่ fill นั้น และรอจนครบ `position_check_threshold_ms` นับจากครั้งแรกที่นำไปใช้ไม่สำเร็จ แล้วจึงปรับ position
   แบบสังเคราะห์
 
-#### การตรวจสอบ position ตอน startup {#startup-position-validation}
+#### การตรวจสอบ position ตอน startup [#startup-position-validation]
 
 หลังนำ report ตอน startup ไปใช้ live node จะตรวจสอบ **position report ที่ระบุชัดเจนและอยู่ในขอบเขตทุกตัว รวมถึง report
 แบบ flat** เทียบกับ cache position ที่ยังไม่ resolve จะหยุด startup **ก่อน `on_start` ของ actor หรือ strategy** error จะระบุ
@@ -587,7 +589,7 @@ report แบบ NETTING ใช้ราคาเข้าเฉลี่ยถ�
 แก้ไขเพียงเพื่อเปลี่ยนราคาเข้าเฉลี่ย ราคาที่ยังไม่ตรงกันจะทำให้ startup ล้มเหลว เมื่อแก้ไขปริมาณแล้ว startup ยังคงล้มเหลวหาก
 ค่าเฉลี่ยที่ได้ยังอยู่นอก tolerance การกู้คืนแบบสังเคราะห์ไม่ได้สร้าง realized PnL ย้อนหลังขึ้นมา
 
-#### ราคาเข้าเฉลี่ยที่รายงาน {#reported-entry-averages}
+#### ราคาเข้าเฉลี่ยที่รายงาน [#reported-entry-averages]
 
 ฟิลด์สองตัวของ `PositionStatusReport` บอก reconciliation ว่าควรอ่าน `avg_px_open` อย่างไร ค่าเริ่มต้นของทั้งสองคงพฤติกรรม
 ตามที่อธิบายข้างต้น
@@ -614,7 +616,7 @@ report แบบ `OPENING_ONLY` เพียงตัวเดียวทำใ
 การกำหนดราคาของการเปลี่ยนแปลง position ที่มีอยู่ด้วยค่าเฉลี่ยใน cache จะคงราคาเข้าเฉลี่ยไว้ และไม่บันทึก trading PnL แบบสังเคราะห์
 เมื่อลด position หากไม่มีค่าเฉลี่ยใน cache fill สังเคราะห์จะ fallback ไปใช้ค่าเฉลี่ยที่รายงาน
 
-#### เงื่อนไขเบื้องต้นและตัวกรองของการกู้คืน {#recovery-prerequisites-and-filters}
+#### เงื่อนไขเบื้องต้นและตัวกรองของการกู้คืน [#recovery-prerequisites-and-filters]
 
 การสร้าง position ใน cache ว่างจาก report ที่ไม่มีประวัติ order หรือ fill ต้องมี `avg_px_open` engine จะไม่สร้างราคาเข้าขึ้นมาเอง
 
@@ -622,7 +624,7 @@ report แบบ `OPENING_ONLY` เพียงตัวเดียวทำใ
 - **ขอบเขตของ report**: ตัวกรอง position report และ instrument ยังคงใช้ report ที่ถูกตัดออกจะไม่ถูกตรวจสอบ
 - **ปิด reconciliation**: การปิด reconciliation จะข้ามการตรวจสอบนี้ทั้งหมด
 
-### Fill adjustment {#fill-adjustment}
+### Fill adjustment [#fill-adjustment]
 
 engine สามารถวิเคราะห์จุดที่ position ตัดผ่านศูนย์ (zero-crossing), ตัด lifecycle ที่ปิดแล้วออก และสร้าง fill สังเคราะห์
 เมื่อ fill ที่รายงานไม่สามารถอธิบาย position ปัจจุบันที่ venue ได้
@@ -650,7 +652,7 @@ lifecycle ปัจจุบันอธิบาย position ที่ venue �
 adapter ที่ใช้จุดตัดประวัติควรประกาศผ่าน[สัญญาเรื่องประวัติของ mass status](#mass-status-history-contract) ด้วย การประกาศนี้
 บันทึกที่มาของข้อมูล แต่ไม่ได้อนุญาตให้ปล่อย position report ที่ระบุชัดเจนไว้โดยไม่จับคู่
 
-### ความปลอดภัยของประวัติแบบมีขอบเขต {#bounded-history-safety}
+### ความปลอดภัยของประวัติแบบมีขอบเขต [#bounded-history-safety]
 
 **position report ที่ระบุชัดเจน** เป็นข้อมูลที่เชื่อถือได้สำหรับ position ไม่ว่าจะ open หรือ flat engine จะปรับให้ตรงกับ report
 นั้นภายใน tolerance ของ reconciliation หรือ fail closed โดยไม่ replay window ที่มีขอบเขตเพื่อตัดสินว่า report เชื่อถือได้หรือไม่
@@ -667,7 +669,7 @@ engine นำ order และ fill ที่มีไปใช้ และโ�
 
 report ที่มี `venue_position_id` ระบุชัดเจนจะใช้เส้นทาง reconciliation เฉพาะ position และไม่ต้องอนุมาน lifecycle แบบ NETTING
 
-### การจัดการความล้มเหลว {#failure-handling}
+### การจัดการความล้มเหลว [#failure-handling]
 
 ระหว่าง startup request mass status ของ execution client มีผลลัพธ์สามแบบ:
 
@@ -684,7 +686,7 @@ report ที่มี `venue_position_id` ระบุชัดเจนจะ�
   report ที่ระบุชัดเจนจะไม่เปลี่ยน position
 - fill report ที่มาก่อน order status report จะถูกเลื่อนไว้จนกว่า state ของ order จะพร้อม
 
-#### ความล้มเหลวของค่าคอมมิชชัน {#commission-failures}
+#### ความล้มเหลวของค่าคอมมิชชัน [#commission-failures]
 
 ค่าคอมมิชชันของ fill จาก adapter ที่คำนวณหรือแสดงค่าไม่ได้จะทำให้ report request ล้มเหลวตาม
 [สัญญาของ adapter](../../developer_guide/adapters.md#commission-failure-handling) adapter จะไม่ทิ้ง fill นั้น หรือแทนค่าคอมมิชชัน
@@ -702,7 +704,7 @@ startup ยังคงล้มเหลวหาก position report ที่�
 
 หาก startup reconciliation ล้มเหลวด้วยเหตุผลอื่นใด ระบบจะ log error และไม่เริ่มทำงาน
 
-## การตรวจสอบระหว่าง runtime {#runtime-checks}
+## การตรวจสอบระหว่าง runtime [#runtime-checks]
 
 reconciliation แบบต่อเนื่องเริ่มหลัง startup reconciliation เสร็จ โดยจะ:
 
@@ -714,7 +716,7 @@ reconciliation แบบต่อเนื่องเริ่มหลัง s
 พารามิเตอร์ `reconciliation_startup_delay_secs` เพิ่มความล่าช้า *หลัง* startup reconciliation เสร็จ เพื่อให้ระบบมีเวลา
 เข้าสู่สภาวะคงที่ [สถานการณ์ระหว่าง runtime](#runtime-scenarios) แสดงผลลัพธ์ของการตรวจสอบแต่ละแบบ
 
-### In-flight check {#in-flight-checks}
+### In-flight check [#in-flight-checks]
 
 หลังใช้จำนวน retry ที่ตั้งไว้หมดแล้ว in-flight checker จะ resolve order ที่หมดเวลาดังนี้ เว้นแต่ order นั้นไม่เคยถูก accept และ
 มีการคงการ submit ไว้:
@@ -729,7 +731,7 @@ policy ที่ตั้งไว้จะเป็นอะไร การค
 [ที่มาของ terminal reconciliation](policies.md#terminal-reconciliation-provenance) แยกการ resolve ตาม policy ภายในออกจาก
 ผลลัพธ์ที่ venue รายงาน
 
-### การตรวจสอบความสอดคล้องของ order {#order-consistency-checks}
+### การตรวจสอบความสอดคล้องของ order [#order-consistency-checks]
 
 การตรวจสอบ order ที่เปิดอยู่จะ query execution client ทุกตัวก่อนรันการประมวลผล report ที่เลื่อนไว้ client แต่ละตัวจะอยู่ในสถานะ
 ไม่ว่างจนกว่างานนั้นจะเสร็จหรือ report ถูกทิ้ง report request อื่นที่ส่งไปยัง client นั้นจะล้มเหลวเพราะกำลังทำงานอยู่
@@ -771,28 +773,28 @@ fill timeout, fill error, การยกเลิก หรือการ shut
 | `PARTIALLY_FILLED` | `CANCELED`   | `CANCELED`   | order ถูกยกเลิกที่ venue โดยคง fill ไว้                                       |
 | `PARTIALLY_FILLED` | *Not found*  | `CANCELED`   | order ไม่มีอยู่แต่เคยมี fill (reconcile ประวัติ fill)                           |
 
-#### โหมด open-only {#open-only-mode}
+#### โหมด open-only [#open-only-mode]
 
 endpoint "open orders" ของ venue ตัด order ที่ปิดแล้วออกโดยการออกแบบ ทำให้แยกไม่ได้ว่า order หายไปหรือเพิ่งปิด order ที่รอ
 cancel/update จะยังไม่ resolve เมื่อการตรวจสอบ order ที่หายไปพิสูจน์ state สุดท้ายที่ venue ไม่ได้
 
-#### การป้องกัน order ล่าสุด {#recent-order-protection}
+#### การป้องกัน order ล่าสุด [#recent-order-protection]
 
 engine จะข้าม reconciliation สำหรับ order ที่ event ล่าสุดอยู่ภายในช่วง `open_check_threshold_ms` เพื่อป้องกัน false positive
 จาก race condition ที่ venue ยังประมวลผลอยู่
 
-#### มาตรการป้องกันด้วย query แบบเจาะจง {#targeted-query-safeguard}
+#### มาตรการป้องกันด้วย query แบบเจาะจง [#targeted-query-safeguard]
 
 ก่อนนำการ resolve แบบสุดท้ายว่า "not found" ไปใช้ engine จะส่ง query ราย order ไปยัง venue หนึ่งครั้ง เพื่อจับ false negative
 ที่เกิดจากข้อจำกัดของ query แบบรวมหรือความล่าช้าด้านเวลา
 
-#### Order ที่เสร็จสมบูรณ์ {#completed-orders}
+#### Order ที่เสร็จสมบูรณ์ [#completed-orders]
 
 order ที่ `FILLED` ซึ่ง "not found" ที่ venue จะถูกเพิกเฉยอย่างเงียบ ๆ venue มักตัด order ที่เสร็จแล้วออกจากผลลัพธ์ของ query
 
-### การตรวจสอบ position {#position-checks}
+### การตรวจสอบ position [#position-checks]
 
-#### การยอมรับ report {#report-acceptance}
+#### การยอมรับ report [#report-acceptance]
 
 snapshot ของ position และ query fill ที่เชื่อถือได้ของมันใช้ deadline `timeout_reconciliation` แยกกัน แต่ละขั้นจะรวบรวมผลลัพธ์
 ทั้งหมดก่อนยอมรับ และยอมรับเฉพาะเมื่อ `now < deadline` client แต่ละตัวจะไม่ว่างจนกว่าการประมวลผล report ที่เก็บไว้ทั้งหมด
@@ -805,7 +807,7 @@ snapshot ของ position และ query fill ที่เชื่อถื�
 ระหว่าง shutdown node จะทิ้ง snapshot ของ position ที่ไม่ได้ใช้โดยไม่รันการประมวลผลที่เลื่อนไว้, นำขั้น fill ที่ยอมรับแล้วไปใช้
 และคงความเป็นเจ้าของ worker ที่รวบรวมข้อมูลไว้จนกว่าจะทำงานเสร็จหมด
 
-#### การ retry และ query ที่ล้มเหลว {#retries-and-query-failures}
+#### การ retry และ query ที่ล้มเหลว [#retries-and-query-failures]
 
 การตรวจสอบ position ใช้ตัวนับ retry แยกต่อ instrument และ account การจับคู่ position ที่สำเร็จจะล้างตัวนับ ส่วนความคลาดเคลื่อน
 ที่ยังไม่ resolve ซ้ำ ๆ จะหยุด reconciliation แบบ active สำหรับคู่นั้นจนกว่าความคลาดเคลื่อนจะหายไป
@@ -813,7 +815,7 @@ snapshot ของ position และ query fill ที่เชื่อถื�
 หาก query position ของ venue ล้มเหลว engine จะข้าม position ใน cache ของ venue นั้นในรอบนั้น แทนที่จะถือว่า report ที่หายไป
 เป็น flat
 
-### การประสานงานการ retry {#retry-coordination}
+### การประสานงานการ retry [#retry-coordination]
 
 loop ของ in-flight จะเพิ่มตัวนับ retry ราย order ของตัวเองเทียบกับ `inflight_check_retries` และสะท้อนค่านั้นไปยังการติดตาม
 order ที่หายไป loop ของ open-order จะเพิ่มตัวนับ order ที่หายไปเทียบกับ `open_check_missing_retries` แต่ละ loop ใช้ขีดจำกัด
@@ -828,7 +830,7 @@ order ที่หายไป loop ของ open-order จะเพิ่ม�
 เดิมไว้แทนการ reset การตรวจสอบ order ที่หายไปซ้ำ ๆ ไม่สามารถเลื่อนการหมดงบนั้นออกไปได้ การหมดความพยายามจะคงการ submit
 ที่ยังไม่ resolve ไว้โดยไม่มี terminal event แบบสังเคราะห์
 
-### การจำกัดอัตรา query ราย order {#single-order-query-throttling}
+### การจำกัดอัตรา query ราย order [#single-order-query-throttling]
 
 engine จำกัดจำนวน query ราย order ต่อรอบด้วย `max_single_order_queries_per_cycle` order ที่เหลือจะถูกเลื่อนไปรอบถัดไป
 `single_order_query_delay_ms` เว้นระยะระหว่าง query ที่ต่อเนื่องกันเพื่อหลีกเลี่ยง rate limit วิธีนี้รับมือกับ query แบบรวมที่ล้มเหลว
@@ -838,12 +840,12 @@ task แบบเจาะจงจะใช้ delay ระหว่างก�
 delay request fill ประกอบจะตามหลังสถานะที่ตรงกันโดยไม่มี delay เพิ่ม การลอง query สถานะครั้งถัดไปจะใช้ delay ที่ตั้งไว้และงบ
 timeout ที่เหลือ
 
-## สถานการณ์ reconciliation ที่พบบ่อย {#common-reconciliation-scenarios}
+## สถานการณ์ reconciliation ที่พบบ่อย [#common-reconciliation-scenarios]
 
 ตารางด้านล่างครอบคลุม startup reconciliation (mass status), การตรวจสอบระหว่าง runtime (in-flight order check, การ poll
 open order, การตรวจสอบ own book), fill adjustment และประวัติแบบมีขอบเขต
 
-### สถานการณ์ตอน startup {#startup-scenarios}
+### สถานการณ์ตอน startup [#startup-scenarios]
 
 | สถานการณ์                               | คำอธิบาย                                                                                | พฤติกรรมของระบบ                                                                                            |
 | -------------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
@@ -868,7 +870,7 @@ open order, การตรวจสอบ own book), fill adjustment และ�
 | **position กลับฝั่ง**                     | position ภายในอยู่ฝั่งตรงข้ามกับ venue (เช่น ภายใน long 100, venue short 50)                   | สร้าง MARKET order เพื่อปิด position ภายในและเปิด position ตามภายนอก                                       |
 | **order ภายในจาก reconciliation**        | order ที่สร้างขึ้นเพื่อปรับความคลาดเคลื่อนของ position                                          | ใส่ tag `RECONCILIATION` ใช้ claim เมื่อตั้งค่าไว้ มิฉะนั้นใช้ `EXTERNAL`                                   |
 
-### สถานการณ์ระหว่าง runtime {#runtime-scenarios}
+### สถานการณ์ระหว่าง runtime [#runtime-scenarios]
 
 | สถานการณ์                            | คำอธิบาย                                                  | พฤติกรรมของระบบ                                    |
 | ----------------------------------- | --------------------------------------------------------- | ----------------------------------------------- |
@@ -882,7 +884,7 @@ open order, การตรวจสอบ own book), fill adjustment และ�
 แถว in-flight timeout ไม่ใช้กับ order ที่ยังไม่ได้รับการตอบรับ เมื่อ policy หรือ client ของมันบังคับให้คงการ submit ไว้ order นั้น
 จะยังไม่ resolve ดู[In-flight check](#in-flight-checks)
 
-### สถานการณ์ของ fill adjustment {#fill-adjustment-scenarios}
+### สถานการณ์ของ fill adjustment [#fill-adjustment-scenarios]
 
 สถานการณ์เหล่านี้ใช้ไม่ว่า mass status จะประกาศ `lookback_start` หรือไม่:
 
@@ -895,7 +897,7 @@ open order, การตรวจสอบ own book), fill adjustment และ�
 | **Position แบบ flat**                      | venue รายงานว่า flat ไม่ว่าประวัติ fill จะเป็นอย่างไร            | ไม่มีการปรับ                                                                                                                                                                                     |
 | **ไม่มี fill**                              | ชุด report ไม่มี fill เลย                                  | คืนชุด fill ว่าง                                                                                                                                                                                 |
 
-### สถานการณ์ของประวัติแบบมีขอบเขต {#bounded-history-scenarios}
+### สถานการณ์ของประวัติแบบมีขอบเขต [#bounded-history-scenarios]
 
 | Position report   | report ย้อนหลัง                                            | พฤติกรรมของระบบ                                                                                                                     |
 | ----------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
@@ -904,45 +906,45 @@ open order, การตรวจสอบ own book), fill adjustment และ�
 | **ไม่มี**          | ประวัติแบบมีขอบเขต มีหรือไม่มี state ก่อนหน้าใน cache              | กู้คืนเฉพาะ state ของ order fill ไม่เปลี่ยน position หรือผลทางเศรษฐศาสตร์ของ portfolio                                                 |
 | **ถูกกรอง**        | ตัวกรอง position report หรือ instrument ตัด report ออก           | การกรอง position report ทำให้ fill แบบมีขอบเขตเป็นแบบเฉพาะ order การกรอง instrument จะตัดทั้ง order และ position ออก                       |
 
-## ปัญหา reconciliation ที่พบบ่อย {#common-reconciliation-issues}
+## ปัญหา reconciliation ที่พบบ่อย [#common-reconciliation-issues]
 
 :::tip
 สำหรับปัญหาที่เกิดซ้ำ ให้ตรวจสอบ report จาก venue และความเป็นเจ้าของใน cache ก่อนทิ้ง state หรือ flatten account
 :::
 
-### Trade report หายไป {#missing-trade-reports}
+### Trade report หายไป [#missing-trade-reports]
 
 บาง venue กรอง trade ที่เก่ากว่าออก ให้เพิ่ม `reconciliation_lookback_mins` หรือ persist event ทั้งหมดไว้ภายใน adapter ที่มี
 ขอบเขตชัดเจนจะทำเครื่องหมายประวัติที่ไม่สมบูรณ์ เพื่อให้ fill ที่ไม่มีหลักฐานรองรับไม่เปลี่ยน position หรือผลทางเศรษฐศาสตร์ของ portfolio
 
-### Position ไม่ตรงกัน {#position-mismatches}
+### Position ไม่ตรงกัน [#position-mismatches]
 
 external order ที่เกิดก่อน lookback window ทำให้ position คลาดเคลื่อน ให้ขยาย window, restore state ที่เก็บไว้ หรือให้
 position report ที่เชื่อถือได้ reconcile ปริมาณปัจจุบัน flatten account เฉพาะเมื่อเป็นขั้นตอนกู้คืนเชิงปฏิบัติการที่ตั้งใจเท่านั้น
 
-### ความเป็นเจ้าของแบบ NETTING ที่ถูกแบ่ง {#split-netting-ownership}
+### ความเป็นเจ้าของแบบ NETTING ที่ถูกแบ่ง [#split-netting-ownership]
 
 หลาย strategy อาจถือ position ใน cache สำหรับ account และ instrument เดียวกัน แต่ venue รายงาน net position ระดับ account
 เพียงตัวเดียว ควรมี strategy ที่ claim เพียงตัวเดียวต่อคู่ account/instrument แบบ NETTING เมื่อกลับมาจัดการ state ภายนอก
 
-### Order ID ซ้ำ {#duplicate-order-ids}
+### Order ID ซ้ำ [#duplicate-order-ids]
 
 reconciliation จะตัดตัวซ้ำและ log warning การซ้ำบ่อย ๆ อาจบ่งชี้ปัญหาความถูกต้องของข้อมูลจาก venue
 
-### Instrument ที่ resolve ไม่ได้ {#unresolved-instruments}
+### Instrument ที่ resolve ไม่ได้ [#unresolved-instruments]
 
 report อ้างถึง instrument ที่ adapter ไม่เคยโหลด ให้เพิ่มลงใน `load_ids` หรือตั้ง `load_all` เป็น true report ที่อยู่นอกขอบเขต
 `load_ids` ที่ระบุชัดเจนจะถูกทิ้งโดยการออกแบบและไม่ต้องดำเนินการใด ๆ
 
-### ความต่างของ precision {#precision-differences}
+### ความต่างของ precision [#precision-differences]
 
 tolerance ของ reconciliation รองรับความต่างเล็กน้อยของปริมาณและราคาเข้า ความคลาดเคลื่อนขนาดใหญ่อาจบ่งชี้ว่ามี order หายไป
 
-### Report ที่มาไม่ตามลำดับ {#out-of-order-reports}
+### Report ที่มาไม่ตามลำดับ [#out-of-order-reports]
 
 fill report ที่มาก่อน order status report จะถูกเลื่อนไว้จนกว่า state ของ order จะพร้อม
 
-## Invariant ของ reconciliation {#reconciliation-invariants}
+## Invariant ของ reconciliation [#reconciliation-invariants]
 
 เส้นทาง reconciliation คง invariant เหล่านี้ไว้สำหรับ report และ position ที่ประมวลผล:
 
@@ -958,7 +960,7 @@ fill report ที่มาก่อน order status report จะถูกเ�
 1. **ความ deterministic ของ ID**: ค่า `trade_id` และ `venue_order_id` แบบสังเคราะห์เป็นฟังก์ชันแบบ deterministic ของ event
    เชิงตรรกะ การ replay จึงตัดตัวซ้ำได้ข้ามการ restart
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Live trading](../live.md) - lifecycle ของ node, การตั้งค่า, metric และการ shutdown
 - [การตั้งค่า live trading node](../../how_to/configure_live_trading.md) - การตั้งค่า node และ engine

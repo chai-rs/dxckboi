@@ -1,9 +1,11 @@
-# Kraken
+---
+title: "Kraken"
+---
 
 adapter ของ Kraken รองรับ market data แบบ live และการส่ง order สำหรับ Kraken
 Spot และ Kraken Derivatives (Futures)
 
-## ภาพรวม {#overview}
+## ภาพรวม [#overview]
 
 adapter นี้ implement ด้วย Rust และไม่ต้องใช้ client library ภายนอกของ Kraken
 config ของ data หรือ execution แต่ละตัวจะเลือก client แบบ Spot หรือ Futures ผ่าน `product_type`
@@ -23,17 +25,17 @@ crate ของ Rust ยังมี `KrakenSpotWebSocketClient` และ `Krak
 ตั้งค่า adapter ผ่าน live trading node หรือใช้ client ระดับล่าง
 เพื่อเข้าถึง API โดยตรง
 
-## ตัวอย่าง {#examples}
+## ตัวอย่าง [#examples]
 
 - [ตัวอย่าง Rust](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/kraken/examples/)
 
-## เอกสารของ Kraken {#kraken-documentation}
+## เอกสารของ Kraken [#kraken-documentation]
 
 - [เอกสาร API ของ Kraken](https://docs.kraken.com/)
 - [Kraken Spot REST API](https://docs.kraken.com/exchange/guides/rest/introduction)
 - [Kraken Derivatives API](https://docs.kraken.com/exchange/guides/futures/introduction)
 
-## ผลิตภัณฑ์ {#products}
+## ผลิตภัณฑ์ [#products]
 
 adapter รองรับหมวดผลิตภัณฑ์ต่อไปนี้:
 
@@ -56,7 +58,7 @@ parse ไม่ได้ request ของ catalog ฝั่ง Futures จะ�
 `product_type` เดียว (`SPOT` หรือ `FUTURES`) client ตัวเดียวไม่ครอบคลุมทั้งสองตลาด
 :::
 
-## ค่าธรรมเนียมของ instrument ฝั่ง Spot {#spot-instrument-fees}
+## ค่าธรรมเนียมของ instrument ฝั่ง Spot [#spot-instrument-fees]
 
 การโหลด instrument ฝั่ง Spot จะไม่เติมอัตราค่าธรรมเนียม maker หรือ taker ของ venue และ
 ไม่เรียก endpoint `TradeVolume` ของ Kraken
@@ -64,9 +66,9 @@ parse ไม่ได้ request ของ catalog ฝั่ง Futures จะ�
 API key ของ Spot ที่ไม่มีสิทธิ์ `Funds permissions - Query` (**Query Funds**) จะล้มเหลวเมื่อ
 execution client ขอสถานะของ account
 
-## การ stream bar {#bar-streaming}
+## การ stream bar [#bar-streaming]
 
-### Interval ที่รองรับ {#supported-intervals}
+### Interval ที่รองรับ [#supported-intervals]
 
 สำหรับ Spot ให้ subscribe bar แบบ `EXTERNAL` เพื่อรับข้อมูล OHLC ผ่าน WebSocket ของ Kraken
 interval ที่มีให้ใช้มีดังนี้:
@@ -88,7 +90,7 @@ interval ที่มีให้ใช้มีดังนี้:
 WebSocket ให้ใช้ `request_bars()` สำหรับข้อมูล bar ย้อนหลังแทน
 :::
 
-### Latency ในการส่ง bar {#bar-emission-latency}
+### Latency ในการส่ง bar [#bar-emission-latency]
 
 [OHLC channel ของ Spot WebSocket](https://docs.kraken.com/exchange/api-reference/spot-websocket-v2/ohlc) ของ Kraken
 จะอัปเดต bar ปัจจุบันที่ยังไม่สมบูรณ์เมื่อมี trade event และไม่มี
@@ -110,9 +112,9 @@ adapter ใช้การ buffer แทนการส่งออกตาม 
 และใช้พฤติกรรมการรวมแบบเดียวกันในทุก venue
 :::
 
-## Symbology {#symbology}
+## Symbology [#symbology]
 
-### การ normalize symbol ของ Spot {#spot-symbol-normalization}
+### การ normalize symbol ของ Spot [#spot-symbol-normalization]
 
 adapter ใช้ convention ของ symbol Bitcoin ที่ต่างกันระหว่าง Spot และ Futures:
 
@@ -132,7 +134,7 @@ REST API ของ Kraken อาจคืน `XBT` สำหรับ Bitcoin �
 Kraken ยังใช้ `XDG` สำหรับ Dogecoin ใน response บางตัวของ Spot adapter
 จะ normalize เป็น `DOGE` รวมถึงใน symbol ของ quote currency ด้วย
 
-### รหัสสกุลเงิน {#currency-codes}
+### รหัสสกุลเงิน [#currency-codes]
 
 adapter จะ map รหัส asset แบบเก่าของ Kraken เป็นรหัสมาตรฐานอย่างสม่ำเสมอทั้งใน
 instrument, ยอดเงินคงเหลือ, ค่าธรรมเนียม และการตั้งค่าสกุลเงิน:
@@ -151,7 +153,7 @@ instrument, ยอดเงินคงเหลือ, ค่าธรรมเ
 ซึ่งในสัญญาแบบ inverse จะเป็น base ไม่ใช่ quote ส่วน `TradesHistory` ของ Spot
 รายงานเพียงจำนวนค่าธรรมเนียม ดังนั้นค่าคอมมิชชันเหล่านั้นจึงใช้ quote currency ของ instrument
 
-#### การ migrate จากรหัสสกุลเงินแบบเดิม {#migration-from-earlier-currency-codes}
+#### การ migrate จากรหัสสกุลเงินแบบเดิม [#migration-from-earlier-currency-codes]
 
 :::warning
 ให้ migrate หรือสร้าง cache และ database ที่เขียนไว้ก่อนการ normalize สกุลเงินใหม่
@@ -168,7 +170,7 @@ instrument, fill, position และยอดเงินที่จัดเ�
 - ยอดเงิน Futures คงการสะกดของ wallet ไว้: wallet แบบ cash และ margin ใช้ `xbt` ในขณะที่ flex wallet
   ใช้ `XBT` ทั้งสองจะเป็น `BTC` และ `usd` จะเป็น `USD`
 
-#### การรวมยอดของ Futures wallet {#futures-wallet-aggregation}
+#### การรวมยอดของ Futures wallet [#futures-wallet-aggregation]
 
 ยอดเงิน Futures ที่มีรหัสหลัง normalize เดียวกันจะรวมเป็นรายการเดียว ยอดรวมและยอดที่ถูกล็อกจะบวกกันข้าม
 wallet ยอดที่ถูกล็อกของแต่ละ wallet จะถูกจำกัดให้อยู่ในช่วง `[0, total]` เมื่อยอดรวมไม่ติดลบ ยอดรวมที่ติดลบ
@@ -177,7 +179,7 @@ wallet ยอดที่ถูกล็อกของแต่ละ wallet �
 
 ก่อนหน้านี้ รายการของแต่ละ wallet จะเขียนทับกันใน account ทำให้เหลือเพียงรายการสุดท้ายที่อ่าน
 
-#### Precision ของ money {#money-precision}
+#### Precision ของ money [#money-precision]
 
 รหัสที่ normalize แล้วอาจ resolve เป็นสกุลเงิน built-in ที่มี precision ต่างกัน
 ก่อนหน้านี้รหัสที่ไม่รู้จักอย่าง `ZEUR` และ `ZUSD` ถูกลงทะเบียนเป็นสกุลเงิน crypto
@@ -188,7 +190,7 @@ wallet ยอดที่ถูกล็อกของแต่ละ wallet �
 ใช้ registry รายการ `portfolioValue` ของ Futures flex และรายการ margin แบบ USD ทั้ง account ก็ใช้
 สกุลเงินทศนิยมแปดตำแหน่งนี้เช่นกัน ก่อนหน้านี้ใช้ `USD` แบบสองตำแหน่ง ดังนั้น precision จึงเพิ่มขึ้นโดยไม่สูญเสียข้อมูล
 
-### ตลาด Spot {#spot-markets}
+### ตลาด Spot [#spot-markets]
 
 NautilusTrader ใช้ symbol ที่ normalize แล้วและคั่นด้วยเครื่องหมาย slash สำหรับ instrument ของ Kraken Spot
 adapter จะแปลงเป็นรูปแบบดั้งเดิมของ Kraken ภายใน
@@ -201,7 +203,7 @@ adapter จะแปลงเป็นรูปแบบดั้งเดิม
 - `BTC/USDT.KRAKEN`: Spot BTC/USDT
 - `ETH/BTC.KRAKEN`: Spot ETH/BTC (normalize มาจาก ETH/XBT)
 
-### ตลาด Futures {#futures-markets}
+### ตลาด Futures [#futures-markets]
 
 symbol ของ Kraken Futures ใช้ prefix ของสัญญา:
 
@@ -221,9 +223,9 @@ symbol ตัวอย่างอาจอ้างถึงสัญญาท�
 - `PI_ETHUSD.KRAKEN`: ETH แบบ perpetual inverse
 - `PF_XBTUSD.KRAKEN`: BTC แบบ perpetual linear multi-collateral
 
-## ความสามารถด้านข้อมูล {#data-capabilities}
+## ความสามารถด้านข้อมูล [#data-capabilities]
 
-### Subscription (real-time) {#subscriptions-real-time}
+### Subscription (real-time) [#subscriptions-real-time]
 
 | Data type           | Spot | Futures | หมายเหตุ                                      |
 | ------------------- | ---- | ------- | ------------------------------------------- |
@@ -237,7 +239,7 @@ symbol ตัวอย่างอาจอ้างถึงสัญญาท�
 | `FundingRateUpdate` | -    | ✓       | เฉพาะ perpetual                             |
 | `InstrumentStatus`  | -    | -       | live client ไม่ส่งการอัปเดตสถานะ               |
 
-### Request (ย้อนหลัง) {#requests-historical}
+### Request (ย้อนหลัง) [#requests-historical]
 
 | Data type              | Spot | Futures | หมายเหตุ                                    |
 | ---------------------- | ---- | ------- | ----------------------------------------- |
@@ -246,7 +248,7 @@ symbol ตัวอย่างอาจอ้างถึงสัญญาท�
 | `OrderBook` (snapshot) | ✓    | ✓       | ผ่าน HTTP depth endpoint                   |
 | `FundingRateUpdate`    | -    | ✓       | กรอง start/end/limit ที่ฝั่ง client           |
 
-### การตรวจสอบ checksum ของ L2 book {#l2-book-checksum-validation}
+### การตรวจสอบ checksum ของ L2 book [#l2-book-checksum-validation]
 
 [L2 `book` channel ของ Spot](https://docs.kraken.com/exchange/api-reference/spot-websocket-v2/book) ของ Kraken
 ส่ง CRC32 checksum ของสิบระดับบนสุดในแต่ละฝั่งมากับทั้ง snapshot และการอัปเดต
@@ -256,7 +258,7 @@ adapter จะตรวจสอบค่านี้เป็นค่าเร
 เพื่อให้การ render checksum ไม่ตัดตัวเลขของราคา
 ข้อความ `book` ของ Kraken Futures ไม่มี checksum
 
-#### การกู้คืนและ identity ของ stream {#recovery-and-stream-identity}
+#### การกู้คืนและ identity ของ stream [#recovery-and-stream-identity]
 
 เมื่อ checksum ไม่ตรงกัน adapter จะส่ง delta แบบ `Clear` ทิ้ง shadow book
 แล้ว unsubscribe และ resubscribe symbol นั้นที่ depth ที่ตั้งค่าไว้พร้อม snapshot
@@ -279,7 +281,7 @@ event ต่อไปนี้:
 - การปฏิเสธ request subscribe ล่าสุด
 - snapshot watchdog ตรวจพบ request ล่าสุดที่ยังไม่ได้รับการยืนยัน
 
-#### Snapshot ที่หายไปและ subscription ที่ถูกปฏิเสธ {#missing-snapshots-and-rejected-subscriptions}
+#### Snapshot ที่หายไปและ subscription ที่ถูกปฏิเสธ [#missing-snapshots-and-rejected-subscriptions]
 
 snapshot watchdog เป็นกลไก retry เพียงอย่างเดียวสำหรับการกู้คืน `book` มันทำงานแม้
 จะปิดการตรวจสอบ checksum ไว้ เพราะมันยังกู้คืน stream ที่ไม่เคย
@@ -302,7 +304,7 @@ snapshot watchdog เป็นกลไก retry เพียงอย่าง�
 ปฏิเสธการ replay watchdog จะตรวจพบ snapshot ที่หายไปภายในระยะรอพื้นฐาน
 10 วินาที
 
-#### Checksum ไม่ตรงกันซ้ำๆ {#repeated-checksum-mismatches}
+#### Checksum ไม่ตรงกันซ้ำๆ [#repeated-checksum-mismatches]
 
 การไม่ตรงกันสามครั้งบน instrument เดียวโดยไม่มีการอัปเดตที่ถูกต้องคั่นระหว่างกัน จะปิด
 การตรวจสอบสำหรับ instrument นั้นและ log error adapter จะคง book ไว้ตามที่
@@ -311,7 +313,7 @@ snapshot ที่ถูกต้องจะไม่ reset จำนวนค�
 
 หากต้องการปิดการตรวจสอบ checksum ของ L2 ให้ตั้ง `validate_l2_checksum=False` ใน `KrakenDataClientConfig`
 
-## L3 order book (market-by-order) {#l3-order-book-market-by-order}
+## L3 order book (market-by-order) [#l3-order-book-market-by-order]
 
 Kraken เปิดข้อมูล book ราย order ของ Spot ผ่าน WebSocket v2
 [`level3` channel](https://docs.kraken.com/exchange/api-reference/spot-websocket-v2/level3) ที่
@@ -319,7 +321,7 @@ Kraken เปิดข้อมูล book ราย order ของ Spot ผ่
 และ event แบบ incremental จริง (`add`, `modify`, `delete`) adapter จะ hash
 venue order ID แต่ละตัวเป็นฟิลด์ `BookOrder.order_id` แบบ `u64` ที่ NautilusTrader ใช้
 
-### สิ่งที่ต้องมีก่อน {#prerequisites}
+### สิ่งที่ต้องมีก่อน [#prerequisites]
 
 subscription แบบ L3 ต้องใช้ credential ของ Spot API ที่มีสิทธิ์ `WebSocket interface - On`
 ซึ่ง adapter ใช้เพื่อขอ
@@ -330,7 +332,7 @@ subscription แบบ L3 ต้องใช้ credential ของ Spot API �
 
 depth ที่ใช้ได้คือ `10`, `100` และ `1000` ค่า `depth` เป็น `0` จะใช้ `1000`
 
-### การตรวจสอบ CRC32 checksum {#crc32-checksum-validation}
+### การตรวจสอบ CRC32 checksum [#crc32-checksum-validation]
 
 โดยค่าเริ่มต้น adapter จะตรวจสอบ CRC32 checksum ของ snapshot และการอัปเดต L3 แต่ละรายการ
 เมื่อ Kraken ส่งมาให้ เมื่อไม่ตรงกัน จะส่ง delta แบบ `Clear` ล้างสถานะ L3
@@ -338,7 +340,7 @@ depth ที่ใช้ได้คือ `10`, `100` และ `1000` ค่�
 ส่ง snapshot ใหม่มา หากต้องการปิดการตรวจสอบเพื่อทำ benchmark ให้ตั้ง `validate_l3_checksum=False`
 ใน `KrakenDataClientConfig`
 
-### คำแนะนำในการจัดเก็บ {#storage-recommendations}
+### คำแนะนำในการจัดเก็บ [#storage-recommendations]
 
 `OrderBookDelta` มี `order_id: u64` ใน Arrow schema ดังนั้น `ParquetDataCatalog`
 จึงเก็บข้อมูล L3 ด้วย schema เดียวกับ L2 L3 สร้าง event ต่อ instrument มากกว่า
@@ -348,9 +350,9 @@ depth ที่ใช้ได้คือ `10`, `100` และ `1000` ค่�
 - ตั้ง `compression="zstd"` ใน `DataCatalogConfig` เพื่อบีบอัดข้อมูลที่จัดเก็บ
 - Parquet catalog แบ่ง partition ของข้อมูลตาม instrument เป็นค่าเริ่มต้น
 
-## ความสามารถด้าน order {#order-capabilities}
+## ความสามารถด้าน order [#order-capabilities]
 
-### ประเภทของ order {#order-types}
+### ประเภทของ order [#order-types]
 
 | ประเภทของ order         | Spot | Futures | หมายเหตุ                                                                |
 | ---------------------- | ---- | ------- | --------------------------------------------------------------------- |
@@ -363,7 +365,7 @@ depth ที่ใช้ได้คือ `10`, `100` และ `1000` ค่�
 | `TRAILING_STOP_MARKET` | ✓    | -       | trailing stop พร้อม `trailing_offset`                                  |
 | `TRAILING_STOP_LIMIT`  | ✓    | -       | trailing stop-limit พร้อม `limit_offset`                               |
 
-### Time in force {#time-in-force}
+### Time in force [#time-in-force]
 
 | Time in force | Spot | Futures | หมายเหตุ                                                     |
 | ------------- | ---- | ------- | ---------------------------------------------------------- |
@@ -377,7 +379,7 @@ depth ที่ใช้ได้คือ `10`, `100` และ `1000` ค่�
 `IOC` ใช้กับ order ประเภท limit เท่านั้น
 :::
 
-### คำสั่งการ execute {#execution-instructions}
+### คำสั่งการ execute [#execution-instructions]
 
 | คำสั่ง            | Spot | Futures | หมายเหตุ                                                              |
 | ---------------- | ---- | ------- | ------------------------------------------------------------------- |
@@ -386,7 +388,7 @@ depth ที่ใช้ได้คือ `10`, `100` และ `1000` ค่�
 | `quote_quantity` | ✓    | -       | เฉพาะ Spot ปริมาณเป็น quote currency (`viqc`); ส่งผ่าน REST              |
 | `display_qty`    | ✓    | -       | เฉพาะ Spot iceberg order (`displayvol`)                               |
 
-### ประเภทของ trigger {#trigger-types}
+### ประเภทของ trigger [#trigger-types]
 
 order แบบมีเงื่อนไขรองรับราคาอ้างอิงของ trigger ต่อไปนี้:
 
@@ -401,7 +403,7 @@ adapter จะปฏิเสธประเภทของ trigger ที่ไ
 แทนที่จะแปลงเป็นค่าอื่นแบบเงียบๆ
 :::
 
-### การดำเนินการแบบ batch {#batch-operations}
+### การดำเนินการแบบ batch [#batch-operations]
 
 | การดำเนินการ   | Spot | Futures | หมายเหตุ                                                     |
 | ------------ | ---- | ------- | ---------------------------------------------------------- |
@@ -426,7 +428,7 @@ adapter จะปฏิเสธประเภทของ trigger ที่ไ
 
 :::
 
-### การแก้ไข order {#order-modification}
+### การแก้ไข order [#order-modification]
 
 quantity ของการ modify คือยอดรวมใหม่ของ order ซึ่งรวม fill ไว้ด้วย ตามที่การแก้ไขของ Kraken
 Spot รับ `order_qty` ส่วน Kraken Futures อ่าน `size` ของการ edit แบบไม่ระบุโหมดว่าเป็นขนาดที่ยังเปิดอยู่
@@ -434,7 +436,7 @@ adapter จึงส่ง `qtyMode=ABSOLUTE` ไปกับการ edit ข�
 order ทั้งแบบเดี่ยวและแบบ batch Kraken Futures ไม่ได้ระบุไว้ในเอกสารว่าจะตอบสนองอย่างไรต่อ
 ยอดรวมที่เท่ากับหรือต่ำกว่า quantity ที่ fill ไปแล้ว
 
-### การจัดการ position {#position-management}
+### การจัดการ position [#position-management]
 
 | ฟีเจอร์            | Spot | Futures | หมายเหตุ                                                     |
 | ---------------- | ---- | ------- | ---------------------------------------------------------- |
@@ -443,7 +445,7 @@ order ทั้งแบบเดี่ยวและแบบ batch Kraken Fut
 | การควบคุม leverage | ✓    | -       | ระดับ (tier) ผ่าน REST ของ Spot; ราย order `params={"leverage": N}` |
 | Margin mode      | ✓    | ✓       | cross margin ทั้ง Spot/Futures; ไม่มี isolated margin ของ spot |
 
-### การ query order {#order-querying}
+### การ query order [#order-querying]
 
 | ฟีเจอร์                 | Spot | Futures | หมายเหตุ                                               |
 | --------------------- | ---- | ------- | ---------------------------------------------------- |
@@ -452,7 +454,7 @@ order ทั้งแบบเดี่ยวและแบบ batch Kraken Fut
 | การอัปเดตสถานะ order    | ✓    | ✓       | การเปลี่ยนสถานะ order แบบ real-time ผ่าน WebSocket     |
 | ประวัติ trade           | ✓    | ✓       | report ของการ execute และ fill                       |
 
-### Contingent order {#contingent-orders}
+### Contingent order [#contingent-orders]
 
 | ฟีเจอร์              | Spot | Futures | หมายเหตุ                                       |
 | ------------------ | ---- | ------- | -------------------------------------------- |
@@ -461,7 +463,7 @@ order ทั้งแบบเดี่ยวและแบบ batch Kraken Fut
 | Bracket order      | -    | -       | *ไม่รองรับ*                                   |
 | Conditional order  | ✓    | ✓       | order แบบ stop และ take-profit               |
 
-### Maker Protection (Futures) {#maker-protection-futures}
+### Maker Protection (Futures) [#maker-protection-futures]
 
 Kraken Futures ใช้ [Maker Protection](https://docs.kraken.com/exchange/guides/futures/maker-protection) กับ
 ตลาดที่เลือกไว้: การวางและการแก้ไข order ที่อาจกิน liquidity จะถูกพักไว้ตามช่วงเวลาที่ตั้งค่าของตลาดนั้น
@@ -488,7 +490,7 @@ venue ใช้การพักต่อตลาดกับทุก client 
   match ด้วย โดย override self-trade strategy ที่ตั้งค่าไว้ order ที่พักอยู่จะถูก
   รายงานว่าถูกยกเลิกด้วยเหตุผล `CANCELLED_BY_SELF_TRADE`
 
-#### Order-update feed {#order-update-feed}
+#### Order-update feed [#order-update-feed]
 
 การลบที่มี `is_cancel=true` และเหตุผล `partial_fill` จะทิ้งส่วนที่เหลือ
 และเป็นสถานะสุดท้าย (การพักที่ถูกแปลง หรือ order แบบ IOC ใดๆ) delta จะมี
@@ -505,7 +507,7 @@ venue ใช้การพักต่อตลาดกับทุก client 
 | ข้อความที่เป็นการยกเลิกเท่านั้น        | ไม่มียอด fill สะสม                  |
 | ไม่มี client order ID ที่ resolve ได้ | ไม่สามารถจับคู่กับ order ที่ติดตามอยู่ได้ |
 
-#### Reconciliation {#reconciliation}
+#### Reconciliation [#reconciliation]
 
 order ที่ถูกพักจะไม่ไปถึง book จึงไม่ปรากฏใน `/openorders` ทั้ง mass
 status, การรัน report แบบเฉพาะ open และการ query order เดี่ยวแบบเจาะจงจะตรวจสอบ
@@ -556,7 +558,7 @@ report ใน window ไว้ order ที่ถูกยกเลิกแต�
 order ที่ถูกพักแล้ว fill หลังการตอบรับการยกเลิก จะ reconcile ไปยังสถานะสุดท้ายที่แท้จริง
 พร้อมยอด fill สะสมของ venue ไม่ใช่การยกเลิกก่อนเวลาอันควร
 
-## การ routing order (Spot) {#order-routing-spot}
+## การ routing order (Spot) [#order-routing-spot]
 
 execution client ของ Spot จะ route การส่ง, การแก้ไข, การยกเลิก
 และการยกเลิกแบบ batch ของ order ผ่าน trade channel ของ WebSocket v2 ที่ยืนยันตัวตนแล้วของ Kraken
@@ -564,7 +566,7 @@ execution client ของ Spot จะ route การส่ง, การแก
 `use_ws_trade=False` บน `KrakenExecutionClientConfig` เพื่อ route การดำเนินการเหล่านี้
 ผ่าน REST
 
-### รูปแบบ order ที่ route ผ่าน REST {#order-shapes-routed-via-rest}
+### รูปแบบ order ที่ route ผ่าน REST [#order-shapes-routed-via-rest]
 
 [method `add_order` ของ Spot WebSocket v2](https://docs.kraken.com/exchange/api-reference/spot-websocket-v2/add_order) ของ Kraken
 รองรับรูปแบบเหล่านี้ แต่ adapter route ผ่าน REST:
@@ -586,7 +588,7 @@ order list ที่มีหลาย symbol ก็ใช้ REST เช่น�
 `SubmitOrder`, `ModifyOrder`, `CancelOrder`, `SubmitOrderList` หรือ
 `BatchCancelOrders`
 
-### Timeout ของ request ผ่าน WebSocket {#websocket-request-timeout}
+### Timeout ของ request ผ่าน WebSocket [#websocket-request-timeout]
 
 เมื่อการรับส่งไปกลับผ่าน WebSocket ใช้เวลาเกิน `ws_request_timeout_secs` (ค่าเริ่มต้น `5`)
 ผลลัพธ์ที่ venue จะยังไม่ทราบ request แบบ submit, modify, cancel และ batch-add
@@ -610,7 +612,7 @@ timeout ที่เร็วเกินไปอาจส่งการยก
 batch add ที่ Kraken ยอมรับไปแล้ว
 :::
 
-### ตัวเลือกการ routing order ผ่าน WebSocket {#websocket-order-routing-options}
+### ตัวเลือกการ routing order ผ่าน WebSocket [#websocket-order-routing-options]
 
 `KrakenExecutionClientConfig` มีตัวเลือก:
 
@@ -619,12 +621,12 @@ batch add ที่ Kraken ยอมรับไปแล้ว
 | `use_ws_trade`            | `True`   | route order ผ่าน WS เมื่อ trade channel active               |
 | `ws_request_timeout_secs` | `5`      | จำนวนวินาทีที่รอ response ของ order ผ่าน Spot WS              |
 
-## Reconciliation {#reconciliation-1}
+## Reconciliation [#reconciliation-1]
 
 execution client ทั้งสองตัวจะ reconcile order, fill, position และสถานะ account
 ในเครื่องกับ Kraken ตอน startup และระหว่างการทำงาน
 
-### Report ที่มีขอบเขต {#bounded-reports}
+### Report ที่มีขอบเขต [#bounded-reports]
 
 เมื่อ reconciliation ระบุ lookback ไว้ execution client ทั้งสองตัวจะ derive จุดตัด (cutoff) หนึ่งจุด
 สำหรับทุก query ย้อนหลัง และบันทึกไว้บน mass status ผ่าน `set_report_window`
@@ -633,7 +635,7 @@ execution client ทั้งสองตัวจะ reconcile order, fill, pos
 การประกาศจุดตัดจะเปิดใช้กฎประวัติแบบมีขอบเขตของ engine ชุดข้อมูลที่ไม่สมบูรณ์ยังคง reconcile
 report ที่ได้รับมาพร้อม warning flag ความสมบูรณ์ใช้ระบุคุณลักษณะของชุดข้อมูล ไม่ได้ขัดขวาง reconciliation
 
-#### ขอบเขตและการอ่านที่ล้มเหลว {#scope-and-read-failures}
+#### ขอบเขตและการอ่านที่ล้มเหลว [#scope-and-read-failures]
 
 open order หรือ position ที่อยู่ในขอบเขตแต่ไม่สามารถ resolve เป็น instrument หรือ parse ได้
 จะทำให้การอ่านล้มเหลวบน client ทั้งสองตัว การละไว้จะเป็นการบอก reconciliation ว่า venue
@@ -655,7 +657,7 @@ order ที่ record ดังกล่าวอาจระบุถึงอ
 resolve instrument ไม่ได้ record ของ position ไม่มีส่วนต่อ flag ความสมบูรณ์ ความล้มเหลวของ position
 ที่อยู่ในขอบเขตจะทำให้การอ่านล้มเหลว
 
-#### การ lookup order เดี่ยว {#single-order-lookups}
+#### การ lookup order เดี่ยว [#single-order-lookups]
 
 การ lookup สถานะของ order เดี่ยวที่ไม่พบ report ใดเลยจะบอก reconciliation ว่า venue
 ไม่มี order นั้น และ reconciliation จะ resolve order ตามคำตอบนั้น การ lookup
@@ -680,7 +682,7 @@ resolve instrument ไม่ได้ record ของ position ไม่มี�
 order ที่การอ่านไม่สามารถตัดออกได้จะถูกเลื่อนออกไปอีกในการตรวจสอบ open order ทุกครั้ง บน Futures การ lookup
 แต่ละครั้งแบบนี้ใช้ token ของ order-history หนึ่ง token
 
-#### ขีดจำกัดการแบ่งหน้าของ Spot {#spot-pagination-limits}
+#### ขีดจำกัดการแบ่งหน้าของ Spot [#spot-pagination-limits]
 
 การอ่าน closed order และ fill ของ Spot จะเลื่อน offset ไปเรื่อยๆ จนกว่า Kraken จะคืน
 หน้าว่าง โดยจำกัดที่ 500 หน้าต่อการอ่าน การถึงขีดจำกัดจะ log warning:
@@ -692,9 +694,9 @@ order ที่การอ่านไม่สามารถตัดออ�
 - การ lookup สถานะของ order เดี่ยวที่ไม่พบอะไรในการอ่าน closed order ที่ถูกตัดกลางคัน
   เพราะขีดจำกัดจะล้มเหลว เพื่อให้ reconciliation เลื่อน order ออกไป
 
-### Reconciliation ของ Spot {#spot-reconciliation}
+### Reconciliation ของ Spot [#spot-reconciliation]
 
-#### Order status report {#order-status-reports}
+#### Order status report [#order-status-reports]
 
 - Open order: ดึง order ที่ active อยู่ทั้งหมดในปัจจุบัน
 - Closed order: ดึง order ย้อนหลังพร้อมรองรับการแบ่งหน้า
@@ -718,13 +720,13 @@ order ที่การอ่านไม่สามารถตัดออ�
 - frame ของ executions จะระบุราคาของ order ก็ต่อเมื่อมี `limit_price` เท่านั้น ไม่ใช่จาก
   ราคา fill
 
-#### Fill report {#fill-reports}
+#### Fill report [#fill-reports]
 
 - ประวัติ trade: ดึงประวัติการ execute พร้อมการแบ่งหน้า
 - Query แบบมีขอบเขตเวลา: รองรับการกรองด้วย timestamp เริ่มต้น/สิ้นสุด
 - fill ทุกประเภท: fill ของ market, limit และ conditional order
 
-#### การสะกดชื่อคู่ {#pair-spelling}
+#### การสะกดชื่อคู่ [#pair-spelling]
 
 - Kraken สะกดชื่อคู่ได้สองแบบ: key ของ `AssetPairs` (`XXBTZEUR`) ซึ่งใช้เป็น `raw_symbol`
   ของ instrument และ altname (`XBTEUR`) `OpenPositions` คืน key ในขณะที่ `OpenOrders`
@@ -746,7 +748,7 @@ order ที่การอ่านไม่สามารถตัดออ�
 - closed order หรือ fill ที่ resolve ไม่ได้จะถูก log เป็น warning และข้ามไป โดยคง
   record ที่ resolve ได้ไว้ record ย้อนหลังมักมีอายุยาวกว่าชุด instrument ที่โหลดไว้เป็นปกติ
 
-#### ยอดเงินของ account {#account-balances}
+#### ยอดเงินของ account [#account-balances]
 
 - ยอดเงินใน wallet: ดึงจาก
   [`POST /0/private/BalanceEx`](https://docs.kraken.com/api-reference/account-data/get-extended-balance)
@@ -761,7 +763,7 @@ order ที่การอ่านไม่สามารถตัดออ�
   ดังนั้น wallet ที่มีเงินคู่กับ wallet ว่างของ asset เดียวกันจะรายงานยอดที่มีเงิน
   asset ที่ Kraken ตัดออกจาก response ทั้งหมดจะยังคงค่าที่รายงานล่าสุดไว้
 
-#### Margin position report {#margin-position-reports}
+#### Margin position report [#margin-position-reports]
 
 เมื่อใช้ `spot_account_type=AccountType.MARGIN`:
 
@@ -818,9 +820,9 @@ position ที่สองซึ่งสวนทางกัน และไ�
 ทุก holding ที่ครอบคลุม และการไม่มี report จึงเป็นหลักฐานจริงว่าเป็น flat
 :::
 
-### Reconciliation ของ Futures {#futures-reconciliation}
+### Reconciliation ของ Futures [#futures-reconciliation]
 
-#### Client order ID {#client-order-ids}
+#### Client order ID [#client-order-ids]
 
 order ของ Futures จะถูกส่งพร้อม client order ID แบบเต็ม: Kraken Futures รับได้
 สูงสุด 100 ตัวอักษร และ order ที่ ID ยาวกว่านั้นจะถูกปฏิเสธ (denied) ก่อน
@@ -864,12 +866,12 @@ venue order ID บน instrument และฝั่งของ order นั้�
 venue order อื่น ไม่ว่ากรณีใด reconciliation จะเลื่อน order ออกไปแทนที่จะ
 ใช้แถวนั้นหรือรายงานว่า order หายไป
 
-#### Order status report {#order-status-reports-1}
+#### Order status report [#order-status-reports-1]
 
 adapter คืน open order และเมื่อ `open_only=False` จะคืน order ย้อนหลังที่ปิดแล้วและ
 fill แล้วด้วย การอ่านย้อนหลังมีข้อจำกัดดังด้านล่าง
 
-#### ประวัติ order และการหาราคา {#order-history-and-pricing}
+#### ประวัติ order และการหาราคา [#order-history-and-pricing]
 
 adapter อ่าน lifecycle event ของ order จาก
 [`/api/history/v3/orders`](https://docs.kraken.com/api-reference/account-history/get-order-events) การอ่านแต่ละครั้ง
@@ -905,7 +907,7 @@ fill ที่บันทึกไว้บน order ใน cache ซึ่ง�
 และการอ่านแบบกลุ่มจะกัน order ไว้ เพื่อให้ reconciliation เลื่อนออกไปแทนการอนุมาน
 การ execute ที่ราคา limit
 
-#### การสำรองด้วยประวัติตอน startup {#startup-history-fallback}
+#### การสำรองด้วยประวัติตอน startup [#startup-history-fallback]
 
 mass status ตอน startup อ่านหน้าประวัติหนึ่งหน้าควบคู่กับ open order ซึ่งช่วยกู้คืน
 order ที่ไปถึงสถานะสุดท้ายระหว่างที่ระบบหยุดทำงานเมื่อหน้านั้นมี order นั้นอยู่
@@ -914,7 +916,7 @@ body ที่เป็น error ของ venue ภายใต้สถาน�
 error ของ HTTP อื่น, ความล้มเหลวของ transport และ body ที่ parse ไม่ได้จะทำให้ mass status ล้มเหลว
 เช่นเดียวกับการอ่าน open order ที่ล้มเหลว
 
-#### การป้องกันการหาราคาตอน startup {#startup-pricing-safeguard}
+#### การป้องกันการหาราคาตอน startup [#startup-pricing-safeguard]
 
 mass status ใช้ข้อกำหนดเรื่องการครอบคลุม fill แบบพอดีเดียวกันกับ order ย้อนหลังขั้นสุดท้ายที่มีการ execute
 โดยจะกัน order ที่ไม่ครอบคลุมไว้พร้อม warning ที่ระบุ order นั้น และระบุว่าชุดข้อมูลไม่สมบูรณ์ การอ่านครั้งต่อไปยังคงขอ
@@ -924,7 +926,7 @@ fill ในหน้าของ order ที่ถูกกันไว้จ�
 engine สามารถ reconcile fill เหล่านั้นกับ order ได้โดยไม่ต้องมี report ส่วน fill ของ order
 ที่ไม่อยู่ใน cache จะถูกกันไว้พร้อมกับ order
 
-#### Instrument ที่เป็น flat {#flat-instruments}
+#### Instrument ที่เป็น flat [#flat-instruments]
 
 การอ่าน position คืนเฉพาะ open position ดังนั้น instrument ที่ไม่มี position report จะเป็น flat ที่ venue
 การอ่าน fill เป็นหน้าเดียว การซื้อขายไปกลับที่ fill ตอนเปิดเก่ากว่าหน้านั้นจะเหลือเพียง
@@ -940,7 +942,7 @@ open order ยังคงอยู่ ดังนั้น fill ของ open
 ที่มี position เปิดอยู่ที่ venue จะปล่อยให้ position report จัดการ lookback แบบมีขอบเขตจะปล่อย
 order ขั้นสุดท้ายให้ engine ซึ่งจะ project fill ที่ไม่มี position report ลงบนสถานะของ order เท่านั้น
 
-#### Fill report {#fill-reports-1}
+#### Fill report [#fill-reports-1]
 
 - ประวัติ fill: อ่าน
   [หน้า `/fills`](https://docs.kraken.com/api-reference/historical-data/get-your-fills) ล่าสุด คือ 100 fill ล่าสุด
@@ -949,13 +951,13 @@ order ขั้นสุดท้ายให้ engine ซึ่งจะ proje
   timestamp แบบ RFC3339)
 - fill ทุกประเภท: fill แบบ maker และ taker พร้อมข้อมูลค่าธรรมเนียม
 
-#### Position status report {#position-status-reports}
+#### Position status report [#position-status-reports]
 
 - Open position: ดึง futures position ที่ active ทั้งหมด
 - ฟิลด์ของ report: ฝั่ง, ราคาเข้าเฉลี่ย และขนาด position จาก snapshot ของ REST
   Kraken ยังคืน unrealized funding มาด้วย แต่ `PositionStatusReport` ไม่ได้เปิดเผยค่านี้
 
-#### สถานะ account {#account-state}
+#### สถานะ account [#account-state]
 
 - ยอดเงิน: หนึ่งรายการต่อ asset ข้ามทุก wallet ตามที่อธิบายไว้ในส่วนรหัสสกุลเงิน
 - Margin: หนึ่งรายการต่อสกุลเงิน รวมข้าม wallet แบบเดียวกับยอดเงิน ที่ทศนิยมแปดตำแหน่ง ข้อกำหนด
@@ -971,7 +973,7 @@ order ขั้นสุดท้ายให้ engine ซึ่งจะ proje
 ที่ร้องขอ
 :::
 
-### Spot position report (โหมด cash) {#spot-position-reports-cash-mode}
+### Spot position report (โหมด cash) [#spot-position-reports-cash-mode]
 
 ตั้ง `use_spot_position_reports=True` ในโหมด cash เพื่อรายงานยอดเงินใน wallet เป็น
 Spot position ค่าเริ่มต้นคือ `False` account แบบ margin ใช้ `OpenPositions`
@@ -995,7 +997,7 @@ strategy ที่ปิด Spot position ที่ถูกรายงาน�
 เปิดใช้ position report ที่ derive จาก wallet เฉพาะเมื่อ strategy ของคุณจัดการ holding เหล่านั้นได้
 :::
 
-## การเทรดแบบ Spot margin {#spot-margin-trading}
+## การเทรดแบบ Spot margin [#spot-margin-trading]
 
 Kraken Spot รองรับการเทรดแบบใช้ leverage บนคู่ที่เลือกไว้ `AssetPairs` ประกาศ
 tier ต่อคู่ไว้ใน `leverage_buy` และ `leverage_sell` adapter จะ cache ค่าเหล่านี้ตอน
@@ -1012,7 +1014,7 @@ REST รองรับ[พารามิเตอร์ leverage](https://docs
 และการตรวจสอบ tier ในเครื่องของ adapter
 :::
 
-### การตั้งค่า {#configuration}
+### การตั้งค่า [#configuration]
 
 ใน `KrakenExecutionClientConfig` ให้ระบุ `account_id`, `api_key`, `api_secret` แล้วตั้ง
 `spot_account_type=AccountType.MARGIN` และ `use_ws_trade=False` สามารถตั้ง `default_leverage`
@@ -1023,7 +1025,7 @@ REST รองรับ[พารามิเตอร์ leverage](https://docs
 used margin เป็นต้น) ตัวเลขราย position จาก `OpenPositions` จะเป็น
 quote currency ของคู่ที่ซื้อขายเสมอ
 
-### Leverage ราย order {#per-order-leverage}
+### Leverage ราย order [#per-order-leverage]
 
 override ค่าเริ่มต้นที่ตั้งไว้สำหรับ order เดียวผ่าน `params` เช่น ส่ง order ด้วย
 `params={"leverage": 5}`
@@ -1034,14 +1036,14 @@ override ค่าเริ่มต้นที่ตั้งไว้สำ�
 พารามิเตอร์ leverage ราย order ที่ผิดรูปแบบ เช่น string หรือค่าที่อยู่นอก
 `[0, 65535]` จะทำให้เกิด `OrderDenied` ก่อนการส่งไม่ว่าจะเป็นเส้นทางใด
 
-### Reduce-only {#reduce-only}
+### Reduce-only [#reduce-only]
 
 margin order สามารถระบุ `reduce_only=True` เพื่อลด position ที่มีอยู่
 โดยไม่เปิด position ฝั่งตรงข้ามที่ใหญ่กว่า ให้ตั้ง `spot_account_type=AccountType.MARGIN` และระบุ
 `default_leverage` หรือ `params={"leverage": N}` ราย order adapter จะปฏิเสธ (deny)
 order แบบ cash ที่มี `reduce_only` ก่อนส่งไปยัง Kraken
 
-### สถานะ account {#account-state-1}
+### สถานะ account [#account-state-1]
 
 เมื่อใช้ `spot_account_type=AccountType.MARGIN` execution client จะเรียก endpoint
 `TradeBalance` ของ Kraken ระหว่างการ refresh account สถานะ account แบบ live ใช้:
@@ -1056,7 +1058,7 @@ method ระดับล่างของ `KrakenSpotHttpClient` คือ `re
 สำหรับผู้ใช้โดยตรง live execution client ไม่ได้แนบ
 ข้อมูลนั้นไว้ใน `AccountState.info`
 
-### Reconciliation ของ position {#position-reconciliation}
+### Reconciliation ของ position [#position-reconciliation]
 
 spot margin position ที่เปิดอยู่จะถูกดึงขึ้นมาผ่าน `POST /0/private/OpenPositions`
 ในทุกรอบของ `position_check_interval_secs` เส้นทางนี้ไม่ขึ้นกับ
@@ -1070,7 +1072,7 @@ lot ที่ไม่ใช้ leverage และโหมด cash ที่ไ
 ไม่ได้ประกาศการครอบคลุม การไม่มี report จะปล่อยให้ position ใน cache ไม่ถูกแตะต้อง แทนที่จะ
 ปิดมัน
 
-## Funding rate {#funding-rates}
+## Funding rate [#funding-rates]
 
 adapter รับข้อมูล funding rate จาก WebSocket feed
 [Futures ticker](https://docs.kraken.com/exchange/api-reference/futures-websocket/ticker)
@@ -1083,7 +1085,7 @@ interval ของ funding ซึ่งไม่ได้หมายควา�
 กำหนดรอบ funding เป็นรายชั่วโมง funding ที่สะสมจะชำระเมื่อสิ้นชั่วโมงหรือเมื่อ position สุทธิ
 เปลี่ยนแปลง
 
-## Rate limiting {#rate-limiting}
+## Rate limiting [#rate-limiting]
 
 HTTP client ของ Kraken แต่ละตัวใช้การจำกัดอัตรา request ฝั่ง adapter ค่าเริ่มต้นคือ
 ห้า request ต่อวินาที และ `max_requests_per_second` สามารถ override ได้ นี่เป็น
@@ -1110,7 +1112,7 @@ Kraken ระบุขีดจำกัดของตัวนับการ�
 หากอัตรา request คงที่ของ adapter สูงเกินไปสำหรับสัดส่วนการใช้ endpoint และ tier ของ
 account Kraken ยังคงอาจปฏิเสธหรือจำกัดอัตรา request ได้
 
-### คำแนะนำเรื่อง interval ของ reconciliation {#reconciliation-interval-guidance}
+### คำแนะนำเรื่อง interval ของ reconciliation [#reconciliation-interval-guidance]
 
 การตั้งค่า `open_check_interval_secs` และ
 `position_check_interval_secs` ของ execution engine สร้างภาระต่อเนื่องให้กับ private REST API
@@ -1125,9 +1127,9 @@ interval ที่สั้นอาจใช้งบประมาณขอ�
 client อื่นที่ใช้ API key เดียวกัน หาก Kraken คืน `EAPI:Rate limit exceeded`
 ให้เพิ่ม interval หรือลด `max_requests_per_second`
 
-## การตั้งค่า {#configuration-1}
+## การตั้งค่า [#configuration-1]
 
-### ตัวเลือก config ของ data client {#data-client-configuration-options}
+### ตัวเลือก config ของ data client [#data-client-configuration-options]
 
 | ตัวเลือก                    | ค่าเริ่มต้น  | คำอธิบาย                                                          |
 | ------------------------- | --------- | --------------------------------------------------------------- |
@@ -1148,7 +1150,7 @@ client อื่นที่ใช้ API key เดียวกัน หาก
 | `max_requests_per_second` | `None`    | การจำกัด request ต่อ client; ค่าเริ่มต้นคือ 5 req/s                  |
 | `transport_backend`       | `Sockudo` | transport backend ของ WebSocket                                   |
 
-### ตัวเลือก config ของ execution client {#execution-client-configuration-options}
+### ตัวเลือก config ของ execution client [#execution-client-configuration-options]
 
 | ตัวเลือก                          | ค่าเริ่มต้น  | คำอธิบาย                                                                |
 | ------------------------------- | --------- | --------------------------------------------------------------------- |
@@ -1177,7 +1179,7 @@ client อื่นที่ใช้ API key เดียวกัน หาก
 สำหรับ Spot margin `default_leverage` จะมีผลเมื่อ order ไม่มีพารามิเตอร์ leverage
 ราย order ดูรายละเอียดการส่ง order และสถานะ account ได้ที่[การเทรดแบบ Spot margin](#spot-margin-trading)
 
-### การตั้งค่า demo environment {#demo-environment-setup}
+### การตั้งค่า demo environment [#demo-environment-setup]
 
 หากต้องการทดสอบกับ Kraken Futures demo (paper trading):
 
@@ -1193,13 +1195,13 @@ client อื่นที่ใช้ API key เดียวกัน หาก
 ดูการตั้งค่าฝั่ง Rust ได้ที่[ตัวอย่าง Rust](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/kraken/examples/)
 และ [Run Rust live trading](../how_to/run_rust_live_trading.md)
 
-### การตั้งค่าสำหรับ production {#production-configuration}
+### การตั้งค่าสำหรับ production [#production-configuration]
 
 ใช้ `KrakenDataClientConfig` คู่กับ `KrakenDataClientFactory` และใช้
 `KrakenExecutionClientConfig` คู่กับ `KrakenExecutionClientFactory` แล้วลงทะเบียน data client และ
 execution client ผ่าน `LiveNode.builder(...)`
 
-### API credential {#api-credentials}
+### API credential [#api-credentials]
 
 config object ของ live node ไม่ได้อ่าน environment variable ของ credential
 โดยอัตโนมัติ ให้ส่ง `api_key` และ `api_secret` อย่างชัดเจนไปยัง
@@ -1235,7 +1237,7 @@ error ของการยืนยันตัวตนจะถูกรา�
 แบบ private สิทธิ์ที่ต้องใช้ขึ้นอยู่กับข้อมูลหรือการดำเนินการเทรด
 ที่ร้องขอ
 
-## การมีส่วนร่วม {#contributing}
+## การมีส่วนร่วม [#contributing]
 
 :::info
 หากต้องการมีส่วนร่วมพัฒนา adapter ของ Kraken ดู

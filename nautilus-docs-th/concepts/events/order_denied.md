@@ -1,4 +1,6 @@
-# OrderDenied
+---
+title: "OrderDenied"
+---
 
 `OrderDenied` บันทึกว่าระบบ Nautilus ไม่สามารถ submit order ที่ถูกต้องตามรูปแบบได้ เช่น เพราะติด
 risk limit หรือใช้ฟีเจอร์ที่ไม่รองรับ execution pipeline จะนำ event นี้ไป apply กับ order อัปเดต `Cache`
@@ -8,7 +10,7 @@ risk engine, execution engine, execution algorithm และ execution client �
 
 transition ที่พบบ่อย: `INITIALIZED` -> `DENIED` handler: `on_order_denied`
 
-## ฟิลด์ {#fields}
+## ฟิลด์ [#fields]
 
 นอกจาก[ฟิลด์ทั่วไปของ order event](index.md#common-python-order-event-fields) แล้ว
 `OrderDenied` ยังมี:
@@ -19,7 +21,7 @@ transition ที่พบบ่อย: `INITIALIZED` -> `DENIED` handler: `on_o
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Events](index.md) - หมวดหมู่ของ event, การ dispatch และฟิลด์ทั่วไปของ order event
 - [Execution](../execution/) - risk check และ pipeline ก่อนส่ง order (pre-trade)

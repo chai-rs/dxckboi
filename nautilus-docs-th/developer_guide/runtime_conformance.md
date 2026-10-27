@@ -1,4 +1,6 @@
-# Runtime Conformance Contract
+---
+title: "Runtime Conformance Contract"
+---
 
 ใช้เอกสารอ้างอิงนี้เพื่อหาขอบเขตของ implementation และการตรวจสอบตัวอย่างสำหรับ
 [design principle](design_principles.md) ที่เลือกไว้
@@ -12,7 +14,7 @@ baseline ระบุ revision ที่ใช้เป็นหลักฐา�
 config หรือรูปแบบความล้มเหลว test ที่ระบุชื่อเป็นเพียงการอ้างอิง source ไม่ใช่บันทึก
 ผลการรัน test
 
-## ที่มาของหลักฐานและผลลัพธ์ {#evidence-and-outcome-provenance}
+## ที่มาของหลักฐานและผลลัพธ์ [#evidence-and-outcome-provenance]
 
 Historical source baseline: [46f87cd1b7af576495418761bbf11db23e89124c](https://github.com/nautechsystems/nautilus_trader/commit/46f87cd1b7af576495418761bbf11db23e89124c).
 พฤติกรรม submission-retention ด้านล่างครอบคลุมโดย source และ test ที่ลิงก์ไว้ ณ revision ของเอกสารนี้
@@ -43,7 +45,7 @@ event เหล่านี้มี `reconciliation=true` manager จะ retain
   ไม่ได้แยก report จาก venue ออกจากการ resolve ด้วย policy ภายในเครื่อง และ `OrderCanceled` ไม่มี
   ฟิลด์ reason ผู้ใช้งานต้องอาศัย input และ log ที่เกี่ยวข้องเพื่อคงความแตกต่างนั้นไว้
 
-## ลำดับและความเป็นเจ้าของของ callback {#callback-ordering-and-ownership}
+## ลำดับและความเป็นเจ้าของของ callback [#callback-ordering-and-ownership]
 
 Source reviewed at: [16f2163a3cefd5ae212cbddda7dc5253f8fe0bbc](https://github.com/nautechsystems/nautilus_trader/commit/16f2163a3cefd5ae212cbddda7dc5253f8fe0bbc).
 
@@ -103,7 +105,7 @@ activation ของคิวครั้งแรกเกิดได้เฉ
   pass ที่จำกัดขอบเขต จำนวนและยอดคงเหลือสุดท้ายเพียงอย่างเดียวไม่ได้พิสูจน์ลำดับ ดู [ข้อกำหนดของ
   activation](callback_dispatch.md#activation-requirements)
 
-## การกู้คืน {#recovery}
+## การกู้คืน [#recovery]
 
 Source baseline: [46f87cd1b7af576495418761bbf11db23e89124c](https://github.com/nautechsystems/nautilus_trader/commit/46f87cd1b7af576495418761bbf11db23e89124c).
 
@@ -121,7 +123,7 @@ order และ fill ที่อยู่ในสถานะสิ้นส�
   การเชื่อมต่อ live client และ reconciliation ด้วย ความครบถ้วนของข้อมูลจาก venue ยังขึ้นกับ [reconciliation
   policy](../concepts/execution/policies.md#reconciliation-authority)
 
-## การจัดการภาวะ overload {#overload-handling}
+## การจัดการภาวะ overload [#overload-handling]
 
 Source reviewed at: [16f2163a3cefd5ae212cbddda7dc5253f8fe0bbc](https://github.com/nautechsystems/nautilus_trader/commit/16f2163a3cefd5ae212cbddda7dc5253f8fe0bbc).
 

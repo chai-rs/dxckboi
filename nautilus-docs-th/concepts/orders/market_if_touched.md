@@ -1,4 +1,6 @@
-# Market-If-Touched
+---
+title: "Market-If-Touched"
+---
 
 `FIX OrdType <40>=J` (Market If Touched)
 
@@ -6,13 +8,13 @@ Order แบบ *Market-If-Touched* จะปล่อย *Market* order ออ�
 position ตอนราคาย่อตัว (pullback) หรือเพื่อทำกำไร order แบบ take-profit จะขายสวน position ฝั่ง LONG หรือซื้อสวน
 position ฝั่ง SHORT
 
-## กรณีการใช้งาน {#use-cases}
+## กรณีการใช้งาน [#use-cases]
 
 ใช้ order แบบ *Market-If-Touched* เมื่อต้องการให้ความสำคัญกับการได้ execute เมื่อราคาแตะเป้าหมาย order นี้ trigger
 ในทิศทางตรงข้ามกับ stop order เช่น ซื้อต่ำกว่าราคาตลาดปัจจุบันหรือขายสูงกว่าราคาตลาดปัจจุบัน ราคาที่แตะไม่ได้
 รับประกันว่าจะเป็นราคาที่ได้ fill และ *Market* order ที่ถูกปล่อยออกไปอาจเกิด slippage ถูก reject หรือไม่ได้ fill เลย
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 **ตัวอย่าง**: สร้าง order แบบ *Market-If-Touched* บน Binance Futures เพื่อ SELL สัญญา ETHUSDT-PERP
 Perpetual Futures จำนวน 10 สัญญา ตั้ง trigger price ที่ 10,000 USDT และให้ order active ไปจนกว่าจะยกเลิก
@@ -46,7 +48,7 @@ let order = self.order().market_if_touched(
 
 ดูรายละเอียดเพิ่มเติมได้ที่ [Rust API docs](https://nautilustrader.io/docs/core-latest/)
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Orders](index.md#trigger-type) - Trigger type และ execution instruction อื่น ๆ
 - [Emulated orders](emulated.md) - การ emulate conditional order บน venue ที่ไม่รองรับแบบ native

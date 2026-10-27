@@ -1,4 +1,6 @@
-# Order Book
+---
+title: "Order Book"
+---
 
 NautilusTrader implement order book ด้วย Rust `OrderBook` ดูแล market depth สาธารณะของ instrument หนึ่งตัว
 ส่วน `OwnOrderBook` ติดตาม order ของคุณเองแยกไว้ต่างหาก เพื่อให้ view แบบกรอง (filtered view) หักออกจาก
@@ -9,7 +11,7 @@ liquidity สาธารณะได้
 [Rust API reference](https://nautilustrader.io/docs/core-latest/)
 :::
 
-## Book type {#book-types}
+## Book type [#book-types]
 
 `OrderBook` ถูกดูแลแยกตาม instrument ทั้งใน backtest และ live trading:
 
@@ -25,7 +27,7 @@ liquidity สาธารณะได้
 ข้อมูล quote, trade และ bar (`QuoteTick`, `TradeTick` และ `Bar`) ก็ใช้ขับเคลื่อน book แบบ `L1_MBP` ได้
 :::
 
-## การ subscribe ข้อมูล book {#subscribing-to-book-data}
+## การ subscribe ข้อมูล book [#subscribing-to-book-data]
 
 strategy และ actor subscribe การอัปเดตของ order book ได้สามแบบ:
 
@@ -37,7 +39,7 @@ subscription แต่ละแบบส่งข้อมูลไปยัง 
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-### Managed book และ subscription ที่ใช้ร่วมกัน {#managed-books-and-shared-subscriptions}
+### Managed book และ subscription ที่ใช้ร่วมกัน [#managed-books-and-shared-subscriptions]
 
 data engine ดูแล `OrderBook` ที่ cache ไว้หนึ่งตัวต่อ instrument subscription แบบ managed จะเลือกแหล่งอัปเดต
 ได้หนึ่งแบบ: `OrderBookDeltas` หรือ `OrderBookDepth` subscription แบบ delta และแบบ interval ใช้ book ที่
@@ -62,7 +64,7 @@ book ที่ managed ด้วย delta นั้น รวมถึงระ�
 
 ระหว่างที่ feed ขัดข้องหรือกำลังกู้คืน timer ของ interval อาจยัง publish book ล่าสุดใน cache ต่อไป
 
-## การเข้าถึง book {#accessing-the-book}
+## การเข้าถึง book [#accessing-the-book]
 
 `OrderBook` มี accessor สำหรับ top-of-book:
 
@@ -73,7 +75,7 @@ let spread: Option<f64> = book.spread();
 let midpoint: Option<f64> = book.midpoint();
 ```
 
-## Method สำหรับวิเคราะห์ {#analysis-methods}
+## Method สำหรับวิเคราะห์ [#analysis-methods]
 
 `OrderBook` รองรับการวิเคราะห์ market depth และการจำลอง execution:
 
@@ -98,7 +100,7 @@ let fills: Vec<(Price, Quantity)> = book.simulate_fills(&order);
 let levels = book.get_all_crossed_levels(OrderSide::Buy, price, 2);
 ```
 
-## การตรวจสอบความถูกต้อง (integrity check) {#integrity-checks}
+## การตรวจสอบความถูกต้อง (integrity check) [#integrity-checks]
 
 เรียก `book_check_integrity` เพื่อตรวจว่า state ของ book สอดคล้องกับ type ของมัน:
 
@@ -139,7 +141,7 @@ feed ของบาง venue จะเริ่มนับ sequence ใหม�
 book แบบ `L1_MBP` ที่ขับเคลื่อนด้วย quote หรือ trade โดย `QuoteTick` หรือ `TradeTick` ที่ stale จะถูกข้ามพร้อม
 warning และ book จะไม่เปลี่ยนแปลง
 
-## การแสดงผลแบบอ่านง่าย (pretty printing) {#pretty-printing}
+## การแสดงผลแบบอ่านง่าย (pretty printing) [#pretty-printing]
 
 ทั้ง `OrderBook` และ `OwnOrderBook` มี method `pprint` ที่คืน book เป็นตารางที่คนอ่านได้:
 
@@ -151,7 +153,7 @@ println!("{}", book.pprint(5, Some(Decimal::new(1, 2)))); // group_size = 0.01
 พารามิเตอร์ `group_size` จัด price level เป็นกลุ่มที่หยาบขึ้นสำหรับ instrument ที่มี tick size ละเอียด ผลลัพธ์เป็น
 ตารางที่มี bid อยู่ซ้าย ราคาอยู่ตรงกลาง และ ask อยู่ขวา
 
-## Own order book {#own-order-book}
+## Own order book [#own-order-book]
 
 `OwnOrderBook` ติดตาม working order ของคุณเองแยกจาก book สาธารณะ strategy ประเภท market making และ
 quoting อื่น ๆ ใช้มันประเมิน liquidity ที่เหลือในแต่ละ price level หลังหัก order ของตัวเองออก
@@ -164,7 +166,7 @@ order emulator ถือไว้
 - **Order แบบ quote quantity**: เข้ามาเมื่อ update แปลง quantity เป็นหน่วย base แล้ว
 - **Terminal event**: อาจยังล้าง entry ที่มีอยู่ใน own book ได้ แม้ order นั้นจะไม่มีสิทธิ์ถูกติดตามในกรณีปกติ
 
-### Lifecycle ของ order {#order-lifecycle}
+### Lifecycle ของ order [#order-lifecycle]
 
 `OwnOrderBook` ติดตาม order ตลอด lifecycle:
 
@@ -191,14 +193,14 @@ order emulator ถือไว้
 ฟิลด์ `status` และ `ts_accepted` ใช้ขับเคลื่อน filter แบบ optional ที่อธิบายใน
 [การกรองตาม status และเวลา](#status-and-time-filtering)
 
-### การตรวจสอบ (auditing) {#auditing}
+### การตรวจสอบ (auditing) [#auditing]
 
 method `audit_open_orders` reconcile own book กับชุดของ client order ID ที่ถูกต้อง order ใน own book ที่ไม่อยู่ในชุด
 ที่ให้มาจะถูกลบพร้อม warning `Cache::audit_own_order_books` สร้างชุดนี้จาก order ที่ open, in-flight และ
 active-local เพื่อให้ entry ที่ยังไม่ terminal คงอยู่ระหว่างการประมวลผล event ตามปกติและช่วง latency ของ venue
 ระบบ live สามารถรัน audit นี้เป็นระยะผ่าน own-books audit interval
 
-### การ query {#querying}
+### การ query [#querying]
 
 ```rust
 // Check if a specific order is tracked
@@ -216,7 +218,7 @@ let ask_qty = own_book.ask_quantity(None, None, None, None, None);
 println!("{}", own_book.pprint(5, None));
 ```
 
-### Filtered view {#filtered-views}
+### Filtered view [#filtered-views]
 
 หัก order ของคุณเองออกจาก book สาธารณะเพื่อดู liquidity สุทธิที่เหลือ:
 
@@ -233,7 +235,7 @@ let avg_px = filtered.get_avg_px_for_quantity(quantity, OrderSide::Buy);
 method `filtered_view` คืน `OrderBook` ใหม่ที่หักขนาด order ของคุณออกแล้ว book สุทธินี้รองรับ method วิเคราะห์
 ครบชุด (`spread`, `midpoint`, `get_avg_px_for_quantity` และอื่น ๆ)
 
-### การกรองตาม status และเวลา {#status-and-time-filtering}
+### การกรองตาม status และเวลา [#status-and-time-filtering]
 
 filtered view รองรับการกรอง own order ตาม status และเวลาแบบ optional:
 
@@ -262,7 +264,7 @@ let filtered = book.filtered_view(
 );
 ```
 
-## Binary market {#binary-markets}
+## Binary market [#binary-markets]
 
 binary market อาจมี instrument ของผลลัพธ์ที่เป็นคู่ตรงข้ามกัน เช่น token YES และ NO ของ Polymarket สำหรับคู่
 ที่ทราบว่าเป็นคู่ตรงข้ามกัน parity transform จะแปลงราคา `p` ของผลลัพธ์หนึ่งเป็น `1 - p` ของอีกผลลัพธ์ ภายใต้

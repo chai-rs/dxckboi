@@ -1,4 +1,6 @@
-# Plugins
+---
+title: "Plugins"
+---
 
 crate `nautilus-plugin` กำหนดสัญญา (contract) ของ artifact สำหรับ plug-in ของ NautilusTrader plug-in คือ
 Rust `cdylib` ที่คอมไพล์แยกอิสระ ระบุตัวตนด้วย manifest ที่มีเวอร์ชัน และแลกเปลี่ยนค่าข้ามขอบเขต C-ABI
@@ -11,7 +13,7 @@ ABI ของ plug-in ยังอยู่ในระยะ early alpha แล
 เวอร์ชันของ `nautilus-plugin`
 :::
 
-## สัญญาของ artifact {#artifact-contract}
+## สัญญาของ artifact [#artifact-contract]
 
 plug-in คือ Rust `cdylib` ที่ export entry symbol เพียงตัวเดียวคือ `nautilus_plugin_init`
 macro `nautilus_plugin!` จะสร้าง symbol นั้นพร้อมกับ manifest แบบ static ที่บรรจุข้อมูลระบุตัวตนของ build:
@@ -28,7 +30,7 @@ nautilus_plugin::nautilus_plugin! {
 artifact ที่ระดับ module ตั้ง `crate-type = ["cdylib"]` ใน `Cargo.toml` ของ artifact และใช้ dependency
 `nautilus-plugin` เวอร์ชันที่ตรงกัน
 
-## ความเข้ากันได้ของ manifest {#manifest-compatibility}
+## ความเข้ากันได้ของ manifest [#manifest-compatibility]
 
 `nautilus_plugin_init` รับ host pointer แบบ opaque และคืน `PluginManifest` ที่เก็บอยู่ในหน่วยความจำซึ่งมีอายุเท่ากับ
 process หาก host pointer เป็น null หรือการเรียกเกิด panic จะคืนค่า null `PluginManifest::validate` ตรวจสอบ
@@ -44,7 +46,7 @@ invariant ที่ host ต้องพึ่งพาก่อนการ reg
 ต้องตรวจสอบ precision เพราะมันเปลี่ยน layout ของ model type ที่ข้ามขอบเขต ส่วนฟิลด์ระบุตัวตนของ build ที่เหลือ
 (เวอร์ชัน `nautilus-plugin`, เวอร์ชัน `rustc`, target triple และ build profile) ใช้สำหรับการวินิจฉัยเท่านั้น
 
-## กฎของขอบเขต {#boundary-rules}
+## กฎของขอบเขต [#boundary-rules]
 
 เฉพาะ type แบบ `#[repr(C)]` ใน `nautilus_plugin::boundary` และ type แบบ `#[repr(C)]` ที่สร้างจาก type เหล่านั้น
 เท่านั้นที่ปรากฏใน signature ที่ข้ามขอบเขตได้ `String`, `Vec` และ `Box<dyn Trait>` อาศัย ABI ของ Rust ซึ่งไม่เสถียร

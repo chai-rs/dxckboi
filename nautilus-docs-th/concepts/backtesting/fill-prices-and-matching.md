@@ -1,4 +1,6 @@
-# ราคา fill และการ matching
+---
+title: "ราคา fill และการ matching"
+---
 
 matching engine ของ backtest ถือว่าข้อมูล order book และ trade ที่บันทึกไว้เป็นข้อมูล **immutable** (แก้ไขไม่ได้):
 fill จำลองจะไม่แก้ไข book ในอดีต วิธีนี้ทำให้ตลาดที่ replay ยังคงเหมือนต้นฉบับ แต่ก็ต้องกำหนดสมมติฐานให้ชัดเจนว่า
@@ -10,11 +12,11 @@ engine มีตัวควบคุมสองตัวสำหรับส�
 - การกำหนด `random_seed` ของ fill model แบบคงที่ทำให้การตัดสินใจเชิงความน่าจะเป็นของ model นั้นทำซ้ำได้
   โดยไม่ได้กำหนดความสุ่มหรือลำดับการ execute นอกเหนือจาก model นั้น
 
-## การกำหนดราคา fill {#fill-price-determination}
+## การกำหนดราคา fill [#fill-price-determination]
 
 ราคา fill ขึ้นอยู่กับประเภท order, liquidity side, ประเภท book และสภาวะตลาดที่ทำให้เกิดการ match
 
-### Book แบบ L2 และ L3 {#l2-and-l3-books}
+### Book แบบ L2 และ L3 [#l2-and-l3-books]
 
 เมื่อมีข้อมูล depth order แบบ market จะไล่กินระดับราคาใน book ที่ cross กัน order แบบ limit จะได้ราคาจาก book
 ที่ cross เมื่อทำหน้าที่เป็น taker และใช้ราคา limit ของตัวเองเมื่อทำหน้าที่เป็น maker
@@ -33,7 +35,7 @@ engine มีตัวควบคุมสองตัวสำหรับส�
 
 order ที่ใช้ depth อาจ fill เพียงบางส่วนได้ เมื่อขนาดที่ cross อยู่น้อยกว่าปริมาณที่เหลือของ order
 
-### Book แบบ L1 {#l1-books}
+### Book แบบ L1 [#l1-books]
 
 เมื่อใช้ book แบบ L1 ตลาดที่บันทึกไว้จะมีเพียง bid และ ask ที่ดีที่สุด:
 
@@ -59,7 +61,7 @@ engine จะ fill ที่ราคา limit ของ order และจำ�
 
 fill model สามารถเปลี่ยนราคาหรือสร้าง depth book สังเคราะห์ได้ ดู [fill models](fill-models.md)
 
-### การ fill ของ market order ที่ถูก trigger เมื่อใช้ bar {#triggered-market-order-fills-with-bars}
+### การ fill ของ market order ที่ถูก trigger เมื่อใช้ bar [#triggered-market-order-fills-with-bars]
 
 การ execute ด้วย bar จะแยกแยะระหว่าง gap กับการเคลื่อนไหวภายใน bar สำหรับ order แบบ `STOP_MARKET`,
 `MARKET_IF_TOUCHED` และ `TRAILING_STOP_MARKET`
@@ -78,7 +80,7 @@ fill model สามารถเปลี่ยนราคาหรือสร
 กฎนี้สมมติว่าราคาเคลื่อนผ่าน trigger อย่างต่อเนื่อง หาก strategy ต้องการพฤติกรรมของ gap และเส้นทางราคาที่แม่นยำกว่านี้
 ให้ใช้ข้อมูล quote, trade หรือ order book
 
-## Price protection {#price-protection}
+## Price protection [#price-protection]
 
 **Price protection** จำกัดว่า order แบบ `MARKET` และ `STOP_MARKET` จะไล่กิน book ไปได้ไกลแค่ไหน
 กำหนด offset เป็นจำนวน price increment ของ instrument ผ่าน option `price_protection_points` ใน config ของ backtest venue
@@ -98,7 +100,7 @@ engine คำนวณขอบเขต ณ เวลาที่ fill:
 
 ตั้ง `price_protection_points=0` เพื่อปิด protection
 
-## Order book immutability {#order-book-immutability}
+## Order book immutability [#order-book-immutability]
 
 fill จำลองจะไม่ลดขนาดใน book ในอดีต โดยค่าเริ่มต้น การ matching แต่ละรอบสามารถใช้ขนาดที่บันทึกไว้ได้เต็มจำนวน
 หากต้องการติดตามการใช้ liquidity ให้เปิด option `liquidity_consumption` ใน config ของ backtest venue
@@ -107,7 +109,7 @@ fill จำลองจะไม่ลดขนาดใน book ในอดี
 ขนาดที่ใช้ได้คือ `original_size - consumed` เมื่อมี book update ใหม่ที่ระดับนั้น ข้อมูลที่บันทึกจะถูก reset
 เป็นขนาดที่แสดงใหม่
 
-### Passive fill บน L1 {#l1-passive-fills}
+### Passive fill บน L1 [#l1-passive-fills]
 
 เมื่อตลาด L1 เคลื่อนผ่าน passive limit:
 
@@ -124,7 +126,7 @@ fill จำลองจะไม่ลดขนาดใน book ในอดี
 1. เมื่อเปิด consumption จะ fill 30 หน่วยและเหลือเปิดอยู่ 970 หน่วย
 1. update ในภายหลังอาจให้ขนาดใหม่เพิ่มเติมได้
 
-### Trade consumption {#trade-consumption}
+### Trade consumption [#trade-consumption]
 
 trade อาจให้ขนาดที่ execute ได้ที่ราคาซึ่งไม่มีใน book ปัจจุบัน เมื่อเปิด consumption fill ที่ขับเคลื่อนด้วย trade
 จะแบ่งใช้ขนาดนั้นร่วมกัน แทนที่จะให้แต่ละ order ใช้ trade ได้เต็มจำนวน
@@ -136,7 +138,7 @@ trade อาจให้ขนาดที่ execute ได้ที่รา�
 book สังเคราะห์ที่ fill model คืนมาไม่ใช้การติดตาม consumption รายระดับราคา model ต้องแทนสมมติฐานเรื่อง
 liquidity ของตัวเองเอง
 
-### ข้อจำกัด {#limitations}
+### ข้อจำกัด [#limitations]
 
 การติดตาม consumption เป็นการประมาณ **ขนาดที่ใช้ได้** ไม่ใช่ **ลำดับความสำคัญของ order** ตั้ง `queue_position=True`
 พร้อมข้อมูล book และ trade เพื่อติดตามคิวที่แสดงอยู่ หรือใช้ `prob_fill_on_limit` เพื่อประมาณแบบความน่าจะเป็น
@@ -144,7 +146,7 @@ liquidity ของตัวเองเอง
 fill ที่ขับเคลื่อนด้วย trade ยังเป็นแบบฉวยโอกาสด้วย: trade print พิสูจน์ได้เพียงว่ามี liquidity อยู่ชั่วขณะ
 ไม่ได้พิสูจน์ว่า liquidity นั้นยังคงอยู่หลังจาก trade ที่บันทึกไว้
 
-## ข้อกำหนดเรื่อง precision {#precision-requirements}
+## ข้อกำหนดเรื่อง precision [#precision-requirements]
 
 เมื่อ precision ที่กำหนดของ instrument ไม่เกิน `FIXED_PRECISION` ของ build matching engine จะยอมรับ precision
 ที่ต่ำกว่าหรือเท่ากันใน order ใหม่และการอัปเดต order ตัวอย่างเช่น quantity `1` ใช้ได้กับ size precision 3

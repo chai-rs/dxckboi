@@ -1,4 +1,6 @@
-# Actors
+---
+title: "Actors"
+---
 
 **data actor** รับข้อมูลที่ request และ subscribe ไว้ จัดการ system event และดูแลสถานะของ component
 ใน Rust ให้ implement trait `DataActor` ส่วน strategy จะเพิ่มความสามารถในการจัดการ order เข้ามา
@@ -11,7 +13,7 @@
 - การเข้าถึง cache
 - structured logging
 
-## Config และ ID ของ actor {#actor-configuration-and-ids}
+## Config และ ID ของ actor [#actor-configuration-and-ids]
 
 data actor สามารถรับ config ได้ โดย config พื้นฐานรับ `actor_id` แบบ optional หากระบุ ID
 actor จะลงทะเบียนด้วย ID นั้น
@@ -33,7 +35,7 @@ actor ใน Rust ที่ไม่ได้กำหนด `actor_id` จะ�
 
 ดูตัวอย่างเต็มได้ที่ [Write a Rust actor](../how_to/write_rust_actor.md)
 
-## Lifecycle {#lifecycle}
+## Lifecycle [#lifecycle]
 
 actor เปลี่ยนผ่านสถานะหลักที่เสถียรดังที่แสดงด้านล่าง:
 
@@ -65,7 +67,7 @@ override method เหล่านี้เพื่อ hook เข้ากั�
 | `on_fault()`   | actor กำลังเข้าสู่สถานะ faulted หลังพบข้อผิดพลาด (fault)                                                          |
 | `on_dispose()` | actor กำลังถูก dispose และต้องคืน resource ที่เหลืออยู่ทั้งหมด                                                        |
 
-## Timer และ alert {#timers-and-alerts}
+## Timer และ alert [#timers-and-alerts]
 
 actor เข้าถึง clock สำหรับการตั้งเวลาได้ โดยใช้ `set_timer` สำหรับ timer ที่ทำงานซ้ำ และ `set_time_alert`
 สำหรับ alert ครั้งเดียว ควรตั้งเวลาใน `on_start()` / `on_resume()` และยกเลิกใน `on_stop()` / `on_degrade()`
@@ -82,7 +84,7 @@ actor เข้าถึง clock สำหรับการตั้งเว�
 - ใช้ **ชื่อ timer ที่ไม่ซ้ำกัน** ภายใน namespace ของ clock การลงทะเบียนชื่อเดิมซ้ำจะแทนที่
   timer ที่มีอยู่
 
-## การเข้าถึงระบบ {#system-access}
+## การเข้าถึงระบบ [#system-access]
 
 actor เข้าถึง component หลักของระบบได้:
 
@@ -101,7 +103,7 @@ actor เข้าถึง component หลักของระบบได้
 | `on_queue_state()`                          | จัดการการเปลี่ยนสถานะแรงกดดันของ queue ของ runner          |
 | `on_socket_state()`                         | จัดการการเปลี่ยนสถานะ transport ของ socket               |
 
-### สถานะแรงกดดันของ queue {#queue-pressure-state}
+### สถานะแรงกดดันของ queue [#queue-pressure-state]
 
 actor สามารถ subscribe การเปลี่ยนสถานะแรงกดดันของ queue (queue pressure) ของ runner ได้:
 
@@ -135,7 +137,7 @@ impl DataActor for MyActor {
 }
 ```
 
-#### ตัวกรองและการส่ง {#filters-and-delivery}
+#### ตัวกรองและการส่ง [#filters-and-delivery]
 
 priority ซึ่งเป็น optional ใช้ควบคุมลำดับการส่งระหว่าง subscriber ที่ตรงเงื่อนไข **ค่าที่สูงกว่าจะทำงานก่อน**
 การ subscribe ครั้งที่สองจะไม่เปลี่ยน priority ที่มีอยู่ หากต้องการเปลี่ยน priority ให้ unsubscribe ก่อน แล้ว
@@ -150,14 +152,14 @@ subscribe ใหม่ด้วย priority ใหม่
 
 queue ของ runner ใช้ร่วมกันระหว่าง client จึงไม่มีตัวกรองตาม client
 
-#### เนื้อหาของ queue event {#queue-event-contents}
+#### เนื้อหาของ queue event [#queue-event-contents]
 
 `QueueStateChanged` ประกอบด้วย trader ID, channel ของ runner, เงื่อนไขของ queue, สถานะของเงื่อนไข, ความลึก
 ของ queue, เวลา dispatch เฉลี่ย, event ID และ timestamp การส่งใช้ message bus ภายใน process แบบมี type
 และไม่มีรูปแบบสำหรับส่งออกภายนอก (wire representation) ดูความหมายของการ trigger และการ clear ได้ที่
 [การเฝ้าดูแรงกดดันของ queue](live.md#queue-pressure-monitoring)
 
-### สถานะ transport ของ socket {#socket-transport-state}
+### สถานะ transport ของ socket [#socket-transport-state]
 
 actor สามารถ subscribe การเปลี่ยนสถานะของ socket จาก live adapter ที่รายงานสถานะนี้ได้:
 
@@ -190,7 +192,7 @@ impl DataActor for MyActor {
 }
 ```
 
-#### ตัวกรองและการส่ง {#filters-and-delivery-1}
+#### ตัวกรองและการส่ง [#filters-and-delivery-1]
 
 priority ซึ่งเป็น optional ใช้ควบคุมลำดับการส่งระหว่าง subscriber ที่ตรงเงื่อนไข **ค่าที่สูงกว่าจะทำงานก่อน**
 การ subscribe ครั้งที่สองจะไม่เปลี่ยน priority ที่มีอยู่ หากต้องการเปลี่ยน priority ให้ unsubscribe ก่อน แล้ว
@@ -205,7 +207,7 @@ subscribe ใหม่ด้วย priority ใหม่
   จะลบเฉพาะ subscription ที่ไม่มีตัวกรองเท่านั้น
 - subscription ที่ทับซ้อนกันจะเรียก callback แยกกันสำหรับแต่ละ event ที่ตรงเงื่อนไข
 
-#### เนื้อหาของ socket event {#socket-event-contents}
+#### เนื้อหาของ socket event [#socket-event-contents]
 
 `SocketStateChanged` ประกอบด้วย trader ID, client ID, venue (optional), label ของ endpoint ที่คงที่,
 สถานะของ transport, event ID และ timestamp endpoint เป็น label เชิงตรรกะที่ไม่ใช่ความลับ ไม่ใช่ URL
@@ -220,7 +222,7 @@ subscribe ใหม่ด้วย priority ใหม่
 ความหมายที่แน่นอนของขอบการเชื่อมต่อ (connection edge) ได้ที่
 [สถานะ transport ของ socket](live.md#socket-transport-state)
 
-### Reconnect endpoint ของ socket {#reconnect-a-socket-endpoint}
+### Reconnect endpoint ของ socket [#reconnect-a-socket-endpoint]
 
 actor และ strategy แบบ live สามารถขอให้กู้คืน endpoint หนึ่งตัวได้โดยไม่ต้อง restart data client หรือ
 execution client ของมัน ให้ส่ง `client_id` และ label ของ endpoint ที่ `SocketStateChanged` รายงาน:
@@ -240,7 +242,7 @@ impl MyActor {
 }
 ```
 
-#### การเฝ้าดูการกู้คืน {#observe-recovery}
+#### การเฝ้าดูการกู้คืน [#observe-recovery]
 
 :::note
 API นี้เป็นแบบ **fire-and-observe** การคืนค่าสำเร็จหมายความว่าคำสั่งผ่านการตรวจสอบในเครื่องและ
@@ -253,7 +255,7 @@ subscribe ด้วย `subscribe_socket_state` โดยใช้ตัวก�
 1. `SocketState.DISCONNECTED` เมื่อ transport เข้าสู่โหมด reconnect
 1. `SocketState.CONNECTED` หลังจาก transport กู้คืนแล้ว
 
-#### คำขอที่ล้มเหลว {#request-failures}
+#### คำขอที่ล้มเหลว [#request-failures]
 
 - **ความล้มเหลวแบบ synchronous**: label ของ endpoint ที่ไม่ถูกต้อง และ channel ของ runner ที่ไม่พร้อมใช้งานหรือปิดแล้ว จะล้มเหลว
   แบบ synchronous label ของ endpoint รับเฉพาะตัวอักษร ASCII, ตัวเลข, `.`, `-` และ `_` ให้ส่ง label เชิงตรรกะ
@@ -262,12 +264,12 @@ subscribe ด้วย `subscribe_socket_state` โดยใช้ตัวก�
   คำขอซ้ำ, transport ที่กำลังตัดการเชื่อมต่อ และ transport ที่ปิดแล้ว การปฏิเสธเหล่านี้
   จะไม่ส่งการเปลี่ยนสถานะของ socket และไม่กระทบ endpoint อื่น
 
-## การจัดการข้อมูลและ callback {#data-handling-and-callbacks}
+## การจัดการข้อมูลและ callback [#data-handling-and-callbacks]
 
 ระบบ dispatch การตอบกลับของ request แยกจากการอัปเดตที่ subscribe ไว้ การดำเนินการเป็นตัวกำหนด
 ว่า callback ใดจะจัดการข้อมูล
 
-### การตอบกลับของ request และ subscription {#request-responses-and-subscriptions}
+### การตอบกลับของ request และ subscription [#request-responses-and-subscriptions]
 
 ระบบแยก data flow ออกเป็นสองแบบ:
 
@@ -284,7 +286,7 @@ subscribe ด้วย `subscribe_socket_state` โดยใช้ตัวก�
    - ประมวลผลผ่าน handler เฉพาะ เช่น `on_bar()`, `on_quote()` เป็นต้น
    - ใช้สำหรับการประมวลผล event อย่างต่อเนื่อง
 
-### List ใน historical request {#historical-request-lists}
+### List ใน historical request [#historical-request-lists]
 
 historical request แต่ละครั้งเลือก data type หนึ่งชนิด method เหล่านี้รับค่าแบบ scalar หรือ list ที่ไม่ว่าง:
 
@@ -310,7 +312,7 @@ option chain และ request ของ DeFi ยังคงใช้ input แ
 ส่วน list ที่ไม่รองรับจะไปถึง `on_data_response` เป็น envelope ที่เสร็จสมบูรณ์โดยตั้งค่า
 `failure_reason` ไว้ ข้อมูลที่พบใน catalog ยังอาจให้ข้อมูลบางส่วนได้
 
-### การเสร็จสิ้นของ historical request {#historical-completion}
+### การเสร็จสิ้นของ historical request [#historical-completion]
 
 `on_data_response(response)` ทำงานหลังจาก hook ของ payload แบบมี type สำหรับแต่ละ envelope envelope จะคง
 correlation ID ระดับ root ไว้ และ `completed` ระบุว่าเป็น envelope สุดท้ายของ request นั้น
@@ -325,7 +327,7 @@ envelope ปลายทางอาจมีข้อมูลเป็นค�
 
 สามารถส่ง request สำหรับ data type อื่นจาก hook ตอนเสร็จสิ้นได้ การเรียกแต่ละครั้งมี correlation ID ของตัวเอง
 
-#### Completion group {#completion-groups}
+#### Completion group [#completion-groups]
 
 ใน Rust ให้ใช้ `request_group(request_ids, request_id)` เพื่อรับ completion event หนึ่งครั้งหลังจาก request หลายรายการเสร็จสิ้น
 ส่ง list ที่ไม่ว่างของ request ID ที่ไม่ซ้ำกันซึ่งออกโดย actor เดียวกัน request ที่เสร็จแล้วและ group อื่น
@@ -354,7 +356,7 @@ log และไม่ขัดขวางการเสร็จสิ้น�
 หรือ dispose ที่สำเร็จ, fault และ `release_subscriptions` จะล้างสถานะนี้และทิ้ง group ที่ยังไม่เสร็จโดยไม่มี
 completion event
 
-### List ใน subscription {#subscription-lists}
+### List ใน subscription [#subscription-lists]
 
 subscription ของ actor และ strategy รับ identifier ตัวเดียวหรือ collection ที่ไม่ว่าง method
 unsubscribe ที่คู่กันรับ input แบบเดียวกัน
@@ -383,7 +385,7 @@ self.subscribe_trades([first_id, second_id], None, None);
 กฎของ list ใน subscription เหล่านี้ไม่เปลี่ยนแปลง input ของ custom data, `subscribe_instruments(Venue)` ทั้ง venue,
 option chain หรือ DeFi
 
-#### Routing และการตรวจสอบ {#routing-and-validation}
+#### Routing และการตรวจสอบ [#routing-and-validation]
 
 - **Venue**: ID ต้องอยู่ใน venue เดียวกัน เว้นแต่จะระบุ `client_id` อย่างชัดเจน ใช้กับทั้ง subscribe และ unsubscribe
 - **การตั้งค่า book**: การตั้งค่ามีผลกับทุก ID ให้ unsubscribe ด้วยพารามิเตอร์ `is_parent` และ snapshot interval เดิม
@@ -406,7 +408,7 @@ list ที่ว่าง หรือ list ข้าม venue ที่ไม�
 | Rust actor      | Panic                 |
 | `DataActorCore` | `Err`                 |
 
-#### Ownership ของ bar {#bar-ownership}
+#### Ownership ของ bar [#bar-ownership]
 
 actor จะถือ subscription หนึ่งรายการต่อ output bar type มาตรฐาน type แบบเต็มที่ร้องขอเป็นตัวแรก
 จะเป็นผู้กำหนด source ส่วน source variant ที่ตามมาภายหลังสำหรับ output เดียวกันจะไม่ได้ owner เพิ่ม
@@ -418,7 +420,7 @@ self.subscribe_bars([first_bar_type, second_bar_type], None, None);
 self.unsubscribe_bars([first_bar_type, second_bar_type], None, None);
 ```
 
-#### Ownership และการ release {#ownership-and-releases}
+#### Ownership และการ release [#ownership-and-releases]
 
 - actor ถือ ownership ต่อ instrument และ dispatch เฉพาะ ID ที่เพิ่งได้มาใหม่ feed ที่ใช้ร่วมกัน
   จะยังทำงานอยู่จนกว่า owner ตัวสุดท้ายจะ release
@@ -432,7 +434,7 @@ self.unsubscribe_bars([first_bar_type, second_bar_type], None, None);
 ให้สมดุลกัน การ release ทั้ง list ซ้ำหลังจากสำเร็จเพียงบางส่วนไม่รับประกันว่าจะไม่มีผลกระทบเพิ่มเติม
 :::
 
-#### การส่งไปยัง adapter และความล้มเหลว {#adapter-delivery-and-failures}
+#### การส่งไปยัง adapter และความล้มเหลว [#adapter-delivery-and-failures]
 
 สมาชิกโดยตรงที่เข้ากันได้จะไปถึง native hook เป็น list เดียวที่เรียงลำดับแล้ว พร้อมกับ command ID ของคำสั่งแม่
 และ metadata ใช้กับทั้ง subscribe และ unsubscribe ส่วน client ของ MessageBus แบบ external ก็ได้รับเป็น list เช่นกัน
@@ -456,7 +458,7 @@ native hook รายงานการยอมรับแบบ synchronous:
 ผลลัพธ์ของ bar ใช้ bar type แบบเต็ม การยอมรับ unsubscribe หมายถึงการ release สำเร็จ log ของความล้มเหลวจะระบุ
 สมาชิกที่ไม่ได้รับการยอมรับหรือไม่ได้ release
 
-#### เวลาเริ่มต้นของ catalog {#catalog-start-times}
+#### เวลาเริ่มต้นของ catalog [#catalog-start-times]
 
 เมื่อใช้ `streaming` engine จะอนุมาน `start_ns` ของ catalog เฉพาะเมื่อ `params` ไม่ได้ระบุไว้:
 
@@ -472,7 +474,7 @@ native hook รายงานการยอมรับแบบ synchronous:
 การ release อาจจัดกลุ่ม subset เหล่านั้นใหม่โดยใช้พารามิเตอร์ เส้นทาง และขอบเขตการได้มาเดิม
 source แบบ scalar ที่ derive มาจะยังคงการอนุมาน catalog ของตัวเอง
 
-#### Integration ที่เขียนเองใน Rust {#custom-rust-integrations}
+#### Integration ที่เขียนเองใน Rust [#custom-rust-integrations]
 
 - override method ของ instrument ด้วย `impl IntoInstrumentIds` และ method ของ bar ด้วย `impl IntoBarTypes`
   ส่งค่า `InstrumentId` หรือ `BarType` อย่างชัดเจนในจุดที่ `.into()` เคยอาศัยการอนุมานแบบ scalar
@@ -483,7 +485,7 @@ source แบบ scalar ที่ derive มาจะยังคงการอ
 - hook ที่จำกัดเพียงสมาชิกเดียวสามารถปฏิเสธ list ก่อนเกิดผลด้วย `single_instrument_id()` หรือ
   `single_bar_type()` และสร้าง error แบบบางส่วนด้วย `SubscriptionError::instruments` หรือ `SubscriptionError::bars`
 
-### Callback handler {#callback-handlers}
+### Callback handler [#callback-handlers]
 
 การดำเนินการกับข้อมูลที่ใช้บ่อยจะ map ไปยัง handler เหล่านี้:
 
@@ -517,7 +519,7 @@ source แบบ scalar ที่ derive มาจะยังคงการอ
 | `request_bars()`                | Request      | `on_historical_bars()`          | bar ย้อนหลัง                                  |
 | `request_funding_rates()`       | Request      | `on_historical_funding_rates()` | funding rate ย้อนหลัง                         |
 
-### ตัวอย่าง request และ subscription {#request-and-subscription-example}
+### ตัวอย่าง request และ subscription [#request-and-subscription-example]
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
@@ -530,14 +532,14 @@ handler ที่แยกกันระหว่าง request และ subsc
 `on_bar()` ให้ตรวจสอบ `on_historical_bars()` เพราะ bar เหล่านั้นอาจมาจาก request แทนที่จะเป็น subscription
 :::
 
-## การจัดการ order event {#order-event-handling}
+## การจัดการ order event [#order-event-handling]
 
 data actor ไม่ได้จัดการ order หรือกำหนด callback ของ order event ให้จัดการ order event ใน `Strategy`
 ผ่าน callback เฉพาะของ order หรือ `on_order_event()` ใช้ custom data หรือ signal เพื่อส่ง
 ค่าที่ derive มาไปยัง data actor เมื่อ component อื่นต้องการ ดูรายการ callback ได้ที่
 [Strategies: การจัดการ order](strategies.md#order-management)
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Strategies](strategies.md): strategy ขยาย actor ด้วยความสามารถในการจัดการ order
 - [Data](data/): data type และ subscription ที่ actor ใช้ได้

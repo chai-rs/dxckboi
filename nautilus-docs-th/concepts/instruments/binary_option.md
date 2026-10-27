@@ -1,4 +1,6 @@
-# Binary Option
+---
+title: "Binary Option"
+---
 
 `BinaryOption` แทน instrument ที่มีผลลัพธ์แบบสองทาง (binary outcome) ซึ่ง settle เป็น payoff คงที่
 ตามว่าเงื่อนไขหนึ่งเป็นจริงหรือไม่ ใช้จำลอง prediction market, binary option
@@ -6,7 +8,7 @@
 
 ตัวอย่างเช่น ผลลัพธ์ของ prediction market และสัญญา binary event
 
-## Fields {#fields}
+## Fields [#fields]
 
 | Field             | Rust type          | Required/default | หมายเหตุ                                    |
 | ----------------- | ------------------ | ---------------- | ------------------------------------------- |
@@ -38,7 +40,7 @@
 
 **หมายเหตุ**: builder ใช้ชื่อ `instrument_id` ส่วน Rust struct เก็บค่าเดียวกันไว้ในฟิลด์ `id`
 
-## พฤติกรรม {#behavior}
+## พฤติกรรม [#behavior]
 
 - `BinaryOption` มี instrument class เป็น `BinaryOption`
 - ไม่เป็น inverse และใช้ multiplier กับ lot size เท่ากับหนึ่งเสมอ
@@ -49,7 +51,7 @@
 - instrument ที่มี `event_id` เดียวกันอยู่ใน event เดียวกัน แต่ไม่ได้หมายความว่าใช้ collateral ร่วมกัน
   มีผลลัพธ์ที่ mutually exclusive หรือมีกฎการ settle เหมือนกัน
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 ```rust tab="Rust"
 use jiff::Timestamp;
@@ -87,7 +89,7 @@ let yes_outcome = BinaryOption::builder()
     .unwrap();
 ```
 
-## Adapters {#adapters}
+## Adapters [#adapters]
 
 **Adapter ที่สร้างหรือใช้ instrument แบบ `BinaryOption` ได้แก่**:
 
@@ -95,7 +97,7 @@ let yes_outcome = BinaryOption::builder()
 - [OKX](../../integrations/okx.md) สำหรับผลิตภัณฑ์ผลลัพธ์แบบ binary ที่ venue กำหนด
 - [Polymarket](../../integrations/polymarket.md) สำหรับผลลัพธ์ของ prediction market
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Order Book](../order_book.md) อธิบายพฤติกรรมของ order book ในตลาด binary
 - [Data](../data/) อธิบาย market data ที่อ้างอิงถึง instrument

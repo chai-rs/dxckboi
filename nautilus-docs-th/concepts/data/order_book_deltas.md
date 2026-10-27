@@ -1,9 +1,11 @@
-# OrderBookDeltas
+---
+title: "OrderBookDeltas"
+---
 
 `OrderBookDeltas` รวบรวม `OrderBookDelta` หลายรายการ (ไม่ว่าง) ที่มาจาก book event เชิงตรรกะเดียวกันไว้เป็น batch
 ช่วยลด overhead ต่อ message เมื่อ adapter ได้รับหรือสร้างการเปลี่ยนแปลงหลายรายการพร้อมกัน
 
-## Field {#fields}
+## Field [#fields]
 
 | Field           | Rust type             | Required/default | หมายเหตุ                                 |
 | --------------- | --------------------- | ---------------- | --------------------------------------- |
@@ -14,7 +16,7 @@
 | `ts_event`      | `UnixNanos`           | From last delta  | Event timestamp ของ delta ตัวสุดท้าย      |
 | `ts_init`       | `UnixNanos`           | From last delta  | Initialization timestamp ของ delta ตัวสุดท้าย |
 
-## พฤติกรรม {#behavior}
+## พฤติกรรม [#behavior]
 
 - Batch ต้องมี delta อย่างน้อยหนึ่งรายการ
 - `instrument_id` ของ delta แต่ละตัวต้องตรงกับ `instrument_id` ของ batch
@@ -23,7 +25,7 @@
   [Delta flags and event boundaries](index.md#delta-flags-and-event-boundaries)
 - Batch แบบ snapshot มักเริ่มด้วย delta `CLEAR` และจบด้วย `F_SNAPSHOT | F_LAST`
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -57,7 +59,7 @@ let ask = OrderBookDelta::new(
 let deltas = OrderBookDeltas::new(instrument_id, vec![bid, ask]);
 ```
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [OrderBookDelta](order_book_delta.md) อธิบายประเภทของ update ที่อยู่ภายใน batch
 - [Order books](../order_book.md) อธิบายสถานะของ order book ที่รองรับ

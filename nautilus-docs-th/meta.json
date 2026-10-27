@@ -1,0 +1,11 @@
+{
+  "pages": [
+    "index",
+    "getting_started",
+    "concepts",
+    "how_to",
+    "tutorials",
+    "integrations",
+    "developer_guide"
+  ]
+}

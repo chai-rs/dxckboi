@@ -1,4 +1,6 @@
-# Execution Algorithms
+---
+title: "Execution Algorithms"
+---
 
 `ExecutionAlgorithm` รับ primary order ที่ถูกเลือกด้วย `exec_algorithm_id` และสามารถแบ่ง order นั้นออกเป็น
 spawned order ย่อย ๆ ได้ NautilusTrader รองรับ algorithm แบบกำหนดเอง และมี TWAP ที่ implement แบบ native
@@ -6,7 +8,7 @@ spawned order ย่อย ๆ ได้ NautilusTrader รองรับ algor
 
 สำหรับโมเดลของ component และการ routing ดูที่ [Execution](index.md#execution-flow)
 
-## TWAP (time-weighted average price) {#twap-time-weighted-average-price}
+## TWAP (time-weighted average price) [#twap-time-weighted-average-price]
 
 TWAP กระจาย primary order ออกเป็นช่วงเวลาสม่ำเสมอ เพื่อลด market impact จากการส่งปริมาณทั้งหมดในครั้งเดียว
 algorithm แบบ native นี้ลงทะเบียนกับ `BacktestEngine` ที่ initialize แล้วได้ในชื่อ `"TwapAlgorithm"`
@@ -26,7 +28,7 @@ algorithm จะส่ง slice แรกทันที และส่ง slic
 
 TWAP จะ deny primary order ก่อนการส่ง หากประเภท order, instrument หรือตารางเวลาไม่รองรับหรือไม่ถูกต้อง
 
-## Execution algorithm แบบกำหนดเอง {#custom-execution-algorithms}
+## Execution algorithm แบบกำหนดเอง [#custom-execution-algorithms]
 
 execution algorithm แบบกำหนดเองรับ order ผ่าน `on_order(...)` และมีสิทธิ์เข้าถึง cache และ portfolio,
 clock สำหรับ timer, signal และเมธอดสำหรับ spawn order
@@ -78,7 +80,7 @@ late fill ที่ยังหักจาก primary ไม่ได้ก่�
 execution algorithm อาจ spawn order ต่อไปเรื่อย ๆ, submit ส่วนที่เหลือของ primary order หรือทำทั้งสองอย่าง
 TWAP ในตัวจะ submit ส่วนที่เหลือของ primary order ใน interval สุดท้าย
 
-## Spawned order {#spawned-orders}
+## Spawned order [#spawned-orders]
 
 spawned order แต่ละตัวจะตั้ง `exec_spawn_id` เป็น `client_order_id` ของ primary order ส่วน `client_order_id`
 ของตัวมันเองเป็นไปตามรูปแบบนี้:
@@ -94,7 +96,7 @@ spawned order แต่ละตัวจะตั้ง `exec_spawn_id` เป�
 ของ contingent order
 :::
 
-## การ query order ของ execution algorithm {#execution-algorithm-order-queries}
+## การ query order ของ execution algorithm [#execution-algorithm-order-queries]
 
 `Cache` มี query หลักสองตัว:
 
@@ -103,7 +105,7 @@ spawned order แต่ละตัวจะตั้ง `exec_spawn_id` เป�
 - `orders_for_exec_spawn(...)`: คืน primary order และ spawned order ทั้งหมดของ primary
   `ClientOrderId` หนึ่ง
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Execution](index.md): การ routing ของ component, พฤติกรรม OMS, risk check และผลลัพธ์ของ command
 - [Execution policies](policies.md): ขอบเขตของ order state และการส่ง command

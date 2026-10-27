@@ -1,4 +1,6 @@
-# Execution Policies
+---
+title: "Execution Policies"
+---
 
 NautilusTrader ประสาน state ภายในเครื่องกับ trading venue ข้ามขอบเขตแบบกระจาย (distributed boundary)
 หน้านี้กำหนด policy ที่ควบคุม order command, order event, persistence และ reconciliation
@@ -8,7 +10,7 @@ implement execution adapter หรือออกแบบขั้นตอน�
 สำหรับโมเดลของ component และการ routing ดู [Execution](index.md) สำหรับสถานะของ order แต่ละแบบและ
 การเปลี่ยนสถานะหลัก ดู [Orders](../orders/index.md#order-state-flow)
 
-## สรุป policy {#policy-summary}
+## สรุป policy [#policy-summary]
 
 | ขอบเขต                    | พฤติกรรม                                                                                         | ข้อจำกัด                                                                                         |
 | ------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
@@ -20,7 +22,7 @@ implement execution adapter หรือออกแบบขั้นตอน�
 | การกู้คืนแบบมีขอบเขต        | reconciliation กู้คืน state ของ order ที่ venue รายงาน โดยไม่นำตัวเลข fill ที่ไม่มีหลักฐานรองรับไปใช้ | ประวัติที่ไม่ครบไม่สามารถพิสูจน์ตัวเลขของ position ในอดีต, realized PnL หรือราคาเฉลี่ยได้          |
 | Terminal policy           | reconciliation อาจปิดสถานะ order ที่หายไปหรือ timeout หลังจาก retry ครบตามที่ตั้งค่าไว้             | การปิดสถานะโดย policy ไม่ใช่การ reject หรือ cancel ที่ venue ยืนยัน                               |
 
-## Order state {#order-state}
+## Order state [#order-state]
 
 Order ใช้แนวทาง event sourcing order ทุกตัวเริ่มต้นด้วย `OrderInitialized` และ `OrderCore::apply` จะตรวจสอบ
 event กับ identity ของ order และการเปลี่ยนสถานะที่อนุญาตจากสถานะปัจจุบัน มันจะปฏิเสธการเปลี่ยนสถานะ
@@ -32,7 +34,7 @@ event กับ identity ของ order และการเปลี่ยน
 ยัง pending อยู่ และ fill ที่มาช้าสำหรับ order ที่ถูก cancel ไปแล้ว หน้า event แต่ละหน้าภายใต้
 [Events](../events/) อธิบาย field และการเปลี่ยนสถานะทั่วไปของ event นั้น
 
-### ลำดับ {#ordering}
+### ลำดับ [#ordering]
 
 ภายใน live node หนึ่งตัว runner จะจัดการ message branch ที่เลือกแต่ละอันจนเสร็จก่อนจะเลือกอันถัดไป
 ทำให้การแก้ไข order ฝั่ง kernel เป็นแบบลำดับเดียว (serialized) order จะต่อ event ที่ยอมรับแต่ละตัว
@@ -42,7 +44,7 @@ event กับ identity ของ order และการเปลี่ยน
 จาก task ของ adapter หรือ venue ที่เป็นอิสระต่อกันจึงอาจสลับกันได้ และ timestamp ของ event ไม่ได้กำหนด
 ลำดับ FIFO แบบ global ดู [Dispatch priority and overload behavior](../live.md#dispatch-priority-and-overload-behavior)
 
-### การนำ event ไปใช้ซ้ำ {#duplicate-application}
+### การนำ event ไปใช้ซ้ำ [#duplicate-application]
 
 NautilusTrader ไม่ได้ใช้ `event_id` เป็น key สำหรับตัดข้อมูลซ้ำในระดับ order แบบครอบจักรวาล และไม่รับประกัน
 การนำ event ไปใช้แบบ exactly-once สำหรับ order event ทุกตัว การป้องกันที่มีแคบกว่านั้น ได้แก่:
@@ -68,7 +70,7 @@ overfill และ integrity ตามปกติ
 จะนำแต่ละ sequence entry ที่เก็บไว้ไปใช้หนึ่งครั้ง แต่สิ่งนี้ไม่ได้ทำให้ capture ที่ยังไม่ commit
 กลายเป็นข้อมูลถาวร หรือทำให้การส่งจาก venue เป็นแบบ exactly once
 
-## ผลลัพธ์ของ command {#command-outcomes}
+## ผลลัพธ์ของ command [#command-outcomes]
 
 execution command จะได้ข้อสรุปตามหลักฐานที่มี:
 
@@ -122,12 +124,12 @@ command ไม่ได้ถูกยอมรับ
 - `PENDING_UPDATE`: การแก้ไขที่รอการยืนยัน
 - `PENDING_CANCEL`: การ cancel ที่รอการยืนยัน
 
-### ข้อจำกัดของการส่งและการ retry {#delivery-and-retry-limits}
+### ข้อจำกัดของการส่งและการ retry [#delivery-and-retry-limits]
 
 request อาจไปถึง venue แล้วแม้ว่า response จะหายไป NautilusTrader ไม่รับประกันการส่งแบบ
 exactly-once สำหรับ command submit, modify หรือ cancel
 
-#### การทดสอบความปลอดภัย {#safety-test}
+#### การทดสอบความปลอดภัย [#safety-test]
 
 adapter จะ retry ความล้มเหลวชั่วคราว (transient failure) เฉพาะเมื่อการส่งซ้ำนั้นปลอดภัย การส่งซ้ำจะ
 ปลอดภัยเมื่อ:
@@ -164,13 +166,13 @@ transient failure อาจทำให้ order command บางตัวถ�
 HTTP gate ที่ตรวจสอบแล้ว
 :::
 
-#### ผลลัพธ์ {#outcome}
+#### ผลลัพธ์ [#outcome]
 
 การที่ความล้มเหลวหนึ่งปลอดภัยที่จะ retry หรือไม่นั้นเป็นคนละเรื่องกับผลลัพธ์ที่ venue ความล้มเหลวอาจ
 ปลอดภัยที่จะ retry ในขณะที่ความพยายามครั้งก่อนยังกำกวมอยู่ เมื่อความพยายามครั้งหนึ่งอาจไปถึง venue แล้ว
 ความล้มเหลวที่ตามมาก็จะยังกำกวม เว้นแต่จะมีหลักฐานที่เชื่อถือได้ให้ข้อสรุปสำหรับ command เชิงความหมายเดียวกัน
 
-## Persistence ก่อน transport {#persistence-before-transport}
+## Persistence ก่อน transport [#persistence-before-transport]
 
 การสร้าง client order ID, การ publish `OrderInitialized` และการส่ง `SubmitOrder` เป็นการทำงานภายใน
 process สิ่งเหล่านี้ไม่ได้ยืนยันการเขียนลง storage ถาวรด้วยตัวเอง
@@ -203,7 +205,7 @@ process อาจล้มเหลวหลังจากที่ venue ไ�
 รอ commit ถาวรก่อน dispatch message การ restart ในการเทรดจริงยังคงใช้ state ที่กู้คืนจาก cache
 ร่วมกับ reconciliation จาก venue
 
-## อำนาจของ reconciliation {#reconciliation-authority}
+## อำนาจของ reconciliation [#reconciliation-authority]
 
 order event stream ที่อยู่ใน cache เป็นแหล่งที่มาของ state ของ order ที่คำนวณภายในเครื่อง ระหว่างการกู้คืน
 ในการเทรดจริง report จาก adapter เป็นหลักฐานจาก venue ที่ใช้ปรับ state นั้นให้ตรงกัน reconciliation
@@ -251,7 +253,7 @@ external order และ fill ยังคงมีส่วนในการ�
 Startup reconciliation รันก่อนที่ component ของ trader จะเริ่มทำงาน หาก startup ล้มเหลว node
 จะไม่เริ่มทำงาน เว้นแต่จะมี compatibility path ที่ระบุไว้รองรับเงื่อนไขนั้นโดยเฉพาะ
 
-### ที่มาของ terminal reconciliation {#terminal-reconciliation-provenance}
+### ที่มาของ terminal reconciliation [#terminal-reconciliation-provenance]
 
 field `reconciliation` ระบุว่า event นั้นถูกสร้างผ่าน reconciliation แต่ตัวมันเองไม่ได้แยกแยะว่า
 มาจาก status report ของ venue หรือจากการตัดสินโดย policy ภายใน การตัดสินโดย policy ภายในด้านล่างนี้
@@ -291,7 +293,7 @@ working order นั้นจริง
 ดู [Runtime checks](reconciliation.md#runtime-checks) สำหรับการประสาน query, การป้องกัน order
 ล่าสุด และพฤติกรรมเมื่อ order หายไป
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Execution](index.md): บทบาทของ component, การ routing, พฤติกรรม OMS และการตรวจสอบความเสี่ยง
 - [Execution algorithms](algorithms.md): TWAP, algorithm ที่เขียนเอง และ order ที่ถูก spawn

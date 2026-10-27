@@ -1,4 +1,6 @@
-# Security Architecture
+---
+title: "Security Architecture"
+---
 
 หน้านี้อธิบายโมเดลความปลอดภัยของ release pipeline ของ NautilusTrader
 ว่า artifact ของ release ถูก build, publish, attest และตรวจสอบอย่างไร
@@ -11,7 +13,7 @@
 - [Security Policy](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/SECURITY.md) ซึ่งให้คำสั่งตรวจสอบสำหรับผู้ใช้งาน
 - [GitHub Actions overview](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/.github/OVERVIEW.md#security) ซึ่งอธิบายการควบคุมใน CI/CD
 
-## เป้าหมายด้านความปลอดภัย {#security-goals}
+## เป้าหมายด้านความปลอดภัย [#security-goals]
 
 release pipeline มีเป้าหมายสี่ข้อ:
 
@@ -25,7 +27,7 @@ GitHub release เป็นจุดยึด integrity ของ package releas
 ไปยัง package index, ตรวจสอบ index เหล่านั้นเทียบกับ asset ของ GitHub release, แนบ asset ด้าน
 integrity ชุดสุดท้าย แล้วจึง publish GitHub release
 
-## Threat model {#threat-model}
+## Threat model [#threat-model]
 
 pipeline ป้องกันสิ่งต่อไปนี้:
 
@@ -47,7 +49,7 @@ pipeline ไม่ได้ป้องกันสิ่งต่อไปน�
 - เครื่องของผู้ใช้ปลายทางที่ถูกเจาะก่อนการตรวจสอบจะทำงาน
 - การถูกเจาะขณะ runtime ของ exchange, broker, ผู้ให้บริการข้อมูล หรือ trading strategy ของผู้ใช้
 
-## Trust root {#trust-roots}
+## Trust root [#trust-roots]
 
 - กฎของ GitHub repository ปกป้อง source ที่ผ่านการ review, release branch และ release tag
   โดยมี `master` ที่ถูก protect และ release tag `v*` ที่เปลี่ยนแปลงไม่ได้เป็นบันทึกที่เกี่ยวข้อง
@@ -63,7 +65,7 @@ pipeline ไม่ได้ป้องกันสิ่งต่อไปน�
 - ความไม่เปลี่ยนแปลง (immutability) ของ GitHub release ป้องกันการแทนที่ asset และ tag หลัง publish
   asset ของ release ที่ publish แล้วและ release tag จะเปลี่ยนแปลงไม่ได้
 
-## ลำดับการ release {#release-flow}
+## ลำดับการ release [#release-flow]
 
 ```mermaid
 flowchart TD
@@ -98,7 +100,7 @@ flowchart TD
 Docker workflow แยกจาก package release workflow แต่ใช้โมเดล identity เดียวกัน image signature และ
 SBOM attestation ผูก image digest เข้ากับ identity ของ GitHub Actions workflow ที่คาดหวัง
 
-## บันทึกของ artifact {#artifact-records}
+## บันทึกของ artifact [#artifact-records]
 
 | Artifact              | Publish ไปที่               | บันทึกด้าน integrity                         | บันทึกด้าน provenance                                                       |
 | --------------------- | --------------------------- | -------------------------------------------- | --------------------------------------------------------------------------- |
@@ -106,13 +108,13 @@ SBOM attestation ผูก image digest เข้ากับ identity ของ
 | Docker images         | GitHub Container Registry   | Image digest                                 | Sigstore cosign signature, SPDX SBOM attestation                            |
 | บันทึก GitHub release  | GitHub Releases             | asset ของ release ที่ publish แล้ว, tag ที่เปลี่ยนแปลงไม่ได้ | GitHub release attestation                                                  |
 
-## แผนที่การตรวจสอบสำหรับผู้ใช้ {#consumer-verification-map}
+## แผนที่การตรวจสอบสำหรับผู้ใช้ [#consumer-verification-map]
 
 คำสั่งโดยละเอียดอยู่ใน
 [Verifying releases](https://github.com/nautechsystems/nautilus_trader/blob/develop/SECURITY.md#verifying-releases)
 การตรวจสอบด้านล่างแสดงข้อมูลสาธารณะที่ผู้ใช้แต่ละกลุ่มควรตรวจสอบ
 
-### Rust crate {#rust-crates}
+### Rust crate [#rust-crates]
 
 ตรวจสอบว่า:
 
@@ -138,7 +140,7 @@ curl -sSL "https://static.crates.io/crates/$CRATE/$CRATE-$VERSION.crate" -o "$CR
 test "$(sha256sum "$CRATE-$VERSION.crate" | cut -d ' ' -f 1)" = "$CRATE_SHA256"
 ```
 
-### Docker image {#docker-images}
+### Docker image [#docker-images]
 
 ตรวจสอบว่า:
 
@@ -163,7 +165,7 @@ cosign verify-attestation \
   --certificate-oidc-issuer "$ISSUER"
 ```
 
-## แนวทางการกู้คืนด้วยมือ {#manual-recovery-posture}
+## แนวทางการกู้คืนด้วยมือ [#manual-recovery-posture]
 
 release ตามปกติใช้ Trusted Publishing เท่านั้น การ publish package ด้วยมือเป็นเส้นทางกู้คืน
 ทางเลือกสุดท้ายหลังจากการ release ที่สำเร็จเพียงบางส่วน
@@ -180,7 +182,7 @@ release ตามปกติใช้ Trusted Publishing เท่านั้�
 
 ไม่มีเส้นทาง release ตามปกติใดที่พึ่งพา token ของ PyPI หรือ crates.io ที่มีอายุยาว
 
-## แนวทางการรับมือเหตุการณ์ {#incident-response-posture}
+## แนวทางการรับมือเหตุการณ์ [#incident-response-posture]
 
 - publisher ของ crates.io ที่คลาดเคลื่อนจะถูกตรวจพบโดยการตรวจ trusted publishing หรือ
   registry verifier ให้แก้การตั้งค่า publisher ของ crate แล้วรันใหม่ ใช้ข้อยกเว้นแบบ manual
@@ -196,7 +198,7 @@ release ตามปกติใช้ Trusted Publishing เท่านั้�
 - ข้อยกเว้นการ publish crate ด้วยมือจะถูกตรวจพบเมื่อ crates.io แสดง `published_by` แทน
   `trustpub_data` ให้บันทึกข้อยกเว้นอย่างชัดเจน, ระบุ crate ที่ได้รับผลกระทบ และเก็บรักษา audit trail ไว้
 
-## แนวทางด้าน SLSA {#slsa-posture}
+## แนวทางด้าน SLSA [#slsa-posture]
 
 Docker image มี Sigstore signature และ SPDX SBOM attestation ส่วน Rust crate พึ่งพา
 metadata ของ Trusted Publishing บน crates.io และ `crates-manifest.json` ของ release

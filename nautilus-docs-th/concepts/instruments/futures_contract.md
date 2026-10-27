@@ -1,4 +1,6 @@
-# Futures Contract
+---
+title: "Futures Contract"
+---
 
 `FuturesContract` แทนสัญญา futures แบบมีวันหมดอายุที่ซื้อขายในตลาด exchange โดยมี
 underlying, เวลาเริ่ม active, เวลาหมดอายุ, สกุลเงิน, multiplier และ lot size ที่กำหนดไว้
@@ -6,7 +8,7 @@ underlying, เวลาเริ่ม active, เวลาหมดอาย�
 ตัวอย่างเช่น equity index futures, commodity futures, interest-rate futures และ
 currency futures
 
-## Fields {#fields}
+## Fields [#fields]
 
 | Field             | Rust type          | Required/default | หมายเหตุ                                   |
 | ----------------- | ------------------ | ---------------- | ------------------------------------------ |
@@ -37,7 +39,7 @@ currency futures
 
 **หมายเหตุ**: builder ใช้ชื่อ `instrument_id` ส่วน Rust struct เก็บค่าเดียวกันไว้ในฟิลด์ `id`
 
-## พฤติกรรม {#behavior}
+## พฤติกรรม [#behavior]
 
 - `FuturesContract` มี instrument class เป็น `Future`
 - ไม่เป็น inverse ต้นทุน settlement และ quote currency ใช้ `currency`
@@ -46,7 +48,7 @@ currency futures
 - ใช้ `CryptoFuture` สำหรับ crypto futures แบบมีวันหมดอายุที่สกุลเงินของ underlying และ settlement
   อาจต่างกัน
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 ```rust tab="Rust"
 use jiff::Timestamp;
@@ -81,14 +83,14 @@ let esz21 = FuturesContract::builder()
     .unwrap();
 ```
 
-## Adapters {#adapters}
+## Adapters [#adapters]
 
 **Adapter ที่สร้างหรือใช้ instrument แบบ `FuturesContract` ได้แก่**:
 
 - [Databento](../../integrations/databento.md) สำหรับ reference data และ market data ของ futures
 - [Interactive Brokers](../../integrations/interactive_brokers.md) สำหรับสัญญา futures ที่จดทะเบียนในตลาด
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Continuous Futures](../continuous_futures.md) อธิบายชุดข้อมูล futures ที่ปรับตามการ roll
 - [Crypto Future](crypto_future.md) อธิบายสัญญา crypto futures แบบมีวันหมดอายุ

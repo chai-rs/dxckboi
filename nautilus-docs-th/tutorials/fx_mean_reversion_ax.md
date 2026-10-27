@@ -1,10 +1,12 @@
-# Mean reversion ด้วยข้อมูล FX แทน (AX Exchange)
+---
+title: "Mean reversion ด้วยข้อมูล FX แทน (AX Exchange)"
+---
 
 tutorial นี้ backtest strategy แบบ mean reversion ด้วย Bollinger band บน **EURUSD-PERP** ที่
 [AX Exchange](https://architect.exchange) โดยใช้ spot tick ของ EUR/USD จาก [TrueFX](https://www.truefx.com)
 เป็นข้อมูลแทน (proxy)
 
-## บทนำ {#introduction}
+## บทนำ [#introduction]
 
 strategy นี้ใช้ indicator สองตัวบน mid bar 1 นาที:
 
@@ -67,33 +69,33 @@ flowchart LR
     CL --> SELL
 ```
 
-### ทำไมต้องใช้ข้อมูลแทน {#why-proxy-data}
+### ทำไมต้องใช้ข้อมูลแทน [#why-proxy-data]
 
 ผู้ให้บริการข้อมูลย้อนหลังยังไม่ครอบคลุม AX Exchange [TrueFX](https://www.truefx.com) เผยแพร่คลัง tick ของ
 EUR/USD spot ระดับสถาบันจาก pool ของ Integral และ Jefferies ให้ใช้ฟรี คลังข้อมูลนี้ใช้เป็นข้อมูลแทนสำหรับ
 backtest AX EURUSD-PERP ได้
 
-## สิ่งที่ต้องมี {#prerequisites}
+## สิ่งที่ต้องมี [#prerequisites]
 
 - บัญชี TrueFX แบบฟรี สำหรับดาวน์โหลดคลัง tick รายเดือน
 
 > หมายเหตุ: ตัวอย่าง strategy, การโหลดข้อมูล และการตั้งค่า backtest ในต้นฉบับเป็นโค้ด Python ทั้งหมด จึงตัดออก
 > ดูวิธีรัน backtest ด้วย Rust ได้ที่ [รัน backtest (Rust)](../how_to/run_rust_backtest.md)
 
-## การเตรียมข้อมูล {#data-preparation}
+## การเตรียมข้อมูล [#data-preparation]
 
-### ดาวน์โหลด tick EUR/USD จาก TrueFX {#download-truefx-eurusd-ticks}
+### ดาวน์โหลด tick EUR/USD จาก TrueFX [#download-truefx-eurusd-ticks]
 
 1. ไปที่[หน้าดาวน์โหลดข้อมูลย้อนหลังของ TrueFX](https://www.truefx.com/truefx-historical-downloads/)
 1. เลือก **EUR/USD** และเดือน เช่น **December 2025**
 1. แตกไฟล์ ZIP ไฟล์ CSV ไม่มี header และมี column `pair, timestamp, bid, ask`
 
-### โหลดเป็น quote tick ของ Nautilus {#load-into-nautilus-quote-ticks}
+### โหลดเป็น quote tick ของ Nautilus [#load-into-nautilus-quote-ticks]
 
 quote แต่ละตัวใช้ instrument ID ของ proxy และใช้ขนาด bid และ ask เท่ากับหนึ่งหน่วย strategy ประกาศ
 `1-MINUTE-MID-INTERNAL` ดังนั้น engine จะสร้าง MID bar 1 นาทีภายในจาก tick stream
 
-## การนิยาม instrument {#instrument-definition}
+## การนิยาม instrument [#instrument-definition]
 
 ข้อมูลแทนต้องนิยาม instrument เอง multiplier ที่ `1000` ทำให้สัญญาหนึ่งสัญญามี notional เท่ากับ 1,000 EUR
 ดูตัวอย่างการสร้าง `PerpetualContract` สำหรับ `EURUSD-PERP.AX` ด้วย Rust ได้ที่
@@ -102,7 +104,7 @@ quote แต่ละตัวใช้ instrument ID ของ proxy และ�
 ค่าธรรมเนียมและ margin เป็นสมมติฐานของ backtest ที่กำหนดไว้อย่างชัดเจน ตรวจสอบอัตราปัจจุบันได้ที่
 [เอกสารของ AX Exchange](https://docs.architect.exchange/)
 
-## การตั้งค่า {#configuration}
+## การตั้งค่า [#configuration]
 
 | Parameter            | ค่า    | คำอธิบาย                                                   |
 | -------------------- | ------ | ---------------------------------------------------------- |
@@ -113,14 +115,14 @@ quote แต่ละตัวใช้ instrument ID ของ proxy และ�
 | `rsi_sell_threshold` | `70.0` | การยืนยันเพื่อเข้า short                                    |
 | `trade_size`         | `1`    | หนึ่งสัญญาต่อ trade (notional 1,000 EUR)                    |
 
-## การตั้งค่า backtest {#backtest-setup}
+## การตั้งค่า backtest [#backtest-setup]
 
 ในต้นฉบับ backtest ตั้ง venue `AX` แบบ `OmsType.NETTING` และ `AccountType.MARGIN` ด้วย base currency USD,
 starting balance `100000 USD` และ `MakerTakerFeeModel` ที่ maker rate `0.0002` และ taker rate `0.0005`
 จากนั้นเพิ่ม instrument, tick และ strategy ด้วย bar type `EURUSD-PERP.AX-1-MINUTE-MID-INTERNAL` แล้วรัน
 และสร้าง report ของ account, order fill และ position จาก engine
 
-## ผลลัพธ์จากการรัน {#what-the-run-produces}
+## ผลลัพธ์จากการรัน [#what-the-run-produces]
 
 การ replay ข้อมูล TrueFX EUR/USD เดือนธันวาคม 2025 ผ่าน `BBMeanReversion(20, 2sd, RSI 14)` ได้ mid bar 1 นาที
 จำนวน 44,591 bar ปิด position ไป 1,089 position จาก fill 2,178 ครั้ง realized PnL สะสมจบที่ **-1,287 USD**
@@ -149,7 +151,7 @@ regime filter ต้องจ่าย spread ทุกรอบ EUR/USD มี�
 **รูปที่ 4** *realized PnL สะสมหน่วย USD ตาม position ที่ปิดแล้ว เส้นกราฟลดลงแบบเกือบเป็นเส้นตรง โดยมีสาเหตุหลัก
 จาก spread และการเคลื่อนไหวที่ไม่เป็นใจเล็กน้อยในแต่ละรอบ*
 
-## ขั้นตอนถัดไป {#next-steps}
+## ขั้นตอนถัดไป [#next-steps]
 
 - **Regime filter**: drawdown กระจุกตัวใน session ที่มีแนวโน้ม ให้ระงับการเข้า position เมื่อ realized range
   หรือ trend filter ที่ช้ากว่าบ่งชี้ว่าตลาดมีทิศทาง
@@ -160,7 +162,7 @@ regime filter ต้องจ่าย spread ทุกรอบ EUR/USD มี�
 - **AX sandbox**: เชื่อมต่อกับ AX sandbox เพื่อทำ paper trading เมื่อ backtest ทำงานได้ตามต้องการแล้ว ดูการตั้งค่า
   ได้ที่ [คู่มือ integration ของ AX Exchange](../integrations/architect_ax.md)
 
-## การรันแบบ live {#running-live}
+## การรันแบบ live [#running-live]
 
 strategy เดียวกันสามารถรันแบบ live กับ AX Exchange ได้ โดยใช้ `LiveNode` พร้อม data client และ execution client
 ของ AX แทน `BacktestEngine` ตัวอย่าง live ในต้นฉบับเชื่อมต่อกับ AX sandbox (`AxEnvironment.SANDBOX` ใน config
@@ -170,7 +172,7 @@ pre-trade risk check และ order rate limit ดูการรัน live �
 
 ดูการตั้งค่าการเชื่อมต่อและ API key ได้ที่ [คู่มือ integration ของ AX Exchange](../integrations/architect_ax.md)
 
-## อ่านเพิ่มเติม {#further-reading}
+## อ่านเพิ่มเติม [#further-reading]
 
 - [Tutorial book imbalance ของ gold perpetual](gold_book_imbalance_ax.md)
 - [เอกสารของ Architect Exchange](https://docs.architect.exchange/)

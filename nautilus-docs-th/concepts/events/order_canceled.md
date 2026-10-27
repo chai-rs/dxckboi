@@ -1,4 +1,6 @@
-# OrderCanceled
+---
+title: "OrderCanceled"
+---
 
 `OrderCanceled` บันทึกว่า order เข้าสู่สถานะ terminal `CANCELED` แล้ว execution pipeline จะนำ event
 นี้ไปใช้กับ order อัปเดต `Cache` และ publish บน `MessageBus` โดย event อาจมาจาก trading venue,
@@ -12,7 +14,7 @@ Transition ทั่วไป: `PENDING_CANCEL`/`ACCEPTED` -> `CANCELED` ส่�
 การปิดซ้ำ (re-close) สามารถเพิ่ม `CANCELED` ต่อท้ายได้ขณะที่ order ถูกยกเลิกไปแล้ว ในกรณีที่มี fill
 มาถึงช้าหลังการยกเลิกครั้งก่อน
 
-## ฟิลด์ {#fields}
+## ฟิลด์ [#fields]
 
 นอกจาก[ฟิลด์ร่วมของ order event](index.md#common-python-order-event-fields) แล้ว `OrderCanceled`
 ยังมีฟิลด์:
@@ -24,7 +26,7 @@ Transition ทั่วไป: `PENDING_CANCEL`/`ACCEPTED` -> `CANCELED` ส่�
 | `reason`         | `None`           | เหตุผลการยกเลิกที่ venue ให้มา                                               |
 | `reconciliation` | Required         | event ถูกสร้างโดย reconciliation หรือไม่ ซึ่งไม่ได้หมายความว่า venue ยืนยันแล้ว      |
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Events](index.md) - หมวดหมู่ของ event, การ dispatch และฟิลด์ร่วมของ order event
 - [Orders](../orders/) - ชนิดของ order และ state machine

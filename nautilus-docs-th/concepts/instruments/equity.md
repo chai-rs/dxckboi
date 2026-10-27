@@ -1,4 +1,6 @@
-# Equity
+---
+title: "Equity"
+---
 
 `Equity` แทนหุ้นจดทะเบียน, ETF หรือหลักทรัพย์ในตลาดเงินสดที่คล้ายกัน Nautilus ใช้
 type นี้กับ instrument ที่ซื้อขายเป็นหน่วยเต็ม, quote ในสกุลเงินเดียว และไม่มี
@@ -6,7 +8,7 @@ type นี้กับ instrument ที่ซื้อขายเป็นห
 
 ตัวอย่างเช่น `AAPL.XNAS`, `MSFT.XNAS` และ symbol ของ ETF ที่เฉพาะเจาะจงตาม venue
 
-## ฟิลด์ {#fields}
+## ฟิลด์ [#fields]
 
 | Field             | Rust type          | Required/default | Notes                                        |
 | ----------------- | ------------------ | ---------------- | -------------------------------------------- |
@@ -30,7 +32,7 @@ type นี้กับ instrument ที่ซื้อขายเป็นห
 
 **หมายเหตุ**: ใน Rust ค่า `instrument_id` ถูกเก็บไว้ในชื่อ `id`
 
-## พฤติกรรม {#behavior}
+## พฤติกรรม [#behavior]
 
 - `Equity` มี asset class เป็น `Equity` และ instrument class เป็น `Spot`
 - quantity precision เป็นศูนย์เสมอ ดังนั้น order จึงใช้ปริมาณเป็นจำนวนหุ้นเต็ม
@@ -43,7 +45,7 @@ type นี้กับ instrument ที่ซื้อขายเป็นห
 precision เกิน size precision ของ instrument ดังนั้นปริมาณที่เป็นเศษส่วนของหุ้นจะถูกปฏิเสธ
 :::
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -68,14 +70,14 @@ let aapl = Equity::builder()
     .unwrap();
 ```
 
-## Adapters {#adapters}
+## Adapters [#adapters]
 
 **Adapter ที่สร้างหรือใช้ instrument แบบ `Equity` ได้แก่**:
 
 - [Databento](../../integrations/databento.md) สำหรับหุ้นและ ETF ที่จดทะเบียนในสหรัฐฯ
 - [Interactive Brokers](../../integrations/interactive_brokers.md) สำหรับสัญญาหุ้นจดทะเบียน
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Data](../data/) อธิบาย market data ที่อ้างอิงถึง instrument
 - [Value types](../value_types.md) อธิบาย `Price`, `Quantity` และ `Money`

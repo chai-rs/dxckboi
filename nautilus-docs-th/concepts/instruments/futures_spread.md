@@ -1,11 +1,13 @@
-# Futures Spread
+---
+title: "Futures Spread"
+---
 
 `FuturesSpread` แทน futures strategy ที่ exchange กำหนดขึ้นและมีมากกว่าหนึ่ง leg เช่น calendar spread
 หรือ inter-commodity spread โดย venue เป็นผู้กำหนด strategy, symbol, tick size และวันหมดอายุ
 
 ตัวอย่างได้แก่ futures calendar spread ที่จดทะเบียนซื้อขาย และตลาด spread ที่ exchange รองรับ
 
-## ฟิลด์ {#fields}
+## ฟิลด์ [#fields]
 
 | Field             | Rust type          | Required/default | หมายเหตุ                                    |
 | ----------------- | ------------------ | ---------------- | ----------------------------------------- |
@@ -37,7 +39,7 @@
 
 **หมายเหตุ**: builder ฝั่ง Rust ใช้ชื่อ `instrument_id` แต่ struct เก็บค่าเดียวกันไว้ในฟิลด์ `id`
 
-## พฤติกรรม {#behavior}
+## พฤติกรรม [#behavior]
 
 - `FuturesSpread` มี instrument class เป็น `FuturesSpread`
 - venue เผยแพร่ spread นี้เป็น instrument เดียวที่ซื้อขายได้
@@ -46,7 +48,7 @@
   instrument class นี้
 - หาก strategy ต้องการรายละเอียดของแต่ละ leg เฉพาะของ venue ให้ใช้ข้อมูล leg จาก metadata ของ adapter
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 ```rust tab="Rust"
 use jiff::Timestamp;
@@ -82,14 +84,14 @@ let es_spread = FuturesSpread::builder()
     .unwrap();
 ```
 
-## Adapter {#adapters}
+## Adapter [#adapters]
 
 **Adapter ที่สร้างหรือใช้งาน instrument ประเภท `FuturesSpread` ได้แก่**:
 
 - [Databento](../../integrations/databento.md) สำหรับตลาด futures spread ที่จดทะเบียนซื้อขาย
 - [Interactive Brokers](../../integrations/interactive_brokers.md) สำหรับ futures strategy ที่ exchange กำหนด
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Futures Contract](futures_contract.md) อธิบาย futures แบบ leg เดียว
 - [Continuous Futures](../continuous_futures.md) อธิบายชุด futures ที่ปรับตามการ roll

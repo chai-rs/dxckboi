@@ -1,4 +1,6 @@
-# OrderExpired
+---
+title: "OrderExpired"
+---
 
 `OrderExpired` บันทึกว่า order หมดอายุแล้ว execution pipeline จะนำ event นี้ไปใช้กับ order อัปเดต `Cache`
 และ publish ออกไปบน `MessageBus` event นี้อาจมาจาก trading venue, simulated matching engine
@@ -15,7 +17,7 @@ fill ที่ได้รับหลังหมดอายุแล้วย
 และ publish `OrderExpired` ถัดไป event นี้ไม่เปลี่ยนสถานะหรือ timestamp ของ order และ event หมดอายุ
 ที่ตามมาจะถูกปฏิเสธจนกว่าจะมี fill ใหม่เข้ามา
 
-## ฟิลด์ {#fields}
+## ฟิลด์ [#fields]
 
 นอกเหนือจาก[ฟิลด์ร่วมของ order event](index.md#common-python-order-event-fields)
 `OrderExpired` ยังมีฟิลด์ต่อไปนี้:
@@ -26,7 +28,7 @@ fill ที่ได้รับหลังหมดอายุแล้วย
 | `account_id`     | `None`           | account ที่เกี่ยวข้องกับ order (ถ้าทราบ)         |
 | `reconciliation` | Required         | ถูกสร้างขึ้นระหว่าง reconciliation หรือไม่      |
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Events](index.md) - ประเภทของ event, การ dispatch และฟิลด์ร่วมของ order event
 - [Orders](../orders/) - ประเภทของ order และ state machine

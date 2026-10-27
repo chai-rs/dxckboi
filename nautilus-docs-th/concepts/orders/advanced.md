@@ -1,4 +1,6 @@
-# Order ขั้นสูง
+---
+title: "Order ขั้นสูง"
+---
 
 Order list ใช้จัดกลุ่ม order ที่เกี่ยวข้องกัน ส่วน contingency metadata อธิบายว่า fill, การยกเลิก หรือการอัปเดต
 ควรส่งผลต่อ order ที่ผูกกันอยู่อย่างไร component ที่จัดการ list นั้นเป็นตัวกำหนดพฤติกรรม ไม่ว่าจะเป็น matching
@@ -9,7 +11,7 @@ engine ของ backtest, order emulator ภายในเครื่อง, 
 ตรวจสอบ integration เป้าหมายก่อนพึ่งพาพฤติกรรม contingency แบบ native
 :::
 
-## Order list {#order-lists}
+## Order list [#order-lists]
 
 Order list จัดกลุ่ม contingent order หรือ batch ที่ใหญ่กว่านั้นไว้ภายใต้ `order_list_id` เดียว order ใน list
 ไม่จำเป็นต้องมีความสัมพันธ์แบบ contingency ต่อกัน ความสัมพันธ์ใด ๆ กำหนดด้วย metadata ของแต่ละ order เอง
@@ -42,7 +44,7 @@ event `OrderDenied` ให้กับ[สมาชิกที่เข้า�
   และตรวจสอบพฤติกรรมของ adapter เป้าหมายก่อนพึ่งพา ส่วน backtest และการ routing ที่ strategy จัดการเอง
   ไม่ต้องพึ่งพฤติกรรม batch แบบหลาย instrument ของ adapter
 
-## ประเภท contingency {#contingency-types}
+## ประเภท contingency [#contingency-types]
 
 - **OTO (One-Triggers-Other)**: parent order ปล่อย child order ตั้งแต่หนึ่งตัวขึ้นไปหลังเข้าเงื่อนไข fill ที่ตั้งไว้
 - **OCO (One-Cancels-Other)**: เมื่อ order ตัวหนึ่งที่ผูกกันเกิด fill จะขอยกเลิกตัวอื่น
@@ -53,7 +55,7 @@ Type เหล่านี้ตรงกับ FIX
 [`ContingencyType <1385>`](https://www.onixs.biz/fix-dictionary/5.0.sp2/tagnum_1385.html)
 :::
 
-### Contingency ที่ strategy จัดการ {#strategy-managed-contingencies}
+### Contingency ที่ strategy จัดการ [#strategy-managed-contingencies]
 
 เปิด `StrategyConfig.manage_contingent_orders` เพื่อให้ strategy จัดการความสัมพันธ์ OTO, OCO และ OUO ที่เปิดอยู่
 ของ order ที่ไม่ได้เป็น active local strategy จะส่งคำสั่งยกเลิกและอัปเดตปริมาณที่เกิดขึ้นผ่านเส้นทาง execution ปกติ
@@ -85,7 +87,7 @@ sequenceDiagram
 สำหรับ order ที่เปิดอยู่และ strategy จัดการ OCO จะขอยกเลิกตั้งแต่เกิด partial fill ส่วน OUO จะขออัปเดตปริมาณก่อน
 แล้วขอยกเลิกเมื่อไม่เหลือปริมาณ
 
-### One-Triggers-Other (OTO) {#one-triggers-other-oto}
+### One-Triggers-Other (OTO) [#one-triggers-other-oto]
 
 **ลำดับของ OTO**: ความสัมพันธ์แบบ OTO มีสองส่วน
 
@@ -95,7 +97,7 @@ sequenceDiagram
 Handler เป็นผู้กำหนดว่า child จะรออยู่ที่ไหน backtest engine สามารถถือ child ไว้ภายในเครื่องได้ ส่วน live adapter
 อาจส่ง instruction แบบ native ของ venue ส่งทุกขา reject list หรือกำหนดให้ strategy จัดการความสัมพันธ์เอง
 
-#### การกำหนดขนาด child {#child-sizing}
+#### การกำหนดขนาด child [#child-sizing]
 
 ก่อน parent จะ fill ครั้งแรก การจัดการโดย strategy จะส่งต่อการอัปเดตปริมาณของ parent ไปยัง OTO child ที่เปิดอยู่
 และไม่ได้เป็น active local
@@ -117,7 +119,7 @@ size increment และ minimum quantity (ถ้ามี) ของ instrument
 Parent แบบ spread จะข้ามการจำกัดตาม position เพราะ execution engine ไม่สร้าง position ให้ child ที่ไม่ได้เป็น
 reduce-only ก็ข้ามการจำกัดนี้เช่นกัน แต่ทั้งสองกรณียังใช้กฎขนาดของ instrument ของ child
 
-#### สถานะที่จำเป็นสำหรับการกำหนดขนาด {#required-sizing-state}
+#### สถานะที่จำเป็นสำหรับการกำหนดขนาด [#required-sizing-state]
 
 **เงื่อนไขก่อนกำหนดขนาด**: เมื่อ fill event, parent ใน cache หรือ sibling ใน execution spawn ที่ fill แล้วระบุ
 position ได้ การกำหนดขนาดต้องมีสิ่งต่อไปนี้
@@ -131,7 +133,7 @@ position ได้ การกำหนดขนาดต้องมีสิ�
 สถานะการกำหนดขนาดอื่นที่ขาดหายจะทำให้ child ที่ได้รับผลกระทบคงเดิม และการประมวลผลจะดำเนินต่อกับ child
 ที่ผูกอยู่ตัวที่เหลือ
 
-#### วงจรชีวิตของ child {#child-lifecycle}
+#### วงจรชีวิตของ child [#child-lifecycle]
 
 **การนำเป้าหมายไปใช้**: event ของ parent จะนำเป้าหมายที่ตรวจสอบแล้วไปใช้ตามสถานะของ child และ parent
 
@@ -145,7 +147,7 @@ position ได้ การกำหนดขนาดต้องมีสิ�
 
 Fill หรือการอัปเดตของ child ไม่ทำให้คำนวณเป้าหมายใหม่ทันที event ถัดไปของ parent จะเป็นตัว refresh
 
-#### Trigger model {#trigger-models}
+#### Trigger model [#trigger-models]
 
 | Trigger model | เงื่อนไขการปล่อยใน backtest                                                  |
 | ------------- | ------------------------------------------------------------------------ |
@@ -196,7 +198,7 @@ OTO child แบบ reduce-only จะปรับขนาดเมื่อ fi
 fill ที่รอส่งเข้า cache จะนับรวมในปริมาณ position ที่ใช้ได้ด้วย exit ที่ถูกปล่อยสามารถ fill ใน bar เดียวกันได้
 เมื่อขั้นถัดไปของ[การจำลองราคา OHLC](../backtesting/bar-execution.md#ohlc-price-simulation)ไปถึงราคาที่จับคู่ได้
 
-#### การบังคับ trigger แบบ fill ครบในโค้ด strategy {#enforcing-a-full-fill-trigger-in-strategy-code}
+#### การบังคับ trigger แบบ fill ครบในโค้ด strategy [#enforcing-a-full-fill-trigger-in-strategy-code]
 
 **ทางเลือกสำรองแบบ fill ครบ**: หาก execution context ไม่มีพฤติกรรม fill ครบตามที่ต้องการ ให้ทำตามขั้นตอนนี้
 
@@ -212,7 +214,7 @@ partial ช่วยลดความล่าช้านี้ ใน backtes
 ของ adapter ก่อนจะถือว่า child คุ้มครองได้ครบถ้วน
 :::
 
-### One-Cancels-Other (OCO) {#one-cancels-other-oco}
+### One-Cancels-Other (OCO) [#one-cancels-other-oco]
 
 **ผู้รับผิดชอบการยกเลิก**: การยกเลิกแบบ OCO ขึ้นอยู่กับ component ที่จัดการความสัมพันธ์
 
@@ -224,9 +226,9 @@ partial ช่วยลดความล่าช้านี้ ใน backtes
 
 Sibling ตัวอื่นอาจ fill ก่อนการยกเลิกจะเสร็จสิ้นได้
 
-### One-Updates-Other (OUO) {#one-updates-other-ouo}
+### One-Updates-Other (OUO) [#one-updates-other-ouo]
 
-#### การอัปเดตหลัง sibling fill {#updates-after-a-sibling-fill}
+#### การอัปเดตหลัง sibling fill [#updates-after-a-sibling-fill]
 
 **เป้าหมายของ sibling**: ใน local matching ของ backtest fill ใน OUO order ตัวหนึ่งจะใช้ปริมาณคงเหลือของ order
 ตัวนั้นเป็นเป้าหมายสำหรับ sibling ที่เปิดอยู่แต่ละตัว
@@ -238,7 +240,7 @@ Sibling ตัวอื่นอาจ fill ก่อนการยกเลิ
 โดย strategy strategy จะใช้พฤติกรรมอัปเดตหรือยกเลิกแบบเดียวกันกับ sibling ที่เปิดอยู่และไม่ได้เป็น active local
 มิฉะนั้นพฤติกรรมแบบ live จะขึ้นกับการรองรับของ adapter และ venue
 
-#### การปรับขนาด reduce-only ใน backtest {#backtest-reduce-only-resizing}
+#### การปรับขนาด reduce-only ใน backtest [#backtest-reduce-only-resizing]
 
 เมื่อเปิดการบังคับ reduce-only fill หนึ่งครั้งสามารถปรับขนาด reduce-only order ที่ resting อยู่ให้เท่ากับปริมาณ
 position ที่ใช้ได้ ภายใต้ขีดจำกัดของ parent
@@ -261,7 +263,7 @@ Order ที่กำลังถูก fill อยู่ยังคงใช�
 ปริมาณที่ปรับขนาดเป็นหน่วย base ดังนั้นเมื่อ trigger จะไม่ถูกแปลงซ้ำอีก inverse instrument ไม่มีการแปลง quote
 order จึงคงหน่วยของปริมาณไว้ตามเดิม
 
-#### การยกเลิกใน backtest เมื่อความจุเป็นศูนย์ {#backtest-cancellation-at-zero-capacity}
+#### การยกเลิกใน backtest เมื่อความจุเป็นศูนย์ [#backtest-cancellation-at-zero-capacity]
 
 **ความจุเป็นศูนย์**: เมื่อเปิดการบังคับ reduce-only และการรองรับ contingent order ให้ใช้กฎนี้
 
@@ -269,7 +271,7 @@ order จึงคงหน่วยของปริมาณไว้ตา�
   รวมถึง sibling ที่ event การ accept ยังรอส่งอยู่ด้วย
 - เมื่อ sibling ใช้โควตาของ parent ตัวเองหมดเพียงอย่างเดียว ให้ปรับขนาดเหลือเท่าปริมาณที่ fill แล้ว แล้วยกเลิก
 
-## การสร้าง contingent order {#constructing-contingent-orders}
+## การสร้าง contingent order [#constructing-contingent-orders]
 
 ใช้ `OrderFactory.bracket` เพื่อสร้าง contingency metadata ของ bracket
 
@@ -292,7 +294,7 @@ order จึงคงหน่วยของปริมาณไว้ตา�
 แยกกัน และทำให้ position ไม่มีการคุ้มครองตามที่ตั้งใจไว้
 :::
 
-## Bracket order {#bracket-orders}
+## Bracket order [#bracket-orders]
 
 Bracket order รวม entry เข้ากับ child แบบ take-profit และ stop-loss โดยค่าเริ่มต้น `OrderFactory.bracket` จะสร้าง
 entry แบบ `MARKET`, take-profit แบบ `LIMIT` และ stop-loss แบบ `STOP_MARKET` โดยทำเครื่องหมาย entry ด้วย
@@ -347,7 +349,7 @@ let orders = self
 หลัง entry fill แล้ว
 :::
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Orders](index.md) - แนวคิดเรื่อง order, execution instruction และ order factory
 - [Emulated orders](emulated.md) - การ emulate ประเภท order บน venue ที่ไม่รองรับแบบ native

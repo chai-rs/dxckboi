@@ -1,20 +1,22 @@
-# Configuration
+---
+title: "Configuration"
+---
 
 NautilusTrader ใช้ config object แบบมี type สำหรับ data client, execution client, engine และ strategy
 config ระดับสูงจะประกอบขึ้นจาก config ของ component เหล่านี้ ตัวอย่างเช่น `LiveNodeConfig` เป็นเจ้าของการตั้งค่า
 component หลักของ node ส่วน adapter client ให้ลงทะเบียนผ่าน `LiveNode.builder(...)` adapter จะแยก config
 ของ data client และ execution client ออกจากกันเมื่อความสามารถหรือ credential ของทั้งสองแตกต่างกัน
 
-## หลักการออกแบบ {#design-principles}
+## หลักการออกแบบ [#design-principles]
 
-### ฟิลด์แบบ concrete เก็บค่าที่ resolve แล้ว {#concrete-fields-carry-resolved-values}
+### ฟิลด์แบบ concrete เก็บค่าที่ resolve แล้ว [#concrete-fields-carry-resolved-values]
 
 ฟิลด์ config ใน Rust โดยปกติจะเก็บค่าแบบ concrete เมื่อ component ต้องการค่าที่ resolve แล้ว
 ตัวอย่างเช่น timeout ของ adapter, จำนวนครั้งที่ retry, ระยะเวลา backoff และ heartbeat interval มักใช้
 type พื้นฐานอย่าง `u64` หรือ `u32` ขั้นตอนการสร้าง (construction) จะ resolve ฟิลด์เหล่านี้ก่อน component เริ่มทำงาน
 ทำให้โค้ดที่อยู่ปลายทางใช้ค่าได้ทันทีโดยไม่ต้องเขียน logic การกำหนดค่าเริ่มต้นซ้ำ
 
-### ความหมายของ Option ขึ้นกับแต่ละฟิลด์ {#option-semantics-are-field-specific}
+### ความหมายของ Option ขึ้นกับแต่ละฟิลด์ [#option-semantics-are-field-specific]
 
 ใน config ของ Rust ที่เก็บไว้แล้ว `Option<T>` จะมีค่าเป็น `Some(value)` หรือ `None` อย่างใดอย่างหนึ่ง ค่าที่เก็บไว้
 ไม่ได้บันทึกว่าผู้เรียกละเว้น input นั้นหรือไม่ component อาจตีความ `None` ว่าเป็นการปิดฟีเจอร์,
@@ -24,7 +26,7 @@ type พื้นฐานอย่าง `u64` หรือ `u32` ขั้น�
 ความแตกต่างนี้ทำให้ความหมายของ config ปรากฏอยู่ใน type เลย `u64` ธรรมดาจะมีค่าเสมอ ในขณะที่
 โค้ดที่ใช้ `Option<u64>` ต้องจัดการกรณีที่ไม่มีค่าเอง
 
-### ค่าเริ่มต้นขึ้นกับแต่ละ type {#defaults-are-type-specific}
+### ค่าเริ่มต้นขึ้นกับแต่ละ type [#defaults-are-type-specific]
 
 type ของ config ใน Rust กำหนดค่าเริ่มต้นผ่าน annotation `#[builder(default = value)]`, implementation
 ของ `Default` ที่เขียนเอง หรือทั้งสองอย่าง
@@ -37,7 +39,7 @@ implementation `Default` ของ config นั้น ส่วน `#[serde(def
 ที่เขียนเองอาจมอบหมายการสร้างบางส่วนให้ builder ก็ได้ แต่ขึ้นกับแต่ละ type อย่าทึกทักเอาว่าสองเส้นทางนี้
 ใช้แทนกันได้ เว้นแต่ implementation หรือเอกสารจะรับประกันไว้
 
-### การจัดการฟิลด์ที่ไม่รู้จักขึ้นกับเส้นทางการสร้าง {#unknown-field-handling-depends-on-the-construction-path}
+### การจัดการฟิลด์ที่ไม่รู้จักขึ้นกับเส้นทางการสร้าง [#unknown-field-handling-depends-on-the-construction-path]
 
 แต่ละเส้นทางการสร้างบังคับใช้กฎเรื่องฟิลด์ที่ไม่รู้จักแยกกัน:
 
@@ -46,7 +48,7 @@ implementation `Default` ของ config นั้น ส่วน `#[serde(def
 
 อย่าอนุมานความเข้มงวดของเส้นทางการสร้างหนึ่งจากอีกเส้นทางหนึ่ง
 
-## Config ใน Rust {#rust-configs}
+## Config ใน Rust [#rust-configs]
 
 config struct ใน Rust จำนวนมาก derive [`bon::Builder`](https://bon-rs.com) ซึ่งสร้าง builder แบบ type-safe
 ที่ตรวจสอบฟิลด์ที่จำเป็นได้ตั้งแต่ตอน compile builder สามารถละเว้นฟิลด์ที่ประกาศค่าเริ่มต้นของ builder ไว้ได้
@@ -69,7 +71,7 @@ let with_struct_update = DataEngineConfig {
 
 ใช้ `DataEngineConfig::default()` เมื่อไม่ต้องการ override ฟิลด์ใดเลย
 
-## ฟิลด์ config ของ adapter {#adapter-config-fields}
+## ฟิลด์ config ของ adapter [#adapter-config-fields]
 
 ชื่อฟิลด์มักซ้ำกันในหลาย adapter config แต่ type และค่าเริ่มต้นขึ้นกับ adapter และ client
 ตัวอย่างเช่น `BybitDataClientConfig` กำหนดฟิลด์ดังด้านล่าง คอลัมน์ `Default` แสดงค่าจาก
@@ -93,7 +95,7 @@ let with_struct_update = DataEngineConfig {
 ฟิลด์เฉพาะของแต่ละ adapter เช่น rate limit, polling interval และ margin mode มีอธิบายไว้ใน
 [คู่มือ integration](../integrations/index.md)
 
-## Config ของ engine {#engine-configs}
+## Config ของ engine [#engine-configs]
 
 config ของ engine ใช้แนวทางฟิลด์แบบมี type เช่นเดียวกัน ใน `LiveExecutionEngineConfig` ฟิลด์อย่าง
 `reconciliation`, `inflight_check_interval_ms` และ `open_check_threshold_ms` มีค่าเริ่มต้นแบบ concrete:

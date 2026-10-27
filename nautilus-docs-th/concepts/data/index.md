@@ -1,10 +1,12 @@
-# Data
+---
+title: "Data"
+---
 
 NautilusTrader รองรับข้อมูล order book แบบละเอียด, quote, trade, bar, ราคาอ้างอิง และ custom data
 หน้าภาพรวมนี้รวมลิงก์ไปยังชนิดข้อมูล built-in และอธิบายแนวคิดที่ใช้ร่วมกันในสภาพแวดล้อม backtest, sandbox
 และ live
 
-## ชนิดข้อมูล built-in {#built-in-data-types}
+## ชนิดข้อมูล built-in [#built-in-data-types]
 
 market data แบบ built-in หลักแต่ละชนิดมีคู่มือเฉพาะที่อธิบายฟิลด์ พฤติกรรม และการสร้าง
 
@@ -30,7 +32,7 @@ market data แบบ built-in หลักแต่ละชนิดมีค�
 
 ดูลำดับชั้นของ topic ได้ที่ [Message Bus](../message_bus.md#topic-hierarchy)
 
-## Order book {#order-books}
+## Order book [#order-books]
 
 `OrderBook` ของ Rust ดูแล state ของ instrument หนึ่งตัว ทั้งใน backtest และ live trading NautilusTrader
 รองรับ book type ดังนี้:
@@ -42,7 +44,7 @@ market data แบบ built-in หลักแต่ละชนิดมีค�
 ข้อมูล quote, trade และ bar (`QuoteTick`, `TradeTick` และ `Bar`) ก็ขับเคลื่อน book แบบ `L1_MBP` ใน
 backtest ได้เช่นกัน
 
-### Delta flag และขอบเขตของ event {#delta-flags-and-event-boundaries}
+### Delta flag และขอบเขตของ event [#delta-flags-and-event-boundaries]
 
 `OrderBookDelta` แต่ละตัวมีฟิลด์ `flags` ที่ใช้ค่า bitmask ของ `RecordFlag` เพื่อบอกขอบเขตของ event ให้
 `DataEngine`:
@@ -61,16 +63,16 @@ backtest ได้เช่นกัน
 `Clear` ตัวเดียว
 :::
 
-## Instrument {#instruments}
+## Instrument [#instruments]
 
 market data ทั้งหมดเป็นของ instrument ตัวใดตัวหนึ่ง นิยามของ instrument ให้ข้อมูล identity, precision,
 ขั้นของราคาและขนาด, ขีดจำกัด, สกุลเงิน และความหมายของสัญญา ซึ่งทำให้ข้อมูลมีความหมาย
 
 ดูการจัดหมวดหมู่ instrument และคู่มือของแต่ละประเภทได้ที่ [Instruments](../instruments/)
 
-## Bar และการ aggregate {#bars-and-aggregation}
+## Bar และการ aggregate [#bars-and-aggregation]
 
-### รู้จัก bar {#introduction-to-bars}
+### รู้จัก bar [#introduction-to-bars]
 
 **bar** หรือที่เรียกว่า candle, candlestick หรือ kline สรุปราคาและ volume ในช่วงเวลาหนึ่ง:
 
@@ -82,7 +84,7 @@ market data ทั้งหมดเป็นของ instrument ตัวใ�
 
 **aggregation method** กำหนดว่า NautilusTrader จะจัดกลุ่มข้อมูล input เป็น bar อย่างไร
 
-### จุดประสงค์ของการ aggregate ข้อมูล {#purpose-of-data-aggregation}
+### จุดประสงค์ของการ aggregate ข้อมูล [#purpose-of-data-aggregation]
 
 การ aggregate แปลง market data แบบละเอียดเป็น bar ที่:
 
@@ -90,7 +92,7 @@ market data ทั้งหมดเป็นของ instrument ตัวใ�
 - ตรงกับความละเอียดของเวลาที่ strategy ต้องการ
 - ลดพื้นที่เก็บข้อมูลและการประมวลผลเมื่อเทียบกับข้อมูล order book ความถี่สูง
 
-### Aggregation method {#aggregation-methods}
+### Aggregation method [#aggregation-methods]
 
 NautilusTrader รองรับ aggregation method ต่อไปนี้:
 
@@ -119,7 +121,7 @@ NautilusTrader รองรับ aggregation method ต่อไปนี้:
 ด้วยราคาและไม่มี predicate ที่ตรงกัน แนวคิด information-driven ที่กว้างกว่าในหัวข้อถัดไปครอบคลุมทั้ง bar แบบ
 imbalance และ runs
 
-### Information-driven bar {#information-driven-bars}
+### Information-driven bar [#information-driven-bars]
 
 information-driven bar ปรับความถี่ในการ sample ตามกิจกรรมของตลาด แทนที่จะใช้ช่วงเวลาคงที่ โดยอิงแนวคิดของ
 **aggressor side** (ผู้เริ่ม trade เป็นฝั่งซื้อหรือฝั่งขาย) และแบ่งเป็นสองตระกูล คือ **imbalance** และ **runs**
@@ -142,7 +144,7 @@ aggressor side เปลี่ยน ทำให้ไวต่อแรงก�
 information-driven bar ต้องใช้ข้อมูล `TradeTick` เพราะต้องใช้ฟิลด์ `aggressor_side` ในการจำแนกแต่ละ trade
 จึง aggregate จากข้อมูล `QuoteTick` เพียงอย่างเดียวไม่ได้
 
-### ประเภทของการ aggregate {#types-of-aggregation}
+### ประเภทของการ aggregate [#types-of-aggregation]
 
 NautilusTrader รองรับ input สำหรับการ aggregate สามแบบ:
 
@@ -152,7 +154,7 @@ NautilusTrader รองรับ input สำหรับการ aggregate �
 | `QuoteTick`   | aggregate จาก quote เป็น bar              | `BID`, `ASK` หรือ `MID` | ไม่มี source หลัง `@` |
 | `Bar` ที่เล็กกว่า | aggregate จาก bar เป็น bar ที่ใหญ่กว่า | price type ของ target bar | source ตามหลัง `@` |
 
-### Bar type {#bar-types}
+### Bar type [#bar-types]
 
 `BarType` ระบุ bar ด้วย:
 
@@ -184,7 +186,7 @@ bar type ยังแบ่งได้เป็นแบบ *standard* หร�
 - **Standard**: สร้างจาก market data แบบละเอียด เช่น quote tick หรือ trade tick
 - **Composite**: ได้มาจาก bar type ที่ละเอียดกว่า เช่น bar 5 นาทีที่ aggregate จาก bar 1 นาที
 
-### Aggregation source {#aggregation-sources}
+### Aggregation source [#aggregation-sources]
 
 การ aggregate ข้อมูล bar เป็นได้ทั้งแบบ *internal* หรือ *external*:
 
@@ -194,9 +196,9 @@ bar type ยังแบ่งได้เป็นแบบ *standard* หร�
 สำหรับการ aggregate จาก bar เป็น bar นั้น target จะเป็น `INTERNAL` เสมอ ส่วน source เป็นได้ทั้ง `INTERNAL`
 หรือ `EXTERNAL`
 
-### การนิยาม bar type ด้วย string syntax {#defining-bar-types-with-string-syntax}
+### การนิยาม bar type ด้วย string syntax [#defining-bar-types-with-string-syntax]
 
-#### Standard bar {#standard-bars}
+#### Standard bar [#standard-bars]
 
 นิยาม standard bar type ด้วย:
 
@@ -205,7 +207,7 @@ bar type ยังแบ่งได้เป็นแบบ *standard* หร�
 ตัวอย่างนี้นิยาม trade bar 5 นาทีของ AAPL ที่ NautilusTrader aggregate เองภายใน:
 `AAPL.XNAS-5-MINUTE-LAST-INTERNAL`
 
-#### Composite bar {#composite-bars}
+#### Composite bar [#composite-bars]
 
 นิยาม composite bar type ด้วย:
 
@@ -219,7 +221,7 @@ bar type ยังแบ่งได้เป็นแบบ *standard* หร�
 ตัวอย่างนี้นิยาม trade bar 5 นาทีของ AAPL แบบ internal ที่ aggregate จาก bar 1 นาทีแบบ external:
 `AAPL.XNAS-5-MINUTE-LAST-INTERNAL@1-MINUTE-EXTERNAL`
 
-### ตัวอย่าง syntax ของการ aggregate {#aggregation-syntax-examples}
+### ตัวอย่าง syntax ของการ aggregate [#aggregation-syntax-examples]
 
 รูปแบบ string ของ `BarType` เข้ารหัสทั้ง target bar type และ (ถ้ามี) ชนิดของข้อมูลต้นทาง:
 
@@ -247,7 +249,7 @@ bar type ยังแบ่งได้เป็นแบบ *standard* หร�
 
 > หมายเหตุ: ต้นฉบับมีตัวอย่างการ request/subscribe bar เหล่านี้เฉพาะในภาษา Python จึงตัดออก
 
-### การทำงานกับ bar: request กับ subscribe {#working-with-bars-request-vs-subscribe}
+### การทำงานกับ bar: request กับ subscribe [#working-with-bars-request-vs-subscribe]
 
 NautilusTrader มีสองการดำเนินการสำหรับทำงานกับ bar:
 
@@ -267,12 +269,12 @@ NautilusTrader มีสองการดำเนินการสำหร�
 request จะคืนค่า correlation ID ข้อมูลย้อนหลังจะมาถึงผ่าน `on_historical_bars()` เป็นชุดของ bar ส่วนข้อมูล live
 จะมาถึงผ่าน `on_bar()` ทีละ bar
 
-### ลงทะเบียน indicator ก่อน request ข้อมูล {#register-indicators-before-requesting-data}
+### ลงทะเบียน indicator ก่อน request ข้อมูล [#register-indicators-before-requesting-data]
 
 ให้ลงทะเบียน indicator ก่อน request ข้อมูลย้อนหลัง เพื่อให้ indicator ได้รับการอัปเดตจากข้อมูลเหล่านั้น ถ้า request
 ก่อนแล้วค่อยลงทะเบียน indicator จะพลาดการอัปเดตจากข้อมูลย้อนหลัง
 
-### ข้อพิจารณาด้านประสิทธิภาพ {#performance-considerations}
+### ข้อพิจารณาด้านประสิทธิภาพ [#performance-considerations]
 
 bar aggregator ติดตามราคา OHLC ด้วย `Price` แบบ fixed-point ส่วน aggregation method เป็นตัวกำหนดงานเพิ่มเติม
 ในแต่ละการอัปเดต:
@@ -284,7 +286,7 @@ bar aggregator ติดตามราคา OHLC ด้วย `Price` แบ�
 - **Renko bar**: bar ที่ขับเคลื่อนด้วยราคาอาจส่ง bar ออกมาหลายตัวจากการเคลื่อนของราคาครั้งใหญ่ครั้งเดียว
 - **Composite bar**: ประมวลผล source bar ที่ aggregate แล้ว แทนที่จะประมวลผลทุก tick ที่อยู่ข้างใต้
 
-### การตั้งค่า time bar {#time-bar-configuration}
+### การตั้งค่า time bar [#time-bar-configuration]
 
 `DataEngineConfig` ควบคุมพฤติกรรมของ time bar ตัวเลือกเหล่านี้ใช้กับการ aggregate ตามเวลาทั้งหมด ตั้งแต่
 มิลลิวินาทีจนถึงปี:
@@ -308,7 +310,7 @@ bar aggregator ติดตามราคา OHLC ด้วย `Price` แบ�
 
 > หมายเหตุ: ต้นฉบับมีตัวอย่าง `DataEngineConfig` เฉพาะในภาษา Python จึงตัดออก
 
-#### การ override time zone {#time-zone-overrides}
+#### การ override time zone [#time-zone-overrides]
 
 สำหรับ bar ที่ aggregate ภายใน สามารถ override zone ที่ตั้งไว้ใน engine ผ่านพารามิเตอร์ของ request หรือ
 subscription:
@@ -320,7 +322,7 @@ subscription:
 zone เดียวกัน historical request ที่ตั้ง `"update_subscriptions"` เป็น true ก็ใช้ instance นั้นร่วมกันด้วย ดังนั้น
 zone ที่ต่างกันจะถูกปฏิเสธ ส่วน request aggregator ที่เป็นอิสระใช้ zone อื่นได้
 
-#### ขอบเขตปฏิทิน {#calendar-boundaries}
+#### ขอบเขตปฏิทิน [#calendar-boundaries]
 
 origin offset ใช้กับขอบเขตท้องถิ่นตามชื่อ (nominal) ก่อนการ resolve DST:
 
@@ -332,14 +334,14 @@ build delay จะบวกเวลาที่ผ่านไปหน่ว�
 UTC UNIX nanoseconds และช่วงเวลาที่สั้นกว่าหนึ่งวันยังจัดแนวตาม UTC ขอบเขตปฏิทินเหล่านี้ไม่รวม session ของ
 exchange วันหยุด หรือการปิดก่อนเวลา
 
-## Timestamp {#timestamps}
+## Timestamp [#timestamps]
 
 market data, order และ event object จำนวนมากมี timestamp สองค่า:
 
 - `ts_event`: UNIX timestamp หน่วย nanoseconds ตอนที่ event เกิดขึ้น
 - `ts_init`: UNIX timestamp หน่วย nanoseconds ตอนที่ NautilusTrader initialize object
 
-### ความหมายโดยทั่วไป {#typical-meanings}
+### ความหมายโดยทั่วไป [#typical-meanings]
 
 | ชนิด event        | `ts_event`                             | `ts_init`                                        |
 | ----------------- | -------------------------------------- | ------------------------------------------------ |
@@ -358,26 +360,26 @@ market data, order และ event object จำนวนมากมี timesta
 แม้ว่า NautilusTrader จะไม่ได้รับมาจากแหล่งภายนอก
 :::
 
-### การวิเคราะห์ latency {#latency-analysis}
+### การวิเคราะห์ latency [#latency-analysis]
 
 ผลต่าง `ts_init - ts_event` วัด delay ที่สังเกตได้ก็ต่อเมื่อ clock ที่สร้าง timestamp ทั้งสองค่าซิงก์กันเท่านั้น
 มิฉะนั้นผลลัพธ์จะรวม clock offset ไว้ด้วย และใช้แทน latency ของระบบเพียงอย่างเดียวไม่ได้
 
-### พฤติกรรมเฉพาะของแต่ละ environment {#environment-specific-behavior}
+### พฤติกรรมเฉพาะของแต่ละ environment [#environment-specific-behavior]
 
-#### Environment ของ backtest {#backtesting-environment}
+#### Environment ของ backtest [#backtesting-environment]
 
 - ข้อมูลเรียงตาม `ts_init` ด้วย stable sort
 - ข้อมูล DeFi (`DefiData`) ตัดสินกรณี `ts_init` เท่ากันด้วยตำแหน่งบน chain (block number, transaction
   index, log index) เพื่อให้ event จาก block เดียวกัน replay ตามลำดับ canonical ของ chain
 - การเรียงลำดับนี้ทำให้ backtest replay ได้แบบ deterministic
 
-#### Environment ของ live trading {#live-trading-environment}
+#### Environment ของ live trading [#live-trading-environment]
 
 live trading ประมวลผลข้อมูลตามที่เข้ามา สำหรับข้อมูลจาก venue ค่า `ts_event` บันทึกเวลาของ event ภายนอก
 ส่วน `ts_init` มักบันทึกเวลาที่ initialize object ภายในเครื่องหลังได้รับข้อมูล
 
-### หมายเหตุและข้อพิจารณาอื่น ๆ {#other-notes-and-considerations}
+### หมายเหตุและข้อพิจารณาอื่น ๆ [#other-notes-and-considerations]
 
 - สำหรับข้อมูลจากแหล่งภายนอก `ts_init` มักเป็นเวลาที่ได้รับหรือ normalize ภายในเครื่อง เนื่องจาก clock skew
   จึงไม่รับประกันว่า `ts_init` จะมากกว่าหรือเท่ากับ `ts_event`
@@ -386,12 +388,12 @@ live trading ประมวลผลข้อมูลตามที่เข�
   - การ initialize object เกิดขึ้นพร้อมกับตัว event เอง
   - แนวคิดเรื่องเวลาของ event ภายนอกใช้ไม่ได้
 
-#### ข้อมูลที่ persist ไว้ {#persisted-data}
+#### ข้อมูลที่ persist ไว้ [#persisted-data]
 
 ฟิลด์ `ts_init` เก็บ timestamp ตอน initialize ดั้งเดิมไว้ สำหรับข้อมูลจาก venue มักเป็นเวลาที่ได้รับ สำหรับข้อมูล
 ที่สร้างภายในคือเวลาที่สร้าง object นั้น
 
-## Data flow {#data-flow}
+## Data flow [#data-flow]
 
 ตั้งแต่ `DataEngine` เป็นต้นไป ข้อมูลจะไหลผ่านเส้นทางเดียวกันในทุก
 [environment context](../architecture.md#environment-contexts): backtest, sandbox และ live ที่ต่างกันคือ
@@ -406,7 +408,7 @@ live trading ประมวลผลข้อมูลตามที่เข�
 
 ดู [Custom data](#custom-data) เพื่อนิยามและ publish ชนิดข้อมูลอื่น
 
-## การโหลดข้อมูล {#loading-data}
+## การโหลดข้อมูล [#loading-data]
 
 แปลง record จากภายนอกให้เป็น model object ของ NautilusTrader ก่อนเพิ่มลงใน backtest หรือเขียนลง catalog
 เส้นทางการแปลงขึ้นอยู่กับแหล่งข้อมูล:
@@ -414,17 +416,17 @@ live trading ประมวลผลข้อมูลตามที่เข�
 - ใช้ adapter loader เมื่อ repository มี loader สำหรับรูปแบบข้อมูลนั้น
 - สร้าง model type เป้าหมายโดยตรงเมื่อทำงานจากแถวข้อมูลที่ normalize แล้ว
 
-### Data loader {#data-loaders}
+### Data loader [#data-loaders]
 
 data loader เฉพาะเจาะจงกับรูปแบบของแหล่งข้อมูล: ข้อมูล order book แบบ CSV ของ Binance ต่างจาก
 [Databento Binary Encoding (DBN)](https://databento.com/docs/knowledge-base/new-users/dbn-encoding/getting-started-with-dbn)
 
-### Fixed-point precision และ raw value {#fixed-point-precision-and-raw-values}
+### Fixed-point precision และ raw value [#fixed-point-precision-and-raw-values]
 
 NautilusTrader ใช้ fixed-point arithmetic สำหรับ `Price` และ `Quantity` raw value ต้องตรงกับ scale ของ
 precision ที่ประกาศไว้
 
-#### ข้อกำหนดของ raw value {#raw-value-requirements}
+#### ข้อกำหนดของ raw value [#raw-value-requirements]
 
 เมื่อสร้าง `Price` หรือ `Quantity` ด้วย `from_raw()` ให้ใช้ raw value จาก:
 
@@ -443,14 +445,14 @@ column ราคาและขนาดของ catalog ปัจจุบั�
 decode แล้วเป็นทศนิยม ส่วน mantissa ทางกายภาพใช้ scale ของ storage ซึ่งอาจต่างจาก scale ของ raw integer
 ใน model ให้ใช้ `from_raw()` เฉพาะกับจำนวนเต็มที่เข้ารหัสด้วย scale ของ model ที่ใช้งานอยู่แล้วเท่านั้น
 
-#### การแก้ไข raw value แบบเก่า {#legacy-raw-value-correction}
+#### การแก้ไข raw value แบบเก่า [#legacy-raw-value-correction]
 
 ตัวเขียน catalog รุ่นเก่าอาจทำให้เกิดความคลาดเคลื่อนของ floating-point จากการคำนวณ raw value ด้วย
 `int(value * FIXED_SCALAR)` การ migrate อย่างชัดเจนจะแก้ค่าราคาและปริมาณที่ได้รับผลกระทบให้เป็นผลคูณของ scale
 ที่ถูกต้องที่ใกล้ที่สุดตาม precision โดยไม่แตะ sentinel value catalog เหล่านี้ต้อง migrate อย่างชัดเจนก่อน query
 ตอน runtime การแก้ไขนี้เพิ่มงานเล็กน้อยระหว่าง decode Arrow
 
-### Pipeline การแปลงข้อมูล {#transformation-pipeline}
+### Pipeline การแปลงข้อมูล [#transformation-pipeline]
 
 1. loader เฉพาะของแหล่งข้อมูลอ่านข้อมูลดิบ
 1. การแปลงจะ normalize ชื่อฟิลด์, timestamp, enum และ precision
@@ -474,13 +476,13 @@ flowchart LR
 การแปลงต้องรักษาค่าราคาและปริมาณให้ตรงทุกประการ ให้สร้าง `Price` และ `Quantity` จาก input แบบทศนิยมหรือ
 string แทนที่จะส่งค่าที่ไม่ต่อเนื่องผ่าน binary floating point
 
-## Data catalog {#data-catalog}
+## Data catalog [#data-catalog]
 
 data catalog เก็บข้อมูลของ NautilusTrader ในไฟล์ [Parquet](https://parquet.apache.org) สำหรับ backtest,
 live trading และงานวิจัย ดูการ initialize, ตัวเลือก storage, การเขียน, การ query และการจัดการไฟล์ได้ที่
 [คู่มือ data catalog](catalog.md)
 
-## การ migrate ข้อมูล {#data-migrations}
+## การ migrate ข้อมูล [#data-migrations]
 
 crate `nautilus_model` กำหนดรูปแบบข้อมูลภายใน NautilusTrader serialize model เหล่านี้เป็น Arrow record batch
 และเก็บในไฟล์ Parquet
@@ -490,7 +492,7 @@ crate `nautilus_model` กำหนดรูปแบบข้อมูลภา
 ดู dry run, ตัวเลือก remote storage และรายงานการ migrate ได้ที่
 [Migrate a Parquet catalog](../../how_to/migrate_parquet_catalog.md)
 
-## Custom data {#custom-data}
+## Custom data [#custom-data]
 
 payload แบบกำหนดเองใช้ `DataType` สำหรับ identity และการ route และใช้ `CustomData` เป็น wrapper กลาง:
 
@@ -512,7 +514,7 @@ wrapper `CustomData` ที่ query มา ให้เพิ่มลงใน
 
 > หมายเหตุ: ต้นฉบับมีตัวอย่าง custom data class และการเขียน/query catalog เฉพาะในภาษา Python จึงตัดออก
 
-### การ publish และ subscribe {#publishing-and-subscribing}
+### การ publish และ subscribe [#publishing-and-subscribing]
 
 actor และ strategy publish และรับ wrapper `CustomData`
 
@@ -527,12 +529,12 @@ argument นี้สามารถ override `data_type` ของ wrapper `Cus
 - ถ้าไม่มี `client_id` จะติดตั้งเฉพาะ subscription ภายในบน message bus
 - ถ้ามี `client_id` จะส่ง subscription request ไปยัง data client นั้นด้วย
 
-### การเก็บใน cache {#cache-storage}
+### การเก็บใน cache [#cache-storage]
 
 `Cache` ทั่วไปเก็บ bytes ที่ serialize แล้วภายใต้ key ที่แอปพลิเคชันกำหนด หลังลงทะเบียนชนิดของ payload แล้ว
 actor หรือ strategy จะเก็บและกู้คืน wrapper `CustomData` ทั้งตัวไป-กลับได้
 
-### การ publish และรับข้อมูล signal {#publishing-and-receiving-signal-data}
+### การ publish และรับข้อมูล signal [#publishing-and-receiving-signal-data]
 
 **signal** คือข้อความ custom data ที่มีชื่อ และค่าของมันจะถูกแปลงเป็น string actor หรือ strategy publish และ
 subscribe signal ได้ (`publish_signal`, `subscribe_signal`)
@@ -540,7 +542,7 @@ subscribe signal ได้ (`publish_signal`, `subscribe_signal`)
 ถ้า `ts_event` เป็นศูนย์ `publish_signal` จะใช้เวลาปัจจุบันของ clock ข้อความ signal ใช้ custom data
 pipeline ภายใน ส่วน `subscribe_signal` จะ dispatch ไปยัง `on_signal`
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Custom data](../custom_data.md): การลงทะเบียนตอน runtime, wrapper, การ route และ persistence
 - [Instruments](../instruments/): financial instrument ที่ข้อมูลอ้างอิงถึง

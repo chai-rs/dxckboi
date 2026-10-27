@@ -1,4 +1,6 @@
-# Instruments
+---
+title: "Instruments"
+---
 
 instrument คือข้อกำหนด (specification) ของสินทรัพย์ สัญญา หรือตลาดสังเคราะห์ภายใน (local synthetic market)
 ที่ซื้อขายได้ ทั้ง market data, order, position, การบัญชี, การคำนวณของ portfolio และ symbology ของ adapter
@@ -6,7 +8,7 @@ instrument คือข้อกำหนด (specification) ของสิน�
 
 ตัวอย่าง Rust ในหน้านี้ใช้ crate `nautilus_model`
 
-## ประเภทของ instrument {#instrument-types}
+## ประเภทของ instrument [#instrument-types]
 
 | ประเภท instrument                                 | `InstrumentClass` | คำอธิบาย                                                  | Adapter ที่พบบ่อย                 |
 | ------------------------------------------------- | ----------------- | --------------------------------------------------------- | ------------------------------- |
@@ -30,7 +32,7 @@ instrument คือข้อกำหนด (specification) ของสิน�
 | [`BettingInstrument`](betting_instrument.md)      | `SPORTS_BETTING`  | ตัวเลือก (selection) ในตลาดกีฬาหรือเกม                         | Betfair.                        |
 | [`SyntheticInstrument`](synthetic_instrument.md)  | n/a               | instrument ภายในที่คำนวณจากสูตร                               | Local only.                     |
 
-## การจัดหมวดหมู่ {#taxonomy}
+## การจัดหมวดหมู่ [#taxonomy]
 
 **โครงสร้างตลาด**: NautilusTrader จัดกลุ่ม instrument ตามโครงสร้างตลาดที่ instrument นั้นแทน
 
@@ -70,7 +72,7 @@ flowchart TD
     Other --> SyntheticInstrument
 ```
 
-## ฟิลด์ร่วม {#common-fields}
+## ฟิลด์ร่วม [#common-fields]
 
 instrument ส่วนใหญ่มีโครงสร้างหลักเหมือนกัน หน้าของแต่ละประเภทจะแสดง constructor และฟิลด์ของ struct
 ของประเภทนั้นอย่างครบถ้วน
@@ -98,7 +100,7 @@ instrument ส่วนใหญ่มีโครงสร้างหลัก
 | `ts_event`        | timestamp แบบ UNIX nanosecond ของเวลาที่ event นิยาม instrument เกิดขึ้น   |
 | `ts_init`         | timestamp แบบ UNIX nanosecond ของเวลาที่ Nautilus สร้าง object            |
 
-## Tick scheme {#tick-schemes}
+## Tick scheme [#tick-schemes]
 
 tick scheme ที่มีชื่อจะกำหนดตารางราคา (price grid) ที่ method `next_bid_price` และ `next_ask_price`
 ของ instrument ใช้ ใช้ `FixedTickScheme` เมื่อ increment คงที่ หรือ `TieredTickScheme` เมื่อ increment
@@ -144,7 +146,7 @@ let scheme = TieredTickScheme::new(&tiers, 2, 1000).unwrap();
 register_tick_scheme("OPTION_GRID", TickScheme::Tiered(scheme)).unwrap();
 ```
 
-### การลงทะเบียนและการค้นหา {#registration-and-lookup}
+### การลงทะเบียนและการค้นหา [#registration-and-lookup]
 
 - **ชื่อ**: เป็น ASCII, ตัดช่องว่างหัวท้าย และไม่สนตัวพิมพ์เล็กใหญ่
 - **อายุการใช้งาน**: การลงทะเบียนคงอยู่ตลอดอายุของ process ชื่อที่ลงทะเบียนแล้วจะแทนที่หรือลบไม่ได้
@@ -160,7 +162,7 @@ register_tick_scheme("OPTION_GRID", TickScheme::Tiered(scheme)).unwrap();
 | ชื่อซ้ำตอนลงทะเบียน                             | `TickSchemeError` |
 | ไม่พบชื่อตอนค้นหา                               | `None`            |
 
-## Symbology {#symbology}
+## Symbology [#symbology]
 
 instrument แต่ละตัวมี `InstrumentId` ที่ไม่ซ้ำกัน ประกอบจาก symbol ของ Nautilus และ venue คั่นด้วยจุด
 ส่วนฟิลด์ `raw_symbol` แยกต่างหากเก็บ symbol ดั้งเดิมของ venue ไว้
@@ -180,7 +182,7 @@ symbol ดั้งเดิมควรไม่ซ้ำกันภายใ�
 ที่ venue จริงจะปฏิเสธ
 :::
 
-## Rust surface {#rust-and-python-surfaces}
+## Rust surface [#rust-and-python-surfaces]
 
 **Rust**: ใช้ struct ของ instrument ใน `nautilus_model` และ `InstrumentAny`
 
@@ -191,13 +193,13 @@ use nautilus_model::instruments::{CurrencyPair, InstrumentAny};
 struct เหล่านี้แทนข้อกำหนดของ instrument ทั้งหมด ได้แก่ ตัวตน, precision, increment, สกุลเงิน, limit,
 margin, ค่าธรรมเนียม, metadata และ timestamp
 
-## การโหลด instrument {#loading-instruments}
+## การโหลด instrument [#loading-instruments]
 
 adapter สำหรับ live integration มี object `InstrumentProvider` ที่ cache นิยามของ instrument ไว้ ใช้
 `load_all=True` ใน `InstrumentProviderConfig` ในกรณีที่ integration นั้นรองรับ หรือใช้ `load_ids` เพื่อโหลด
 ชุด instrument ที่รู้จักอยู่แล้ว การส่ง order ต้องมีนิยาม instrument ที่ตรงกันอยู่ใน cache กลางก่อน
 
-## การค้นหา instrument {#finding-instruments}
+## การค้นหา instrument [#finding-instruments]
 
 **ค้นจาก cache**: strategy และ actor ดึง instrument จาก cache กลาง
 
@@ -212,7 +214,7 @@ let instrument = cache.instrument(&instrument_id);
 
 เมื่อ `DataEngine` ได้รับการอัปเดต instrument จะส่ง object นั้นไปยัง handler `on_instrument()`
 
-## Precision {#precision}
+## Precision [#precision]
 
 สำหรับการตรวจสอบ order นั้น `price_precision` และ `size_precision` กำหนดจำนวนตำแหน่งทศนิยมสูงสุดที่
 `RiskEngine` ยอมรับ ส่วน `price_increment` และ `size_increment` บันทึกขั้นต่ำสุดที่สอดคล้องกัน
@@ -238,7 +240,7 @@ precision ที่ประกาศไว้ แต่ไม่รับปร
 และ quantity ตรงกับขั้นของ venue ก่อนส่ง order
 :::
 
-## Limit, margin และค่าธรรมเนียม {#limits-margins-and-fees}
+## Limit, margin และค่าธรรมเนียม [#limits-margins-and-fees]
 
 **Limit ที่เป็นทางเลือก**: นิยามจาก venue และ adapter อาจมี limit ต่อไปนี้
 
@@ -258,12 +260,12 @@ instrument ไม่ได้เก็บอัตราค่าธรรมเ
 
 ดูพฤติกรรมด้านการบัญชีเชิงลึกได้ที่ [Accounting](../accounting.md)
 
-## Metadata {#metadata}
+## Metadata [#metadata]
 
 ฟิลด์ `info` เก็บ metadata ดิบหรือ metadata เฉพาะของ adapter ไว้ในรูป dictionary ที่ serialize เป็น JSON ได้
 ใช้ฟิลด์นี้เมื่อ venue เผยแพร่รายละเอียดที่มีประโยชน์แต่ไม่อยู่ใน API ของ instrument ที่เป็นมาตรฐานกลางของ Nautilus
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Data](../data/) อธิบายประเภทของ market data ที่อ้างถึง instrument
 - [Orders](../orders/) อธิบายฟิลด์ของ order ที่อ้างถึง instrument

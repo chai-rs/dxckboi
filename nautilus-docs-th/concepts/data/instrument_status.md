@@ -1,9 +1,11 @@
-# InstrumentStatus
+---
+title: "InstrumentStatus"
+---
 
 `InstrumentStatus` แทนการเปลี่ยนสถานะการซื้อขายของ instrument โดยเก็บ status event จาก venue
 เช่น pre-open, trading, halt, pause, close และการเปลี่ยนแปลงข้อจำกัด short-selling
 
-## ฟิลด์ {#fields}
+## ฟิลด์ [#fields]
 
 | ฟิลด์                       | Rust type            | Required/default | หมายเหตุ                                      |
 | -------------------------- | -------------------- | ---------------- | -------------------------------------------- |
@@ -17,14 +19,14 @@
 | `is_quoting`               | `Option<bool>`       | `None`           | เปิดให้ quote อยู่หรือไม่ (ถ้าทราบ)                 |
 | `is_short_sell_restricted` | `Option<bool>`       | `None`           | สถานะข้อจำกัด short-sell (ถ้าทราบ)                |
 
-## พฤติกรรม {#behavior}
+## พฤติกรรม [#behavior]
 
 - boolean แบบ optional ช่วยให้ adapter เก็บสถานะตามที่ venue ส่งมาได้โดยไม่ต้องเดา
 - `action` ให้สถานะระดับสูงที่ normalize แล้ว แม้รายละเอียดเฉพาะของ venue จะถูกเก็บไว้ใน
   `reason` หรือ `trading_event` ด้วยก็ตาม
 - strategy สามารถรับ status update ได้ผ่าน `on_instrument_status(...)`
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -48,7 +50,7 @@ let status = InstrumentStatus::new(
 );
 ```
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [InstrumentClose](instrument_close.md) อธิบาย event ราคาปิดของ instrument
 - [Instruments](../instruments/) อธิบายการนิยาม instrument

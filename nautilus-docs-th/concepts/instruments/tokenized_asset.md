@@ -1,4 +1,6 @@
-# Tokenized Asset
+---
+title: "Tokenized Asset"
+---
 
 `TokenizedAsset` แทน token ลักษณะคล้าย spot ที่อ้างอิงราคาของ asset อื่นบน crypto venue ใช้กับ
 หุ้นแบบ tokenized, กองทุนแบบ tokenized หรือ instrument ที่คล้ายกัน ใน instrument ประเภทนี้ venue จะเปิดให้ซื้อขาย
@@ -6,7 +8,7 @@ token ที่มีการอ้างอิงทางเศรษฐก�
 
 ตัวอย่างเช่น symbol ของหุ้นหรือ ETF แบบ tokenized บน crypto venue
 
-## ฟิลด์ {#fields}
+## ฟิลด์ [#fields]
 
 | ฟิลด์              | Type ใน Rust        | จำเป็น/ค่าเริ่มต้น | หมายเหตุ                                    |
 | ----------------- | ------------------ | ---------------- | ----------------------------------------- |
@@ -35,14 +37,14 @@ token ที่มีการอ้างอิงทางเศรษฐก�
 | `tick_scheme`     | `Option<Ustr>`     | `None`           | ชื่อ tick scheme แบบแปรผันที่ลงทะเบียนไว้        |
 | `info`            | `Option<Params>`   | `None`           | metadata จาก adapter                        |
 
-## พฤติกรรม {#behavior}
+## พฤติกรรม [#behavior]
 
 - `TokenizedAsset` มี instrument class เป็น `Spot`
 - ไม่เป็นแบบ inverse เลย และ cost currency คือ quote currency
 - สามารถมี `isin` ได้เมื่อ token อ้างอิงหลักทรัพย์ที่จดทะเบียนในตลาด
 - ไม่มี activation timestamp, วันหมดอายุ, strike หรือ option kind
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -70,12 +72,12 @@ let aaplx = TokenizedAsset::builder()
     .unwrap();
 ```
 
-## Adapter {#adapters}
+## Adapter [#adapters]
 
 adapter ของ [Kraken](../../integrations/kraken.md) สร้างหรือใช้ instrument แบบ
 `TokenizedAsset` สำหรับ asset แบบ tokenized ในกรณีที่ venue เปิดให้ใช้
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Currency Pair](currency_pair.md) ครอบคลุมคู่ spot ของ crypto ทั่วไป
 - [Equity](equity.md) ครอบคลุมหุ้นสามัญที่จดทะเบียนในตลาด

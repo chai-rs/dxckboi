@@ -1,4 +1,6 @@
-# รัน backtest (Rust)
+---
+title: "รัน backtest (Rust)"
+---
 
 Nautilus มี Rust API สำหรับ backtest สองแบบ คือ `BacktestEngine` (low-level) และ `BacktestNode`
 (high-level พร้อม streaming ข้อมูลจาก catalog) คู่มือนี้ครอบคลุมทั้งสองแบบ
@@ -7,7 +9,7 @@ Nautilus มี Rust API สำหรับ backtest สองแบบ คื�
 [Backtesting](../concepts/backtesting/) ส่วนการตั้งค่าโปรเจกต์และ feature flag ดูได้ที่คู่มือแนวคิด
 [Rust](../concepts/rust.md#project-setup)
 
-## Dependency {#dependencies}
+## Dependency [#dependencies]
 
 เพิ่มรายการต่อไปนี้ลงใน `Cargo.toml` โดย `streaming` และ `nautilus-persistence` จำเป็นเฉพาะเมื่อใช้
 `BacktestNode` API แบบ high-level
@@ -29,12 +31,12 @@ ustr = "1"
 ถ้าต้องการใช้แค่ `BacktestEngine` แบบ low-level ให้ตัด `streaming`, `nautilus-persistence`,
 `tempfile` และ `ustr` ออก
 
-## BacktestEngine (low-level API) {#backtestengine-low-level-api}
+## BacktestEngine (low-level API) [#backtestengine-low-level-api]
 
 API แบบ low-level ให้ควบคุมได้โดยตรง: สร้าง engine เอง เพิ่ม venue และ instrument โหลดข้อมูลไว้ใน
 memory ลงทะเบียน strategy แล้วสั่งรัน
 
-### 1. สร้าง engine {#1-create-the-engine}
+### 1. สร้าง engine [#1-create-the-engine]
 
 ```rust
 use nautilus_backtest::{config::BacktestEngineConfig, engine::BacktestEngine};
@@ -42,7 +44,7 @@ use nautilus_backtest::{config::BacktestEngineConfig, engine::BacktestEngine};
 let mut engine = BacktestEngine::new(BacktestEngineConfig::default())?;
 ```
 
-### 2. เพิ่ม venue {#2-add-a-venue}
+### 2. เพิ่ม venue [#2-add-a-venue]
 
 `SimulatedVenueConfig` ใช้ `bon::Builder`: ต้องตั้งค่าเฉพาะฟิลด์ที่จำเป็น ส่วนค่าอื่นจะใช้ค่า default
 ที่ระบุไว้ในเอกสาร `build()` จะตรวจสอบความถูกต้องของ config และคืนค่าเป็น `ConfigResult` จึงต้อง
@@ -72,7 +74,7 @@ engine.add_venue(
 เปลี่ยนค่า default ใดก็ได้ด้วยการต่อ setter เช่น `.reject_stop_orders(false)` หรือ
 `.allow_cash_borrowing(true)`
 
-### 3. เพิ่ม instrument และข้อมูล {#3-add-instruments-and-data}
+### 3. เพิ่ม instrument และข้อมูล [#3-add-instruments-and-data]
 
 ```rust
 use nautilus_model::instruments::{
@@ -87,7 +89,7 @@ let quotes = generate_quotes(instrument_id); // Your data loading function
 engine.add_data(quotes, None, true, true)?;
 ```
 
-### 4. ลงทะเบียน strategy แล้วรัน {#4-register-a-strategy-and-run}
+### 4. ลงทะเบียน strategy แล้วรัน [#4-register-a-strategy-and-run]
 
 ```rust
 use nautilus_model::types::Quantity;
@@ -104,7 +106,7 @@ engine.add_strategy(strategy)?;
 engine.run(None, None, None, false)?;
 ```
 
-### รันตัวอย่างฉบับเต็ม {#run-the-full-example}
+### รันตัวอย่างฉบับเต็ม [#run-the-full-example]
 
 ```bash
 cargo run -p nautilus-backtest --features examples --example engine-ema-cross
@@ -113,12 +115,12 @@ cargo run -p nautilus-backtest --features examples --example engine-ema-cross
 ซอร์สโค้ด:
 [`crates/backtest/examples/engine_ema_cross.rs`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/backtest/examples/engine_ema_cross.rs)
 
-## BacktestNode (high-level API) {#backtestnode-high-level-api}
+## BacktestNode (high-level API) [#backtestnode-high-level-api]
 
 API แบบ high-level โหลดข้อมูลจาก `ParquetDataCatalog` และ stream เข้ามาเป็น chunk ตามขนาดที่กำหนดได้
 ต้องเปิด feature `streaming` ของ `nautilus-backtest`
 
-### 1. เขียนข้อมูลลง catalog {#1-write-data-to-a-catalog}
+### 1. เขียนข้อมูลลง catalog [#1-write-data-to-a-catalog]
 
 ```rust
 use nautilus_model::instruments::{
@@ -143,7 +145,7 @@ catalog.write_instruments(vec![instrument])?;
 catalog.write_to_parquet(&quotes, None, None, None)?;
 ```
 
-### 2. ตั้งค่าการรัน {#2-configure-the-run}
+### 2. ตั้งค่าการรัน [#2-configure-the-run]
 
 ```rust
 use nautilus_backtest::config::{
@@ -173,7 +175,7 @@ let run_config = BacktestRunConfig::builder()
     .build()?;
 ```
 
-### 3. build เพิ่ม strategy แล้วรัน {#3-build-add-strategies-and-run}
+### 3. build เพิ่ม strategy แล้วรัน [#3-build-add-strategies-and-run]
 
 ```rust
 use nautilus_backtest::node::BacktestNode;
@@ -196,7 +198,7 @@ engine.add_strategy(strategy)?;
 node.run()?;
 ```
 
-### รันตัวอย่างฉบับเต็ม {#run-the-full-example-1}
+### รันตัวอย่างฉบับเต็ม [#run-the-full-example-1]
 
 ```bash
 cargo run -p nautilus-backtest --features examples,streaming --example node-ema-cross

@@ -1,4 +1,6 @@
-# Message Bus
+---
+title: "Message Bus"
+---
 
 `MessageBus` ทำให้ component ต่าง ๆ ในระบบสื่อสารกันได้ผ่านการส่ง message การออกแบบนี้สร้างสถาปัตยกรรมแบบ
 loosely coupled ที่ component โต้ตอบกันได้โดยไม่ต้องพึ่งพากันโดยตรง
@@ -15,7 +17,7 @@ message ที่แลกเปลี่ยนผ่าน `MessageBus` แบ�
 - Events
 - Commands
 
-## ลำดับชั้นของ topic {#topic-hierarchy}
+## ลำดับชั้นของ topic [#topic-hierarchy]
 
 Nautilus เก็บ topic ของ market data ไว้ใต้ root `data` การ publish ข้อมูลแบบ live ใช้ topic `data.<kind>...` โดยตรง
 เช่น `data.book.deltas.XCME.ESZ24`
@@ -31,7 +33,7 @@ request แม่จะเสร็จ message เหล่านี้ยัง
 response ของ request ที่มี correlation จะถูกส่งผ่าน response handler ที่ใช้ correlation ID เป็น key ส่วน topic
 `data.response` เป็นช่องทางสำหรับดักเก็บการ publish response ไม่ใช่เส้นทางข้อมูลของ pipeline
 
-## ความถูกต้องสมบูรณ์ของ message {#message-integrity}
+## ความถูกต้องสมบูรณ์ของ message [#message-integrity]
 
 เมื่อสร้าง message แล้ว **ห้ามแก้ไขฟิลด์ใด ๆ ของมัน** รวมถึงฟิลด์ที่เป็น container เช่น map `params` ด้วย
 component อ่าน message และสร้าง state ภายในจาก message ได้ แต่ห้ามเขียนทับต้นฉบับ
@@ -48,13 +50,13 @@ message ที่ immutable ทำให้ผู้รับทุกตัว�
 
 เมื่อ component ต้องการ message ที่ดัดแปลงแล้ว ให้สร้าง message ใหม่ด้วยค่าที่ต้องการแทนการเขียนทับต้นฉบับ
 
-## การ publish data และ signal {#data-and-signal-publishing}
+## การ publish data และ signal [#data-and-signal-publishing]
 
 แม้ `MessageBus` จะเป็น component ระดับล่างที่ผู้ใช้มักโต้ตอบด้วยทางอ้อม แต่ `DataActor`, `Strategy` และ
 `ExecutionAlgorithm` มีเมธอดแบบมี type ที่สร้างอยู่บน message bus ได้แก่ `publish_data` และ `publish_signal`
 ซึ่งใช้ publish custom data และ signal ได้โดยไม่ต้องเข้าถึง message bus โดยตรง
 
-## รูปแบบการส่ง message {#messaging-styles}
+## รูปแบบการส่ง message [#messaging-styles]
 
 NautilusTrader เป็น framework แบบ **event-driven** ที่ component สื่อสารกันด้วยการส่งและรับ message
 การเข้าใจรูปแบบการส่ง message แต่ละแบบช่วยในการสร้างระบบเทรด
@@ -69,14 +71,14 @@ NautilusTrader เป็น framework แบบ **event-driven** ที่ compo
 
 แต่ละแนวทางมีจุดประสงค์ต่างกัน ใช้ส่วนนี้ประกอบการตัดสินใจว่าจะใช้รูปแบบใด
 
-### Rust MessageBus publish/subscribe ไปยัง topic {#rust-messagebus-publishsubscribe-to-topics}
+### Rust MessageBus publish/subscribe ไปยัง topic [#rust-messagebus-publishsubscribe-to-topics]
 
-#### แนวคิด {#concept}
+#### แนวคิด [#concept]
 
 `MessageBus` เป็นศูนย์กลางของ message ทั้งหมดใน NautilusTrader component ของ Rust สามารถ publish message
 แบบมี type ไปยัง topic ที่ตั้งชื่อไว้ และ subscribe handler กับ topic เหล่านั้นได้
 
-#### ประโยชน์และกรณีการใช้งาน {#benefits-and-use-cases}
+#### ประโยชน์และกรณีการใช้งาน [#benefits-and-use-cases]
 
 การเข้าถึง message bus โดยตรงเหมาะกับ component แบบ native ที่ต้องการ:
 
@@ -87,19 +89,19 @@ NautilusTrader เป็น framework แบบ **event-driven** ที่ compo
 - การทำงานกับ event ที่ไม่เข้ากับโมเดลของ data actor
 - สถานการณ์ขั้นสูงที่ต้องควบคุมการส่ง message ได้ทั้งหมด
 
-#### ข้อควรพิจารณา {#considerations}
+#### ข้อควรพิจารณา [#considerations]
 
 - ต้องติดตามชื่อ topic เอง (พิมพ์ผิดอาจทำให้พลาด message)
 - ต้องกำหนด handler เอง
 
-### Custom data publish/subscribe {#custom-data-publishsubscribe}
+### Custom data publish/subscribe [#custom-data-publishsubscribe]
 
-#### แนวคิด {#concept-1}
+#### แนวคิด [#concept-1]
 
 custom data ใช้แลกเปลี่ยนค่าแบบมีโครงสร้างระหว่าง data actor และ strategy ค่า `CustomData` บรรจุ `DataType`,
 payload, timestamp ของ event และ timestamp ตอน initialize ไว้สำหรับการ routing และการเรียงลำดับ event
 
-#### ประโยชน์และกรณีการใช้งาน {#benefits-and-use-cases-1}
+#### ประโยชน์และกรณีการใช้งาน [#benefits-and-use-cases-1]
 
 แนวทาง Data publish/subscribe เหมาะเมื่อต้องการ:
 
@@ -109,21 +111,21 @@ payload, timestamp ของ event และ timestamp ตอน initialize ไ�
 - **การ persist และ serialize ข้อมูล** ผ่าน custom data class ที่ลงทะเบียนไว้ ซึ่งทำงานร่วมกับระบบ data catalog ของ NautilusTrader
 - **การแลกเปลี่ยนข้อมูลการเทรดแบบมาตรฐาน** ระหว่าง component ของระบบ
 
-#### ข้อควรพิจารณา {#considerations-1}
+#### ข้อควรพิจารณา [#considerations-1]
 
 - payload ต้องมี `ts_event` และ `ts_init`
 - การ persist ต้องลงทะเบียน custom data class ที่ serialize ได้
 
 ดู[Custom data](custom_data.md) สำหรับการลงทะเบียนและการ persist
 
-### Signal publish/subscribe {#signal-publishsubscribe}
+### Signal publish/subscribe [#signal-publishsubscribe]
 
-#### แนวคิด {#concept-2}
+#### แนวคิด [#concept-2]
 
 **Signal** เป็นวิธีแบบเบาในการ publish และ subscribe การแจ้งเตือนแบบง่ายภายใน actor framework
 นี่เป็นวิธีส่ง message ที่ง่ายที่สุด ไม่ต้องนิยาม class แบบกำหนดเอง
 
-#### ประโยชน์และกรณีการใช้งาน {#benefits-and-use-cases-2}
+#### ประโยชน์และกรณีการใช้งาน [#benefits-and-use-cases-2]
 
 แนวทาง Signal เหมาะเมื่อต้องการ:
 
@@ -134,13 +136,13 @@ payload, timestamp ของ event และ timestamp ตอน initialize ไ�
 - **การสื่อสารกับผู้ subscribe หลายราย** ที่ทุกรายได้รับ signal เมื่อมีการ publish
 - **overhead ในการ setup น้อย** ไม่ต้องนิยาม class
 
-#### ข้อควรพิจารณา {#considerations-2}
+#### ข้อควรพิจารณา [#considerations-2]
 
 - signal แต่ละตัวบรรจุค่าเดียว ค่าจะถูกแปลงเป็น string ตอน publish ดังนั้น handler จะได้รับ `signal.value`
   เป็น string เสมอ โครงสร้างข้อมูลที่ซับซ้อนจะไม่ถูกเก็บรักษาไว้
 - แยกแยะ signal แต่ละตัวใน handler `on_signal` ด้วย `signal.name`
 
-:::warning การ reentry ของ signal callback
+:::warning[การ reentry ของ signal callback]
 การ publish signal อาจ reenter actor ที่กำลังทำงานอยู่แบบ synchronous ไม่ว่าจะโดยตรงหรือผ่านผู้ subscribe รายอื่น
 ซึ่งทำให้เกิด undefined behavior ใน actor **การปล่อย borrow ของ cache ไม่ได้ทำให้การ reentry ของ actor
 ปลอดภัย** หลีกเลี่ยงวงจรการ publish ที่เรียก actor ก่อนที่ callback ปัจจุบันของมันจะ return
@@ -148,9 +150,9 @@ payload, timestamp ของ event และ timestamp ตอน initialize ไ�
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python สำหรับ custom data และ signal จึงตัดออก
 
-### สรุปและแนวทางการตัดสินใจ {#summary-and-decision-guide}
+### สรุปและแนวทางการตัดสินใจ [#summary-and-decision-guide]
 
-#### แนวทางการตัดสินใจ: ควรเลือกรูปแบบใด? {#decision-guide-which-style-to-choose}
+#### แนวทางการตัดสินใจ: ควรเลือกรูปแบบใด? [#decision-guide-which-style-to-choose]
 
 | **กรณีการใช้งาน**                         | **แนวทางที่แนะนำ**                     | **สิ่งที่ต้อง setup**                         |
 | :------------------------------------- | :---------------------------------- | :---------------------------------------- |
@@ -158,7 +160,7 @@ payload, timestamp ของ event และ timestamp ตอน initialize ไ�
 | ข้อมูลแบบมีโครงสร้างระหว่าง component      | เมธอด custom data ของ `DataActor`   | `DataType`, `CustomData` และ `on_data()`  |
 | alert และการแจ้งเตือนแบบง่าย               | เมธอด signal ของ `DataActor`        | ชื่อ signal และ `on_signal()`              |
 
-## External egress และ ingress {#external-egress-and-ingress}
+## External egress และ ingress [#external-egress-and-ingress]
 
 `MessageBus` สามารถเขียน message ที่ serialize แล้วไปยัง stream ภายนอกได้ ส่วนนี้อธิบายฝั่ง egress (ขาออก)
 และ ingress (ขาเข้า) ของ bus ภายนอก live node แบบ Rust-native ใช้ `MessageBusExternalEgress` และ
@@ -294,7 +296,7 @@ reply ของ book จะเก็บ order, metadata และ state ขอ�
 
 payload type อื่น ๆ จะถูก drop พร้อม log ระดับ debug เมื่อเลือก SBE
 
-## การตั้งค่า {#configuration}
+## การตั้งค่า [#configuration]
 
 เทคโนโลยี backing ภายนอกของ message bus ใช้ config ด้านพฤติกรรม ร่วมกับ backing config ที่เทคโนโลยีนั้นเป็นเจ้าของ
 `MessageBusConfig` ควบคุมพฤติกรรมของ message bus ส่วน `RedisMessageBusConfig` เป็นเจ้าของการตั้งค่าการเชื่อมต่อ
@@ -327,7 +329,7 @@ let backing = redis_config.create(trader_id, instance_id, config.clone())?;
 
 โค้ด Rust เดิมยังใช้ `RedisMessageBusFactory::new(redis_config)` ต่อได้ ซึ่งจะส่งต่อไปยัง implementation ของ config
 
-### Backing config {#backing-config}
+### Backing config [#backing-config]
 
 ต้องมี `RedisMessageBusConfig` เมื่อใช้ backing Redis ในตัว สำหรับการตั้งค่า Redis แบบค่าเริ่มต้นบน local loopback
 สามารถส่ง `RedisMessageBusConfig::default()` ได้
@@ -354,7 +356,7 @@ ingress Redis ในตัวจะเริ่มอ่าน stream ที่�
 `external_streams` ให้การส่งต่อแบบ live ไม่ใช่ backlog ของ consumer group
 :::
 
-### Encoding {#encoding}
+### Encoding [#encoding]
 
 external message bus egress แบบ Rust-native รองรับชื่อ encoding เหล่านี้:
 
@@ -380,12 +382,12 @@ encoding `json` ถูกใช้เป็นค่าเริ่มต้น�
 ใช้ `msgpack` เมื่อขนาด payload และประสิทธิภาพการ serialize เป็นเรื่องสำคัญอันดับแรก
 :::
 
-### รูปแบบของ timestamp {#timestamp-formatting}
+### รูปแบบของ timestamp [#timestamp-formatting]
 
 โดยค่าเริ่มต้น timestamp จะอยู่ในรูปจำนวนเต็มนาโนวินาทีนับจาก UNIX epoch หรือตั้งค่าให้เป็น string แบบ ISO 8601
 ได้โดยตั้ง `timestamps_as_iso8601` เป็น `true`
 
-### Key ของ message stream {#message-stream-keys}
+### Key ของ message stream [#message-stream-keys]
 
 key ของ message stream ใช้ระบุ trader node แต่ละตัวและจัดระเบียบ message ภายใน stream ส่วน prefix `trader-`,
 trader ID และ instance ID เป็นแบบไม่บังคับและควบคุมด้วย option ด้านล่าง ส่วน streams prefix จะมีเสมอ เมื่อเปิดทุกส่วน
@@ -405,26 +407,26 @@ option เหล่านี้ควบคุม key ของ Redis stream ไ
 
 option สำหรับตั้งค่า key ของ message stream มีดังนี้:
 
-#### Trader prefix {#trader-prefix}
+#### Trader prefix [#trader-prefix]
 
 กำหนดว่า key ควรขึ้นต้นด้วย prefix `trader-` หรือไม่
 
-#### Trader ID {#trader-id}
+#### Trader ID [#trader-id]
 
 กำหนดว่า key ควรมี trader ID ของ node หรือไม่
 
-#### Instance ID {#instance-id}
+#### Instance ID [#instance-id]
 
 trader node แต่ละตัวได้รับ instance ID แบบ UUIDv4 ที่ไม่ซ้ำกัน ซึ่งใช้แยกแยะ trader แต่ละตัวเมื่อ message กระจายอยู่
 ในหลาย stream ตั้ง `use_instance_id` เป็น `true` เพื่อใส่ไว้ใน key ของ trader และระบุ trader ข้าม stream ในระบบเทรด
 แบบหลาย node
 
-#### Streams prefix {#streams-prefix}
+#### Streams prefix [#streams-prefix]
 
 string `streams_prefix` ใช้จัดกลุ่ม stream ทั้งหมดของ trader instance เดียว หรือจัดระเบียบ message ของหลาย instance
 ให้ตั้ง prefix อื่นเป็น false แล้วส่ง string ให้ option `streams_prefix`
 
-#### Stream per topic {#stream-per-topic}
+#### Stream per topic [#stream-per-topic]
 
 ตั้ง `stream_per_topic` เป็น `true` เพื่อเขียน stream แยกสำหรับแต่ละ topic เหมาะกับ backing แบบ Redis ซึ่งไม่รองรับ
 wildcard topic เมื่อ listen stream ตั้งเป็น `false` เพื่อเขียน message ทั้งหมดลง stream เดียวกัน
@@ -433,7 +435,7 @@ wildcard topic เมื่อ listen stream ตั้งเป็น `false` �
 Redis ไม่รองรับ wildcard ใน topic ของ stream เพื่อให้เข้ากับ Redis ได้ดีขึ้น แนะนำให้ตั้ง option นี้เป็น false
 :::
 
-### การกรอง type {#types-filtering}
+### การกรอง type [#types-filtering]
 
 หากตั้งค่าและเปิดใช้ backing ของ message bus ไว้ message ที่ publish จะถูก serialize และเขียนลง stream
 คุณสามารถยกเว้น message type ที่เลือกไว้จากการ publish ภายนอก เพื่อป้องกันไม่ให้ stream ล้น (เช่นจาก quote
@@ -443,7 +445,7 @@ Redis ไม่รองรับ wildcard ใน topic ของ stream เพ�
 message bus type ที่อยู่ใน list จะไม่ถูก publish ภายนอก ชื่อที่ custom payload และ payload แบบ typed ที่ตายตัวใช้ร่วมกัน
 จะถูกยกเว้นทั้งคู่ ดูตัวอย่าง `types_filter` ได้ใน config ของ Rust ในส่วน[การตั้งค่า](#configuration)ด้านบน
 
-### การ trim stream อัตโนมัติ {#stream-auto-trimming}
+### การ trim stream อัตโนมัติ [#stream-auto-trimming]
 
 ใช้ `autotrim_mins` เพื่อกำหนดช่วงเวลาย้อนหลังเป็นนาที ใช้ `autotrim_maxlen` เพื่อกำหนดจำนวน entry สูงสุดโดยประมาณ
 ของแต่ละ Redis stream ตั้งค่านโยบายใดนโยบายหนึ่งหรือทั้งสองก็ได้ เมื่อตั้งทั้งสอง message bus จะลบ entry ที่เกิน
@@ -457,7 +459,7 @@ implementation ของ Redis จะ trim แต่ละ stream ไม่เ�
 ได้ราวหนึ่งนาที
 :::
 
-## External stream {#external-streams}
+## External stream [#external-streams]
 
 message bus ภายใน `LiveNode` (node) เรียกว่า "internal message bus"
 producer node คือ node ที่ publish message ลงบน stream ภายนอก (ดู[external egress และ ingress](#external-egress-and-ingress))
@@ -483,12 +485,12 @@ flowchart TB
 สำหรับการ republish ขาเข้าบน message bus
 :::
 
-### ตัวอย่างการตั้งค่า {#example-configuration}
+### ตัวอย่างการตั้งค่า [#example-configuration]
 
 ในตัวอย่าง streaming นี้ producer node จะ publish ข้อมูล Binance ออกภายนอก และ consumer node ปลายทางจะ publish
 data message เหล่านี้ลงบน internal message bus ของตัวเอง
 
-#### Producer node {#producer-node}
+#### Producer node [#producer-node]
 
 `MessageBus` ของ producer node จะ publish ไปยัง stream `"binance"` โดยตั้ง `use_trader_id`, `use_trader_prefix`
 และ `use_instance_id` เป็น `false` ทั้งหมด ทำให้ stream มี key ที่เรียบง่ายและคาดเดาได้ ซึ่ง consumer node
@@ -518,7 +520,7 @@ let mut node = LiveNode::builder(trader_id, Environment::Live)?
 node.run().await?;
 ```
 
-#### Consumer node {#consumer-node}
+#### Consumer node [#consumer-node]
 
 ตั้งค่า `MessageBus` ของ consumer node ให้รับ message จาก stream `"binance"` เดียวกัน `RedisMessageBusConfig`
 จะสร้าง ingress จาก `external_streams` และ `LiveNode::run` จะ publish message ที่ได้รับลงบน internal message bus
@@ -550,7 +552,7 @@ let mut node = LiveNode::builder(trader_id, Environment::Live)?
 node.run().await?;
 ```
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Actors](actors.md) - actor ใช้ message bus ในการจัดการ event
 - [Architecture](architecture.md) - บทบาทของ message bus ในสถาปัตยกรรมของระบบ

@@ -1,4 +1,6 @@
-# Visualization
+---
+title: "Visualization"
+---
 
 NautilusTrader มี tearsheet แบบ HTML ที่โต้ตอบได้สำหรับวิเคราะห์ผล backtest ผ่านระบบ visualization
 ที่ต่อขยายได้ซึ่งสร้างบน Plotly สามารถสร้างรายงานได้ด้วยโค้ดเพียงเล็กน้อย และเพิ่ม chart กับ theme ของตัวเองได้
@@ -9,7 +11,7 @@ NautilusTrader มี tearsheet แบบ HTML ที่โต้ตอบได
 คงไว้เฉพาะแนวคิด รายการ chart, theme และตัวเลือก config
 :::
 
-## ภาพรวม {#overview}
+## ภาพรวม [#overview]
 
 ระบบ visualization ประกอบด้วยสามส่วน:
 
@@ -21,17 +23,17 @@ tearsheet ถูกเขียนออกมาเป็น **ไฟล์ HTM
 แชร์ให้ผู้เกี่ยวข้อง หรือเก็บไว้อ้างอิงภายหลังได้ หาก output path มีนามสกุลของไฟล์ภาพนิ่ง (เช่น `.png`
 หรือ `.pdf`) ระบบจะ export เป็นภาพนิ่งผ่าน Kaleido
 
-## Tearsheet {#tearsheets}
+## Tearsheet [#tearsheets]
 
 tearsheet คือรายงาน performance ที่รวม chart และสถิติหลายอย่างไว้ใน visualization แบบโต้ตอบได้ชิ้นเดียว
 tearsheet จะถูกสร้างหลังจาก backtest รันเสร็จ และให้ผลตอบรับเชิงภาพเกี่ยวกับ performance ของ strategy ได้ทันที
 
-### เริ่มต้นอย่างรวดเร็ว {#quick-start}
+### เริ่มต้นอย่างรวดเร็ว [#quick-start]
 
 การสร้าง tearsheet ด้วยค่าเริ่มต้นจะได้ไฟล์ HTML ที่มี chart ค่าเริ่มต้นครบทุกตัว ใช้ light theme และจัด
 layout อัตโนมัติ เปิดไฟล์ผลลัพธ์ (เช่น `backtest_results.html`) ในเบราว์เซอร์เพื่อดู tearsheet แบบโต้ตอบได้
 
-### Input จากผล backtest {#backtest-result-input}
+### Input จากผล backtest [#backtest-result-input]
 
 สามารถส่ง `BacktestResult` ที่ได้จาก backtest ที่รันเสร็จแล้วเข้าไปโดยไม่ต้องมี node เพื่อสร้าง tearsheet
 จากผลลัพธ์อย่างเดียวได้
@@ -48,12 +50,12 @@ layout อัตโนมัติ เปิดไฟล์ผลลัพธ์
 ของ node นั้นไม่มีอยู่แล้ว
 :::
 
-### การปรับแต่ง {#customization}
+### การปรับแต่ง [#customization]
 
 กำหนดได้ว่าจะให้ chart ใดปรากฏและจัดรูปแบบอย่างไร ผ่าน `TearsheetConfig` (รายการ chart, theme,
 ความสูง เป็นต้น)
 
-### การกรองตามสกุลเงิน {#currency-filtering}
+### การกรองตามสกุลเงิน [#currency-filtering]
 
 สำหรับ backtest ที่มีหลายสกุลเงิน สามารถกรองสถิติให้เหลือเฉพาะสกุลเงินที่ต้องการได้ด้วยพารามิเตอร์ `currency`
 
@@ -67,7 +69,7 @@ snapshot ของ equity ใน portfolio โดย fallback ไปใช้ร
 สำหรับ input แบบ `BacktestResult` พารามิเตอร์ `currency` จะกรองสถิติ PnL และยอดคงเหลือของ account
 ส่วน **ชุดข้อมูลผลตอบแทนที่เก็บไว้ในผลลัพธ์จะไม่เปลี่ยนแปลง**
 
-## Chart ที่มีให้ใช้ {#available-charts}
+## Chart ที่มีให้ใช้ [#available-charts]
 
 tearsheet สามารถรวม chart ในตัวต่อไปนี้ได้ในทุกรูปแบบการผสม:
 
@@ -86,7 +88,7 @@ tearsheet สามารถรวม chart ในตัวต่อไปนี
 chart registry เก็บ chart ทั้งหมดไว้ ส่วน chart object ใน `TearsheetConfig.charts` ใช้กำหนดค่า chart
 เหล่านั้น (chart object แต่ละตัวจับคู่กับชื่อ chart ในตัวหนึ่งชื่อ)
 
-### ตารางข้อมูลการรัน {#run-information-table}
+### ตารางข้อมูลการรัน [#run-information-table]
 
 chart `run_info` แสดง metadata สำคัญของการรัน backtest:
 
@@ -98,7 +100,7 @@ chart `run_info` แสดง metadata สำคัญของการรั�
 
 ตารางนี้จะอยู่ตำแหน่งบนซ้ายโดยค่าเริ่มต้น
 
-### ตารางสถิติ performance {#performance-statistics-table}
+### ตารางสถิติ performance [#performance-statistics-table]
 
 chart `stats_table` แสดงตัวชี้วัด performance แบ่งเป็นหมวด:
 
@@ -108,7 +110,7 @@ chart `stats_table` แสดงตัวชี้วัด performance แบ�
 
 ตารางนี้จะอยู่ตำแหน่งบนขวาโดยค่าเริ่มต้น
 
-### Equity curve {#equity-curve}
+### Equity curve [#equity-curve]
 
 chart `equity` พล็อตผลตอบแทนสะสมตลอดช่วง backtest เมื่อส่ง `benchmark_returns` เข้าไปใน
 `create_tearsheet()` ระบบจะซ้อน benchmark ไว้เพื่อเปรียบเทียบ (เช่น ผลตอบแทนของดัชนี S&P 500 โดย index
@@ -117,7 +119,7 @@ chart `equity` พล็อตผลตอบแทนสะสมตลอด�
 ชุดข้อมูล benchmark จะถูกพล็อตตามที่ให้มาโดยไม่ปรับแต่ง ควรตรวจสอบให้ index ตรงกับวันที่ของผลตอบแทน
 ของ strategy เพื่อให้การเปรียบเทียบแม่นยำ
 
-### ผลตอบแทนรายเดือนและรายปี {#monthly-and-yearly-returns}
+### ผลตอบแทนรายเดือนและรายปี [#monthly-and-yearly-returns]
 
 chart `monthly_returns` และ `yearly_returns` ใช้ผลตอบแทนแบบทบต้น (time-weighted) เป็นค่าเริ่มต้น แต่ละช่อง
 วัดกำไรของช่วงนั้นเทียบกับยอดคงเหลือ ณ ต้นช่วง และผลตอบแทนของแต่ละช่วงทบต้นรวมกันได้เป็นผลตอบแทนรวม
@@ -131,7 +133,7 @@ chart `monthly_returns` และ `yearly_returns` ใช้ผลตอบแ�
 `compounding` แบบเดียวกัน เพื่อให้ตัวเลขแบบไม่ทบต้นสะท้อนเงินทุนคงที่ได้อย่างถูกต้อง ควรกำหนดขนาด position
 เป็นจำนวนคงที่ แทนที่จะเป็นสัดส่วนของ equity ปัจจุบัน มิฉะนั้นช่วงหลัง ๆ จะดูสูงเกินจริงเมื่อยอดคงเหลือเติบโตขึ้น
 
-## Theme {#themes}
+## Theme [#themes]
 
 theme ควบคุมการจัดรูปแบบของ chart ทั้งสี ฟอนต์ และพื้นหลัง NautilusTrader มี theme ในตัวสี่แบบ:
 
@@ -142,11 +144,11 @@ theme ควบคุมการจัดรูปแบบของ chart ท�
 | `nautilus`      | light theme ใช้สีแบรนด์ของ NautilusTrader           | light mode อย่างเป็นทางการ         |
 | `nautilus_dark` | dark theme ใช้สีเอกลักษณ์ teal/cyan                | dark mode อย่างเป็นทางการ          |
 
-### การเลือก theme {#selecting-a-theme}
+### การเลือก theme [#selecting-a-theme]
 
 ระบุ theme ใน `TearsheetConfig` ผ่านฟิลด์ `theme` (เช่น `"nautilus_dark"`)
 
-### Theme แบบกำหนดเอง {#custom-themes}
+### Theme แบบกำหนดเอง [#custom-themes]
 
 สามารถลงทะเบียน theme ของตัวเองเพื่อให้แบรนด์สม่ำเสมอในทุก visualization โดยระบุชื่อ, Plotly template ฐาน
 และชุดสี (`primary`, `positive`, `negative`, `neutral`, `background`, `grid` และสีของตารางแบบไม่บังคับ
@@ -155,12 +157,12 @@ theme ควบคุมการจัดรูปแบบของ chart ท�
 ระบบ theme จะคำนวณสี `table_*` ค่าเริ่มต้นจากสี `background` และ `grid` ค่าเริ่มต้นเหล่านี้ช่วยให้ยังเข้ากันได้
 กับ theme ที่ลงทะเบียนไว้ก่อนที่จะมีสีเฉพาะสำหรับตาราง
 
-## Configuration {#configuration}
+## Configuration [#configuration]
 
 `TearsheetConfig` ให้การควบคุมแบบ declarative ในการสร้าง tearsheet: chart ที่จะรวม, theme, ชื่อเรื่อง,
 ความสูง, benchmark และ layout ของ grid (`GridLayout` ที่ระบุจำนวนแถว/คอลัมน์ ความสูงของแต่ละแถว และระยะห่าง)
 
-### พารามิเตอร์ของ configuration {#configuration-parameters}
+### พารามิเตอร์ของ configuration [#configuration-parameters]
 
 | Parameter           | Type                   | Default          | คำอธิบาย                              |
 | ------------------- | ---------------------- | ---------------- | ----------------------------------- |
@@ -176,16 +178,16 @@ theme ควบคุมการจัดรูปแบบของ chart ท�
 เมื่อ `layout` เป็น `None` จำนวน chart จะเป็นตัวกำหนดขนาด grid และความสูงของแถว chart ค่าเริ่มต้น 8 ตัว
 ใช้ grid 4x2 โดยมีความสูง `[0.50, 0.22, 0.16, 0.12]` ซึ่งให้พื้นที่กับตารางแถวบนสุดมากกว่า
 
-## Chart แบบกำหนดเอง {#custom-charts}
+## Chart แบบกำหนดเอง [#custom-charts]
 
 รูปแบบ registry ช่วยให้เพิ่ม chart ของตัวเองได้ chart คือฟังก์ชันที่ render trace ลงบน figure object ของ Plotly
 
-### การลงทะเบียน chart แบบกำหนดเอง {#registering-a-custom-chart}
+### การลงทะเบียน chart แบบกำหนดเอง [#registering-a-custom-chart]
 
 ฟังก์ชัน chart แบบกำหนดเองลงทะเบียนด้วย `register_chart` เพื่อใช้แบบ standalone (ผ่าน `get_chart()` /
 `list_charts()`) โดย signature ของฟังก์ชันควรสอดคล้องกับฟังก์ชัน chart ในตัวเพื่อความสม่ำเสมอ
 
-### การผนวกเข้ากับ tearsheet {#tearsheet-integration}
+### การผนวกเข้ากับ tearsheet [#tearsheet-integration]
 
 หากต้องการผนวกเข้ากับ tearsheet ให้วางตำแหน่งใน grid ได้ถูกต้อง ให้ใช้ `register_tearsheet_chart` ต่างจาก
 `register_chart` (ซึ่งลงทะเบียนฟังก์ชัน standalone ที่คืน figure ของตัวเอง) renderer ของ tearsheet จะวาด trace
@@ -195,7 +197,7 @@ theme ควบคุมการจัดรูปแบบของ chart ท�
 ฟังก์ชัน renderer จะได้รับข้อมูลที่จำเป็นทั้งหมด (ผลตอบแทน, สถิติ, theme configuration) และ render ลงบนตำแหน่ง
 subplot ที่กำหนดโดยตรง
 
-## การวิเคราะห์แบบ offline {#offline-analysis}
+## การวิเคราะห์แบบ offline [#offline-analysis]
 
 ในกรณีที่มีสถิติที่คำนวณไว้ล่วงหน้าแต่ไม่มี instance ของ `BacktestEngine` ให้ใช้ API ระดับล่าง
 `create_tearsheet_from_stats()` ซึ่งรับ `stats_pnls` (แยกตามสกุลเงิน), `stats_returns`, `stats_general` และชุด
@@ -210,27 +212,27 @@ key ของ dictionary ควรตรงกับค่าที่ได้�
 - เปรียบเทียบ strategy โดยใช้ตัวชี้วัดที่คำนวณไว้ล่วงหน้า
 - ผนวกเข้ากับ pipeline วิเคราะห์ภายนอก
 
-## แนวปฏิบัติที่ดี {#best-practices}
+## แนวปฏิบัติที่ดี [#best-practices]
 
-### การเลือก chart {#chart-selection}
+### การเลือก chart [#chart-selection]
 
 - ใช้ chart ค่าเริ่มต้นสำหรับการวิเคราะห์เชิงสำรวจเพื่อดูตัวชี้วัดทั้งหมดที่มี
 - ปรับแต่ง chart เมื่อรู้แล้วว่าตัวชี้วัดใดสำคัญกับ strategy ของตน
 - ตัด chart ที่ไม่เกี่ยวข้องออกเพื่อลดความรกทางสายตาและขนาดไฟล์
 
-### การใช้ theme {#theme-usage}
+### การใช้ theme [#theme-usage]
 
 - ใช้ `plotly_white` สำหรับรายงานและการนำเสนอแบบมืออาชีพ
 - ใช้ `nautilus_dark` สำหรับเอกสารทางการหรือการดูในที่แสงน้อย
 - สร้าง theme ของตัวเองให้ตรงกับแนวทางภายในองค์กรหรือความชอบส่วนตัว
 
-### ข้อควรพิจารณาด้าน performance {#performance-considerations}
+### ข้อควรพิจารณาด้าน performance [#performance-considerations]
 
 - ไฟล์ HTML ของ tearsheet ฝังข้อมูลทั้งหมดไว้ในตัว และอาจมีขนาดหลายเมกะไบต์สำหรับ backtest ที่ยาว
 - พิจารณาสร้าง tearsheet แยกสำหรับช่วงเวลาวิเคราะห์ที่ต่างกัน
 - สำหรับชุดข้อมูลขนาดใหญ่มาก ให้ใช้ฟังก์ชัน chart แยกตัวแทน tearsheet เต็มรูปแบบ
 
-### การผนวกสถิติแบบกำหนดเอง {#custom-statistics-integration}
+### การผนวกสถิติแบบกำหนดเอง [#custom-statistics-integration]
 
 ใช้ chart แบบกำหนดเองคู่กับสถิติที่ส่งผ่าน dictionary `stats_pnls`, `stats_returns` และ `stats_general`
 ชุดเดียวกับที่ chart ในตัวของ tearsheet ใช้
@@ -242,30 +244,30 @@ key ของ dictionary ควรตรงกับค่าที่ได้�
 สำหรับการวิเคราะห์แบบ offline ให้ส่ง dictionary ที่เข้ากันได้ (เช่น `"Sharpe Ratio (252 days)"` หรือ
 `"Custom Volatility Score"` ใน `stats_returns`) เข้าไปใน `create_tearsheet_from_stats()` โดยตรง
 
-## ระดับของ API {#api-levels}
+## ระดับของ API [#api-levels]
 
 ระบบ visualization มี API สองระดับ รวมถึงฟังก์ชัน chart แบบ standalone:
 
-### API ระดับสูง {#high-level-api}
+### API ระดับสูง [#high-level-api]
 
 แนะนำสำหรับกรณีใช้งานส่วนใหญ่: `create_tearsheet(engine=..., config=...)`
 
 ดึงข้อมูลจาก `BacktestEngine` หรือ `BacktestResult` โดยอัตโนมัติ สร้าง chart ทั้งหมดที่ตั้งค่าไว้ และได้ tearsheet
 HTML ที่สมบูรณ์
 
-### API ระดับล่าง {#low-level-api}
+### API ระดับล่าง [#low-level-api]
 
 สำหรับการปรับแต่งขั้นสูงหรือการวิเคราะห์แบบ offline: `create_tearsheet_from_stats()` ซึ่งรับ `stats_pnls`,
 `stats_returns`, `stats_general`, `returns`, `run_info`, `account_info` และ `config`
 
 ให้การควบคุม input ข้อมูลอย่างละเอียด และรองรับการวิเคราะห์สถิติที่คำนวณไว้ล่วงหน้า
 
-### ฟังก์ชัน chart แบบ standalone {#standalone-chart-functions}
+### ฟังก์ชัน chart แบบ standalone [#standalone-chart-functions]
 
 ฟังก์ชัน chart แต่ละตัวใช้งานแยกกันได้อย่างอิสระ เพื่อสร้าง visualization HTML สำหรับจุดประสงค์เดียว
 หรือ figure ของ Plotly สำหรับ workflow การวิเคราะห์แบบกำหนดเอง
 
-#### Price bar พร้อม fill {#price-bars-with-fills}
+#### Price bar พร้อม fill [#price-bars-with-fills]
 
 ฟังก์ชัน `create_bars_with_fills` สร้าง candlestick chart ที่มี fill ของ order ซ้อนอยู่ ซึ่งมีประโยชน์ในการวิเคราะห์
 การ execution ของ strategy เทียบกับ price action ด้วยสายตา ใช้แบบ standalone หรือรวมไว้ใน tearsheet ได้
@@ -279,7 +281,7 @@ configuration เพิ่มเติม (เช่น `bar_type`) จะรั
 ฟังก์ชัน chart แยกตัวอื่น ๆ ได้แก่ `create_equity_curve`, `create_drawdown_chart`,
 `create_monthly_returns_heatmap` และอื่น ๆ
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Backtesting](backtesting/) - เรียนรู้วิธีรัน backtest ที่ให้ผลลัพธ์สำหรับ tearsheet
 - [Reports](reports.md) - ทำความเข้าใจสถิติเบื้องหลังที่แสดงใน tearsheet

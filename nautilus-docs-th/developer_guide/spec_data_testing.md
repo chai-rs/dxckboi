@@ -1,4 +1,6 @@
-# Data Testing Spec
+---
+title: "Data Testing Spec"
+---
 
 ใช้ test matrix นี้เพื่อตรวจสอบความสามารถด้านข้อมูลของ adapter ด้วย actor `DataTester` ของ Rust ซึ่งใน Rust
 import ได้จาก `nautilus_testkit::testers` แต่ละ case ใช้ ID ที่มี prefix (เช่น TC-D01) และจัดกลุ่มตามความสามารถ
@@ -12,7 +14,7 @@ import ได้จาก `nautilus_testkit::testers` แต่ละ case ใ�
 ให้บันทึกพฤติกรรมด้านข้อมูลเฉพาะของ adapter (channel เฉพาะ, throttling, ความหมายของ snapshot ฯลฯ)
 ไว้ในคู่มือของ adapter นั้นเอง ไม่ใช่ที่นี่
 
-## สิ่งที่ต้องเตรียม {#prerequisites}
+## สิ่งที่ต้องเตรียม [#prerequisites]
 
 ก่อนรัน data test:
 
@@ -37,7 +39,7 @@ node.add_actor(tester)?;
 node.run().await?;
 ```
 
-## สเกลของ timestamp {#timestamp-scale}
+## สเกลของ timestamp [#timestamp-scale]
 
 Nautilus เก็บ `ts_event` และ `ts_init` เป็น Unix nanosecond (`UnixNanos`) ทุก data message ที่มีฟิลด์เหล่านี้
 ต้องใช้สเกลนี้ ไม่ใช่ค่าวินาที, มิลลิวินาที หรือไมโครวินาทีที่หลงเหลือมา
@@ -64,7 +66,7 @@ Nautilus เก็บ `ts_event` และ `ts_init` เป็น Unix nanosecon
 
 ---
 
-## ความสอดคล้องของการ sync order book {#order-book-sync-conformance}
+## ความสอดคล้องของการ sync order book [#order-book-sync-conformance]
 
 adapter ที่ดูแล order book จาก stream ของ venue ต้องรักษา output ให้ถูกต้องตลอดเวลาแม้เกิดความผิดพลาดจาก venue
 และเครือข่าย ชุด unit test และ integration test ไม่สามารถจำลองจังหวะเวลาของ venue ได้ ดังนั้นการเปลี่ยนแปลงกลไก
@@ -73,7 +75,7 @@ adapter ที่ดูแล order book จาก stream ของ venue ต้
 **การตรวจสอบแบบ live** ในที่นี้หมายถึงการสังเกตเฉพาะ market data: subscribe, request และฉีด fault ห้ามส่ง order
 ระหว่างการตรวจสอบนี้ **dark book** คือ book ที่ subscribe แล้วแต่ไม่เคยได้รับข้อมูลเลย
 
-### ข้อตกลงของ book stream {#book-stream-contract}
+### ข้อตกลงของ book stream [#book-stream-contract]
 
 `BookStreamChecker` ใน `nautilus_live::book::conformance` ซึ่งเปิดใช้ด้วย feature `test-support` ของ
 `nautilus-live` จะใช้ข้อตกลงนี้กับ batch `OrderBookDeltas` ทุกตัวที่ถูกส่งออกมา:
@@ -88,7 +90,7 @@ adapter ที่ดูแล order book จาก stream ของ venue ต้
   AX Exchange ไม่มี sequence จาก venue ดังนั้น checker ของ venue เหล่านี้ทั้งหมดจะข้ามกฎนี้และอาศัย oracle แทน
 - book จะไม่ส่งอะไรออกมาอีกหลังการ unsubscribe เสร็จสิ้น
 
-### ระดับของการตรวจสอบ {#validation-levels}
+### ระดับของการตรวจสอบ [#validation-levels]
 
 เลือกระดับให้เหมาะกับส่วนที่เสี่ยงที่สุดของการเปลี่ยนแปลง ระดับที่สูงกว่ารวมเกณฑ์ของทุกระดับที่ต่ำกว่าด้วย
 
@@ -104,7 +106,7 @@ property test ของ L0 คือ `schedule_keeps_sync_contract` ใน `crat
 ให้บันทึก level, venue, oracle และผลลัพธ์ไว้กับการเปลี่ยนแปลง การแก้ไขที่พบจากการตรวจสอบแบบ live
 ต้องเริ่มใหม่ที่ระดับที่พบปัญหานั้น: การรันซ้ำต้องผ่านเกณฑ์เดิม ไม่ใช่เกณฑ์ที่เบากว่า
 
-### แคตตาล็อกของ fault {#fault-catalog}
+### แคตตาล็อกของ fault [#fault-catalog]
 
 adapter ทุกตัวต้องให้ผลลัพธ์เหล่านี้ ไม่ว่าจะอยู่ใน
 [recovery family](adapters.md#order-book-recovery-ownership) ใด:
@@ -119,7 +121,7 @@ adapter ทุกตัวต้องให้ผลลัพธ์เหล่
 | Reconnect ระหว่างการกู้คืน       | การกู้คืนที่กำลังรันอยู่คง budget, ความเป็นเจ้าของ และการเขียนที่ค้างอยู่ไว้ และการรอเพดานครั้งถัดไปจะจบทันที book อื่นจะ resync จาก snapshot ใหม่                                 |
 | Unsubscribe ระหว่างการกู้คืน     | การกู้คืนและการเขียนที่ค้างอยู่หยุดลง และ book ไม่ส่งอะไรออกมาอีก                                                                                                   |
 
-### เทคนิคการบังคับให้เกิดสถานการณ์ {#forcing-techniques}
+### เทคนิคการบังคับให้เกิดสถานการณ์ [#forcing-techniques]
 
 ให้ความสำคัญกับลำดับเหตุการณ์ที่แตกต่างมากกว่าปริมาณดิบ probe จะคุ้มค่าก็ต่อเมื่อมันบังคับลำดับที่ชุด test ทำให้เกิด
 ไม่ได้ (reconnect ระหว่างการกู้คืน, snapshot ที่แข่งกับการเปิด gate, unsubscribe ที่แข่งกับ subscribe ที่ยังค้างอยู่)
@@ -139,7 +141,7 @@ Lighter, Binance, Hyperliquid และ AX Exchange ตรวจสอบแบ�
 ก่อนการรันที่ยาว: socket อาจเชื่อมต่อได้ขณะที่ venue ยังเงียบ branch ที่ venue ไม่เคยสร้างขึ้นใน live ควรอยู่ใน harness
 แบบ deterministic ที่ใช้ข้อมูล wire ที่บันทึกไว้ ไม่ใช่ในการรันแบบ live
 
-### Oracle {#oracles}
+### Oracle [#oracles]
 
 oracle คือการสร้างความจริงของ venue ขึ้นใหม่อย่างอิสระ แล้วเปรียบเทียบกับ book ที่ถูกส่งออกมาผ่าน
 `BookStreamChecker::verify`:
@@ -151,7 +153,7 @@ oracle คือการสร้างความจริงของ venue 
   ส่วน harness ที่ใช้ `Coverage::Samples` เช่น Binance จะจับคู่ sample ของ oracle ตาม update ID ภายหลัง จึงรายงาน
   จำนวนการตรวจของ oracle และ sample ที่จับคู่ไม่ได้ ไม่ใช่ความครอบคลุมรายช่วง
 
-### Stress harness {#stress-harnesses}
+### Stress harness [#stress-harnesses]
 
 stress harness เป็นเครื่องมือพัฒนาสำหรับการเปลี่ยนแปลงโค้ด sync และการกู้คืนของ book ไม่ได้เป็นส่วนหนึ่งของ crate
 ที่ publish และไม่ได้รันใน CI `BookStreamChecker` ที่มันใช้มาพร้อมกับ `nautilus-live` ภายใต้ feature `test-support`
@@ -239,7 +241,7 @@ harness จะเขียนหนึ่งบรรทัดต่อ event �
 fault ที่ฉีด, คำสั่งรัน, scenario, flag และ endpoint ที่ต้องใช้ OKX, Binance, Lighter, Polymarket, Hyperliquid, Bybit,
 Betfair และ AX Exchange มี harness ให้แล้ว
 
-### การตรวจสอบแบบ in-band {#in-band-verification}
+### การตรวจสอบแบบ in-band [#in-band-verification]
 
 เมื่อ venue เผยแพร่ checksum หรือ hash ของ book ให้ตรวจ state ที่สมบูรณ์ซึ่ง checksum นั้นครอบคลุม และถือว่าความ
 ไม่ตรงกันเป็น gap วิธีนี้จับความเสียหายที่การตรวจ sequence พลาดได้โดยไม่ต้องใช้ oracle ภายนอก
@@ -259,7 +261,7 @@ Test ID ใช้หมายเลขแบบเว้นช่วงเพื
 
 ---
 
-## กลุ่ม 1: Instrument {#group-1-instruments}
+## กลุ่ม 1: Instrument [#group-1-instruments]
 
 ตรวจสอบการโหลดและการ subscribe instrument ก่อนทดสอบ stream ของ market data
 
@@ -269,7 +271,7 @@ Test ID ใช้หมายเลขแบบเว้นช่วงเพื
 | TC-D02 | Subscribe instrument     | subscribe การอัปเดตของ instrument    | ไม่มี instrument sub |
 | TC-D03 | Load specific instrument | โหลด instrument ตัวเดียวตาม ID         | ไม่ข้าม              |
 
-### TC-D01: Request instruments {#tc-d01-request-instruments}
+### TC-D01: Request instruments [#tc-d01-request-instruments]
 
 | Field              | Value                                                                                         |
 | ------------------ | --------------------------------------------------------------------------------------------- |
@@ -289,7 +291,7 @@ DataTesterConfig::builder()
     .build()?
 ```
 
-### TC-D02: Subscribe instrument {#tc-d02-subscribe-instrument}
+### TC-D02: Subscribe instrument [#tc-d02-subscribe-instrument]
 
 | Field              | Value                                                           |
 | ------------------ | --------------------------------------------------------------- |
@@ -309,7 +311,7 @@ DataTesterConfig::builder()
     .build()?
 ```
 
-### TC-D03: Load specific instrument {#tc-d03-load-specific-instrument}
+### TC-D03: Load specific instrument [#tc-d03-load-specific-instrument]
 
 | Field              | Value                                                                                  |
 | ------------------ | -------------------------------------------------------------------------------------- |
@@ -326,7 +328,7 @@ DataTesterConfig::builder()
 
 ---
 
-## กลุ่ม 2: Order book {#group-2-order-book}
+## กลุ่ม 2: Order book [#group-2-order-book]
 
 ทดสอบโหมดการ subscribe order book และการ request snapshot
 
@@ -341,7 +343,7 @@ DataTesterConfig::builder()
 scenario เหล่านี้ใช้ `BookType::L2_MBP` ทั้งนี้ builder ฝั่ง Rust สามารถ override `book_type` ได้เมื่อ adapter
 ต้องการรูปแบบ book ที่ต่างออกไป
 
-### TC-D10: Subscribe book deltas {#tc-d10-subscribe-book-deltas}
+### TC-D10: Subscribe book deltas [#tc-d10-subscribe-book-deltas]
 
 | Field              | Value                                                                                  |
 | ------------------ | -------------------------------------------------------------------------------------- |
@@ -362,7 +364,7 @@ DataTesterConfig::builder()
     .build()?
 ```
 
-### TC-D11: Subscribe book at interval {#tc-d11-subscribe-book-at-interval}
+### TC-D11: Subscribe book at interval [#tc-d11-subscribe-book-at-interval]
 
 | Field              | Value                                                                                                 |
 | ------------------ | ----------------------------------------------------------------------------------------------------- |
@@ -385,7 +387,7 @@ DataTesterConfig::builder()
     .build()?
 ```
 
-### TC-D12: Subscribe book depth {#tc-d12-subscribe-book-depth}
+### TC-D12: Subscribe book depth [#tc-d12-subscribe-book-depth]
 
 | Field              | Value                                                                            |
 | ------------------ | -------------------------------------------------------------------------------- |
@@ -413,7 +415,7 @@ DataTesterConfig::builder()
     .build()?
 ```
 
-### TC-D13: Request book snapshot {#tc-d13-request-book-snapshot}
+### TC-D13: Request book snapshot [#tc-d13-request-book-snapshot]
 
 | Field              | Value                                                         |
 | ------------------ | ------------------------------------------------------------- |
@@ -434,7 +436,7 @@ DataTesterConfig::builder()
     .build()?
 ```
 
-### TC-D14: Managed book from deltas {#tc-d14-managed-book-from-deltas}
+### TC-D14: Managed book from deltas [#tc-d14-managed-book-from-deltas]
 
 | Field              | Value                                                                                                                     |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------- |
@@ -466,7 +468,7 @@ DataTesterConfig::builder()
 
 ---
 
-## กลุ่ม 3: Quote {#group-3-quotes}
+## กลุ่ม 3: Quote [#group-3-quotes]
 
 ทดสอบการ subscribe quote tick และการ request ข้อมูลย้อนหลัง
 
@@ -475,7 +477,7 @@ DataTesterConfig::builder()
 | TC-D20 | Subscribe quotes          | ตรวจว่า event `QuoteTick` ไหลเข้ามาหลัง start    | ไม่ข้าม                 |
 | TC-D21 | Request historical quotes | request quote tick ย้อนหลัง                    | ไม่มี quote ย้อนหลัง       |
 
-### TC-D20: Subscribe quotes {#tc-d20-subscribe-quotes}
+### TC-D20: Subscribe quotes [#tc-d20-subscribe-quotes]
 
 | Field              | Value                                                                             |
 | ------------------ | --------------------------------------------------------------------------------- |
@@ -495,7 +497,7 @@ DataTesterConfig::builder()
     .build()?
 ```
 
-### TC-D21: Request historical quotes {#tc-d21-request-historical-quotes}
+### TC-D21: Request historical quotes [#tc-d21-request-historical-quotes]
 
 | Field              | Value                                                             |
 | ------------------ | ----------------------------------------------------------------- |
@@ -509,7 +511,7 @@ DataTesterConfig::builder()
 
 ---
 
-## กลุ่ม 4: Trade {#group-4-trades}
+## กลุ่ม 4: Trade [#group-4-trades]
 
 ทดสอบการ subscribe trade tick และการ request ข้อมูลย้อนหลัง
 
@@ -518,7 +520,7 @@ DataTesterConfig::builder()
 | TC-D30 | Subscribe trades          | ตรวจว่า event `TradeTick` ไหลเข้ามาหลัง start    | ไม่ข้าม                 |
 | TC-D31 | Request historical trades | request trade tick ย้อนหลัง                    | ไม่มี trade ย้อนหลัง       |
 
-### TC-D30: Subscribe trades {#tc-d30-subscribe-trades}
+### TC-D30: Subscribe trades [#tc-d30-subscribe-trades]
 
 | Field              | Value                                                                         |
 | ------------------ | ----------------------------------------------------------------------------- |
@@ -538,7 +540,7 @@ DataTesterConfig::builder()
     .build()?
 ```
 
-### TC-D31: Request historical trades {#tc-d31-request-historical-trades}
+### TC-D31: Request historical trades [#tc-d31-request-historical-trades]
 
 | Field              | Value                                                                |
 | ------------------ | -------------------------------------------------------------------- |
@@ -560,7 +562,7 @@ DataTesterConfig::builder()
 
 ---
 
-## กลุ่ม 5: Bar {#group-5-bars}
+## กลุ่ม 5: Bar [#group-5-bars]
 
 ทดสอบการ subscribe bar และการ request ข้อมูลย้อนหลัง
 
@@ -569,7 +571,7 @@ DataTesterConfig::builder()
 | TC-D40 | Subscribe bars          | ตรวจว่า event `Bar` ไหลเข้ามาหลัง start    | ไม่รองรับ bar          |
 | TC-D41 | Request historical bars | request bar แบบ OHLCV ย้อนหลัง           | ไม่มี bar ย้อนหลัง       |
 
-### TC-D40: Subscribe bars {#tc-d40-subscribe-bars}
+### TC-D40: Subscribe bars [#tc-d40-subscribe-bars]
 
 | Field              | Value                                                                                          |
 | ------------------ | ---------------------------------------------------------------------------------------------- |
@@ -590,7 +592,7 @@ DataTesterConfig::builder()
     .build()?
 ```
 
-### TC-D41: Request historical bars {#tc-d41-request-historical-bars}
+### TC-D41: Request historical bars [#tc-d41-request-historical-bars]
 
 | Field              | Value                                                           |
 | ------------------ | --------------------------------------------------------------- |
@@ -613,7 +615,7 @@ DataTesterConfig::builder()
 
 ---
 
-## กลุ่ม 6: ข้อมูลอนุพันธ์ {#group-6-derivatives-data}
+## กลุ่ม 6: ข้อมูลอนุพันธ์ [#group-6-derivatives-data]
 
 ทดสอบ data stream เฉพาะของอนุพันธ์: mark price, index price และ funding rate
 
@@ -624,7 +626,7 @@ DataTesterConfig::builder()
 | TC-D52 | Subscribe funding rates          | event `FundingRateUpdate`     | ไม่ใช่ perpetual     |
 | TC-D53 | Request historical funding rates | ข้อมูล funding rate ย้อนหลัง      | ไม่ใช่ perpetual     |
 
-### TC-D50: Subscribe mark prices {#tc-d50-subscribe-mark-prices}
+### TC-D50: Subscribe mark prices [#tc-d50-subscribe-mark-prices]
 
 | Field              | Value                                                                            |
 | ------------------ | -------------------------------------------------------------------------------- |
@@ -644,7 +646,7 @@ DataTesterConfig::builder()
     .build()?
 ```
 
-### TC-D51: Subscribe index prices {#tc-d51-subscribe-index-prices}
+### TC-D51: Subscribe index prices [#tc-d51-subscribe-index-prices]
 
 | Field              | Value                                                                              |
 | ------------------ | ---------------------------------------------------------------------------------- |
@@ -664,7 +666,7 @@ DataTesterConfig::builder()
     .build()?
 ```
 
-### TC-D52: Subscribe funding rates {#tc-d52-subscribe-funding-rates}
+### TC-D52: Subscribe funding rates [#tc-d52-subscribe-funding-rates]
 
 | Field              | Value                                                                        |
 | ------------------ | ---------------------------------------------------------------------------- |
@@ -684,7 +686,7 @@ DataTesterConfig::builder()
     .build()?
 ```
 
-### TC-D53: Request historical funding rates {#tc-d53-request-historical-funding-rates}
+### TC-D53: Request historical funding rates [#tc-d53-request-historical-funding-rates]
 
 | Field              | Value                                                                                        |
 | ------------------ | -------------------------------------------------------------------------------------------- |
@@ -706,7 +708,7 @@ DataTesterConfig::builder()
 
 ---
 
-## กลุ่ม 7: Instrument status {#group-7-instrument-status}
+## กลุ่ม 7: Instrument status [#group-7-instrument-status]
 
 ทดสอบการ subscribe event ของ instrument status และ instrument close
 
@@ -715,7 +717,7 @@ DataTesterConfig::builder()
 | TC-D60 | Subscribe instrument status | event `InstrumentStatus` | ไม่รองรับ status     |
 | TC-D61 | Subscribe instrument close  | event `InstrumentClose`  | ไม่รองรับ close      |
 
-### TC-D60: Subscribe instrument status {#tc-d60-subscribe-instrument-status}
+### TC-D60: Subscribe instrument status [#tc-d60-subscribe-instrument-status]
 
 | Field              | Value                                                                    |
 | ------------------ | ------------------------------------------------------------------------ |
@@ -740,7 +742,7 @@ DataTesterConfig::builder()
     .build()?
 ```
 
-### TC-D61: Subscribe instrument close {#tc-d61-subscribe-instrument-close}
+### TC-D61: Subscribe instrument close [#tc-d61-subscribe-instrument-close]
 
 | Field              | Value                                                       |
 | ------------------ | ----------------------------------------------------------- |
@@ -767,7 +769,7 @@ DataTesterConfig::builder()
 
 ---
 
-## กลุ่ม 8: Option greeks {#group-8-option-greeks}
+## กลุ่ม 8: Option greeks [#group-8-option-greeks]
 
 ทดสอบการ subscribe option greeks และ option chain
 
@@ -776,7 +778,7 @@ DataTesterConfig::builder()
 | TC-D62 | Subscribe option greeks | ข้อมูล `OptionGreeks` ของ instrument ตัวเดียว     | ไม่รองรับ greeks     |
 | TC-D63 | Subscribe option chain  | snapshot ของ `OptionChainSlice` สำหรับ series    | ไม่รองรับ chain      |
 
-### TC-D62: Subscribe option greeks {#tc-d62-subscribe-option-greeks}
+### TC-D62: Subscribe option greeks [#tc-d62-subscribe-option-greeks]
 
 | Field              | Value                                                        |
 | ------------------ | ------------------------------------------------------------ |
@@ -805,7 +807,7 @@ DataTesterConfig::builder()
     .build()?
 ```
 
-### TC-D63: Subscribe option chain {#tc-d63-subscribe-option-chain}
+### TC-D63: Subscribe option chain [#tc-d63-subscribe-option-chain]
 
 | Field              | Value                                                               |
 | ------------------ | ------------------------------------------------------------------- |
@@ -824,7 +826,7 @@ DataTesterConfig::builder()
 
 ---
 
-## กลุ่ม 9: Lifecycle {#group-9-lifecycle}
+## กลุ่ม 9: Lifecycle [#group-9-lifecycle]
 
 ทดสอบพฤติกรรมใน lifecycle ของ actor: การจัดการ unsubscribe, การเก็บกวาดเมื่อ retire และพารามิเตอร์แบบกำหนดเอง
 
@@ -837,7 +839,7 @@ DataTesterConfig::builder()
 | TC-D74 | DeFi shared pool demand | คง feed ของ pool ที่ใช้ร่วมกันไว้จนถึงเจ้าของรายสุดท้าย      | ไม่รองรับ DeFi      |
 | TC-D75 | DeFi bootstrap cancel   | ทิ้ง snapshot ของ pool bootstrap ที่ถูกยกเลิก           | ไม่รองรับ DeFi      |
 
-### TC-D70: Unsubscribe on stop {#tc-d70-unsubscribe-on-stop}
+### TC-D70: Unsubscribe on stop [#tc-d70-unsubscribe-on-stop]
 
 | Field              | Value                                                            |
 | ------------------ | ---------------------------------------------------------------- |
@@ -859,7 +861,7 @@ DataTesterConfig::builder()
     .build()?
 ```
 
-### TC-D71: Custom subscribe params {#tc-d71-custom-subscribe-params}
+### TC-D71: Custom subscribe params [#tc-d71-custom-subscribe-params]
 
 | Field              | Value                                                                  |
 | ------------------ | ---------------------------------------------------------------------- |
@@ -891,7 +893,7 @@ DataTesterConfig::builder()
 - `subscribe_params` เป็นฟิลด์ที่มีเฉพาะใน Rust
 - ดูพารามิเตอร์ที่รองรับได้ในคู่มือของ adapter
 
-### TC-D72: Custom request params {#tc-d72-custom-request-params}
+### TC-D72: Custom request params [#tc-d72-custom-request-params]
 
 | Field              | Value                                                                |
 | ------------------ | -------------------------------------------------------------------- |
@@ -923,7 +925,7 @@ DataTesterConfig::builder()
 - `request_params` เป็นฟิลด์ที่มีเฉพาะใน Rust
 - ดูพารามิเตอร์ที่รองรับได้ในคู่มือของ adapter
 
-### TC-D73: Retirement cleanup {#tc-d73-retirement-cleanup}
+### TC-D73: Retirement cleanup [#tc-d73-retirement-cleanup]
 
 | Field              | Value                                                                                                                                 |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
@@ -943,7 +945,7 @@ bar ที่ใช้ร่วมกันต้องยัง active หล�
 - `on_stop` หรือ `on_fault` ที่ล้มเหลวต้องไม่ขัดขวางการ retire: การ dispose และการยกเลิกการลงทะเบียนต้องยังทำงานจนเสร็จ
   จาก state ระหว่างทางที่สอดคล้องกัน
 
-### TC-D74: DeFi shared pool demand {#tc-d74-defi-shared-pool-demand}
+### TC-D74: DeFi shared pool demand [#tc-d74-defi-shared-pool-demand]
 
 | Field              | Value                                                                                                                      |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------- |
@@ -966,7 +968,7 @@ bar ที่ใช้ร่วมกันต้องยัง active หล�
 - `DataTesterConfig` ไม่ครอบคลุมการ subscribe DeFi pool ให้สร้าง actor เอง
 - การ unsubscribe ซ้ำจาก actor ตัวหนึ่งต้องไม่ปล่อย demand ของ actor อีกตัว
 
-### TC-D75: DeFi bootstrap cancel {#tc-d75-defi-bootstrap-cancel}
+### TC-D75: DeFi bootstrap cancel [#tc-d75-defi-bootstrap-cancel]
 
 | Field              | Value                                                                                                 |
 | ------------------ | ----------------------------------------------------------------------------------------------------- |
@@ -985,7 +987,7 @@ bar ที่ใช้ร่วมกันต้องยัง active หล�
 
 ---
 
-## เอกสารอ้างอิง configuration ของ DataTester {#datatester-configuration-reference}
+## เอกสารอ้างอิง configuration ของ DataTester [#datatester-configuration-reference]
 
 `DataTesterConfig` รับพารามิเตอร์ด้านล่าง ค่าเริ่มต้นคือค่าที่ resolve แล้วหลังการสร้าง
 การ request quote, trade และ bar ย้อนหลังใช้ช่วงย้อนหลังหนึ่งชั่วโมง ส่วนการ request funding rate ใช้เจ็ดวัน

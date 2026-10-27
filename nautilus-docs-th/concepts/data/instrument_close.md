@@ -1,9 +1,11 @@
-# InstrumentClose
+---
+title: "InstrumentClose"
+---
 
 `InstrumentClose` แทน event ราคาปิดของ instrument ที่ venue หนึ่ง ครอบคลุมทั้งการปิดเมื่อจบ session
 และ event ราคาปิดเมื่อสัญญาหมดอายุ
 
-## Fields {#fields}
+## Fields [#fields]
 
 | Field           | Rust type             | Required/default | หมายเหตุ                                    |
 | --------------- | --------------------- | ---------------- | ------------------------------------------- |
@@ -13,13 +15,13 @@
 | `ts_event`      | `UnixNanos`           | Required         | timestamp ของ event หน่วยนาโนวินาที             |
 | `ts_init`       | `UnixNanos`           | Required         | timestamp ตอน initialize หน่วยนาโนวินาที        |
 
-## พฤติกรรม {#behavior}
+## พฤติกรรม [#behavior]
 
 - การปิดเมื่อจบ session ให้ราคาปิดระดับ session
 - การปิดเมื่อสัญญาหมดอายุใช้ระบุ event การหมดอายุของสัญญาที่มีวันครบกำหนด
 - ราคาปิดเป็นข้อมูลอ้างอิง ไม่ได้หมายความว่ามี trade เกิดขึ้นที่ราคานั้นจริง
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -39,7 +41,7 @@ let close = InstrumentClose::new(
 );
 ```
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [InstrumentStatus](instrument_status.md) อธิบาย event สถานะของ instrument
 - [Instruments](../instruments/) อธิบายการนิยาม instrument

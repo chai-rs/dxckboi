@@ -1,4 +1,6 @@
-# Composite Market Making บน Lighter RWA ด้วยข้อมูล NVDA จาก Databento US Equities
+---
+title: "Composite Market Making บน Lighter RWA ด้วยข้อมูล NVDA จาก Databento US Equities"
+---
 
 tutorial นี้รัน strategy [`CompositeMarketMaker`][composite-market-maker] ที่มาพร้อมกับ NautilusTrader
 บนตลาด RWA `NVDA-PERP.LIGHTER` ของ Lighter โดยใช้ quote ของ `NVDA.EQUS` จาก Databento เป็น signal ภายนอก
@@ -9,7 +11,7 @@ strategy นี้วาง bid แบบ post-only หนึ่งตัวแ�
 หากเพิ่งเริ่มใช้ adapter ของ Lighter ให้ทำ [Get started with Lighter][lighter-get-started] ก่อน
 จากนั้น tutorial นี้จะเพิ่มข้อมูล signal จาก Databento และการส่ง order แบบ live
 
-## บทนำ {#introduction}
+## บทนำ [#introduction]
 
 Lighter มี perpetual ของสินทรัพย์ในโลกจริง (real-world asset หรือ RWA) ที่ซื้อขายต่อเนื่องตลอดเวลา
 รวมถึงตลาดหุ้นรายตัว ดูรายละเอียดล่าสุดของ venue ได้จาก [RWA docs] และ [market specifications]
@@ -67,7 +69,7 @@ tutorial นี้แสดงให้เห็นว่า engine ตัวเ
 ได้อย่างไร โดยวงจรชีวิตของ order, inventory และสถานะของ quote ยังอยู่ใน runtime แบบ event-driven
 ตัวเดียวกัน
 
-## สิ่งที่ต้องมีก่อน {#prerequisites}
+## สิ่งที่ต้องมีก่อน [#prerequisites]
 
 - Rust toolchain (MSRV 1.99.1 หรือใหม่กว่า)
 - Cargo project ที่มี crate ของ Nautilus, Lighter และ Databento เป็น dependency
@@ -96,7 +98,7 @@ export LIGHTER_TESTNET_API_SECRET="your-lighter-api-secret"
 environment variable credential `LIGHTER_*` ของ mainnet ตามที่อธิบายไว้ในคู่มือการเชื่อมต่อ และตั้ง
 `DATABENTO_API_KEY` ก่อนรันตัวอย่าง
 
-## การตั้งค่าโปรเจกต์ {#project-setup}
+## การตั้งค่าโปรเจกต์ [#project-setup]
 
 strategy, node และ adapter มาในรูป crate ที่ Cargo project ของคุณเองนำไปใช้ได้ ไม่จำเป็นต้องทำงานภายใน
 checkout ของ NautilusTrader ให้เพิ่มข้อความต่อไปนี้ลงใน `Cargo.toml` โดยชี้ dependency ของ Nautilus
@@ -124,7 +126,7 @@ Databento client ยังต้องใช้ไฟล์ publishers ที่
 ให้ชี้ไปที่สำเนาในเครื่อง ตัวอย่างที่มาให้จะ resolve ไฟล์เดียวกันโดยอิงจาก checkout จึงมีเพียงโปรเจกต์ของ
 คุณเองที่ต้องทำขั้นตอนนี้
 
-## ทำไมต้อง NVDA {#why-nvda}
+## ทำไมต้อง NVDA [#why-nvda]
 
 `NVDA` เป็นหุ้นรายตัวที่มีสภาพคล่องสูงซึ่งจดทะเบียนใน Nasdaq และ Lighter map perpetual แบบ RWA ของหุ้นนี้
 ไปที่ `NVDA-PERP.LIGHTER` ทำให้จับคู่ signal ที่มี license จาก Databento กับตลาดที่ซื้อขายบน Lighter ได้:
@@ -156,7 +158,7 @@ symbology][databento-symbology]
 - [Testnet][testnet market details] ซึ่งเป็นค่าเริ่มต้นของตัวอย่าง
 - [Mainnet][market details endpoint]
 
-## ข้อจำกัดเรื่อง session {#session-constraint}
+## ข้อจำกัดเรื่อง session [#session-constraint]
 
 ตลาด RWA ของ Lighter ซื้อขายต่อเนื่อง ขณะที่ `NVDA.EQUS` เป็นไปตาม session ข้อมูลตลาดหุ้นสหรัฐฯ ให้รัน
 การทดสอบ live ครั้งแรกในช่วง regular cash session ([13:30, 20:00] UTC ในช่วง daylight time ของสหรัฐฯ)
@@ -166,7 +168,7 @@ symbology][databento-symbology]
 actor หรือ strategy รุ่นดัดแปลงที่ยกเลิก quote เมื่อ signal จาก Databento เก่าเกินไป tutorial นี้ใช้
 strategy ที่มาให้ จึงคงข้อจำกัดในการใช้งานนี้ไว้อย่างชัดเจน
 
-## Node ตัวอย่าง {#example-node}
+## Node ตัวอย่าง [#example-node]
 
 รันตัวอย่างได้สองวิธี:
 
@@ -291,7 +293,7 @@ target order ของตัวเอง และส่ง market order แบ�
 ขณะที่ strategy จำกัดและปิดเฉพาะ position ที่ตัวเองเป็นเจ้าของ หลัง shutdown ให้ยืนยันว่าไม่มี order หรือ
 position จากการรันครั้งนั้นเหลืออยู่ เพราะ fill อาจมาถึงได้ขณะที่การยกเลิกยังค้างอยู่
 
-## พารามิเตอร์ของ strategy {#strategy-parameters}
+## พารามิเตอร์ของ strategy [#strategy-parameters]
 
 | พารามิเตอร์               | ค่า                  | คำอธิบาย                                                        |
 | ----------------------- | ------------------- | -------------------------------------------------------------- |
@@ -310,7 +312,7 @@ position จากการรันครั้งนั้นเหลือ�
 `0.165` USD ก่อนคิด inventory skew ส่วน long position ขนาด `0.05` กับ `inventory_skew_factor=2.0`
 จะเลื่อนทั้งสองฝั่งลง `0.10` USD
 
-## พฤติกรรมการวาง quote ใหม่ {#requote-behavior}
+## พฤติกรรมการวาง quote ใหม่ [#requote-behavior]
 
 tick ของ signal จะอัปเดตสถานะภายในแต่ไม่ส่ง order ด้วยตัวเอง เมื่อ `signal_skew_factor` ไม่เป็นศูนย์
 tick ของ target จะรอจนครบทั้งสองเงื่อนไขนี้:
@@ -337,7 +339,7 @@ quote จะเกิดขึ้นเมื่อเงื่อนไขใ�
 1. ตัดฝั่งที่จะทำให้เกิน `max_position` ออก
 1. ส่งฝั่งที่เหลือเป็น limit แบบ post-only
 
-## แผงกราฟ {#panels}
+## แผงกราฟ [#panels]
 
 แผงกราฟด้านล่างใช้ข้อมูล replay ที่กำหนดผลได้แน่นอน แสดงกลไกการวาง quote และข้อจำกัดของ cash session
 ไม่ใช่ trace ของ fill จริงที่บันทึกจาก Lighter
@@ -361,7 +363,7 @@ composite bid, composite ask และจุดกึ่งกลางของ
 **รูปที่ 4.** *นาฬิกาตลาด RWA แบบต่อเนื่องของ Lighter เทียบกับ signal ตาม cash session ของ Databento US
 Equities พร้อมอายุของ signal หลังจบ regular session*
 
-## ส่วนขยาย {#extensions}
+## ส่วนขยาย [#extensions]
 
 ตัวกั้นอายุของ signal ทำให้ signal จาก Databento เป็น dependency ในการใช้งานที่ชัดเจน ตัวอย่างเช่น ยกเลิก
 order ทั้งหมดบน Lighter หาก quote ล่าสุดของ `NVDA.EQUS` เก่ากว่า 30 วินาทีในช่วง cash session และยกเลิก

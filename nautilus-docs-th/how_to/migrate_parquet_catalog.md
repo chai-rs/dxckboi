@@ -1,10 +1,12 @@
-# Migrate Parquet catalog
+---
+title: "Migrate Parquet catalog"
+---
 
 ใช้ `nautilus catalog migrate-parquet` เพื่อเขียน Parquet catalog ของ Nautilus ที่มีอยู่ใหม่ให้เป็นรูปแบบ Arrow ปัจจุบัน
 คำสั่งนี้อ่านจากต้นทางและเขียนไปยังปลายทางแยกต่างหาก ซึ่งต้องเป็นที่ใหม่หรือว่างเปล่า และต้องไม่ทับซ้อนกับต้นทาง
 ทั้งสองตำแหน่งเป็น local path หรือ URI ของ object store ที่รองรับก็ได้
 
-## รันการ migrate {#run-the-migration}
+## รันการ migrate [#run-the-migration]
 
 ตรวจสอบ schema ของต้นทางก่อน:
 
@@ -43,7 +45,7 @@ Report ที่พิมพ์ออกมาแยกแยะไฟล์แ�
 ไฟล์ที่ข้าม และไฟล์ที่ไม่ได้ migrate ส่วนไฟล์ coverage ที่ว่างจะนับเป็นไฟล์ที่ migrate แล้วโดยมีศูนย์แถว ตรวจดู
 report ก่อนสลับไปใช้งานจริง (cut over)
 
-## การแทนค่าใน Arrow {#arrow-representation}
+## การแทนค่าใน Arrow [#arrow-representation]
 
 รูปแบบปัจจุบันใช้ Arrow type มาตรฐาน การแทนค่าแต่ละแบบด้านล่างใช้กับกลุ่ม record (record family) ที่ระบุไว้ข้าง ๆ
 
@@ -69,7 +71,7 @@ report ก่อนสลับไปใช้งานจริง (cut over)
 Output สำหรับแสดงผลเป็นการแทนค่าแยกต่างหากเพื่อความสะดวก และอาจใช้ราคาและขนาดแบบ floating-point ได้ หากต้องการ
 ค่าทศนิยมที่แม่นยำ ให้ใช้ raw output ในกรณีที่มีให้ใช้
 
-### Scale และ precision ในการจัดเก็บ {#storage-scale-and-precision}
+### Scale และ precision ในการจัดเก็บ [#storage-scale-and-precision]
 
 ทศนิยมที่จัดเก็บจริงใช้ scale 16 เสมอ ส่วน schema metadata ของแต่ละไฟล์จะเก็บ `price_precision` และ
 `size_precision` ของ domain ที่ใช้ตีความค่าเหล่านั้น build แบบ standard-precision จะ rescale raw integer ตอน encode
@@ -77,7 +79,7 @@ Output สำหรับแสดงผลเป็นการแทนค่�
 และสกุลเงินของ `Money` ที่มี precision สูงกว่า 16 จะถูกปฏิเสธ ดังนั้น precision ของ DeFi เช่น wei จึงอยู่นอกการ
 แทนค่าของ catalog
 
-### การระบุ schema และความเข้ากันได้ {#schema-identification-and-compatibility}
+### การระบุ schema และความเข้ากันได้ [#schema-identification-and-compatibility]
 
 Schema fingerprint บันทึกชื่อ field ตามลำดับ Arrow type และ nullability registry ของการ migrate ใช้ fingerprint
 แบบตรงตัวสำหรับ transcoder ของรูปแบบเดิมที่ลงทะเบียนไว้ การจับคู่ schema ปัจจุบันตรวจคอลัมน์ตามชื่อและ type
@@ -92,7 +94,7 @@ legacy schema ที่รู้จักในไฟล์ที่ query เ�
 ขอบเขต timestamp อาจตัดไฟล์ออกก่อนการตรวจ schema ได้ query ยังข้าม layout ของ directory แบบเก่า ทั้งสองกรณี
 อาจคืนผลว่างโดยไม่มี schema error ให้ migrate catalog แบบเก่าก่อน query
 
-### Null และค่าที่ถูกปฏิเสธ {#nulls-and-rejected-values}
+### Null และค่าที่ถูกปฏิเสธ [#nulls-and-rejected-values]
 
 ราคาและปริมาณที่ไม่ได้กำหนดจะ map เป็น Arrow null ใน family ที่ nullable เช่น delta, close และ mark price และ
 index price ส่วน quote, trade และ bar ประกาศคอลัมน์ราคาและขนาดเป็น non-nullable โดยปฏิเสธค่าที่ไม่ได้กำหนดตอน
@@ -100,7 +102,7 @@ encode และปฏิเสธ null ตอน decode พร้อมระ�
 จะละ level ที่ไม่มีออก และการ decode จะปฏิเสธ level ที่เป็น null และค่าที่เป็น null ค่าที่ไม่ถูกต้องและค่าที่อยู่นอก
 ช่วงที่แทนได้จะทำให้เกิด error
 
-### Identity และ layout ของไฟล์ {#identity-and-file-layout}
+### Identity และ layout ของไฟล์ [#identity-and-file-layout]
 
 Schema metadata ของทุกไฟล์ระบุ type ไว้ใต้ `type_name` เช่น `QuoteTick`, `OrderFilled`, `CryptoPerpetual` หรือ
 custom type ที่ลงทะเบียนไว้ และเก็บ identity ไว้ใต้ `instrument_id` หรือ `bar_type` ชื่อ directory ซ้ำ identity นั้น
@@ -112,7 +114,7 @@ Catalog จัดกลุ่มไฟล์ตาม data type และ identi
 ใช้หนึ่ง folder ต่อ instrument type ที่เป็นรูปธรรม ชื่อ folder แบบเก่าจะถูกรู้จักเมื่ออ่านต้นทางของการ migrate
 รวมถึง `quote_tick`, `order_book_depth10`, directory ของ instrument ราย class และ `custom_<type>`
 
-## สิ่งที่แปลงได้ {#what-converts}
+## สิ่งที่แปลงได้ [#what-converts]
 
 | รูปแบบต้นทาง                                     | การแปลง                                                                |
 | ---------------------------------------------- | ---------------------------------------------------------------------- |
@@ -142,7 +144,7 @@ preflight ให้ cast ใหม่เป็น nanosecond แบบ `uint64` 
 รูปแบบต้นทางแบบ fixed-depth ไม่มี order ID และการ migrate จะคง ID ที่เป็นศูนย์ตามที่ตัวอ่านคืนมา รูปแบบปลายทาง
 จะเก็บ order ID สำหรับการเขียนครั้งต่อไป
 
-### สิ่งที่แปลงไม่ได้ {#what-does-not-convert}
+### สิ่งที่แปลงไม่ได้ [#what-does-not-convert]
 
 - **Feather tree** — Feather tree ของ `backtest` และ `live` อยู่นอกขอบเขตของคำสั่งนี้ ให้แปลงการรันที่ stage ไว้
   ผ่าน[streaming workflow](stream_parquet_catalog.md)แทน
@@ -153,7 +155,7 @@ preflight ให้ cast ใหม่เป็น nanosecond แบบ `uint64` 
   ไม่ใช่ทั้ง `uint64` และ Arrow timestamp ระดับ nanosecond และ fingerprint ที่ไม่รู้จัก จะไม่ผ่าน preflight โดย
   แสดงปัญหาทั้งหมด ก่อนมีการเขียนลงปลายทางใด ๆ
 
-### ต้นทางที่ผ่านการตรวจสอบและการตรวจก่อน cut over {#verified-sources-and-cutover-checks}
+### ต้นทางที่ผ่านการตรวจสอบและการตรวจก่อน cut over [#verified-sources-and-cutover-checks]
 
 ความครอบคลุมของต้นทางจาก release จำกัดอยู่ที่ fixture ต่อไปนี้จากเวอร์ชัน **1.231.0**:
 
@@ -197,7 +199,7 @@ instrument แบบเก่าเหล่านี้และแนะนำ
 ตรวจสอบปลายทางด้วยการ query แล้วเปรียบเทียบค่าที่ decode แล้ว identity, timestamp และช่วง coverage กับต้นทาง
 จำนวนไฟล์และจำนวนแถวอย่างเดียวไม่เพียงพอ
 
-## การกู้คืนจากการ migrate ที่ล้มเหลว {#recover-from-a-failed-migration}
+## การกู้คืนจากการ migrate ที่ล้มเหลว [#recover-from-a-failed-migration]
 
 ไฟล์ต้นทางแต่ละไฟล์จะถูกอ่านเข้า memory ทั้งไฟล์ก่อนแปลง ทีละไฟล์ ไฟล์ถูกเขียนตามลำดับด้วยการเขียนแบบ create-only
 ดังนั้นความล้มเหลวอาจทิ้งปลายทางที่เขียนไว้บางส่วนไว้
@@ -210,7 +212,7 @@ instrument แบบเก่าเหล่านี้และแนะนำ
 การ rollback ใช้ต้นทางที่เก็บรักษาไว้ โดยชี้ application กลับไปที่ catalog ต้นทางพร้อมใช้ application เวอร์ชันที่
 เข้ากันได้ ไม่มีการ migrate ย้อนกลับ ดังนั้นข้อมูลที่เขียนลงปลายทางใหม่เท่านั้นหลัง cut over จะไม่ถูกนำกลับไปยังต้นทาง
 
-## อ่านผลลัพธ์ {#read-the-result}
+## อ่านผลลัพธ์ [#read-the-result]
 
 ชี้ `ParquetDataCatalog`, config ข้อมูลของ backtest หรือ config catalog ของ live node ไปที่ปลายทาง
 ใช้ Nautilus เวอร์ชันปัจจุบันในการเขียนข้อมูลเพิ่มเติม PyArrow, pandas และ Polars อ่านค่า Arrow แบบเปิดได้

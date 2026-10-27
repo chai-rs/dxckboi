@@ -1,11 +1,13 @@
-# Commodity
+---
+title: "Commodity"
+---
 
 `Commodity` แทนตลาด spot ของ commodity เช่น ทองคำ เงิน น้ำมัน หรือสินทรัพย์จริงอื่น ๆ ที่ quote ราคาเป็นสกุลเงิน
 เป็นโมเดลของตลาด spot ไม่ใช่สัญญา futures ที่มีวันครบกำหนด
 
 ตัวอย่างเช่น `XAUUSD.IDEALPRO` และ symbol commodity แบบ cash เฉพาะของแต่ละ venue
 
-## Fields {#fields}
+## Fields [#fields]
 
 | Field | Rust type | Required/default | หมายเหตุ |
 | --- | --- | --- | --- |
@@ -33,7 +35,7 @@
 
 **หมายเหตุ**: builder ใช้ชื่อ `instrument_id` แต่ Rust เก็บค่าเดียวกันนี้ไว้ใน field `id`
 
-## พฤติกรรม {#behavior}
+## พฤติกรรม [#behavior]
 
 - `Commodity` มี instrument class เป็น `Spot`
 - อนุญาตให้ราคาติดลบได้ เพราะตลาด spot บางตลาด เช่น ไฟฟ้าหรือน้ำมัน ซื้อขายต่ำกว่าศูนย์ได้ `RiskEngine`
@@ -42,7 +44,7 @@
 - ไม่มี field สำหรับ activation timestamp, expiry, strike, option kind หรือ settlement currency
 - ใช้ `FuturesContract` สำหรับสัญญา commodity futures ที่ซื้อขายในตลาดและมีวันครบกำหนด
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -69,12 +71,12 @@ let gold = Commodity::builder()
     .unwrap();
 ```
 
-## Adapters {#adapters}
+## Adapters [#adapters]
 
 adapter [Interactive Brokers](../../integrations/interactive_brokers.md) สร้างหรือใช้งาน instrument แบบ
 `Commodity` สำหรับสัญญา spot commodity และโลหะ
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Futures Contract](futures_contract.md) อธิบาย futures ที่มีวันครบกำหนดซึ่งอ้างอิง commodity
 - [Data](../data/) อธิบาย market data ที่อ้างอิงถึง instrument

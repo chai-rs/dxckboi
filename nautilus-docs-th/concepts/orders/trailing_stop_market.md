@@ -1,17 +1,19 @@
-# Trailing-Stop-Market
+---
+title: "Trailing-Stop-Market"
+---
 
 `FIX OrdType <40>=3` (Stop) + trailing peg
 
 order แบบ *Trailing-Stop-Market* จะรักษาระยะห่างคงที่ระหว่าง stop trigger กับราคาตลาดที่ระบุ
 เมื่อตลาดเคลื่อนไปในทิศทางที่เป็นประโยชน์ และจะปล่อย order แบบ *Market* ออกไปเมื่อถูก trigger
 
-## กรณีการใช้งาน {#use-cases}
+## กรณีการใช้งาน [#use-cases]
 
 ใช้ order แบบ *Trailing-Stop-Market* เพื่อปกป้องกำไรขณะที่ยังปล่อยให้ position วิ่งต่อไปตามทิศทางที่เป็นประโยชน์ได้
 offset ที่แคบอาจถูก trigger จากความผันผวนปกติ ส่วน offset ที่กว้างอาจทำให้คืนกำไรมากขึ้น
 order แบบ *Market* ที่ถูกปล่อยออกไปก็อาจเกิด slippage, ถูกปฏิเสธ หรือไม่ได้ fill เมื่อราคากลับตัวรุนแรง
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 **ตัวอย่าง**: สร้าง order แบบ *Trailing-Stop-Market* บน Binance Futures exchange
 เพื่อ SELL สัญญา ETHUSD-PERP COIN_M margined Perpetual Futures จำนวน 10 สัญญา โดย activate ที่ราคา
@@ -56,7 +58,7 @@ let order = self.order().trailing_stop_market(
 
 ดูรายละเอียดเพิ่มเติมได้ที่ [Rust API reference](https://nautilustrader.io/docs/core-latest/)
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Orders](index.md#trailing-offset-type) - ประเภทของ trigger และ trailing offset
 - [Emulated orders](emulated.md) - การ emulate trailing stop บน venue ที่ไม่รองรับในตัว

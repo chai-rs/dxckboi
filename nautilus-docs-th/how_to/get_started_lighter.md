@@ -1,11 +1,13 @@
-# เริ่มต้นใช้งาน Lighter
+---
+title: "เริ่มต้นใช้งาน Lighter"
+---
 
 Lighter ใช้งานได้ผ่าน engine ของ Rust และสามารถใช้จากโปรเจกต์ Rust ล้วนได้
 
 เส้นทางที่สั้นที่สุดคือเริ่มจาก public data เมื่อการ subscribe ข้อมูลทำงานได้แล้ว จึงเพิ่ม credential สำหรับการ
 execution แล้วเพิ่ม strategy ที่ส่ง order ได้
 
-## เลือกเส้นทางการตั้งค่า {#choose-a-setup-path}
+## เลือกเส้นทางการตั้งค่า [#choose-a-setup-path]
 
 | เส้นทาง        | ใช้เมื่อ                                                  | ขั้นแรก                                      |
 | :---------- | :-------------------------------------------------- | :----------------------------------------- |
@@ -26,7 +28,7 @@ execution แล้วเพิ่ม strategy ที่ส่ง order ได�
 - `LighterDataClientFactory` และ `LighterExecutionClientFactory` ลงทะเบียน client กับ `LiveNode`
 - `DataTester` และ `ExecTester` เป็น actor สำหรับ smoke test ก่อนที่จะเขียน strategy ของตัวเอง
 
-## เริ่มต้นด้วย Pure Rust {#pure-rust-starter}
+## เริ่มต้นด้วย Pure Rust [#pure-rust-starter]
 
 คัดลอก quickstart ไปยัง workspace ของคุณ:
 
@@ -99,7 +101,7 @@ deployment และ environment เป็นตัวเลือก namespace 
 
 แต่ละ namespace ประกอบด้วย `ACCOUNT_INDEX`, `API_KEY_INDEX` และ `API_SECRET`
 
-## ก้าวต่อไปสู่ strategy {#move-to-a-strategy}
+## ก้าวต่อไปสู่ strategy [#move-to-a-strategy]
 
 เส้นทางเริ่มต้นเหล่านี้พิสูจน์การเชื่อมต่อ client, การ subscribe และการค้นหา credential ขั้นถัดไปคือการแทนที่ tester
 ด้วย strategy:

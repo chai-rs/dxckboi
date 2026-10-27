@@ -1,9 +1,11 @@
-# เริ่มต้นใช้งาน
+---
+title: "เริ่มต้นใช้งาน"
+---
 
 เอกสารชุดนี้เน้นการใช้ NautilusTrader จาก Rust โดย Nautilus มี implementation ของ Rust ครบถ้วนอยู่ใน
 directory `crates/` ทำให้เขียน actor, strategy, รัน backtest และเทรดแบบ live ได้ด้วย Rust ล้วน
 
-## 1. ติดตั้ง {#1-install}
+## 1. ติดตั้ง [#1-install]
 
 ติดตั้ง Rust toolchain (rustup และ cargo) และ dependency สำหรับการ build ตามคู่มือ
 [การติดตั้ง](installation.md) ซึ่งอธิบายแพลตฟอร์มที่รองรับและการ build จาก source
@@ -11,12 +13,12 @@ directory `crates/` ทำให้เขียน actor, strategy, รัน ba
 จากนั้นเพิ่ม crate ของ Nautilus ลงใน `Cargo.toml` ของโปรเจกต์ ดูรายการ crate และ feature flag ได้ที่หัวข้อ
 [การตั้งค่าโปรเจกต์](../concepts/rust.md#project-setup) ในคู่มือแนวคิด Rust
 
-## 2. รัน backtest แรก {#2-run-the-quickstart}
+## 2. รัน backtest แรก [#2-run-the-quickstart]
 
 คู่มือ [รัน backtest (Rust)](../how_to/run_rust_backtest.md) พาไปตั้งแต่ dependency ใน `Cargo.toml`
 จนถึงการรัน backtest ด้วยทั้ง `BacktestEngine` และ `BacktestNode`
 
-## 3. เลือกเส้นทางของคุณ {#3-choose-your-path}
+## 3. เลือกเส้นทางของคุณ [#3-choose-your-path]
 
 - **เขียน strategy และ actor** - เริ่มจาก [Write an Actor (Rust)](../how_to/write_rust_actor.md) แล้วต่อด้วย
   [Write a Strategy (Rust)](../how_to/write_rust_strategy.md)
@@ -29,7 +31,7 @@ directory `crates/` ทำให้เขียน actor, strategy, รัน ba
 - **สร้าง adapter และร่วมพัฒนา** - ดู [Developer guide](../developer_guide/) และแนวทางการเขียน
   [Rust](../developer_guide/rust.md) ของโปรเจกต์
 
-## ระดับของ Backtesting API {#backtesting-api-levels}
+## ระดับของ Backtesting API [#backtesting-api-levels]
 
 NautilusTrader มี API สำหรับ backtest สองระดับ:
 
@@ -51,7 +53,7 @@ state แบบ global singleton แต่รองรับการรัน�
 
 ดูคู่มือแนวคิด [Backtesting](../concepts/backtesting/) เพื่อช่วยเลือกระดับ API
 
-## ตัวอย่างใน repository {#examples-in-the-repository}
+## ตัวอย่างใน repository [#examples-in-the-repository]
 
 เอกสารออนไลน์แสดงตัวอย่างเพียงบางส่วน ดูชุดเต็มได้ใน repository บน GitHub:
 

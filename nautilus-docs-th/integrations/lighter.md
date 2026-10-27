@@ -1,4 +1,6 @@
-# Lighter
+---
+title: "Lighter"
+---
 
 [Lighter](https://lighter.xyz) เป็น exchange แบบ central-limit-order-book ที่กระจายศูนย์ สำหรับ spot และ
 perpetual futures โดย settle ผ่าน zero-knowledge rollup บน Ethereum และทำ matching และ sequencing
@@ -11,7 +13,7 @@ crate `nautilus-lighter` มี data client และ execution client ฝั่
 [`crates/adapters/lighter/benches/BENCHMARKS.md`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/adapters/lighter/benches/BENCHMARKS.md)
 ให้เปรียบเทียบส่วนต่างของ benchmark บนเครื่องเดียวกันเท่านั้น เพราะเวลาสัมบูรณ์จะแตกต่างกันไป
 
-## ภาพรวม {#overview}
+## ภาพรวม [#overview]
 
 - `LighterRawHttpClient`: REST client ระดับล่างสำหรับ endpoint สาธารณะและ endpoint ของ account
 - `LighterHttpClient`: REST client ระดับ domain ที่ parse instrument, trade, bar, funding และ book
@@ -24,7 +26,7 @@ crate `nautilus-lighter` มี data client และ execution client ฝั่
 
 live node ใช้งาน data client และ execution client ผ่าน Rust trait
 
-## ตัวอย่าง {#examples}
+## ตัวอย่าง [#examples]
 
 ตั้งค่าคงที่ระดับ module ของ tester แต่ละตัว ได้แก่ `LIGHTER_DEPLOYMENT`, `LIGHTER_ENVIRONMENT` และค่าคงที่อื่น
 ก่อนรัน tester ของ Rust จะเชื่อมต่อทันที และตัวเลือกเหล่านี้ไม่ได้อ่านจาก environment variable
@@ -42,7 +44,7 @@ cargo run --example lighter-data-tester --package nautilus-lighter --features ex
 cargo run --example lighter-exec-tester --package nautilus-lighter --features examples
 ```
 
-### การล้าง account ฉุกเฉิน {#emergency-account-cleanup}
+### การล้าง account ฉุกเฉิน [#emergency-account-cleanup]
 
 `cargo run --bin lighter-flatten -p nautilus-lighter` จะส่งการ cancel ทั้ง account ทันที จากนั้นอ่าน
 snapshot ของ position หนึ่งครั้งและส่งคำสั่งปิดแบบ reduce-only immediate-or-cancel (IOC) สำหรับ position เหล่านั้น
@@ -61,7 +63,7 @@ snapshot ที่ไม่สมบูรณ์และความล้ม�
 ตั้ง `LIGHTER_DEPLOYMENT` เป็น `lighter` หรือ `robinhood` และ `LIGHTER_ENVIRONMENT` เป็น `mainnet` หรือ `testnet`
 หากไม่ระบุ ค่าเริ่มต้นจะเป็น Lighter Mainnet และเลือก namespace ของ credential ที่ตรงกัน
 
-## ผลิตภัณฑ์ที่รองรับ {#product-support}
+## ผลิตภัณฑ์ที่รองรับ [#product-support]
 
 ตาราง capability อธิบายสิ่งที่ adapter รองรับ *Lighter ไม่รองรับ* หมายถึงข้อจำกัดของ API ของ venue
 ส่วน *ยังไม่ได้ implement* หมายถึงช่องว่างของ adapter
@@ -73,7 +75,7 @@ snapshot ที่ไม่สมบูรณ์และความล้ม�
 | Dated futures     | -         | -       | *Lighter ไม่รองรับ*                                               |
 | Options           | -         | -       | *Lighter ไม่รองรับ*                                               |
 
-## ข้อจำกัด {#limitations}
+## ข้อจำกัด [#limitations]
 
 - กลุ่ม OTO, OCO และ OTOCO แบบ native ต้องเป็นไปตาม[รูปแบบที่รองรับ](#contingent-orders) กลุ่มแบบ native
   ไม่รองรับความสัมพันธ์แบบ OUO ของ Nautilus
@@ -88,7 +90,7 @@ snapshot ที่ไม่สมบูรณ์และความล้ม�
 - order reconciliation ที่ไม่ได้ระบุขอบเขตจะครอบคลุมเฉพาะตลาดที่ active ซึ่งตั้งค่าไว้หรือสังเกตพบ
   เพื่อหลีกเลี่ยงการกระจาย request ไปทั้ง venue ภายใต้โควตา REST ระดับ Standard
 
-## Symbology {#symbology}
+## Symbology [#symbology]
 
 Lighter ใช้ค่า `market_index` แบบ 64-bit ตลาดเดิมจะคง ID ที่แบ่งตามช่วงไว้ หลังจาก
 [การอัปเกรดของ Lighter Mainnet ในเดือนกันยายน 2026](https://t.me/lighter_api_updates/174) และ
@@ -108,7 +110,7 @@ symbol ของ venue ไปเป็นค่า `InstrumentId` ของ Naut
 suffix ใช้แยก listing ของ spot และ perpetual ออกจากกัน request ขาออกจะตัด suffix ออกและใช้
 `market_index` ที่อยู่ใน cache symbol ของ spot จะคงคู่เงินของ venue ไว้
 
-## Deployment และ environment {#deployments-and-environments}
+## Deployment และ environment [#deployments-and-environments]
 
 | Deployment | Environment | REST URL                              | WebSocket URL                              | L2 signing chain ID | Settlement | Venue เริ่มต้น       |
 | ---------- | ----------- | ------------------------------------- | ------------------------------------------ | ------------------- | ---------- | ------------------- |
@@ -128,7 +130,7 @@ URL เริ่มต้น, chain ID, สกุลเงิน settlement, ven
 
 data client จะต่อท้าย `readonly=true` เข้ากับ WebSocket URL ส่วน execution client ไม่เปลี่ยน URL
 
-### Venue identity แบบกำหนดเอง {#custom-venue-identity}
+### Venue identity แบบกำหนดเอง [#custom-venue-identity]
 
 ตั้งค่า `venue` ใน config ของ client ทั้งสองตัวเพื่อให้มี identity ของ Nautilus ที่แยกกันสำหรับ endpoint
 ที่ใช้ protocol ของ Lighter มันกำหนดขอบเขตของ instrument, entry ใน cache, message topic, state ของ socket
@@ -142,7 +144,7 @@ Nautilus route command ของ account ตาม issuer ดังนั้น 
 `LIGHTER_RH_ALT` ต้องใช้ ID เช่น `LIGHTER_RH_ALT-001` venue แบบกำหนดเองไม่ได้เปิดให้ใช้ chain ID หรือ
 attribution แบบกำหนดเอง
 
-## การตั้งค่า account และ API key {#account-and-api-key-setup}
+## การตั้งค่า account และ API key [#account-and-api-key-setup]
 
 ข้อมูลสาธารณะไม่ต้องใช้ account ส่วน private stream และ execution ต้องใช้ account index, API key index
 และ private key จาก deployment และ environment เดียวกัน:
@@ -202,7 +204,7 @@ private key ไว้ใน secret manager หรือการตั้งค�
 หรือแสดงใน log
 :::
 
-## Integrator attribution {#integrator-attribution}
+## Integrator attribution [#integrator-attribution]
 
 execution client จะระบุ attribution ของ transaction ประเภท create และ modify ผ่าน `L2TxAttributes` ไปยัง
 [integrator account บน Lighter Mainnet](https://apidocs.lighter.xyz/docs/partner-integration) (`723813`) หรือ
@@ -229,7 +231,7 @@ attribution เป็นไปตาม deployment และ environment ที�
 key แบบ maker-only บน mainnet ทั้งสองไม่สามารถ submit `ApproveIntegrator` ได้และจะข้ามการ approve ตอน startup
 ก่อนเทรด ให้ approve integrator ด้วย key ที่ไม่ใช่ maker-only บน account เดียวกัน เพราะการ approve มีขอบเขตระดับ account
 
-### การเพิกถอนการ approve {#revoking-the-approval}
+### การเพิกถอนการ approve [#revoking-the-approval]
 
 หากต้องการเพิกถอนการ approve บน mainnet ใดก็ตามเมื่อเลิกใช้ adapter ให้ส่ง `ApproveIntegrator` ด้วย
 `approval_expiry = 0` และค่าธรรมเนียมสูงสุดเป็นศูนย์ การ startup ของ execution client ครั้งถัดไปด้วย key
@@ -248,7 +250,7 @@ source ของ script:
 
 คำสั่ง Rust จะแสดง action และรอให้กด Enter ก่อน sign หรือส่ง หากไม่ถูกต้องให้ยกเลิกด้วย `Ctrl+C`
 
-## Data subscription {#data-subscriptions}
+## Data subscription [#data-subscriptions]
 
 | ประเภทข้อมูล           | Sub.         | Snapshot | Hist. | Nautilus type       | หมายเหตุ                                                     |
 | -------------------- | ------------ | -------- | ----- | ------------------- | ------------------------------------------------------------ |
@@ -264,7 +266,7 @@ source ของ script:
 | Funding rates        | ✓            | -        | ✓     | `FundingRateUpdate` | ค่าประมาณปัจจุบันและประวัติรายชั่วโมงจาก REST                 |
 | Instrument status    | REST         | ✓        | -     | `InstrumentStatus`  | snapshot `active` / `inactive`                               |
 
-### ข้อมูล order book {#order-book-data}
+### ข้อมูล order book [#order-book-data]
 
 subscription ของ book delta และ depth จะปฏิเสธ type อื่นนอกจาก `BookType::L2_MBP` ก่อนการ subscribe
 
@@ -274,7 +276,7 @@ frame `update/order_book` และไม่ emit ข้อมูล book เพ
 depth และ delta ใช้ stream `order_book` ของ WebSocket ร่วมกัน snapshot หรือ incremental update แต่ละตัว
 ที่ยอมรับจะสร้าง depth view แบบ top-10 ที่อัปเดตแล้ว
 
-### Bar {#bars}
+### Bar [#bars]
 
 bar subscription ใช้ `candle/{market_id}/{resolution}` โดยมี update ของ candle ที่ยังเปิดอยู่ประมาณทุก 500 ms
 adapter จะ emit `Bar` ของช่วงเวลาที่ปิดแล้วหนึ่งตัวเฉพาะเมื่อ timestamp เริ่มต้นของ candle เลื่อนไปข้างหน้า
@@ -287,7 +289,7 @@ REST และ WebSocket รองรับ `1m`, `5m`, `15m`, `30m`, `1h`, `4h`
 ประวัติจาก REST จะข้ามแถวที่เป็นช่องว่างซึ่งมีค่า OHLC หายไป, เป็น null หรือไม่เป็นบวก เพราะไม่สามารถ
 สร้างเป็น bar ของ Nautilus ที่ถูกต้องได้ แถวที่ถูกต้องที่ตามมายังคงโหลดได้
 
-### Instrument status และ trade {#instrument-status-and-trades}
+### Instrument status และ trade [#instrument-status-and-trades]
 
 subscription ของ instrument status จะ replay สถานะจาก `orderBookDetails` ใน cache หรือดึง snapshot จาก REST
 Lighter ไม่มี WebSocket stream สำหรับการเปลี่ยนสถานะ
@@ -297,7 +299,7 @@ credential adapter จะกรอง trade สูงสุด 100 รายก�
 
 ดู [Funding rates](#funding-rates) สำหรับความหมายของ funding ทั้งแบบ live และย้อนหลัง
 
-### Data request ที่ไม่รองรับ {#unsupported-data-requests}
+### Data request ที่ไม่รองรับ [#unsupported-data-requests]
 
 `request_quotes` ยังไม่ได้ implement: REST endpoint ที่ adapter ใช้ไม่มี snapshot หรือประวัติของ quote
 ที่มี timestamp ซึ่งเหมาะกับ `QuoteTick` ให้ subscribe `ticker` ของ WebSocket เพื่อรับข้อมูล best bid และ
@@ -306,9 +308,9 @@ offer แบบ live
 `request_book_depth` ยังไม่ได้ implement: book จาก REST ไม่มี timestamp ของ venue สำหรับ `OrderBookDepth.ts_event`
 ให้ใช้ `subscribe_book_depth` สำหรับ depth แบบ live หรือ `request_book_snapshot` สำหรับ snapshot `OrderBook` จาก REST
 
-## การกู้คืน order book {#order-book-recovery}
+## การกู้คืน order book [#order-book-recovery]
 
-### การตรวจสอบลำดับ {#sequence-validation}
+### การตรวจสอบลำดับ [#sequence-validation]
 
 `begin_nonce` ของ incremental update แต่ละตัวต้องตรงกับ `nonce` ของ book ก่อนหน้า หากไม่ตรงจะระงับ
 output ของ book และเริ่มการแทนที่ด้วย unsubscribe/subscribe
@@ -316,7 +318,7 @@ output ของ book และเริ่มการแทนที่ด้�
 `offset` ของ venue ไม่ใช่ตัวนับความต่อเนื่อง: มันอาจข้ามค่าและเปลี่ยนไปข้าม server เมื่อ reconnect
 ดู [Lighter order book contract](https://apidocs.lighter.xyz/docs/websocket-reference#order-book)
 
-### ข้อกำหนดของ snapshot {#snapshot-requirements}
+### ข้อกำหนดของ snapshot [#snapshot-requirements]
 
 หลังจากการเขียน subscription ครั้งแรกหรือการแทนที่เสร็จสิ้น adapter จะรอนานสุด
 `book_snapshot_timeout_secs` (ค่าเริ่มต้น 10 วินาที) สำหรับ snapshot `subscribed/order_book` แบบมี type
@@ -327,7 +329,7 @@ control acknowledgement จะคืนช่อง subscription แต่ไม
 
 output จะกลับมาเฉพาะเมื่อ snapshot ที่ตรงกันมาแทนที่ระดับราคาที่อยู่ใน cache snapshot ที่ว่างจะล้าง book
 
-### ขีดจำกัดของการ retry และการ reconnect {#retry-limits-and-reconnects}
+### ขีดจำกัดของการ retry และการ reconnect [#retry-limits-and-reconnects]
 
 แต่ละรอบของการกู้คืนจะพยายามแทนที่ได้สูงสุดแปดครั้งภายใน 180 วินาที ด้วย exponential backoff และ jitter
 จากนั้นจะ retry ด้วย exponential backoff ในช่วง [1 นาที, 15 นาที] จนกว่าจะยอมรับ snapshot ได้
@@ -336,7 +338,7 @@ output จะกลับมาเฉพาะเมื่อ snapshot ที่
 การ reconnect จะปลด generation ของ subscription ที่ล้าสมัย แต่คงการกู้คืนและ budget ที่เหลือไว้
 หากการกู้คืนใช้ budget หมดแล้วและกำลังรออยู่ มันจะ retry ทันทีบน connection ใหม่
 
-### Consumer และความล้มเหลวแบบต่อเนื่อง {#consumers-and-persistent-failures}
+### Consumer และความล้มเหลวแบบต่อเนื่อง [#consumers-and-persistent-failures]
 
 delta และ depth ใช้รอบการกู้คืนร่วมกันสำหรับแต่ละตลาด:
 
@@ -354,7 +356,7 @@ delta และ depth ใช้รอบการกู้คืนร่วม�
 ดู [Order book recovery ownership](../developer_guide/adapters.md#order-book-recovery-ownership)
 สำหรับกลไกกู้คืนที่ใช้ร่วมกันและหน้าที่ของ adapter
 
-### การตรวจสอบการกู้คืนแบบ live {#live-recovery-validation}
+### การตรวจสอบการกู้คืนแบบ live [#live-recovery-validation]
 
 `lighter-book-stress` ตรวจการ synchronize และการกู้คืนบน book ของ perpetual บน Lighter mainnet หกตัว
 โดยไม่ submit order มันตรวจ contract ของ stream รวมถึงการเพิ่มขึ้นของ nonce ภายในแต่ละรอบของ snapshot
@@ -382,9 +384,9 @@ harness ต้องใช้ WebSocket stream ของ mainnet และ API �
 ดู [Stress harnesses](../developer_guide/spec_data_testing.md#stress-harnesses) สำหรับ flag ที่ใช้ร่วมกัน
 และรูปแบบ output
 
-## ความสามารถด้าน order {#order-capabilities}
+## ความสามารถด้าน order [#order-capabilities]
 
-### การระบุตัวตนของ order {#order-identification}
+### การระบุตัวตนของ order [#order-identification]
 
 Lighter ใช้ order index ของ venue แบบตัวเลขและ `client_order_index` ที่ผู้เรียกกำหนด adapter จะสร้าง
 index ขนาด 31-bit จาก `ClientOrderId` ของ Nautilus และเลื่อนหาค่าถัดไปเมื่อชนกัน
@@ -402,7 +404,7 @@ reconciliation จะคืน client index จริงผ่าน mapping ข
 การกู้คืนจะไม่อนุมาน client order ID จากตัวเลขจำนวนเต็มเพียงอย่างเดียว หากไม่มี binding ที่กู้คืนได้ report
 จะใช้ venue order ID ที่ไม่ซ้ำเป็น external client order ID
 
-### Order type {#order-types}
+### Order type [#order-types]
 
 | Order type             | Perpetuals | Spot | หมายเหตุ                                                        |
 | ---------------------- | ---------- | ---- | -------------------------------------------------------------- |
@@ -428,7 +430,7 @@ Lighter ต้องการ `price` ที่แย่ที่สุดที
 `market_order_slippage_bps` (ค่าเริ่มต้น 50 bps) จะปรับราคาเพดานก่อนปัดให้ตรงกับ price precision ของ instrument:
 ปรับขึ้นสำหรับฝั่งซื้อ และปรับลงสำหรับฝั่งขาย override ได้ด้วย `SubmitOrder.params["market_order_slippage_bps"]`
 
-### Contingent order {#contingent-orders}
+### Contingent order [#contingent-orders]
 
 | ฟีเจอร์                    | Perpetuals | Spot | หมายเหตุ                                                           |
 | ------------------------ | ---------- | ---- | ----------------------------------------------------------------- |
@@ -456,7 +458,7 @@ map ไปยัง Nautilus ดังนี้:
 Nautilus ไม่มี type OTOCO แยกต่างหาก ความสัมพันธ์ OTO และ OCO ต้อง map อย่างชัดเจนเพราะรหัสตัวเลข
 ของ venue และของ Nautilus ต่างกัน
 
-#### ข้อกำหนดของกลุ่ม {#group-requirements}
+#### ข้อกำหนดของกลุ่ม [#group-requirements]
 
 - ทุก leg ใช้ perpetual instrument, strategy และ order-list ID เดียวกัน โดยมี client order ID ไม่ซ้ำกัน
 - parent แบบ OTO ใช้ `MARKET` หรือ `LIMIT` order ลูกต้องอยู่ฝั่งตรงข้ามกับ parent, ใช้ `reduce_only` และ
@@ -480,7 +482,7 @@ adapter ยังกำหนดให้ order ลูกของ OTO เป็
 `OrderFactory.bracket` ใช้ exit แบบ `OUO` และ take-profit แบบ `LIMIT` ธรรมดา ดังนั้น adapter จะปฏิเสธ
 adapter ไม่ได้แทนการอัปเดต quantity ด้วยการ cancel หรือแปลง resting limit เป็น take-profit แบบ trigger
 
-#### การเปิดใช้งานและการกำหนดขนาดของ order ลูก {#child-activation-and-sizing}
+#### การเปิดใช้งานและการกำหนดขนาดของ order ลูก [#child-activation-and-sizing]
 
 การ execute ของ parent จะเปิดใช้งานและกำหนดขนาดให้ order ลูกของ OTO/OTOCO จนกว่าจะถึงตอนนั้น base amount
 บน wire ของ order ลูกจะเป็นศูนย์ แต่ report ของ order ลูกที่ถูกถือไว้ซึ่ง Nautilus submit จะคง quantity ที่ร้องขอไว้
@@ -489,7 +491,7 @@ adapter ไม่ได้แทนการอัปเดต quantity ด้�
 order ลูกที่ถูกถือไว้ไม่สามารถแก้ไขได้ขณะที่ quantity ที่ venue เป็นศูนย์ adapter ไม่มีทั้งการควบคุมการ
 release เมื่อ fill เต็ม และการกำหนดขนาดตามสัดส่วนแบบอิสระ
 
-#### พฤติกรรมการ cancel {#cancellation-behavior}
+#### พฤติกรรมการ cancel [#cancellation-behavior]
 
 OCO ของ Lighter จะ cancel order พี่น้องเมื่อ order SL/TP **ถูก trigger** แม้จะยังไม่ fill ส่วน OCO ของ Nautilus
 จะขอ cancel order คู่เมื่อ fill หรือถูก cancel adapter คงจังหวะเวลาของ venue ไว้โดยไม่สร้าง order พี่น้องขึ้นใหม่
@@ -509,7 +511,7 @@ order ที่เลือกแต่ละตัวเพียงครั�
 แต่ยังไม่ fill เมื่อ venue cancel order คู่ใน OCO ของมัน
 :::
 
-#### Trigger event และการกู้คืนความสัมพันธ์ {#trigger-events-and-relationship-recovery}
+#### Trigger event และการกู้คืนความสัมพันธ์ [#trigger-events-and-relationship-recovery]
 
 conditional order ใช้
 [trigger ด้วย mark price](https://docs.lighter.xyz/trading/order-types-and-matching#trigger-conditions)
@@ -526,7 +528,7 @@ conditional limit ที่ถูก trigger แล้วจะคง type ข�
 หลังถูก trigger การแก้ไขราคาและ quantity จะส่งราคา trigger เป็นศูนย์ ไม่รองรับการเปลี่ยนค่านี้อีก
 transaction batch ที่เป็นอิสระจะไม่ได้รับความสัมพันธ์แบบ contingency
 
-### Order option {#order-options}
+### Order option [#order-options]
 
 | Option           | Perpetuals | Spot | หมายเหตุ                                                                  |
 | ---------------- | ---------- | ---- | ------------------------------------------------------------------------- |
@@ -535,7 +537,7 @@ transaction batch ที่เป็นอิสระจะไม่ได้�
 | `quote_quantity` | -          | -    | *Lighter ไม่รองรับ* ให้ submit เป็น base quantity แทน                      |
 | `display_qty`    | -          | -    | *Lighter ไม่รองรับ* ไม่มี field สำหรับ display quantity แบบ iceberg       |
 
-### Order param ของ adapter {#adapter-order-params}
+### Order param ของ adapter [#adapter-order-params]
 
 | Param                                      | Perpetuals | Spot | หมายเหตุ                                                  |
 | ------------------------------------------ | ---------- | ---- | -------------------------------------------------------- |
@@ -563,7 +565,7 @@ account เดียวกัน การเปลี่ยนเฉพาะ�
 ด้วยพฤติกรรมใด การเปลี่ยนเฉพาะ quantity, พฤติกรรมของ maker หลังแก้ไข, การคงขอบเขตของการเทียบ และการแก้ไข
 order บน spot หรือ conditional order ยังไม่ได้ตรวจสอบ
 
-### Time in force {#time-in-force}
+### Time in force [#time-in-force]
 
 | Time in force  | Perpetuals | Spot | หมายเหตุ                                                                            |
 | -------------- | ---------- | ---- | ---------------------------------------------------------------------------------- |
@@ -588,7 +590,7 @@ order บน spot หรือ conditional order ยังไม่ได้ต�
 `IOC` แบบ limit ของ conditional จะใช้เวลาปัจจุบันบวก 28 วัน Lighter ปฏิเสธค่า `-1` ในเส้นทางเหล่านี้ด้วย
 `21711 invalid expiry`
 
-#### Policy ของ GTD {#gtd-policy}
+#### Policy ของ GTD [#gtd-policy]
 
 เมื่อ `use_gtd = true` (ค่าเริ่มต้น) `expire_time` ของ strategy จะกำหนดวันหมดอายุ `GoodTillTime` ของ venue
 อายุที่ยอมรับได้คือ `[5 นาที + 1 วินาที, 30 วัน]` โดยเผื่อหนึ่งวินาทีสำหรับการ sign และ transport
@@ -604,7 +606,7 @@ time-in-force บน wire ยังคงเป็น `GoodTillTime`: Lighter �
 จะทำให้หมดอายุก่อน ให้ใช้ GTD แบบ native สำหรับอายุที่ยาวกว่า latency ของการ cancel ที่ venue ยังคงทำให้
 การนำ order ออกล่าช้า
 
-### Execution instruction {#execution-instructions}
+### Execution instruction [#execution-instructions]
 
 | Instruction           | Perpetuals | Spot | หมายเหตุ                                                       |
 | --------------------- | ---------- | ---- | ------------------------------------------------------------- |
@@ -618,7 +620,7 @@ time-in-force บน wire ยังคงเป็น `GoodTillTime`: Lighter �
 ที่ไม่ถูกต้องอาจถูกทิ้งโดยไม่มี venue order report และ reconcile เป็น `INFLIGHT_TIMEOUT` โดยไม่มีเหตุผล
 การ reject จาก venue
 
-### ฟีเจอร์ order ขั้นสูง {#advanced-order-features}
+### ฟีเจอร์ order ขั้นสูง [#advanced-order-features]
 
 | ฟีเจอร์              | Perpetuals | Spot | หมายเหตุ                                                          |
 | ------------------ | ---------- | ---- | ---------------------------------------------------------------- |
@@ -634,7 +636,7 @@ time-in-force บน wire ยังคงเป็น `GoodTillTime`: Lighter �
 | Native cancel-all  | ✓          | ✓    | การ cancel ทั้ง account อย่างชัดเจนผ่าน Rust client              |
 | Dead man's switch  | ✓          | ✓    | ต่ออายุอัตโนมัติหรือตั้งเวลาเอง ดูข้อควรระวังด้านล่าง              |
 
-#### การ cancel ทั้ง account {#account-wide-cancellation}
+#### การ cancel ทั้ง account [#account-wide-cancellation]
 
 [`CancelAllOrders`](https://apidocs.lighter.xyz/docs/wasm-signer#signcancelallorders) ของ Lighter ซึ่งเป็น
 transaction type 16 รองรับการ cancel ทั้ง account แบบทันทีและแบบตั้งเวลา Rust execution client มี
@@ -690,7 +692,7 @@ command `CancelAllOrders` ทั่วไปยังคง filter ของ ins
 [chase limit order และ atomic basket](https://docs.lighter.xyz/trading/order-types-and-matching#advanced-orders)
 ของ venue ไม่ได้เปิดให้ใช้ transaction batch ธรรมดาจะ execute order ลูกแต่ละตัวแยกกันอย่างอิสระ
 
-### การทำงานกับ order {#order-operations}
+### การทำงานกับ order [#order-operations]
 
 | การทำงาน             | Perpetuals | Spot | หมายเหตุ                                                             |
 | ------------------- | ---------- | ---- | ------------------------------------------------------------------- |
@@ -706,7 +708,7 @@ command `CancelAllOrders` ทั่วไปยังคง filter ของ ins
 | Query account       | ✓          | ✓    | replay account state ล่าสุดจาก private WebSocket                    |
 | Mass status         | ✓          | ✓    | จำกัดเฉพาะตลาดที่ account active จาก report ของ WS และ REST          |
 
-#### Order list และการทำงานแบบ batch {#order-lists-and-batch-operations}
+#### Order list และการทำงานแบบ batch [#order-lists-and-batch-operations]
 
 `SubmitOrderList`, `BatchModifyOrders` และ `BatchCancelOrders` ที่ไม่ใช่ contingent ใช้ WebSocket
 `jsonapi/sendtxbatch` order ลูกแต่ละตัวคง signed transaction และการระบุ order event ของตัวเองไว้ โดยไม่มี
@@ -731,7 +733,7 @@ contingent list ต้องมีกลุ่มที่รองรับเ�
 [WebSocket reference](https://apidocs.lighter.xyz/docs/websocket-reference#send-batch-tx) ระบุ 15
 adapter ใช้ขีดจำกัดที่ต่ำกว่าตามเอกสาร
 
-#### การจัดสรร nonce และการรับ transaction {#nonce-allocation-and-transaction-admission}
+#### การจัดสรร nonce และการรับ transaction [#nonce-allocation-and-transaction-admission]
 
 แต่ละ batch ใช้ account เดียว, API key เดียว และ nonce ที่ต่อเนื่องกัน
 [nonce contract](https://apidocs.lighter.xyz/docs/core-concepts#nonce) ของ Lighter กำหนดให้ nonce เรียงลำดับ
@@ -754,7 +756,7 @@ acknowledgement ยืนยันการรับ transaction (admission) ไ
 
 เมื่อการส่งกำกวม adapter จะเก็บ state ที่ pending ไว้สำหรับ reconciliation และไม่ส่ง batch ซ้ำ
 
-#### การยืนยันการแก้ไข {#modification-confirmation}
+#### การยืนยันการแก้ไข [#modification-confirmation]
 
 ให้รอ `OrderUpdated` หรือ `OrderModifyRejected` ก่อนแก้ไข order อีกครั้ง แต่ละ order มีการแก้ไขที่ยังไม่ได้
 ข้อสรุปได้เพียงครั้งเดียว ครั้งที่สองจะได้ `OrderModifyRejected` โดยไม่ทำให้ครั้งแรกได้ข้อสรุป
@@ -776,7 +778,7 @@ acknowledgement ยืนยันการรับ transaction (admission) ไ
 report อาจล่าช้าได้หลายวินาที position reconciliation จะกัน instrument ที่ได้รับผลกระทบไว้จนกว่า
 execution event ของมันจะไปถึง cache
 
-#### Fill ของ order ลูกแบบ native และ position reconciliation {#native-child-fills-and-position-reconciliation}
+#### Fill ของ order ลูกแบบ native และ position reconciliation [#native-child-fills-and-position-reconciliation]
 
 fill ของ order ลูกแบบ native ใน OTO/OTOCO จะรอจนกว่า terminal venue order และการครอบคลุม trade จริงที่สมบูรณ์
 จะกำหนด quantity ที่มีผลได้ จากนั้น adapter จะ:
@@ -798,7 +800,7 @@ fill ใน cache และการบัญชีของ position อาจ�
 - mass status จะละ position report และ synthetic flat report ที่ได้รับผลกระทบ และคงสถานะไม่สมบูรณ์
 - snapshot ของ position จาก venue ยังคงมีให้บน private stream
 
-#### การกู้คืนผลลัพธ์ {#outcome-recovery}
+#### การกู้คืนผลลัพธ์ [#outcome-recovery]
 
 order update และการค้นหา transaction ให้ข้อสรุปของผลลัพธ์การ create และ cancel การกู้คืนจะค้นหาสูงสุดสามครั้ง
 ห่างกันสองวินาทีขณะที่ action ที่ pending ยังเป็นปัจจุบัน และตรวจ transaction hash, type, account, API key
@@ -826,7 +828,7 @@ probe ของการแก้ไขจะคง identity ของการ 
 มีเพียง order ใน cache ที่อยู่ใน `PendingCancel` ตอน dispatch เท่านั้นที่จะได้รับ `OrderCancelRejected`
 ความล้มเหลวอื่นจะถูก log ไว้
 
-#### การอัปเดต leverage และการตรวจสอบการ sign {#leverage-updates-and-signing-validation}
+#### การอัปเดต leverage และการตรวจสอบการ sign [#leverage-updates-and-signing-validation]
 
 เรียก `LighterExecutionClient::update_leverage(instrument_id, initial_margin_fraction, margin_mode)`
 สัดส่วน margin ใช้ tick ของ venue (สัดส่วน 1e-4): `500` คือ initial margin 5% (leverage 20x)
@@ -836,7 +838,7 @@ probe ของการแก้ไขจะคง identity ของการ 
 และ `CreateGroupedOrders` ถูกตรึงระดับ byte เทียบกับ signer `lighter-go` v1.0.12 ที่ compile แล้ว
 create, cancel, modify, grouped order และการอัปเดต leverage ครอบคลุม market ID ที่เกิน 16 และ 32 bit
 
-### การ query order และ reconciliation {#order-querying-and-reconciliation}
+### การ query order และ reconciliation [#order-querying-and-reconciliation]
 
 | ฟีเจอร์                | Perpetuals | Spot | หมายเหตุ                                                          |
 | -------------------- | ---------- | ---- | ---------------------------------------------------------------- |
@@ -855,7 +857,7 @@ fill reconciliation ทำซ้ำได้ข้ามการเรียก
 report ย้อนหลังจะผูก client index ที่ map แล้วเฉพาะกับ venue order ID ที่ตรงกัน เพื่อป้องกันไม่ให้ index
 ที่ถูกนำกลับมาใช้รวม lifecycle ที่ไม่เกี่ยวข้องกันเข้าด้วยกัน
 
-#### ความสมบูรณ์ของ report {#report-completeness}
+#### ความสมบูรณ์ของ report [#report-completeness]
 
 mass status แบบมีขอบเขตใช้จุดตัดเดียวกันสำหรับ inactive order และ fill ผลลัพธ์ที่สมบูรณ์ต้องมี:
 
@@ -882,13 +884,13 @@ pagination จะไล่ย้อนจาก trade ล่าสุด มี�
 สำหรับ fill ที่เก่ากว่านั้น [historical data export](https://apidocs.lighter.xyz/docs/historical-data) ของ venue
 ให้ข้อมูล trade ของ account ได้ถึง 12 เดือน adapter ไม่ได้อ่าน endpoint `export`
 
-#### การตรวจ position ตอน startup {#startup-position-checks}
+#### การตรวจ position ตอน startup [#startup-position-checks]
 
 การเปิด position ตอน strategy เริ่มต้นอาจทำให้เกิด warning `cached=0, venue=N` ชั่วครู่ หาก
 `account_all_positions` มาถึงก่อนที่ fill ของมันจะถูกประมวลผลไม่กี่มิลลิวินาที การนำ fill ไปใช้จะแก้ความ
 ไม่ตรงกันนี้โดยไม่สร้าง reconciliation order
 
-## การจัดการ account และ position {#account-and-position-management}
+## การจัดการ account และ position [#account-and-position-management]
 
 execution client จะยืนยันตัวตนและ subscribe private stream ห้าตัว:
 
@@ -903,7 +905,7 @@ adapter จะ emit state ที่รวม `account_all_assets` และ `use
 การสร้าง client อนุญาตให้ไม่มี credential ได้ แต่ `connect()` ต้องมี `private_key`, `account_index` และ
 `api_key_index` private stream และการ refresh nonce เป็นสิ่งที่บังคับ
 
-### Snapshot และ update ของ position {#position-snapshots-and-updates}
+### Snapshot และ update ของ position [#position-snapshots-and-updates]
 
 perpetual ใช้ net position เดียวต่อตลาด spot balance ใช้ asset state ของ account snapshot
 `subscribed/account_all_positions` ที่เชื่อถือได้จะ:
@@ -935,7 +937,7 @@ frame `update/account_all_positions` แบบ incremental จะแทนที
 perpetual ที่ไม่ใช่ USDC เอกสารของมันอธิบาย use case ของ spot แต่ไม่รวม spot ตอนเปิดตัว adapter ไม่ได้เปิดให้ใช้
 ทั้งการกู้ยืมบน spot และการเปลี่ยน collateral mode แถว spot-margin จึงอธิบายช่องว่างของ adapter ไม่ใช่ข้อจำกัดของ venue
 
-## การจัดการ liquidation และ ADL {#liquidation-and-adl-handling}
+## การจัดการ liquidation และ ADL [#liquidation-and-adl-handling]
 
 | Event หรือ field              | รองรับ | หมายเหตุ                                                            |
 | --------------------------- | ------ | ------------------------------------------------------------------ |
@@ -951,7 +953,7 @@ adapter ไม่ได้ subscribe
 [`notification` stream](https://apidocs.lighter.xyz/docs/websocket-reference#notification) ที่ต้องยืนยันตัวตน
 สำหรับการแจ้งเตือน liquidation และ deleverage trade เหล่านี้ใช้เส้นทาง fill report ตามปกติ
 
-## Funding rate {#funding-rates}
+## Funding rate [#funding-rates]
 
 `market_stats` ของ perpetual จะ emit `MarkPriceUpdate`, `IndexPriceUpdate` และ `FundingRateUpdate`
 field ของ funding แตกต่างกัน:
@@ -971,7 +973,7 @@ request ขอ funding ย้อนหลังใช้ `/api/v1/fundings` ส�
 - pagination ครอบคลุมช่วงที่ร้องขอจนถึง[เพดานจำนวนหน้า](#historical-request-limits)ของ adapter
   โดยขึ้นกับ `limit` ที่ระบุชัดเจน
 
-## Account tier {#account-tiers}
+## Account tier [#account-tiers]
 
 account tier เป็นตัวกำหนด latency, rate limit และค่าธรรมเนียม client จะ log tier จาก `GET /api/v1/account`
 รวมถึงค่า `account_type` ที่ไม่รู้จัก
@@ -992,7 +994,7 @@ account tier เป็นตัวกำหนด latency, rate limit และ�
 โดยมี [Premium tier](https://apidocs.lighter.xyz/docs/lighter-rh#account-tiers) ที่อิงจากปริมาณการเทรด 14 วัน
 ให้ยืนยันขีดจำกัดของ deployment ก่อนเพิ่มโควตาภายในเครื่อง ดู [Rate limiting](#rate-limiting)
 
-## Rate limiting {#rate-limiting}
+## Rate limiting [#rate-limiting]
 
 Lighter จำกัดตาม IP และ L1 address data client และ execution client มี REST limiter แยกกันโดยมีค่าเริ่มต้น
 ระดับ Standard ให้วางงบ traffic รวมให้อยู่ภายในขีดจำกัดของ venue
@@ -1006,7 +1008,7 @@ Lighter จำกัดตาม IP และ L1 address data client และ e
 การ override เปลี่ยนเฉพาะจังหวะภายในเครื่อง ข้อมูลสาธารณะยังไม่ต้องยืนยันตัวตนและไม่ได้รับขีดจำกัดระดับ account
 ของ venue จากการเพิ่มโควตาภายในเครื่อง
 
-### Request bucket และน้ำหนักของ endpoint {#request-buckets-and-endpoint-weights}
+### Request bucket และน้ำหนักของ endpoint [#request-buckets-and-endpoint-weights]
 
 HTTP และ WebSocket ใช้ transaction bucket ของ venue ร่วมกันหนึ่งตัวต่อ L1 address WebSocket `sendTxBatch`
 นับเป็นหนึ่งครั้งสำหรับ transaction ของ adapter สูงสุด 15 ตัว
@@ -1024,7 +1026,7 @@ REST limiter ใช้หนึ่ง token ต่อการเรียกห
 
 ให้ยืนยันน้ำหนักสำหรับ deployment ที่ใช้
 
-### ขีดจำกัดตามประเภท transaction {#transaction-type-limits}
+### ขีดจำกัดตามประเภท transaction [#transaction-type-limits]
 
 ขีดจำกัดตามประเภท transaction เริ่มต้นคือ 40 request/นาที โดยมีข้อยกเว้นตามประเภท และแยกจากขีดจำกัด
 `sendTx`/`sendTxBatch` ของ tier
@@ -1047,7 +1049,7 @@ REST limiter ใช้หนึ่ง token ต่อการเรียกห
 response `23000` ของ WebSocket ที่จับคู่ไม่ได้จะถูก log โดยไม่ reject order หรือ batch เพราะอาจเกี่ยวกับ
 traffic ที่ไม่ใช่ transaction ให้ reconcile ผลลัพธ์ที่ pending อยู่ อย่าส่งซ้ำแบบไม่ตรวจสอบ
 
-### Limiter ของ adapter ที่ใช้ร่วมกัน {#shared-adapter-limiters}
+### Limiter ของ adapter ที่ใช้ร่วมกัน [#shared-adapter-limiters]
 
 execution limiter ตัวเดียวบังคับใช้ `sendtx_quota_per_min` ข้ามการเทรดผ่าน WebSocket `sendTx`/`sendTxBatch`
 รวมถึงการ cancel ทั้ง account และการควบคุม schedule และการ approve integrator ผ่าน HTTP `sendTx` ตอน startup
@@ -1075,7 +1077,7 @@ subscription gate ของแต่ละ connection อนุญาต request
 | Default transaction type limit       | 40 req/min               | ใช้กับ tx type ที่ไม่อยู่ภายใต้ volume quota                 |
 | `L2UpdateLeverage` transaction limit | 40 req/min               | เกี่ยวข้องกับ `update_leverage`                             |
 
-### ขีดจำกัด active order และ pending order {#active-and-pending-order-limits}
+### ขีดจำกัด active order และ pending order [#active-and-pending-order-limits]
 
 [ขีดจำกัดตาม tier](https://apidocs.lighter.xyz/docs/rate-limits) ของ Lighter ใช้ต่อ account และต่อตลาด
 ภายใน account นั้น:
@@ -1090,7 +1092,7 @@ active order คือ order ที่วางอยู่ใน book order ท
 ที่ยังไม่ถูก trigger ไม่ใช่ `PendingCancel` ของ Nautilus หรือ request ที่ยังไม่ได้ acknowledge adapter ไม่ได้
 นับ order เหล่านี้ล่วงหน้า ให้เผื่อพื้นที่สำหรับ order ที่มีอยู่แล้ว โควตาภายในเครื่องไม่ได้เพิ่มเพดานของ venue
 
-### น้ำหนักของ endpoint และขีดจำกัดของ transport {#endpoint-weights-and-transport-limits}
+### น้ำหนักของ endpoint และขีดจำกัดของ transport [#endpoint-weights-and-transport-limits]
 
 น้ำหนัก REST ที่พบบ่อยจาก [rate limit ของ Lighter Mainnet](https://apidocs.lighter.xyz/docs/rate-limits)
 แสดงด้านล่าง adapter คิดหนึ่ง REST token ต่อการเรียก HTTP หนึ่งครั้ง `sendTx` และ `sendTxBatch` ใช้
@@ -1127,7 +1129,7 @@ transaction limiter ส่วน `nextNonce` ใช้ REST
 | WebSocket keepalive                    | 2 นาที              | adapter ส่ง heartbeat ทุก 30 วินาที                                  |
 | WebSocket outbound command queue       | ไม่จำกัด             | ควบคุมจังหวะก่อนเขียน ไม่มีเพดานความลึกของคิว                         |
 
-### ขีดจำกัดของ request ข้อมูลย้อนหลัง {#historical-request-limits}
+### ขีดจำกัดของ request ข้อมูลย้อนหลัง [#historical-request-limits]
 
 ประวัติของ bar และ funding จำกัดที่ 500 หน้า REST: สูงสุด 250,000 bar หรือ 49,500 ช่วง funding รายชั่วโมง
 การเสร็จสิ้นในหน้าสุดท้ายถือว่าสำเร็จ เช่นเดียวกับ request ที่ระบุ `start` ชัดเจนและได้ครบตาม `limit` ที่ระบุ
@@ -1135,7 +1137,7 @@ transaction limiter ส่วน `nextNonce` ใช้ REST
 ช่วงที่ไม่ได้ครอบคลุมจะคืน `LighterHttpError::HistoryIncomplete` โดยไม่มีประวัติบางส่วนหรือการ retry
 data client จะ log error และไม่ emit response ให้ลดช่วงลงเพื่อดำเนินการต่อ
 
-## Volume quota และการ quote ที่ไม่ได้ fill {#volume-quota-and-no-fill-quoting}
+## Volume quota และการ quote ที่ไม่ได้ fill [#volume-quota-and-no-fill-quoting]
 
 [volume quota](https://apidocs.lighter.xyz/docs/volume-quota-program) แยกจากขีดจำกัดของ transport
 และใช้เฉพาะกับ account ระดับ Plus และ Premium โดยใช้ร่วมกันข้าม sub-account ภายใต้ L1 address เดียว:
@@ -1150,9 +1152,9 @@ adapter ไม่ได้ตรวจโควตาที่เหลืออ
 สำหรับการทดสอบแบบ live ให้ใช้การ quote ฝั่งเดียวที่ช้ากว่า, threshold การ refresh ที่กว้างขึ้น, testnet หรือ
 strategy แบบมีขอบเขตที่มี fill มากพอจะเติมโควตากลับ
 
-## การจัดการ connection {#connection-management}
+## การจัดการ connection [#connection-management]
 
-### Heartbeat และการ reconnect {#heartbeats-and-reconnects}
+### Heartbeat และการ reconnect [#heartbeats-and-reconnects]
 
 WebSocket client ส่ง heartbeat ทุก 30 วินาที และ reconnect ด้วย exponential backoff ในช่วง
 [250 มิลลิวินาที, 30 วินาที] มันจะ reconnect หลังจากไม่มี frame ขาเข้า 90 วินาที แม้ socket จะยังเปิดอยู่
@@ -1165,13 +1167,13 @@ pong จะ refresh ช่วงเวลานี้แม้ไม่มี ma
 stream เก่าจะหยุดก่อนที่ stream ทดแทนจะพร้อม snapshot ใหม่และ HTTP reconciliation จะกู้คืนช่วงที่ขาดไป
 การปิดจาก server ที่ตามมา รวมถึง `1012` ใช้เส้นทาง reconnect เดียวกัน
 
-### การยืนยันตัวตนแบบ private {#private-authentication}
+### การยืนยันตัวตนแบบ private [#private-authentication]
 
 auth token แบบ private มีอายุไม่เกิน 8 ชั่วโมง adapter สร้าง token อายุ 7 ชั่วโมง และหมุนเวียนพร้อม resubscribe
 ทุก 6 ชั่วโมง การ reconnect แบบโปร่งใสจะสร้าง token ใหม่และ resubscribe account stream หลังจากที่
 subscription ที่ติดตามอยู่เริ่ม replay แล้ว
 
-### การกู้คืน nonce {#nonce-recovery}
+### การกู้คืน nonce [#nonce-recovery]
 
 การ reconnect ของ execution จะดึงค่าฐานของ nonce จาก `GET /api/v1/nextNonce` command submit, modify และ cancel
 แบบเดี่ยวจะ sign ไม่ได้จนกว่าการ refresh หรือการ retry เบื้องหลังจะติดตั้งค่าฐานของ connection ใหม่
@@ -1186,7 +1188,7 @@ command แบบ batch จะรอจนพร้อม รวมถึง com
 ผลลัพธ์ที่อาจไปถึง venue แล้วจะคง nonce ที่ pending และ identity ของ order ไว้สำหรับการกู้คืนผ่าน WebSocket
 หรือ reconciliation
 
-### ความพร้อมของ account stream {#account-stream-readiness}
+### ความพร้อมของ account stream [#account-stream-readiness]
 
 `LighterExecutionClient::connect()` จะล้าง cache ของ position และ account จากนั้นรอนานสุด 30 วินาทีให้
 [private stream](#account-and-position-management) ทั้งห้าพร้อม
@@ -1198,7 +1200,7 @@ payload ของ account จาก REST ไม่เคยถูกใช้เ
 `subscribed/account_all_positions` ครั้งถัดไปจะใช้กฎการแทนที่ snapshot update แบบ live จะ merge
 โดยไม่ลบตลาดที่ไม่ได้ระบุไว้
 
-## API credential {#api-credentials}
+## API credential [#api-credentials]
 
 การ sign ต้องใช้ credential สามอย่าง:
 
@@ -1222,9 +1224,9 @@ namespace ที่แยกกันทำให้ process เดียวก�
 execution จะปฏิเสธ credential ที่ไม่ครบ data subscription ทั้งหมดและ REST request สำหรับ instrument,
 book, trade, bar และ funding ใช้ endpoint สาธารณะโดยไม่ต้องใช้ credential
 
-## Configuration {#configuration}
+## Configuration [#configuration]
 
-### Option ของ data client {#data-client-configuration-options}
+### Option ของ data client [#data-client-configuration-options]
 
 | Option                             | ค่าเริ่มต้น | คำอธิบาย                                                        |
 | ---------------------------------- | --------- | -------------------------------------------------------------- |
@@ -1244,7 +1246,7 @@ book, trade, bar และ funding ใช้ endpoint สาธารณะโ�
 | `rest_quota_per_min`               | `None`    | override โควตา REST หากไม่ตั้งจะคงไว้ที่ 60 req/min              |
 | `transport_backend`                | Default   | backend ของ WebSocket transport                                |
 
-### Option ของ execution client {#execution-client-configuration-options}
+### Option ของ execution client [#execution-client-configuration-options]
 
 | Option                          | ค่าเริ่มต้น     | คำอธิบาย                                                                                                  |
 | ------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------- |
@@ -1267,7 +1269,7 @@ book, trade, bar และ funding ใช้ endpoint สาธารณะโ�
 | `use_gtd`                       | `true`        | ใช้ GTD แบบ native ของ venue ดู [GTD policy](#gtd-policy)                                                 |
 | `scheduled_cancel_timeout_secs` | `None`        | timeout ของการ cancel ทั้ง account อัตโนมัติ หน่วยวินาที ดู [การ cancel](#account-wide-cancellation)       |
 
-### ตัวอย่าง configuration {#configuration-example}
+### ตัวอย่าง configuration [#configuration-example]
 
 ```rust
 use nautilus_lighter::{
@@ -1305,7 +1307,7 @@ field credential ที่ระบุชัดเจนจะ override ค่�
 ตั้ง `LiveExecutionEngineConfig.reconciliation_instrument_ids` เพื่อกำหนดขอบเขตของ reconciliation และ
 `reconciliation_lookback_mins` เพื่อจำกัดการ replay ของ inactive order และ fill
 
-## เอกสารอย่างเป็นทางการ {#official-documentation}
+## เอกสารอย่างเป็นทางการ [#official-documentation]
 
 - [Get started](https://apidocs.lighter.xyz/docs/get-started)
 - [Trading and signing](https://apidocs.lighter.xyz/docs/trading)
@@ -1321,7 +1323,7 @@ field credential ที่ระบุชัดเจนจะ override ค่�
 - [REST OpenAPI](https://raw.githubusercontent.com/elliottech/lighter-python/main/openapi.json)
 - [WebSocket reference](https://apidocs.lighter.xyz/docs/websocket-reference)
 
-## การมีส่วนร่วม {#contributing}
+## การมีส่วนร่วม [#contributing]
 
 :::info
 หากต้องการมีส่วนร่วมพัฒนา adapter ของ Lighter หรือขอฟีเจอร์ ดู

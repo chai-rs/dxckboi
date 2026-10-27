@@ -1,4 +1,6 @@
-# Derive
+---
+title: "Derive"
+---
 
 Derive (ชื่อเดิม Lyra) เป็น venue derivatives แบบกระจายศูนย์ที่ให้บริการ option แบบ European-style และ perpetual
 swap แบบ cash-settled และเป็นหนึ่งในตลาด option แบบ on-chain ที่ใหญ่ที่สุด การเทรดทำผ่าน subaccount ที่ EOA หรือ
@@ -9,7 +11,7 @@ API v3 รวมการดำเนินการเป็น batch เพื
 ขอบเขตไว้กับ subaccount ซึ่งแยก signing key ออกจากเจ้าของ wallet ผู้ใช้สามารถ rotate หรือ revoke สิทธิ์ได้โดย
 ไม่ต้องย้ายเงิน
 
-## ภาพรวม {#overview}
+## ภาพรวม [#overview]
 
 Adapter ของ Derive implement ด้วย Rust อยู่ใน `crates/adapters/derive` โดยมี:
 
@@ -25,15 +27,15 @@ Adapter ของ Derive implement ด้วย Rust อยู่ใน `crates/
 
 Flow ของ execution ใช้การ sign แบบ EIP-712 typed-data กับ module contract ราย action ของ venue
 
-## ตัวอย่าง {#examples}
+## ตัวอย่าง [#examples]
 
 - [ตัวอย่าง Rust](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/derive/examples/)
 
-## เอกสารของ Derive {#derive-documentation}
+## เอกสารของ Derive [#derive-documentation]
 
 Derive เผยแพร่เอกสาร API ที่ [docs.derive.xyz](https://docs.derive.xyz) ใช้อ้างอิงควบคู่กับคู่มือนี้สำหรับรายละเอียดเพิ่มเติม
 
-### การ deploy และการย้ายไป V3 {#v3-deployment-and-migration}
+### การ deploy และการย้ายไป V3 [#v3-deployment-and-migration]
 
 [ประกาศการย้ายระบบเสร็จสมบูรณ์](https://x.com/DeriveXYZ/status/2107605164131852434) ของ Derive แจ้งว่าการย้ายไป
 v3 เสร็จสิ้นเมื่อวันที่ 6 ตุลาคม 2026 ส่วน[ข้อเสนอการย้ายระบบ](https://forums.derive.xyz/t/dip-launch-derive-v3/322)
@@ -54,7 +56,7 @@ scope และเทรดไม่ได้
 EOA จะเรียก `private/set_session_key` ส่วน owner ที่เป็น contract จะส่ง action Set Session Key แบบ on-chain ดู
 [Testnet onboarding](#testnet-onboarding) และ [Mainnet onboarding](#mainnet-onboarding)
 
-## Products {#products}
+## Products [#products]
 
 | Product type           | รองรับ | หมายเหตุ                                                                                         |
 | ---------------------- | ------ | ----------------------------------------------------------------------------------------------- |
@@ -62,7 +64,7 @@ EOA จะเรียก `private/set_session_key` ส่วน owner ที่
 | Perpetual swaps        | ✓      | Cash-settled เป็น USDC มีการ list แยกตามสกุลเงิน เช่น `ETH-PERP`                                     |
 | Options (calls / puts) | ✓      | Option แบบ European-style ใช้รูปแบบ `{CURRENCY}-{EXPIRY}-{STRIKE}-{C\|P}`                          |
 
-## Symbology {#symbology}
+## Symbology [#symbology]
 
 Instrument ของ Derive ใช้ symbol ดั้งเดิมของ venue ต่อด้วย suffix ของ venue `.DERIVE`:
 
@@ -82,7 +84,7 @@ Adapter route ตาม `instrument_type` ของ venue (`perp`, `option`, `er
 `crates/adapters/derive/test_data/spot/` เก็บรูปแบบ field ของ instrument, order book, ticker และ trade ของ spot
 และตรึงเส้นทางของ parser และ execution ไว้กับรูปแบบเหล่านั้น
 
-### พฤติกรรมของ spot {#spot-behavior}
+### พฤติกรรมของ spot [#spot-behavior]
 
 :::warning
 Testnet ของ V3 รับและยกเลิก limit order แบบ passive ของ `ETH-USDC` ได้ ส่วน public spot trade frame, commission
@@ -98,7 +100,7 @@ Testnet ของ V3 รับและยกเลิก limit order แบบ 
   สถานะของ book ดังนั้น trade ที่ทำให้ book ว่างก็ยังปล่อย event ออกมา
 - **Standard Margin**: spot order คิด margin ตามสัดส่วน initial margin ไม่ใช่ notional เต็มจำนวน
 
-## Environment {#environments}
+## Environment [#environments]
 
 ตั้งค่า environment ด้วย enum `DeriveEnvironment` ใน config ของ client ตัวใดก็ได้
 
@@ -134,7 +136,7 @@ Action nonce ใช้ UNIX nanosecond และส่งเป็น string ท
 ซึ่งเป็นการมองย้อนหลังแบบระมัดระวังภายในหน้าต่าง 120 วันที่ venue ระบุไว้ เวลาในเครื่องเป็นค่าประมาณของนาฬิกา server
 ดังนั้น clock skew ยังอาจทำให้ venue reject ได้ timestamp ของการ login ใช้มิลลิวินาที และวันหมดอายุของ signature ใช้วินาที
 
-### การสลับ deployment ที่มีอยู่ไปใช้ v3 {#switch-an-existing-deployment-to-v3}
+### การสลับ deployment ที่มีอยู่ไปใช้ v3 [#switch-an-existing-deployment-to-v3]
 
 1. หยุดส่ง order และ reconcile order, fill, ยอดเงิน และ position ที่มีอยู่
 1. ตรวจ address ของ owner บน v3, subaccount ที่มีเงิน, วันหมดอายุและ scope ของ session key และ environment
@@ -150,7 +152,7 @@ Action nonce ใช้ UNIX nanosecond และส่งเป็น string ท
 Trigger order และ TWAP order ของ v2 ไม่ได้ย้ายมา v3 ตรวจสถานะของ venue ก่อนสร้าง trigger order ที่ต้องการใหม่
 adapter นี้ไม่ส่ง TWAP order
 
-## Testnet onboarding {#testnet-onboarding}
+## Testnet onboarding [#testnet-onboarding]
 
 ขั้นตอนเพื่อให้ execution client ส่ง order ที่ sign แล้วได้:
 
@@ -182,7 +184,7 @@ Owner ที่เป็น EOA ลงทะเบียน key ผ่าน `pr
 เข้า account ก่อน แล้วจึงส่ง action Set Session Key จาก owner contract บน Sepolia หรือ Ethereum การลงทะเบียนแบบ
 on-chain จะถูกละเว้นเมื่อ account ยังไม่มีอยู่ ทำตาม[คู่มือ multisig](https://docs.derive.xyz/authentication/contract-owned-accounts)ของ venue
 
-### เงินทุนขั้นต่ำ {#minimum-funding}
+### เงินทุนขั้นต่ำ [#minimum-funding]
 
 เงินทุนต้องครอบคลุม initial margin ที่ venue กำหนดและวงเงินที่กันไว้สำหรับ order ที่รออยู่ การรับ order ยังขึ้นกับกฎ
 ด้านราคา ปริมาณ และการ execute ของ venue ใช้ตัวเลข margin ของ venue เพื่อกำหนดเงินทุนสำหรับการทดสอบที่เล็กที่สุดที่ทำได้:
@@ -200,7 +202,7 @@ reduce-only หรือ order แบบ `IOC`/`FOK` ปิด exposure ขอ�
 
 สำหรับขีดจำกัดขนาด order และข้อยกเว้นของ taker ดู [การโหลด instrument](#instrument-loading)
 
-### ตรวจสุขภาพของ account {#check-account-health}
+### ตรวจสุขภาพของ account [#check-account-health]
 
 ใช้ `private/get_subaccount` หลังเติมเงินเพื่อยืนยันว่า `initial_margin` ยังเป็นบวกหลังคิด initial margin ของ
 exposure ที่ตั้งใจไว้ field สุขภาพทั้งสองรวม credit ของ collateral และมูลค่า mark-to-market ของ position หลังหัก
@@ -216,7 +218,7 @@ risk charge ของ venue แล้ว:
 order ถัดไปจะได้รับการยอมรับ `private/order_quote` ของ venue คืนสุขภาพ initial margin ก่อน/หลังสำหรับ order ที่เสนอ
 การรับ order จริงยังเป็นตัวตัดสินสุดท้าย ดู [Account state](#account-state) สำหรับการ map
 
-## Mainnet onboarding {#mainnet-onboarding}
+## Mainnet onboarding [#mainnet-onboarding]
 
 Mainnet onboarding ทำเหมือน testnet แต่ทำกับ dashboard ของ production และใช้เงินจริง
 
@@ -249,7 +251,7 @@ Mainnet onboarding ทำเหมือน testnet แต่ทำกับ das
    export DERIVE_SUBACCOUNT_ID="12345"  # integer subaccount id
    ```
 
-### เลือกเครือข่ายของตัวอย่าง {#select-the-example-network}
+### เลือกเครือข่ายของตัวอย่าง [#select-the-example-network]
 
 :::warning
 ตัวอย่าง Rust แต่ละตัว (`node_data_tester`, `node_exec_tester`, `node_delta_neutral`) ตรึงเครือข่ายไว้ด้วย literal
@@ -260,15 +262,15 @@ Mainnet onboarding ทำเหมือน testnet แต่ทำกับ das
 Deployment สำหรับ production เลือกเครือข่ายผ่าน `DeriveDataClientConfig::environment` /
 `DeriveExecutionClientConfig::environment`
 
-## การระบุ referral code {#referral-code-attribution}
+## การระบุ referral code [#referral-code-attribution]
 
 ทุก order, replace และ trigger order ที่ sign จะมี referral code ของ NautilusTrader ที่ฝังไว้ในโค้ด Derive จ่ายค่า
 referral จากรายได้ของตัวเอง ดังนั้นการระบุนี้จึงไม่เพิ่มต้นทุนการเทรด ไม่ต้องขออนุมัติ และไม่สามารถตั้งค่าได้ สิ่งนี้ช่วย
 ให้ทีมประเมินการใช้งานจริงของ integration และจัดลำดับความสำคัญของการดูแลรักษาต่อเนื่อง
 
-## ความสามารถ {#capabilities}
+## ความสามารถ [#capabilities]
 
-### ข้อมูลตลาด {#market-data}
+### ข้อมูลตลาด [#market-data]
 
 | ความสามารถ                      | รองรับ | หมายเหตุ                                                                           |
 | ------------------------------ | ------ | --------------------------------------------------------------------------------- |
@@ -296,7 +298,7 @@ referral จากรายได้ของตัวเอง ดังนั�
 | Option greeks                  | ✓      | Derive จาก `option_pricing` บน ticker ของ option                                   |
 | Option chain                   | ✓      | รวมจาก quote และ greeks โดย `public/get_tickers` ใช้ bootstrap ATM                  |
 
-#### Quotes {#quotes}
+#### Quotes [#quotes]
 
 Ticker ทาง WebSocket รายงาน snapshot ที่สมบูรณ์สำหรับ perpetual, option และ spot หากฝั่งใดฝั่งหนึ่งมีราคาหรือขนาด
 เป็นศูนย์ adapter จะล้างสถานะ quote ภายในของ instrument นั้นและไม่ปล่อย `QuoteTick` (log ที่ระดับ DEBUG) quote
@@ -306,7 +308,7 @@ Quote ล่าสุดที่ publish ไปยังคงอยู่ใ�
 ที่ cache ไว้นั้นออก field อื่นของ ticker ที่ subscribe ไว้ รวมถึง mark price และ index price, funding rate และ option
 greeks ยังคงปล่อยออกมาแยกกันตามปกติ
 
-#### การโหลด instrument {#instrument-loading}
+#### การโหลด instrument [#instrument-loading]
 
 `request_instrument` เรียก `public/get_instrument` สำหรับ `InstrumentId` ที่ request และ cache นิยามที่ได้กลับมา
 ก่อนปล่อย response instrument ใน cache มี field precision และ increment ที่ใช้ในการ parse quote, trade, book และ
@@ -330,7 +332,7 @@ listing ของ perp, option หรือ spot สำหรับสกุล�
 instrument ไม่ได้จะถูก log และข้าม ขณะที่แถวที่ valid ยังโหลดต่อ field ใน response ที่ผิดรูปแบบจะทำให้การดึงของสกุลเงิน
 นั้นล้มเหลว และ error ในการดึงระหว่างการโหลดครั้งแรกจะทำให้การเชื่อมต่อล้มเหลวด้วย
 
-#### ข้อมูลย้อนหลัง {#historical-data}
+#### ข้อมูลย้อนหลัง [#historical-data]
 
 | ข้อมูล           | REST endpoint                       |
 | ------------- | ----------------------------------- |
@@ -338,7 +340,7 @@ instrument ไม่ได้จะถูก log และข้าม ขณะ
 | Bars          | `public/get_tradingview_chart_data` |
 | Funding rates | `public/get_funding_rate_history`   |
 
-##### ทิศทางของ trade และการตัดรายการซ้ำ {#trade-direction-and-deduplication}
+##### ทิศทางของ trade และการตัดรายการซ้ำ [#trade-direction-and-deduplication]
 
 ประวัติผ่าน public REST และ trade ทาง WebSocket อาจคืนแถวของ maker และ taker ภายใต้ `trade_id` เดียวกัน `direction`
 ของแต่ละแถวคือฝั่งของผู้เข้าร่วมนั้น adapter ใช้ฝั่งของ taker เป็นทิศทางของ aggressor และกลับทิศทางของแถว maker
@@ -351,7 +353,7 @@ Request trade ย้อนหลังจะปล่อย `TradeTick` หน�
 การ replay ตอน reconnect ขณะที่ ID ยังอยู่ใน cache ของ trade ล่าสุด 4,096 รายการ การ reconnect อัตโนมัติจะคง cache
 นี้ไว้ ส่วนการ disconnect หรือ reset อย่างชัดเจนจะล้าง cache
 
-##### ข้อกำหนดของ bar และขอบเขตเวลา {#bar-requirements-and-time-bounds}
+##### ข้อกำหนดของ bar และขอบเขตเวลา [#bar-requirements-and-time-bounds]
 
 - **Aggregation และราคา**: bar ต้องใช้ aggregation แบบ `EXTERNAL` และ `PriceType::Last` เพราะ candle ของ Derive
   อิงจาก trade
@@ -360,7 +362,7 @@ Request trade ย้อนหลังจะปล่อย `TradeTick` หน�
 - **ขอบเขตเวลา**: ขอบเขต `end` ของ bar เลือก bucket ตามเวลาเริ่มต้นที่ venue response จะละ bucket ที่ปิดหลังเวลา
   ของ request ออก รวมถึง bucket ที่ยังก่อตัวอยู่ซึ่ง venue คืนมาด้วย
 
-#### Order book feed {#order-book-feeds}
+#### Order book feed [#order-book-feeds]
 
 Derive เปิดให้ใช้ book delta และ depth snapshot ผ่านกลุ่ม channel `orderbook.{instrument}.{group}.{depth}` เดียวกัน
 `subscribe_book_deltas` publish snapshot delta เป็น `OrderBookDeltas` ขณะที่ `subscribe_book_depth` ตรึง `depth=10`
@@ -377,7 +379,7 @@ Feed ไม่มี change ID ดังนั้น adapter จึงใช้ 
 
 Derive ไม่ได้ระบุการรับประกันลำดับของ timestamp และ `publish_id` อาจเริ่มนับใหม่หลัง resubscribe
 
-### Execution {#execution}
+### Execution [#execution]
 
 Derive ใช้ session key ที่ตั้งค่าไว้สำหรับ execution ที่ยืนยันตัวตน:
 
@@ -386,7 +388,7 @@ Derive ใช้ session key ที่ตั้งค่าไว้สำหร
   trade และยอดเงินผ่าน private channel
 - การสร้าง report, การ refresh account และการค้นหา instrument ใช้ REST
 
-#### Fill และการ settle {#fills-and-settlement}
+#### Fill และการ settle [#fills-and-settlement]
 
 Adapter รับ fill ทั้งแบบ live และย้อนหลังโดยใช้ `trade_id` และ `order_id` เป็น identity ของ execution ปริมาณ ราคา
 และ fee decode เป็น `Decimal` ส่วน commission ปัดตาม precision ของ USDC ใน Nautilus
@@ -443,7 +445,7 @@ Adapter รองรับ request `private/order` ปกติ คือ order 
 หลัง submit task แบบ async resolve instrument แล้ว จะ refresh snapshot ของ ticker ปัจจุบันและ derive `limit_price`
 ที่ sign ซึ่งเป็นขอบเขต slippage จาก quote ที่ refresh นั้น
 
-#### การแทนที่ order ปกติ {#replacing-regular-orders}
+#### การแทนที่ order ปกติ [#replacing-regular-orders]
 
 Derive implement การแก้ไข order ปกติเป็น cancel-replace adapter คง client order identity เดียวข้าม native venue order
 ID หลายตัว และปล่อย `OrderUpdated` ก่อน route fill ของ child คำสั่งใช้การผูกกับ venue ปัจจุบัน ขณะที่ fill ที่มาช้ายังคง
@@ -455,7 +457,7 @@ venue order ID เดิมของตัวเอง
 ของ Derive จะปฏิเสธการแทนที่เมื่อปริมาณที่ fill ของเป้าหมายเลยค่านั้นไป report ของ order เชิงตรรกะรวม fill สะสม,
 ค่าเฉลี่ยถ่วงน้ำหนักตามปริมาณเมื่อมีค่าเฉลี่ย native ที่จำเป็นครบ และ timestamp การสร้าง native ที่เก่าที่สุดเป็นเวลาที่ถูก accept
 
-#### Reconciliation ตอน startup {#startup-reconciliation}
+#### Reconciliation ตอน startup [#startup-reconciliation]
 
 ก่อนเริ่ม private streaming execution client จะ publish สถานะ account โหลดนิยาม instrument ที่ portfolio แบบ native
 และ active order ใน cache ต้องใช้ และรอจน cache ของ engine เห็นนิยามเหล่านั้นก่อนเริ่ม private streaming จากนั้นกู้
@@ -520,7 +522,7 @@ snapshot แบบไม่จำกัดขอบเขตจะหยุด�
 หาก venue เปลี่ยนจำนวน record หรือจำนวนหน้าของประวัติ private ระหว่างการแบ่งหน้า adapter จะทิ้งการ scan และเริ่มใหม่
 ไม่เกินสองครั้ง การเปลี่ยนจำนวนครั้งต่อไปจะทำให้ request ล้มเหลว
 
-#### การเลือก margin model {#margin-model-selection}
+#### การเลือก margin model [#margin-model-selection]
 
 ตั้ง `DeriveExecutionClientConfig.subaccount_id` เป็น subaccount แบบ Standard Margin (`SM`) หรือ Portfolio Margin
 (`PM2`) ที่มีอยู่แล้ว แต่ละ subaccount ผูกกับ manager ที่เลือกตอนสร้างและ risk universe ของมัน adapter อ่าน identity
@@ -537,12 +539,12 @@ Risk engine แบบ native โดยค่าเริ่มต้นตรว
 ที่เป็นบวกจึงไม่ได้ยืนยันว่า engine แบบ native จะรับ order ที่ใช้ collateral สกุลเงินอื่น พฤติกรรมแบบ live กับ collateral
 ข้ามสกุลเงินและ maintenance-margin credit (`mm_credits`) ที่ไม่เป็นศูนย์ยังไม่ได้รับการยืนยัน
 
-#### Account state {#account-state}
+#### Account state [#account-state]
 
 Derive ถือ margin ไว้ในระดับ subaccount `AccountState` แยก collateral balance, margin requirement และสุขภาพสุทธิ
 ของ account ออกจากกัน
 
-##### Collateral balance {#collateral-balances}
+##### Collateral balance [#collateral-balances]
 
 - `total` คือ `amount` ของ collateral (เช่น USDC หรือ ETH) ปัดตาม precision ของสกุลเงินที่ลงทะเบียนไว้
 - `locked` เป็นศูนย์ adapter เก็บวงเงินที่กันไว้สำหรับ vault deposit ที่รออยู่ไว้ใน metadata
@@ -550,7 +552,7 @@ Derive ถือ margin ไว้ในระดับ subaccount `AccountState`
 - `AccountState.info.collaterals` เก็บข้อมูลบางส่วนของแต่ละแถว collateral เป็น string ทศนิยมแบบแม่นยำ
 - `collaterals[].initial_margin` คือ credit เป็น USD ที่ collateral นั้นมีส่วนให้ ไม่ใช่เงินที่ถูก lock
 
-##### Margin requirement {#margin-requirements}
+##### Margin requirement [#margin-requirements]
 
 Adapter ปล่อย `MarginBalance` ระดับทั้ง account หนึ่งตัว:
 
@@ -574,7 +576,7 @@ mark-to-market ของ position แต่ไม่รวมวงเงิน�
 initial margin ก่อน/หลัง การรับ order จริงเป็นตัวตัดสินว่า order เพิ่มเติมจะ execute ได้หรือไม่
 :::
 
-##### Metadata ของ account {#account-metadata}
+##### Metadata ของ account [#account-metadata]
 
 `AccountState.info` มี identity ของ account, สุขภาพสุทธิแบบมีเครื่องหมาย และค่าความเสี่ยงแบบแม่นยำ:
 
@@ -613,7 +615,7 @@ commission ของ fill จริงยังครบถ้วน Nautilus �
 เมื่อมีประวัติบางส่วน การกู้คืนแบบสังเคราะห์อาจได้ cost basis โดยประมาณ ตั้ง lookback ของ reconciliation ให้ครอบคลุม
 fill ที่เปิด position ปัจจุบันเมื่อต้องการการบัญชีจาก fill ที่แม่นยำ
 
-#### Conditional order {#conditional-orders}
+#### Conditional order [#conditional-orders]
 
 Trigger order ของ Derive ใช้ `private/order` พร้อม field ของ trigger venue กำหนด order id และเก็บ order ไว้ด้วย
 `order_status=untriggered` จนกว่า trigger worker ของ venue จะส่ง child order ที่ sign แล้ว reconciliation จึงอ่านทั้ง
@@ -622,7 +624,7 @@ Trigger order ของ Derive ใช้ `private/order` พร้อม field �
 การ trigger บน v3 แบบ live และการกู้การอัปเดตที่พลาดไปเมื่อประวัติหรือมุมมอง position มาช้า ยังไม่ได้รับการยืนยัน
 การ reconnect หรือ restart ที่สำเร็จไม่ได้ยืนยันกรณีเหล่านั้น
 
-##### วันหมดอายุของ signature {#signature-expiry}
+##### วันหมดอายุของ signature [#signature-expiry]
 
 API v3 รับ signature ของ order ที่มีอายุในช่วง [10 วินาที, 120 วัน] order แบบ MMP มีอายุสูงสุด 15 นาที
 adapter sign trigger order ด้วยวันหมดอายุคงที่ 31 วันและปิด flag MMP ไว้
@@ -630,7 +632,7 @@ adapter sign trigger order ด้วยวันหมดอายุคงท�
 120 วัน หรือ 900 วินาทีเมื่อ `cancel_on_disconnect=True`
 ดู [action signing](https://docs.derive.xyz/authentication/action-signing)
 
-##### Type ที่รองรับ {#supported-types}
+##### Type ที่รองรับ [#supported-types]
 
 | Nautilus order type | รองรับ | Derive `order_type` | Derive `trigger_type` | หมายเหตุ                              |
 | ------------------- | ------ | ------------------- | --------------------- | ----------------------------------- |
@@ -646,12 +648,12 @@ Adapter map `TriggerType::Default` และ `TriggerType::MarkPrice` ของ 
 ของ Derive เอกสารอ้างอิง error code ของ Derive ระบุว่า trigger price type แบบ index และ last-trade ไม่รองรับ ดังนั้น
 adapter จะปฏิเสธ `IndexPrice`, `LastPrice`, `BidAsk` และ trigger price type อื่นในเครื่องด้วย `OrderDenied` ก่อนส่ง
 
-##### การอัปเดต trigger {#updating-a-trigger}
+##### การอัปเดต trigger [#updating-a-trigger]
 
 Error `11054` ของ Derive ระบุว่า trigger order แทนที่หรือถูกแทนที่ไม่ได้ adapter จึงปฏิเสธ request modify ของ Nautilus
 สำหรับ trigger order ด้วย event `OrderModifyRejected` ให้ยกเลิกแล้วส่งใหม่เพื่ออัปเดต trigger
 
-##### ระยะห่างของ trigger price {#trigger-price-offsets}
+##### ระยะห่างของ trigger price [#trigger-price-offsets]
 
 Derive ตรวจฝั่งของ trigger price และปฏิเสธ trigger ที่ไม่ได้อยู่เลยราคาปัจจุบันในทิศทางที่คาดไว้ด้วย error `11051`
 trigger price ถูกกำหนดตายตัวตอน sign order ดังนั้นระยะห่างที่แคบบน instrument ที่ราคาเคลื่อนไหวเร็วหรือราคาสูงอาจเลื่อน
@@ -662,7 +664,7 @@ trigger price ถูกกำหนดตายตัวตอน sign order ด
 คือหลักสิบดอลลาร์ ไม่ใช่ไม่กี่เซนต์) ระยะห่างที่แคบเกินไปจะทำให้เกิดการ reject ด้วย `11051` โดยไม่จำเป็น
 :::
 
-#### Cancel on disconnect {#cancel-on-disconnect}
+#### Cancel on disconnect [#cancel-on-disconnect]
 
 ตั้ง `cancel_on_disconnect=True` ใน `DeriveExecutionClientConfig` เพื่อเปิด
 [cancel-on-disconnect (COD)](https://docs.derive.xyz/trading/cancel-on-disconnect) สำหรับ limit order แบบ GTC และ
@@ -700,9 +702,9 @@ COD ยกเลิกเฉพาะ order ที่มี `mmp: true` แล�
 การแปลง order ระดับล่างจะปิด MMP ไว้ ให้ตั้ง `mmp: Some(true)` บน payload ที่เข้าเงื่อนไขซึ่งส่งผ่าน
 `execution_handle().submit_order` และ sign ด้วย[อายุไม่เกิน 15 นาที](#signature-expiry)
 
-#### การยกเลิกแบบ bulk {#bulk-cancellation}
+#### การยกเลิกแบบ bulk [#bulk-cancellation]
 
-##### การเลือกและการ routing {#selection-and-routing}
+##### การเลือกและการ routing [#selection-and-routing]
 
 Derive รองรับ method การยกเลิกหลาย order ทั้งสองแบบที่ `Strategy` มีให้
 
@@ -728,7 +730,7 @@ Execution client ของ Derive ใช้ method เหล่านี้ด�
 trigger ที่ activate แล้วไปจัดการด้วย `private/cancel_by_instrument` client จะตรวจการ activate ซ้ำหลังรอตาม pacing
 และ route trigger ที่ activate ระหว่างรอผ่าน `private/cancel` ก่อนนำ request เข้าคิว
 
-##### การจัดการความล้มเหลว {#failure-handling}
+##### การจัดการความล้มเหลว [#failure-handling]
 
 เมื่อ `strategy_only=False` `cancel_all_orders` จะล้มเหลวแบบปิด (fail closed) หาก order ที่เลือกไม่มีทั้งการผูกปัจจุบัน
 และ venue order ID ใน cache คำสั่งทั้งหมดจะ log warning ไม่ส่ง request ยกเลิกใด ๆ และไม่ปล่อย order event
@@ -739,7 +741,7 @@ no-op ที่คาดไว้และ log ที่ระดับ debug
 การยกเลิก trigger ที่ล้มเหลวจะ log warning แต่ไม่ระงับการยกเลิก order ปกติของ instrument request แบบ bulk ที่ล้มเหลว
 ไม่มีผลลัพธ์ราย order ให้ปล่อย การอัปเดตจาก private channel และ reconciliation ภายหลังยังคงรับผิดชอบสถานะ order ที่สังเกตได้
 
-#### Execution instruction {#execution-instructions}
+#### Execution instruction [#execution-instructions]
 
 | Instruction   | รองรับ | ค่าของ Derive   | หมายเหตุ                                                           |
 | ------------- | ------ | ------------- | ----------------------------------------------------------------- |
@@ -751,7 +753,7 @@ Adapter ไม่รองรับ instruction แบบ iceberg order ที�
 order หากขาใดตั้ง `display_qty` adapter จะปฏิเสธทุกขาก่อนส่งขาใด ๆ order ที่มีอยู่แล้วซึ่งมี `display_qty` ยังยกเลิกได้
 แต่การแก้ไขจะถูกปฏิเสธ
 
-#### Time in force {#time-in-force}
+#### Time in force [#time-in-force]
 
 Derive ระบุ `gtc`, `post_only`, `fok` และ `ioc` เป็นค่า `time_in_force` ของตน ค่าของ Nautilus ที่ไม่มีค่าเทียบเท่าใน
 Derive จะถูกปฏิเสธในเครื่องด้วย `OrderDenied` ก่อนส่ง Derive ให้ post-only เป็นค่าหนึ่งของ `time_in_force` ดังนั้น
@@ -775,7 +777,7 @@ Derive จะถูกปฏิเสธในเครื่องด้วย 
 การ reject ตรงตามนั้น การ reject ด้วยเหตุผลอื่นถือว่าไม่ผ่าน adapter เก็บการ reject ของ venue ไว้โดยไม่ปล่อย
 `OrderAccepted` หรือ `OrderCanceled`
 
-#### Reduce-only order บน spot {#spot-reduce-only-orders}
+#### Reduce-only order บน spot [#spot-reduce-only-orders]
 
 Spot ของ Derive ไม่มีแนวคิดเรื่อง position ดังนั้น spot order แบบ reduce-only จึงไม่มีทางลดอะไรได้ venue จะ reject ด้วย
 error `11025` เสมอ adapter หลีกเลี่ยงการส่งไปกลับนั้นเมื่อรู้ว่า instrument เป็น spot spot instrument ใน cache จะถูกปฏิเสธ
@@ -785,7 +787,7 @@ Reduce-only order สำหรับ perpetual และ option ยังคง�
 bin `derive-flatten` ปิดเฉพาะ position ของ derivative และไม่ปิด spot เลย เพราะการ flatten ยอด spot จะเทขาย base asset
 ไปเป็น quote อื่น
 
-##### ข้อจำกัด time-in-force ของ reduce-only {#reduce-only-time-in-force-limits}
+##### ข้อจำกัด time-in-force ของ reduce-only [#reduce-only-time-in-force-limits]
 
 Derive ยอมรับ `reduce_only` เฉพาะบน market order หรือ limit ที่ไม่ rest (`IOC`/`FOK`) limit แบบ `GTC` หรือ post-only
 ที่ resting และมี `reduce_only` จะถูกปฏิเสธในเครื่องก่อนส่ง การส่งตรงไปยัง venue จะล้มเหลวด้วย
@@ -801,12 +803,12 @@ Derive ยอมรับ `reduce_only` เฉพาะบน market order ห�
 และการอัปเดตปริมาณใน strategy เอง list อิสระที่ไม่ผูกกันยังรองรับตามปกติ
 :::
 
-#### Semantics ของการ reject order {#order-rejection-semantics}
+#### Semantics ของการ reject order [#order-rejection-semantics]
 
 การเขียนที่เปลี่ยนสถานะ (`submit_order`, `modify_order`, `cancel_order`) จะส่งผ่าน WebSocket ครั้งเดียวและ **ไม่ถูก
 replay** ผลลัพธ์ของ WebSocket request เป็นตัวกำหนดว่า adapter จะปล่อยการ reject แบบสิ้นสุดหรือรอ reconciliation
 
-##### ความล้มเหลวที่ชัดเจน {#definitive-failures}
+##### ความล้มเหลวที่ชัดเจน [#definitive-failures]
 
 Adapter ปล่อย rejection event แบบสิ้นสุด (`OrderRejected`, `OrderModifyRejected`, `OrderCancelRejected`) สำหรับ
 ความล้มเหลวที่ชัดเจนจาก venue:
@@ -823,7 +825,7 @@ Response ของ `private/cancel_by_label` แบบไม่จำกัด�
 จำนวนที่เป็นบวกก็ต้องรอการอัปเดต private order เช่นกัน ทั้งสองกรณีจะไม่สร้าง event `OrderCanceled` หากไม่มีสถานะ order
 ที่ยืนยันแล้ว `query_order` ใช้การค้นหา order status ร่วมกันสำหรับ reconciliation
 
-##### การจำแนก post-only {#post-only-classification}
+##### การจำแนก post-only [#post-only-classification]
 
 สำหรับ post-only order ที่ไปถึง venue Derive จะ reject order ที่ข้ามราคาด้วย JSON-RPC `11008` และ message
 `Post only order cannot cross the market` adapter ทำเครื่องหมายการ reject แบบสิ้นสุดนั้นด้วย `due_post_only=true` หาก
@@ -835,7 +837,7 @@ Response ของ `private/cancel_by_label` แบบไม่จำกัด�
 ตัวอักษร เหตุผลจาก JSON-RPC คง error code และ message ดั้งเดิมไว้ โดยไม่มี prefix ของ exception หรือ payload วินิจฉัยแบบ
 มีโครงสร้าง log จะเก็บ error ต้นฉบับไว้
 
-##### ผลลัพธ์ที่กำกวม {#ambiguous-outcomes}
+##### ผลลัพธ์ที่กำกวม [#ambiguous-outcomes]
 
 สำหรับผลลัพธ์ของการเขียนที่กำกวม adapter จะไม่ปล่อย event สิ้นสุด และปล่อยให้ WebSocket reconciliation หรือ status report
 ภายหลังเป็นตัวกำหนดสถานะ ชุดของกรณีกำกวมถูกจำกัดให้แคบโดยตั้งใจ:
@@ -851,9 +853,9 @@ Response ของ `private/cancel_by_label` แบบไม่จำกัด�
 การแยกแยะนี้ปกป้องทั้งสองด้านของวงจรชีวิต order การ reject แบบสิ้นสุดที่ผิดอาจทำให้ engine ถือว่า order ที่ live อยู่
 ถูก reject ส่วนผลลัพธ์กำกวมที่ผิดอาจทำให้ order ที่ไม่ได้วางค้างอยู่ใน `Submitted` ตลอดไป เพราะจะไม่มี WebSocket frame มาถึง
 
-## Rate limiting {#rate-limiting}
+## Rate limiting [#rate-limiting]
 
-### ขอบเขตของ budget และการเติม {#budget-scopes-and-refill}
+### ขอบเขตของ budget และการเติม [#budget-scopes-and-refill]
 
 Derive v3 ใช้ [rate limit สองระดับ](https://docs.derive.xyz/rate-limits) budget ของ request ใช้หน้าต่างคงที่ห้าวินาที
 budget ของ order ราย instrument เติมต่อเนื่อง โดยมีความจุเท่ากับห้าวินาทีของอัตราการเติมที่ตั้งค่าไว้ bucket ของ instrument
@@ -869,7 +871,7 @@ subaccount request แบบ public รวมถึงการ login ทาง 
 traffic ที่เกินด้วย `-32000 Rate limit exceeded` และ adapter แสดงผลนี้เป็นการ reject ที่ชัดเจน (ดู
 [semantics ของการ reject order](#order-rejection-semantics))
 
-### Request bucket {#request-buckets}
+### Request bucket [#request-buckets]
 
 ตารางนี้แสดงค่าเริ่มต้นอ้างอิงและโควตา label-cancel ของ adapter ค่าของ deployment และโควตาที่ตกลงกันอาจต่างออกไป
 อ่าน budget ของ request แบบ live ได้ด้วย `public/getRateLimits` endpoint นี้ไม่ได้รายงาน budget ราย instrument บน
@@ -893,7 +895,7 @@ Venue ยังจำกัดจำนวนการเชื่อมต่�
 label แบบไม่จำกัดขอบเขต ส่วน reference หลักไม่ได้ให้ตัวเลขโควตาของ endpoint adapter คง 10 TPS ไว้เป็น budget ของ
 endpoint label-cancel
 
-#### การจัดสรรการเขียนแบบ matching {#matching-write-allocation}
+#### การจัดสรรการเขียนแบบ matching [#matching-write-allocation]
 
 Request ของ order, replace, cancel, cancel-by-nonce และ cancel-by-instrument ใช้ทั้ง budget ของ matching request และ
 token bucket ของ instrument ที่ระบุ config ราย instrument ใช้กับ perpetual, spot และ option และเป็นอิสระจากโควตา
@@ -912,7 +914,7 @@ label-cancel รองรับเฉพาะการเรียกแบบ�
 จะคงค่าเหล่านั้นไว้ limiter จะไม่สนใจค่าตั้งที่ระบุชัดเจนแต่ขัดแย้งและ log warning หนี้ของ budget ที่ใช้ร่วมกันคงอยู่ข้ามการ
 reconnect และการสร้าง client ใหม่
 
-### การ sign และ response ของ venue {#signing-and-venue-responses}
+### การ sign และ response ของ venue [#signing-and-venue-responses]
 
 Header ยืนยันตัวตนของ HTTP และ timestamp ตอน login ทาง WebSocket จะถูก sign หลังการรอตาม pacing execution client
 จองโควตาการสร้างและแทนที่ order ทาง WebSocket ก่อนสร้าง nonce และ signature แบบ EIP-712 การจองที่ถืออยู่จะใช้ความจุ
@@ -928,7 +930,7 @@ Method ส่ง order ทาง HTTP และ method ส่ง signed order �
 การ throttle ของ venue ยังคงเป็นการ reject ที่ชัดเจน ความล้มเหลวของ transport, timeout และผลลัพธ์การเขียนที่กำกวมต้อง
 อาศัย reconciliation adapter ไม่ retry การเขียนที่ sign แล้วแบบสุ่มสี่สุ่มห้า
 
-## การกู้คืน WebSocket {#websocket-recovery}
+## การกู้คืน WebSocket [#websocket-recovery]
 
 Data client และ execution client จะ reconnect อัตโนมัติหลังอีกฝั่งปิดการเชื่อมต่อ เกิด error ของ transport หรือ heartbeat
 timeout adapter ส่ง protocol Ping frame ทุก 30 วินาที และถือว่าการไม่มี frame ขาเข้าใดเลยนาน 60 วินาทีเป็นการเชื่อมต่อที่ตาย
@@ -954,7 +956,7 @@ Request ที่เปลี่ยนสถานะทำตาม[semantics �
 `ws_timeout_secs` ใช้กับการดำเนินการ WebSocket แต่ละครั้งและการ refresh cache ตอน reconnect ไม่ได้ใช้กับการตรวจ heartbeat
 หรือ backoff ของการ reconnect
 
-### การกู้คืน order book {#order-book-recovery}
+### การกู้คืน order book [#order-book-recovery]
 
 Order book กู้คืนแยกจากการกู้คืน session การกู้คืนจะเริ่มหลัง:
 
@@ -983,7 +985,7 @@ timestamp ที่ไม่เพิ่มขึ้น แต่ไม่สา
 timestamp ล่าสุดที่ยอมรับ
 :::
 
-### การตรวจสอบการกู้คืนแบบ live {#live-recovery-validation}
+### การตรวจสอบการกู้คืนแบบ live [#live-recovery-validation]
 
 `derive-book-stress` ตรวจข้อมูล public ของ Derive testnet โดยไม่ส่ง order โดยตรวจ book แบบ depth-10 ของ `ETH-PERP`
 และ `ETH-USDC` เทียบกับข้อตกลงของ book stream และการสร้างใหม่อย่างอิสระของแต่ละ snapshot ที่ venue ส่งต่อมา รวมถึง
@@ -1011,7 +1013,7 @@ CARGO_BUILD_JOBS=4 bash scripts/strip-adapter-env.bash \
 ทุก scenario ตรวจว่า shutdown เสร็จภายในเวลาจำกัด ทุกตัวยกเว้น `disabled` จะเริ่ม shutdown ระหว่างการกู้คืน ดู
 [Stress harnesses](../developer_guide/spec_data_testing.md#stress-harnesses) สำหรับ flag และ output ที่ใช้ร่วมกัน
 
-## Deterministic simulation testing {#deterministic-simulation-testing}
+## Deterministic simulation testing [#deterministic-simulation-testing]
 
 Adapter ฝั่ง Rust รองรับ `simulation` ด้วย `cfg(madsim)` ผ่านจุดต่อ (seam) ที่ใช้ร่วมกันของ clock, task, retry และ
 transport ให้ตั้ง endpoint แบบ `http://` และ `ws://` ที่ควบคุมได้ และเลือก `TransportBackend::Tungstenite` credential
@@ -1047,7 +1049,7 @@ FFI, TLS, สถานะของ venue แบบ live, วงจรชีว�
 และส่วนอื่นของ runtime ที่ยังไม่ได้ตรวจ อยู่นอกการอ้างสิทธิ์ของ simulation นี้ ความครอบคลุมแบบ static ไม่ได้พิสูจน์การ
 ทำงานขณะ runtime ของส่วนเหล่านั้น
 
-## Subscription parameter {#subscription-parameters}
+## Subscription parameter [#subscription-parameters]
 
 `subscribe_book_deltas` และ `subscribe_book_depth` รับ key ของ `subscribe_params` ต่อไปนี้:
 
@@ -1064,7 +1066,7 @@ FFI, TLS, สถานะของ venue แบบ live, วงจรชีว�
 
 ค่าที่ไม่รู้จักจะถูกปฏิเสธตอน subscribe
 
-### Ticker subscription ที่ใช้ร่วมกัน {#shared-ticker-subscription}
+### Ticker subscription ที่ใช้ร่วมกัน [#shared-ticker-subscription]
 
 Quote, mark price, index price, funding rate และ option greeks ทั้งหมด derive จาก WebSocket subscription
 `ticker_slim.{instrument}.{interval}` ตัวเดียวกัน adapter นับการอ้างอิง (reference-count) การเรียก subscribe ของ WS
@@ -1077,7 +1079,7 @@ Quote, mark price, index price, funding rate และ option greeks ทั้�
 **`interval` ของ subscription แรกเป็นตัวกำหนด** feed ที่ subscribe ภายหลังด้วย interval ต่างกันจะใช้ channel ที่มีอยู่ร่วมกัน
 :::
 
-#### Field ของ ticker {#ticker-fields}
+#### Field ของ ticker [#ticker-fields]
 
 Mark price, index price, funding rate และ option greeks อ่าน field จาก payload ของ ticker ทั้งรูปแบบ ticker เต็มและรูปแบบ
 `ticker_slim` แบบกะทัดรัดมี field เหล่านี้ feed ที่ derive จึงทำงานได้กับทั้งสองแบบ:
@@ -1089,16 +1091,16 @@ Mark price, index price, funding rate และ option greeks อ่าน field
 | `option_pricing`            | ไม่บังคับ มีเฉพาะ option            | ให้ option greeks                                                     |
 | Bid/ask                     | มีในทั้งสองรูปแบบ                    | Quote feed ทำงานได้กับทั้งสองรูปแบบ                                      |
 
-#### ข้อจำกัดตาม instrument class {#instrument-class-restrictions}
+#### ข้อจำกัดตาม instrument class [#instrument-class-restrictions]
 
 Funding rate มีความหมายเฉพาะกับ perpetual และ option greeks เฉพาะกับ option adapter ยอมรับ subscription ของ feed
 ที่ไม่ตรงกับ class ของ instrument (เช่น funding rate สำหรับ option) WebSocket subscription จะเปิดได้ แต่ parser จะไม่คืน
 event ใดสำหรับ feed นั้น payload ของ venue ไม่มี field funding rate สำหรับสิ่งที่ไม่ใช่ perp และไม่มี `option_pricing` สำหรับ
 สิ่งที่ไม่ใช่ option ตรวจ class ของ instrument ก่อน subscribe feed เฉพาะของ derivative
 
-## การตั้งค่า {#configuration}
+## การตั้งค่า [#configuration]
 
-### ตัวเลือก config ของ data client {#data-client-configuration-options}
+### ตัวเลือก config ของ data client [#data-client-configuration-options]
 
 Struct: `DeriveDataClientConfig`
 
@@ -1130,11 +1132,11 @@ Data client จะ refresh นิยาม instrument สำหรับสก�
 - `request_instrument` เป็นข้อยกเว้น เพราะดึง `public/get_instrument` เสมอ
 - Option-chain subscription ต้องมี option จาก series นั้นใน cache เพื่อดึงราคาอ้างอิงเริ่มต้น
 
-### ตัวเลือก config ของ execution client {#execution-client-configuration-options}
+### ตัวเลือก config ของ execution client [#execution-client-configuration-options]
 
 Struct: `DeriveExecutionClientConfig`
 
-#### Account และ credential {#account-and-credentials}
+#### Account และ credential [#account-and-credentials]
 
 | ตัวเลือก           | ค่าเริ่มต้น     | คำอธิบาย                                                           |
 | ---------------- | ------------ | ---------------------------------------------------------------- |
@@ -1143,7 +1145,7 @@ Struct: `DeriveExecutionClientConfig`
 | `session_key`    | `None`       | Private key ของ session key แบบ secp256k1 หากไม่ตั้งจะใช้ env var ด้านล่าง |
 | `subaccount_id`  | `None`       | Subaccount id ของ Derive หากไม่ตั้งจะใช้ env var ด้านล่าง                 |
 
-#### การเชื่อมต่อและการ retry {#connectivity-and-retries}
+#### การเชื่อมต่อและการ retry [#connectivity-and-retries]
 
 | ตัวเลือก                   | ค่าเริ่มต้น  | คำอธิบาย                                                                                       |
 | ------------------------ | --------- | ------------------------------------------------------------------------------------------- |
@@ -1164,7 +1166,7 @@ backend ทางเลือก
 สำหรับการอ่านผ่าน HTTP `Retry-After` จะกำหนด delay ขั้นต่ำซึ่งอาจเกิน `retry_delay_max_ms` ได้ หาก delay นั้นไม่พอดีกับ
 budget การ retry 180 วินาทีที่เหลือ client จะคืน error เดิมโดยไม่ retry
 
-#### การ sign order และราคา {#order-signing-and-pricing}
+#### การ sign order และราคา [#order-signing-and-pricing]
 
 :::important
 `max_fee_per_contract` เป็นค่าที่จำเป็นและต้องมากกว่าศูนย์ การสร้าง execution client จะล้มเหลวก่อนสร้าง venue client
@@ -1181,7 +1183,7 @@ budget การ retry 180 วินาทีที่เหลือ client จ
 | `market_order_slippage_bps` | `50`     | ขอบเขต slippage สำหรับ limit price ของ market order                                   |
 | `cancel_on_disconnect`      | `False`  | คุ้มครอง limit order ที่ resting อยู่ ดู [cancel on disconnect](#cancel-on-disconnect)    |
 
-#### ขีดจำกัด matching request {#matching-request-limits}
+#### ขีดจำกัด matching request [#matching-request-limits]
 
 ขีดจำกัดทั้งสองมีค่าเริ่มต้นเป็น **1 request ต่อวินาที** เมื่อไม่ได้ตั้งค่า ตั้งค่าที่ตกลงกันได้แยกกัน: โควตาของ wallet ใช้
 หน้าต่างคงที่ และ credit ของ instrument เติมต่อเนื่อง client ของ wallet เดียวกันบน API host เดียวกันใช้ค่าตั้งที่ระบุชัดเจน
@@ -1193,7 +1195,7 @@ budget การ retry 180 วินาทีที่เหลือ client จ
 | `max_matching_requests_per_second`                | `None`   | Matching request ของ wallet ต่อวินาที                  |
 | `max_per_instrument_matching_requests_per_second` | `None`   | อัตราการเติม token ต่อ wallet/instrument ต่อวินาที       |
 
-#### Environment variable ของ credential {#credential-environment-variables}
+#### Environment variable ของ credential [#credential-environment-variables]
 
 `wallet_address`, `session_key` และ `subaccount_id` จะใช้ environment variable เมื่อไม่ได้ตั้งค่า:
 
@@ -1206,7 +1208,7 @@ budget การ retry 180 วินาทีที่เหลือ client จ
 Session key คือ private key แบบ secp256k1 ที่ลงทะเบียนบน wallet สำหรับการ sign API field `session_key` จะถูกซ่อนใน
 output ของ `Debug`
 
-### Data client ฝั่ง Rust {#rust-data-client}
+### Data client ฝั่ง Rust [#rust-data-client]
 
 ```rust
 use nautilus_derive::{
@@ -1221,7 +1223,7 @@ let config = DeriveDataClientConfig {
 };
 ```
 
-### Execution client ฝั่ง Rust {#rust-execution-client}
+### Execution client ฝั่ง Rust [#rust-execution-client]
 
 ```rust
 use nautilus_derive::{
@@ -1240,7 +1242,7 @@ let config = DeriveExecutionClientConfig {
 };
 ```
 
-## ข้อจำกัดที่ทราบ {#known-limitations}
+## ข้อจำกัดที่ทราบ [#known-limitations]
 
 - `request_instruments` ต้องมีสกุลเงินที่ตั้งค่าไว้อย่างน้อยหนึ่งสกุลใน `DeriveDataClientConfig::currencies` adapter
   กรอง `public/get_all_instruments` ตามแต่ละสกุลเงินที่ตั้งค่าไว้ และไม่ได้ไล่รายการสกุลเงินทั้งหมด

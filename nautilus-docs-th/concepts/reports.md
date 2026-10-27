@@ -1,4 +1,6 @@
-# Reports
+---
+title: "Reports"
+---
 
 คู่มือนี้อธิบายว่า report จาก `ReportProvider` ช่วยในการวิเคราะห์ portfolio, การทำบัญชี PnL และการวิเคราะห์ผลหลังรัน
 backtest อย่างไร
@@ -6,7 +8,7 @@ backtest อย่างไร
 > หมายเหตุ: ต้นฉบับมีตัวอย่างการสร้าง report เฉพาะ Python (pandas) จึงตัดออก หน้านี้คงไว้เฉพาะโครงสร้างของ report
 > และแนวคิดที่ไม่ขึ้นกับภาษา
 
-## ภาพรวม {#overview}
+## ภาพรวม [#overview]
 
 `ReportProvider` แปลง order, fill, position และ account state ที่อยู่ใน cache ให้เป็นตาราง (DataFrame)
 สำหรับการวิเคราะห์และการแสดงผล report เหล่านี้ช่วยประเมินผลงานของ strategy วิเคราะห์คุณภาพการ execute
@@ -22,12 +24,12 @@ backtest อย่างไร
 
 ทุกเมธอดจะคืนตารางว่างเมื่อไม่มีข้อมูลที่ตรงเงื่อนไข
 
-## Report ที่มีให้ใช้ {#available-reports}
+## Report ที่มีให้ใช้ [#available-reports]
 
 `ReportProvider` มี static method ที่คืนตาราง (DataFrame) จากข้อมูลการเทรด แต่ละ report มี column และ index
 ของตัวเองสำหรับการวิเคราะห์
 
-### Orders report {#orders-report}
+### Orders report [#orders-report]
 
 สร้างภาพรวมของ order ทั้งหมด column ได้แก่:
 
@@ -53,14 +55,14 @@ backtest อย่างไร
 column เพิ่มเติมจะแตกต่างกันตามประเภท order เช่น `trigger_price` สำหรับ stop order และ `expire_time_ns`
 สำหรับ order แบบ GTD
 
-### Order fills report {#order-fills-report}
+### Order fills report [#order-fills-report]
 
 ให้สรุปของ order ที่ fill แล้ว (**หนึ่งแถวต่อหนึ่ง order**)
 
 report นี้มีเฉพาะ order ที่ `filled_qty > 0` มี column เหมือน orders report แต่กรองเฉพาะ order ที่ execute แล้ว
 และแปลง `ts_init` กับ `ts_last` เป็น datetime สำหรับการวิเคราะห์
 
-### Fills report {#fills-report}
+### Fills report [#fills-report]
 
 แสดงรายละเอียดของ fill event แต่ละรายการ (**หนึ่งแถวต่อหนึ่ง fill**) column ได้แก่:
 
@@ -85,7 +87,7 @@ report นี้มีเฉพาะ order ที่ `filled_qty > 0` มี co
 
 report นี้ตัด column `type` ออก
 
-### Positions report {#positions-report}
+### Positions report [#positions-report]
 
 การวิเคราะห์ position รวมถึง snapshot ด้วย เมื่อสร้างจาก cache โดยตรง ให้ส่ง position snapshot ไปด้วย
 เพราะจำเป็นสำหรับยอดรวมของ OMS แบบ `NETTING` (report จากการรัน backtest ที่เสร็จแล้วจะรวม snapshot ให้อัตโนมัติ)
@@ -120,7 +122,7 @@ column ได้แก่:
 ในการแยกรอบที่ archive ไว้ออกจาก position ที่ยังเปิดอยู่ report นี้ตัด `signed_qty`, `base_currency`,
 `quote_currency` และ `settlement_currency` ออก
 
-### Account report {#account-report}
+### Account report [#account-report]
 
 ติดตามการเปลี่ยนแปลงของ balance และ margin ของ account ตามเวลา
 
@@ -145,11 +147,11 @@ column ได้แก่:
 
 แต่ละแถวแทนรายการ balance หนึ่งรายการ account ที่มีหลายสกุลเงินจะได้หลายแถวต่อ account state event หนึ่งครั้ง
 
-## ข้อควรพิจารณาในการทำบัญชี PnL {#pnl-accounting-considerations}
+## ข้อควรพิจารณาในการทำบัญชี PnL [#pnl-accounting-considerations]
 
 การทำบัญชี PnL ขึ้นอยู่กับการคำนวณ position, สกุลเงิน และ snapshot
 
-### PnL ที่อิงตาม position {#position-based-pnl}
+### PnL ที่อิงตาม position [#position-based-pnl]
 
 - **Realized PnL**: คำนวณเมื่อ position ถูกปิดบางส่วนหรือทั้งหมด
 - **Unrealized PnL**: mark-to-market ด้วยราคาปัจจุบัน `Position.unrealized_pnl(last)` จะ mark position
@@ -163,7 +165,7 @@ position snapshot จะเก็บ PnL ในอดีตไว้เมื่
 [Position snapshotting](positions.md#position-snapshotting) สำหรับพฤติกรรมการเปิดใหม่และการกลับฝั่ง
 :::
 
-### การทำบัญชีหลายสกุลเงิน {#multi-currency-accounting}
+### การทำบัญชีหลายสกุลเงิน [#multi-currency-accounting]
 
 เมื่อทำงานกับหลายสกุลเงิน:
 
@@ -173,18 +175,18 @@ position snapshot จะเก็บ PnL ในอดีตไว้เมื่
   ซึ่งใช้ exchange rate ใน cache ดู [Supported conversions](portfolio.md#supported-conversions)
 - สกุลเงินของ commission อาจต่างจาก cost currency ของ position
 
-### ข้อควรพิจารณาเรื่อง snapshot {#snapshot-considerations}
+### ข้อควรพิจารณาเรื่อง snapshot [#snapshot-considerations]
 
 สำหรับ OMS แบบ `NETTING` ยอดรวมที่ถูกต้องของ instrument คือการบวก realized PnL ของแต่ละรอบที่ archive ไว้
 เข้ากับ position ที่ยังเปิดอยู่ (รอบที่ archive ไว้ถูกเก็บภายใต้ ID ของ position ที่ยังเปิดอยู่ และควรรวมแยกตามสกุลเงิน)
 ดู [Position snapshotting](positions.md#position-snapshotting) ว่า execution engine archive รอบที่ปิดแล้วอย่างไร
 
-## การวิเคราะห์หลังรัน backtest {#backtest-post-run-analysis}
+## การวิเคราะห์หลังรัน backtest [#backtest-post-run-analysis]
 
 เมื่อ backtest จบ สามารถวิเคราะห์ผลได้จาก result statistics และ report ที่สร้างขึ้น
 หรือเข้าถึง order, position และ position snapshot ใน cache ของ engine โดยตรงเพื่อวิเคราะห์ตามต้องการ
 
-### สถิติของ portfolio {#portfolio-statistics}
+### สถิติของ portfolio [#portfolio-statistics]
 
 ผลลัพธ์ของ backtest ให้ metric ด้านผลงาน แบ่งเป็นกลุ่ม `stats_pnls` (key ด้วยรหัสสกุลเงิน แล้วตามด้วยชื่อสถิติ),
 `stats_returns` (key ด้วยชื่อสถิติ) และ `stats_general` (key ด้วยชื่อสถิติ)
@@ -203,7 +205,7 @@ report ถูกสร้างจากโครงสร้างข้อม�
 [คู่มือ Cache](cache.md)
 :::
 
-## การทำงานร่วมกับ component อื่น {#integration-with-other-components}
+## การทำงานร่วมกับ component อื่น [#integration-with-other-components]
 
 `ReportProvider` ทำงานร่วมกับ component หลายตัวในระบบ:
 
@@ -212,7 +214,7 @@ report ถูกสร้างจากโครงสร้างข้อม�
 - **BacktestEngine**: มีเมธอดสร้าง report ที่ใช้วิเคราะห์ผลหลังรันและแสดงผล
 - **Position snapshots**: จำเป็นสำหรับการรายงาน PnL ที่ถูกต้องใน OMS แบบ `NETTING`
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Visualization](visualization.md) - tearsheet และกราฟแบบ interactive จากผล backtest
 - [Portfolio](portfolio.md) - สถิติของ portfolio และ metric ด้านผลงาน

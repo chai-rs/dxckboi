@@ -1,6 +1,8 @@
-# ข้อมูลและ venue สำหรับ backtest
+---
+title: "ข้อมูลและ venue สำหรับ backtest"
+---
 
-## ข้อมูล {#data}
+## ข้อมูล [#data]
 
 ข้อมูลย้อนหลังเป็นตัวเดินนาฬิกาของ backtest, อัปเดตสถานะตลาดจำลอง และขับเคลื่อน callback ของ strategy
 `book_type` ของ venue เป็นตัวกำหนดว่าข้อมูลประเภทใดบ้างที่อัปเดต book ที่ใช้ matching ได้ ดังนั้น config
@@ -36,7 +38,7 @@ flowchart LR
 - **Trade tick**: การ execute ที่บันทึกไว้
 - **Bar**: ราคาและ volume ที่ aggregate ในช่วงเวลาคงที่
 
-### การเลือกข้อมูล: ต้นทุนเทียบกับความแม่นยำ {#choosing-data-cost-vs-accuracy}
+### การเลือกข้อมูล: ต้นทุนเทียบกับความแม่นยำ [#choosing-data-cost-vs-accuracy]
 
 ข้อมูล bar อาจเพียงพอสำหรับการพัฒนา strategy ในช่วงแรก และมักหาได้ง่ายและถูกกว่าข้อมูล tick หรือ
 order book แต่ bar ไม่สามารถบอกลำดับราคาภายใน bar, spread, ความลึก หรือตำแหน่งในคิวได้ strategy
@@ -48,7 +50,7 @@ order book แต่ bar ไม่สามารถบอกลำดับร�
 ตำแหน่งในคิว
 :::
 
-## Venue {#venues}
+## Venue [#venues]
 
 เมื่อ initialize venue สำหรับ backtest ให้ระบุ `book_type` ของ order book ภายในที่ใช้ประมวลผล execution:
 

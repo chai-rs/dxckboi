@@ -1,4 +1,6 @@
-# Tutorials
+---
+title: "Tutorials"
+---
 
 tutorial เหล่านี้ให้คำแนะนำทีละขั้นตอนสำหรับฟีเจอร์และ workflow ของ NautilusTrader
 
@@ -13,7 +15,7 @@ tutorial ฝั่ง Rust ใช้คำสั่งที่แสดงไ�
 
 :::
 
-## ลำดับที่แนะนำ {#recommended-order}
+## ลำดับที่แนะนำ [#recommended-order]
 
 หากเพิ่งเริ่มใช้ NautilusTrader ให้ทำตามลำดับนี้:
 
@@ -22,11 +24,11 @@ tutorial ฝั่ง Rust ใช้คำสั่งที่แสดงไ�
 1. [รัน live trading ด้วย Rust](../how_to/run_rust_live_trading.md)
 1. เลือก tutorial ตามหัวข้อที่สนใจด้านล่าง
 
-## Data workflow {#data-workflows}
+## Data workflow [#data-workflows]
 
 สำหรับสูตรการทำงานกับข้อมูลแบบเน้นงาน ดู[คู่มือ how-to](../how_to/)
 
-## รูปแบบ strategy {#strategy-patterns}
+## รูปแบบ strategy [#strategy-patterns]
 
 | Tutorial                                                                            | คำอธิบาย                                       | ข้อมูล              |
 | :---------------------------------------------------------------------------------- | :-------------------------------------------- | :---------------- |
@@ -34,7 +36,7 @@ tutorial ฝั่ง Rust ใช้คำสั่งที่แสดงไ�
 | [Gold Perpetual Book Imbalance (AX Exchange)](gold_book_imbalance_ax)               | Order book imbalance บน XAU-PERP              | Databento API key |
 | [On-Chain Grid Market Making with Short-Term Orders (dYdX)](grid_market_maker_dydx) | Grid MM บน perpetual ของ dYdX v4               | Live API          |
 
-## Options {#options}
+## Options [#options]
 
 | Tutorial                                                                | คำอธิบาย                                        | ข้อมูล     |
 | :---------------------------------------------------------------------- | :--------------------------------------------- | :------- |
@@ -42,7 +44,7 @@ tutorial ฝั่ง Rust ใช้คำสั่งที่แสดงไ�
 | [Delta-Neutral Options Strategy (Bybit)](delta_neutral_options_bybit)   | Short strangle พร้อม delta hedging ด้วย perpetual | Live API |
 | [Delta-Neutral Options Strategy (Derive)](delta_neutral_options_derive) | ตัว hedge strangle ETH บน Derive พร้อมการเข้าด้วย premium | Live API |
 
-## Rust {#rust}
+## Rust [#rust]
 
 | Tutorial                                                                                    | คำอธิบาย                                              | ข้อมูล                |
 | :------------------------------------------------------------------------------------------ | :--------------------------------------------------- | :------------------ |

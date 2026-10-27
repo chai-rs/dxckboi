@@ -1,4 +1,6 @@
-# Custom Data
+---
+title: "Custom Data"
+---
 
 NautilusTrader รองรับ custom data ที่เขียนด้วย Rust โดยใช้ pipeline ด้าน runtime routing, persistence
 และ query เดียวกับข้อมูล built-in
@@ -9,7 +11,7 @@ NautilusTrader รองรับ custom data ที่เขียนด้ว�
 - ถูก serialize ไปและกลับจาก Arrow/Parquet อย่างไร
 - ถูก route ผ่าน actor และ strategy อย่างไร
 
-## เป้าหมาย {#goals}
+## เป้าหมาย [#goals]
 
 สถาปัตยกรรมของ custom data ตอบโจทย์ข้อกำหนดต่อไปนี้:
 
@@ -18,7 +20,7 @@ NautilusTrader รองรับ custom data ที่เขียนด้ว�
   แทน schema ที่ hardcode ไว้
 - ทำให้ custom data route ผ่าน flow การ subscribe ปกติของ data engine, actor และ strategy ได้
 
-## ภาพรวมระดับสูง {#high-level-model}
+## ภาพรวมระดับสูง [#high-level-model]
 
 | Mode             | รูปแบบการเขียน                                  | เส้นทางการลงทะเบียน                                                 | เส้นทาง encode/decode            | Wrapper backend           |
 | ---------------- | ----------------------------------------------- | ----------------------------------------------------------------- | ----------------------------- | ------------------------- |
@@ -26,9 +28,9 @@ NautilusTrader รองรับ custom data ที่เขียนด้ว�
 
 custom data ใช้ wrapper `CustomData` ชั้นนอกตัวเดียวกันและโมเดล identity ของ `DataType` แบบเดียวกัน
 
-## Component หลัก {#core-components}
+## Component หลัก [#core-components]
 
-### Registry module {#registry-module}
+### Registry module [#registry-module]
 
 `crates/model/src/data/registry.rs` เก็บ registry ระดับ process สำหรับ JSON และ Arrow
 การลงทะเบียนใช้ operation แบบ atomic ของ `DashMap::entry()` เพื่อไม่ให้การเรียก `register_*` และ `ensure_*`
@@ -42,7 +44,7 @@ module นี้ initialize สถานะของ registry ผ่าน `Once
 แทนที่จะ hardcode แต่ละ type ไว้ใน binary หลัก NautilusTrader จะ resolve handler ตอน runtime โดยใช้
 `type_name` ที่เก็บไว้ใน `DataType` และ Parquet metadata
 
-### `CustomData` {#customdata}
+### `CustomData` [#customdata]
 
 wrapper `CustomData` ชั้นนอกเป็น container กลางที่ห่อ custom data ทุกชนิด
 โดยรับ `DataType` เป็นอันดับแรก แล้วตามด้วย payload ภายใน
@@ -59,7 +61,7 @@ timestamp (`ts_event`, `ts_init`) ถูก delegate ไปยัง implementat
 implementation ของ `PartialEq` ใน Rust จะเปรียบเทียบ `DataType` และ delegate การเปรียบเทียบ payload
 ไปยังค่าภายใน
 
-#### JSON envelope ของ `CustomData` {#customdata-json-envelope}
+#### JSON envelope ของ `CustomData` [#customdata-json-envelope]
 
 เมื่อ serialize เป็น JSON เช่นสำหรับ `to_json_bytes` / `from_json_bytes`, SQL cache หรือ Redis
 `CustomData` จะใช้ envelope มาตรฐานรูปแบบเดียว การ deserialize จึงไม่ขึ้นกับชื่อฟิลด์ของ payload ของผู้ใช้:
@@ -74,7 +76,7 @@ implementation ของ `PartialEq` ใน Rust จะเปรียบเท�
 envelope นี้สร้างโดยการ serialize `CustomData` ใน Rust และถูกใช้โดย
 registry module ตอน deserialize custom data จาก JSON
 
-### `DataType` {#datatype}
+### `DataType` [#datatype]
 
 `DataType` ระบุตัวตนของ custom data สำหรับการ route และ persistence
 
@@ -96,9 +98,9 @@ persistence จะเก็บ `DataType` ทั้งหมดไว้กั�
 handler ใช้ `type_name` ดังนั้น type เชิงตรรกะเดียวกันจึงมี metadata หรือ identifier ต่างกันได้ และยัง
 decode ผ่าน handler ที่ลงทะเบียนไว้ตัวเดียวกัน
 
-## สถาปัตยกรรมการลงทะเบียน {#registration-architecture}
+## สถาปัตยกรรมการลงทะเบียน [#registration-architecture]
 
-### การลงทะเบียน Rust แบบ same-binary {#same-binary-rust-registration}
+### การลงทะเบียน Rust แบบ same-binary [#same-binary-rust-registration]
 
 สำหรับ Rust type ที่ compile อยู่ใน process:
 
@@ -109,26 +111,26 @@ decode ผ่าน handler ที่ลงทะเบียนไว้ตั�
 
 เส้นทางนี้เป็น native Rust ทั้งหมดสำหรับ encode/decode
 
-### ลำดับความสำคัญของการลงทะเบียน {#registration-precedence}
+### ลำดับความสำคัญของการลงทะเบียน [#registration-precedence]
 
 การลงทะเบียนแบบ idempotent ของ `ensure_*` จะไม่เขียนทับ handler ที่มีอยู่ สำหรับแต่ละ type name การลงทะเบียน
 Arrow ครั้งแรกจะคง schema, encoder และ decoder ของตนไว้
 
-## Wrapper backend {#wrapper-backends}
+## Wrapper backend [#wrapper-backends]
 
-### Native same-binary Rust payload {#native-same-binary-rust-payload}
+### Native same-binary Rust payload [#native-same-binary-rust-payload]
 
 สำหรับ Rust type ที่ compile อยู่ใน process payload ภายในคือ Rust type ตัวจริง
 และสามารถ downcast ได้โดยตรงจาก `Arc<dyn CustomDataTrait>`
 
-## สถาปัตยกรรม persistence {#persistence-architecture}
+## สถาปัตยกรรม persistence [#persistence-architecture]
 
-### ทำไมต้องลงทะเบียน Arrow แบบ dynamic {#why-dynamic-arrow-registration-is-needed}
+### ทำไมต้องลงทะเบียน Arrow แบบ dynamic [#why-dynamic-arrow-registration-is-needed]
 
 data type แบบ built-in ของ NautilusTrader มี schema และ encoder ที่ Rust binary รู้จักแบบ static แต่ custom data
 ไม่เป็นเช่นนั้น persistence layer จึง resolve custom data แบบ dynamic โดยใช้ `type_name` ที่ลงทะเบียนไว้
 
-### Flow การเขียน catalog {#catalog-write-flow}
+### Flow การเขียน catalog [#catalog-write-flow]
 
 `ParquetDataCatalog` คาดหวังให้การเขียน custom data เข้ามาเป็นค่า `CustomData`
 
@@ -148,7 +150,7 @@ layout ของ path คือ `data/custom/<type_name>/<identifier...>`
 
 identifier จะถูก normalize ก่อนกลายเป็นส่วนหนึ่งของ path
 
-### Flow การอ่าน catalog {#catalog-read-flow}
+### Flow การอ่าน catalog [#catalog-read-flow]
 
 เมื่อ query:
 
@@ -173,11 +175,11 @@ batch และเขียนผลลัพธ์ไปยัง path ขอ�
 ที่เขียนโดยฝั่ง Python (เช่น `data/custom_binance_bar`) ให้แปลงด้วย
 [nautilus catalog migrate-parquet](../how_to/migrate_parquet_catalog.md)
 
-## การสร้างข้อมูลขึ้นใหม่ตอน query {#reconstruction-on-query}
+## การสร้างข้อมูลขึ้นใหม่ตอน query [#reconstruction-on-query]
 
 เมื่อโหลด custom data กลับจาก catalog Rust type แบบ same-binary จะ decode เป็นค่า Rust แบบ native โดยตรง
 
-## การ integrate กับ runtime {#runtime-integration}
+## การ integrate กับ runtime [#runtime-integration]
 
 custom data มีส่วนร่วมใน runtime routing ของ NautilusTrader ด้วย
 
@@ -194,7 +196,7 @@ integration ที่เกี่ยวข้องได้แก่:
 custom type ที่ลงทะเบียนแล้วสามารถ persist, query, subscribe และใช้งานได้
 ผ่าน runtime interface เดียวกับกลุ่มข้อมูล built-in
 
-## การ integrate กับ cache database {#cache-database-integration}
+## การ integrate กับ cache database [#cache-database-integration]
 
 implementation ของ cache database แบบ PostgreSQL และ Redis รองรับ `CustomData`
 

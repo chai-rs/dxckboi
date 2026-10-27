@@ -1,10 +1,12 @@
-# Bar
+---
+title: "Bar"
+---
 
 `Bar` แทนข้อมูลราคาและ volume แบบ OHLCV ของ `BarType` หนึ่ง ๆ โดย venue หรือผู้ให้บริการข้อมูล
 อาจส่ง bar มาให้โดยตรง หรือ NautilusTrader จะ aggregate ขึ้นมาเองจาก quote tick, trade tick
 หรือ bar ที่มี timeframe เล็กกว่าก็ได้
 
-## ฟิลด์ {#fields}
+## ฟิลด์ [#fields]
 
 | Field      | Rust type   | Required/default | หมายเหตุ                                          |
 | ---------- | ----------- | ---------------- | ------------------------------------------------ |
@@ -17,7 +19,7 @@
 | `ts_event` | `UnixNanos` | Required         | timestamp ของ event ของ bar หน่วย nanosecond       |
 | `ts_init`  | `UnixNanos` | Required         | timestamp ตอน initialize หน่วย nanosecond          |
 
-## พฤติกรรม {#behavior}
+## พฤติกรรม [#behavior]
 
 - `high` ต้องมากกว่าหรือเท่ากับ `open`, `low` และ `close`
 - `low` ต้องน้อยกว่าหรือเท่ากับ `open` และ `close`
@@ -30,7 +32,7 @@
 [ข้อตกลงเรื่อง timestamp ของ bar](../backtesting/bar-execution.md#bar-timestamp-convention)
 :::
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -51,7 +53,7 @@ let bar = Bar::new(
 );
 ```
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Bar และการ aggregation](index.md#bars-and-aggregation) อธิบายวิธี aggregation แบบต่าง ๆ
 - [Bar type](index.md#bar-types) อธิบายไวยากรณ์ string ของ `BarType`

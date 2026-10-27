@@ -1,10 +1,12 @@
-# Options
+---
+title: "Options"
+---
 
 Nautilus รองรับการเทรด options ทั้งในตลาดดั้งเดิมและตลาด crypto โดยมี instrument type เฉพาะสำหรับ option,
 การ stream Greeks ที่ venue ให้มา, การ aggregate option chain และตัวคำนวณ Greeks แบบ Black-Scholes ในเครื่อง
 สำหรับการบริหารความเสี่ยง
 
-## ประเภท instrument ของ option {#option-instrument-types}
+## ประเภท instrument ของ option [#option-instrument-types]
 
 แพลตฟอร์มนิยาม instrument type สำหรับ option ไว้หลายแบบ:
 
@@ -28,9 +30,9 @@ metadata ที่เกี่ยวกับ Greeks แตกต่างกั
 - `BinaryOption`: มี `expiration_ns` และ `outcome`/`description` แต่ไม่มี `strike_price`, `option_kind`
   หรือ `underlying`
 
-## ตัวระบุของ option {#option-identifiers}
+## ตัวระบุของ option [#option-identifiers]
 
-### การอ้างอิงของ series {#series-references}
+### การอ้างอิงของ series [#series-references]
 
 `OptionSeriesId` รวม `InstrumentId` ของราคาอ้างอิงไว้ในการเปรียบเทียบความเท่ากัน, การ hash และการเรียงลำดับ
 
@@ -54,7 +56,7 @@ struct literal ใน Rust ต้องระบุ `underlying_instrument_id` �
 การค้นหา chain ในเครื่องและการ bootstrap ATM ต้องใช้ derived reference engine ในเครื่องจะ reject reference แบบอื่น
 และไม่ subscribe instrument อ้างอิงนั้น ส่วนคำสั่งที่ไปยัง external client จะถูก forward ต่อไป
 
-### Contract ID ที่คำนวณได้ {#computed-contract-ids}
+### Contract ID ที่คำนวณได้ [#computed-contract-ids]
 
 `compute_option_instrument_id` ใน Rust รวม `OptionContractSpec` เข้ากับ `OptionSymbologyScheme`
 underlying จริงของสัญญาไม่ขึ้นกับราคาอ้างอิงของ series
@@ -77,7 +79,7 @@ root, วันหมดอายุ และ precision ของ strike ที
 ตรวจสอบ ID ที่ได้กับนิยามของ instrument เพื่อยืนยันรายการที่มีจริงและวันหมดอายุที่ปรับตามวันหยุดแล้ว
 :::
 
-## ประเภทสำหรับเลือก option {#option-selection-types}
+## ประเภทสำหรับเลือก option [#option-selection-types]
 
 `OptionSideFilter` เลือก call, put, ทั้งสองฝั่ง หรือฝั่ง out-of-the-money รวมทั้งสองฝั่งที่ ATM
 `StrikeSearchProfile` ใน Rust ตรวจสอบความถูกต้องทั้งตอนสร้างและตอน deserialize:
@@ -88,7 +90,7 @@ root, วันหมดอายุ และ precision ของ strike ที
 
 API สำหรับ subscribe chain ไม่รับทั้งสองประเภทนี้
 
-## การ subscribe Greeks {#subscribing-to-greeks}
+## การ subscribe Greeks [#subscribing-to-greeks]
 
 venue อย่าง Deribit, Bybit และ OKX เผยแพร่ Greeks แบบ real-time ควบคู่กับตลาด options
 Nautilus มีการ subscribe สองระดับ:
@@ -96,7 +98,7 @@ Nautilus มีการ subscribe สองระดับ:
 - **Greeks ราย instrument**: subscribe option contract ทีละตัว
 - **Option chain slice**: subscribe มุมมองแบบ aggregate ของ option series ทั้งชุด
 
-### Greeks ราย instrument {#per-instrument-greeks}
+### Greeks ราย instrument [#per-instrument-greeks]
 
 subscribe Greeks ที่ venue ให้มาสำหรับ option contract ตัวเดียวจาก actor หรือ strategy ด้วย
 `subscribe_option_greeks` โดยระบุ instrument ID และ client ID (เช่น `DERIBIT`)
@@ -108,7 +110,7 @@ subscribe Greeks ที่ venue ให้มาสำหรับ option contra
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-### การ subscribe option chain {#option-chain-subscriptions}
+### การ subscribe option chain [#option-chain-subscriptions]
 
 การ subscribe option chain จะ aggregate quote และ Greeks ของทุก strike ใน option series ให้เป็น snapshot แบบ
 `OptionChainSlice` `DataEngine` สร้าง `OptionChainManager` ของ Rust หนึ่งตัวต่อหนึ่ง series และเป็นเจ้าของ
@@ -121,7 +123,7 @@ subscription ระดับ wire
 รับ snapshot โดย implement handler `on_option_chain` แล้ววนอ่านแต่ละ strike ด้วย `strikes()`,
 `get_call(strike)` และ `get_put(strike)`
 
-### การกรองช่วง strike {#strike-range-filtering}
+### การกรองช่วง strike [#strike-range-filtering]
 
 `StrikeRange` ควบคุมว่า strike ใดจะ active อยู่ใน chain subscription:
 
@@ -149,7 +151,7 @@ put เป็นลบ เปรียบเทียบด้วยค่าส
 - **ก่อนสลับไปใช้ strike ที่เลือกตาม delta**: aggregator จะรอจนกว่า leg ที่ใช้ fallback ทุกตัวมี Greeks
   เพื่อไม่ให้ update บางส่วนช่วงแรกทำให้ strike ข้างเคียงหลุดไป
 
-### Snapshot mode เทียบกับ raw mode {#snapshot-vs-raw-mode}
+### Snapshot mode เทียบกับ raw mode [#snapshot-vs-raw-mode]
 
 parameter `snapshot_interval_ms` ควบคุมพฤติกรรมการ publish:
 
@@ -160,7 +162,7 @@ parameter `snapshot_interval_ms` ควบคุมพฤติกรรมก�
 
 engine จะ reject `snapshot_interval_ms=0` ให้ใช้ `None` สำหรับ raw mode
 
-## การ backtest option chain {#backtesting-option-chains}
+## การ backtest option chain [#backtesting-option-chains]
 
 backtest ของ option chain ใช้เส้นทาง `OptionChainManager` และ `OptionChainAggregator` เดียวกับ subscription แบบ live
 สิ่งที่ต้องมีก่อนคือ Parquet catalog ของ Nautilus ที่มี option instrument และข้อมูลราย instrument ที่ chain ต้องใช้อยู่แล้ว:
@@ -205,7 +207,7 @@ fee model เชิงโครงสร้างของ option กำหน�
 
 ดูตัวอย่าง Rust ชื่อ `tardis-option-chain` ใน `crates/backtest/examples/`
 
-## สถาปัตยกรรมของ option chain {#option-chain-architecture}
+## สถาปัตยกรรมของ option chain [#option-chain-architecture]
 
 ระบบ option chain เป็นแบบ event-driven และออกแบบโดยแยกแต่ละ series ออกจากกัน `DataEngine` สร้าง
 `OptionChainManager` ของ Rust หนึ่งตัวต่อ option series ที่ subscribe manager ห่อ `OptionChainAggregator`
@@ -238,9 +240,9 @@ flowchart TD
     DE -- "sub/unsub" --> DC
 ```
 
-### หน้าที่ของแต่ละ component {#component-responsibilities}
+### หน้าที่ของแต่ละ component [#component-responsibilities]
 
-#### DataEngine {#dataengine}
+#### DataEngine [#dataengine]
 
 ถือ `OptionChainManager` หนึ่งตัวต่อ `OptionSeriesId` ที่ active:
 
@@ -252,7 +254,7 @@ flowchart TD
 - **Teardown**: เมื่อได้รับ `UnsubscribeOptionChain` หรือเมื่อ instrument ทั้งหมดหมดอายุ จะรื้อ manager,
   ยกเลิก timer และ unsubscribe feed ระดับ wire
 
-#### OptionChainManager {#optionchainmanager}
+#### OptionChainManager [#optionchainmanager]
 
 manager ของ Rust ราย series ที่ห่อ `OptionChainAggregator` และ `AtmTracker` `DataEngine` ป้อน market data
 ให้ผ่าน `handle_quote()` และ `handle_greeks()` manager จะ bootstrap ชุด instrument ที่ active ภายในตัวเอง
@@ -261,7 +263,7 @@ manager ของ Rust ราย series ที่ห่อ `OptionChainAggregato
 - **Snapshot mode**: callback ของ timer เรียก `publish_slice()`
 - **Raw mode**: update ของ quote หรือ Greeks ที่ active แต่ละครั้งจะเรียก `publish_slice()` ทันที
 
-#### OptionChainAggregator {#optionchainaggregator}
+#### OptionChainAggregator [#optionchainaggregator]
 
 สะสม quote และ Greeks ลงใน buffer ของ call/put ด้วย **semantics แบบเก็บค่าล่าสุด** (keep-latest)
 instrument ที่ไม่มี update ตั้งแต่ snapshot ครั้งก่อนก็ยังถูกรวมอยู่
@@ -269,12 +271,12 @@ instrument ที่ไม่มี update ตั้งแต่ snapshot คร
 Greeks ที่มาถึงก่อน quote ใด ๆ ของ instrument จะถูกพักไว้ใน buffer `pending_greeks` และแนบเข้าไปเมื่อ quote แรก
 มาถึง ทุกครั้งที่เรียก `snapshot()` aggregator จะสร้าง `OptionChainSlice` แบบ immutable
 
-#### AtmTracker {#atmtracker}
+#### AtmTracker [#atmtracker]
 
 หาราคา ATM แบบ reactive จาก field `underlying_price` ใน event `OptionGreeks` ที่เข้ามา และสามารถ seed ล่วงหน้า
 จากราคาอ้างอิงผ่าน HTTP ของ option series ได้ ทำให้ bootstrap ได้ทันทีโดยไม่ต้องรอ tick จาก WebSocket
 
-### Bootstrap และ rebalancing {#bootstrap-and-rebalancing}
+### Bootstrap และ rebalancing [#bootstrap-and-rebalancing]
 
 สำหรับช่วง strike แบบ dynamic (`AtmRelative`, `AtmPercent` และ `Delta`) จะยังไม่สามารถกำหนดชุด instrument
 ที่ active ได้จนกว่าจะรู้ราคา ATM มีเส้นทาง bootstrap สองแบบ:
@@ -302,7 +304,7 @@ Greeks ที่มาถึงก่อน quote ใด ๆ ของ instrumen
 `check_rebalance()` ของ aggregator ซึ่งคืน instrument ที่ต้องเพิ่มหรือลบ threshold แบบ hysteresis และ
 ช่วง cooldown ช่วยป้องกันการสลับไปมาบ่อยเกินไปใกล้ขอบของ strike
 
-## Data type OptionGreeks {#optiongreeks-data-type}
+## Data type OptionGreeks [#optiongreeks-data-type]
 
 `OptionGreeks` เก็บค่า sensitivity และ implied volatility ที่ venue ให้มาสำหรับ option contract หนึ่งตัว:
 
@@ -323,7 +325,7 @@ Greeks ที่มาถึงก่อน quote ใด ๆ ของ instrumen
 | `ts_event`         | UNIX timestamp (นาโนวินาที) ของ event                   |
 | `ts_init`          | UNIX timestamp (นาโนวินาที) ตอน initialize              |
 
-## Data type OptionChainSlice {#optionchainslice-data-type}
+## Data type OptionChainSlice [#optionchainslice-data-type]
 
 `OptionChainSlice` คือ snapshot ณ จุดเวลาหนึ่งของ option series ทั้งชุด
 
@@ -348,7 +350,7 @@ Properties:
 - `get_call_quote(strike)`, `get_put_quote(strike)`: เฉพาะ quote
 - `is_empty()`: เป็น true เมื่อ chain ไม่มีข้อมูล
 
-## การรองรับของ adapter {#adapter-support}
+## การรองรับของ adapter [#adapter-support]
 
 adapter ต่อไปนี้รองรับการ subscribe option Greeks:
 
@@ -360,7 +362,7 @@ adapter ต่อไปนี้รองรับการ subscribe option Gre
 | Interactive Brokers | Yes                   | Yes           |
 | OKX                 | Yes                   | Yes           |
 
-## ดูเพิ่มเติม {#see-also}
+## ดูเพิ่มเติม [#see-also]
 
 - [Greeks](greeks.md) - การคำนวณ Greeks ในเครื่องและการบริหารความเสี่ยงของ portfolio
 - [Data](data/) - data type ในตัวและโมเดลการ subscribe

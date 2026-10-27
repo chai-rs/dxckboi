@@ -1,4 +1,6 @@
-# Behavioral Models
+---
+title: "Behavioral Models"
+---
 
 หน้านี้อธิบาย model แบบ pluggable ที่ใช้เปลี่ยนหรือขยายพฤติกรรมของ NautilusTrader
 
@@ -12,7 +14,7 @@ model ถูกส่งเข้ามาเป็น object ใน config ห�
 ในที่นี้หมายถึงการแทนที่พฤติกรรมผ่าน interface เหล่านี้
 [การโหลด native library ตอน runtime](#native-extension-boundary) เป็นความสามารถอีกเรื่องหนึ่งแยกต่างหาก
 
-## Model family {#model-families}
+## Model family [#model-families]
 
 | Family  | ควบคุมอะไร                                                                                | ตัวอย่างที่มีในตัว                                                |
 | ------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
@@ -36,20 +38,20 @@ fill model และ latency model ควบคุมเฉพาะ execution �
 หรือไม่และเมื่อใด พฤติกรรมของ model มีผลที่ขอบเขตของ engine หรือ account ที่ใช้ model นั้น การเปลี่ยน model
 ไม่ได้แทนที่การตรวจสอบ state ของ order, การ route execution หรือส่วนอื่นของ runtime
 
-## Simulation modules {#simulation-modules}
+## Simulation modules [#simulation-modules]
 
 [Simulation modules](backtesting/simulation-modules.md) เป็นจุดขยายที่เกี่ยวข้องกันสำหรับพฤติกรรมตลอด
 lifecycle ของ exchange แบบจำลอง แทนที่จะตอบคำถามการคำนวณ fill, fee, margin หรือ latency module จะประมวลผล
 state ของ exchange แล้วคืนค่า account adjustment module FX rollover และ CFD swap ที่มีในตัวใช้ interface นี้
 module ที่เขียนเองก็ขยายพฤติกรรมการจำลองผ่าน lifecycle และ acknowledgement contract เดียวกันได้
 
-## การส่ง implementation {#supplying-implementations}
+## การส่ง implementation [#supplying-implementations]
 
 ฝั่ง Rust สามารถ implement trait ของ model family นั้น แล้วส่ง implementation ผ่าน runtime handle ของมัน
 พารามิเตอร์ของ model เรียงลำดับเป็น `fill_model`, `fee_model`, `margin_model` และ `latency_model`
 เมื่อมี `modules` จะตามหลังกลุ่ม model
 
-### Latency model {#custom-python-latency-models}
+### Latency model [#custom-python-latency-models]
 
 ค่า delay ที่ latency model คืนให้ต้องรวม base latency ไว้แล้ว เพราะ engine ไม่บวกเพิ่มให้
 
@@ -72,7 +74,7 @@ method เดียวกันนี้รับ batch command ทั้งช�
 [settlement point](backtesting/execution-flow.md#latency-delayed-commands) แรกที่มีสิทธิ์ ณ เวลานั้นหรือหลังจากนั้น
 ส่วนใน sandbox เวลาที่มาถึงคือ `ts_now + delay` โดย `ts_now` คือเวลาที่ได้รับ command
 
-## โครงสร้างของ model family {#model-family-structure}
+## โครงสร้างของ model family [#model-family-structure]
 
 behavioral model family ใช้รูปแบบการแทนค่าร่วมกันทั้งใน simulation และ execution:
 
@@ -86,7 +88,7 @@ behavioral model family ใช้รูปแบบการแทนค่า�
 model เฉพาะของ adapter อยู่ใน crate ของ adapter นั้น ในกรณีที่การเพิ่ม variant ใน core enum จะทำให้เกิด reverse
 dependency โค้ด Rust ระดับล่างส่ง model เหล่านี้ผ่าน handle ที่ตรงกัน
 
-## ขอบเขตของ dispatch {#dispatch-boundary}
+## ขอบเขตของ dispatch [#dispatch-boundary]
 
 | รูปแบบ                    | implementation ที่รับได้                   | Dispatch     | บทบาท                                          |
 | ------------------------ | -------------------------------------- | ------------ | --------------------------------------------- |
@@ -101,7 +103,7 @@ dependency โค้ด Rust ระดับล่างส่ง model เห�
 handle ไม่มี fast path แยกสำหรับ built-in โดยใช้รูปแบบเดียวที่เรียบง่ายกว่า เพราะยังไม่มีกรณีด้าน performance ที่วัดผล
 แล้วคุ้มค่ากับความซับซ้อนของ variant และ dispatch ที่เพิ่มขึ้น
 
-## ขอบเขตของ native extension {#native-extension-boundary}
+## ขอบเขตของ native extension [#native-extension-boundary]
 
 [plug-in crate](../developer_guide/plugins.md) แบบ open-source นิยาม artifact ABI ไว้ แต่การลงทะเบียน model
 และ host ที่ทำหน้าที่โหลดไม่ได้อยู่ใน repository นี้ distribution แบบ open-source ไม่มี native model plugin แบบ

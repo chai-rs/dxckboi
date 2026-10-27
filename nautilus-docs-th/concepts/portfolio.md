@@ -1,15 +1,17 @@
-# Portfolio
+---
+title: "Portfolio"
+---
 
 Portfolio เก็บ state ที่ได้จาก account และ position ของ trading node หรือ backtest strategy ใช้ Portfolio
 เพื่อ query ข้อมูล account, PnL, exposure, margin, equity และสถิติผลการดำเนินงาน
 
-## การแปลงสกุลเงิน {#currency-conversion}
+## การแปลงสกุลเงิน [#currency-conversion]
 
 Portfolio สามารถแปลง PnL และ exposure จากสกุลเงินต้นทุน (cost currency) ดั้งเดิมไปเป็นสกุลเงินหลัก
 (base currency) ของ account หรือสกุลเงินเป้าหมายที่ระบุไว้อย่างชัดเจน ทำให้รองรับ instrument ที่มี
 cost currency ต่างกัน และ account ที่มี base currency ต่างกันได้
 
-### การแปลงที่รองรับ {#supported-conversions}
+### การแปลงที่รองรับ [#supported-conversions]
 
 การแปลงสกุลเงินใช้ได้กับ query ของ portfolio ต่อไปนี้:
 
@@ -21,13 +23,13 @@ cost currency ต่างกัน และ account ที่มี base curre
 ทั้งแปดเมธอดรับ `target_currency` (ไม่บังคับ) query ที่ระบุเป้าหมายและสำเร็จจะมีเฉพาะสกุลเงินนั้น
 Portfolio แปลงค่าดั้งเดิมแต่ละค่าไปเป็นสกุลเงินเป้าหมายโดยตรง แม้ account จะมี base currency ต่างออกไปก็ตาม
 
-### พฤติกรรมกรณี account เดียว {#single-account-behavior}
+### พฤติกรรมกรณี account เดียว [#single-account-behavior]
 
 เมื่อ `PortfolioConfig.convert_to_account_base_currency=true` (ค่าเริ่มต้น) query สำหรับ account เดียวที่ไม่ระบุ
 `target_currency` จะแปลงค่าเป็น base currency ของ account หาก account มี base currency มิฉะนั้นผลลัพธ์จะคงอยู่ใน
 cost currency ดั้งเดิม
 
-### พฤติกรรมกรณีหลาย account {#multi-account-behavior}
+### พฤติกรรมกรณีหลาย account [#multi-account-behavior]
 
 เมื่อ query หลาย account โดยไม่ระบุ `target_currency` ผลลัพธ์จะขึ้นกับว่าเมธอดคืนค่าเป็น map ของสกุลเงิน
 หรือเป็นค่า `Money` ค่าเดียว:
@@ -44,7 +46,7 @@ cost currency ดั้งเดิม
 ต่างกันและ instrument แยกกันชัดเจนจะได้ `{USD: Money(...), EUR: Money(...)}` และเมื่อระบุ
 `target_currency=USD` จะได้ `{USD: Money(...)}`
 
-### กรณีการคำนวณล้มเหลว {#calculation-failures}
+### กรณีการคำนวณล้มเหลว [#calculation-failures]
 
 query ของ PnL และ exposure จะ fail closed เมื่อขาดราคา, xrate หรือการคำนวณแบบ exact ที่จำเป็นใด ๆ
 
@@ -56,7 +58,7 @@ query `net_exposures()` แบบทุก scope ที่ถูกต้อง�
 ต้องมีข้อมูลอัตราแลกเปลี่ยนเมื่อใช้ `target_currency` เพื่อรวมค่าข้ามสกุลเงิน
 :::
 
-### ประเภทราคาที่ใช้ในการแปลง {#conversion-price-types}
+### ประเภทราคาที่ใช้ในการแปลง [#conversion-price-types]
 
 - **การประเมินมูลค่า position**: ใช้ราคา `MARK` ปัจจุบันก่อนเมื่อเปิด `use_mark_prices` มิฉะนั้นจะใช้
   `BID` สำหรับ position ฝั่ง long และ `ASK` สำหรับ position ฝั่ง short ก่อนลองแหล่งราคาสำรองที่เหลือ
@@ -64,7 +66,7 @@ query `net_exposures()` แบบทุก scope ที่ถูกต้อง�
   `MARK` ปัจจุบันก่อน และใช้ `MID` เป็นตัวสำรอง query ที่ระบุสกุลเงินเป้าหมายอย่างชัดเจนจะไม่นำ xrate เก่า
   ที่ค้างไว้มาใช้ซ้ำ
 
-### การรวม exposure {#exposure-aggregation}
+### การรวม exposure [#exposure-aggregation]
 
 `net_exposure()` ประเมินมูลค่าแต่ละ position ที่เปิดอยู่ของ instrument หนึ่ง แล้วบวก notional ฝั่ง long และลบ
 notional ฝั่ง short ผลที่คืนคือขนาดของ notional สุทธิที่ประเมินแล้ว จึงไม่บอกทิศทาง `price` ที่ผู้เรียกส่งมาจะใช้
@@ -74,13 +76,13 @@ notional ฝั่ง short ผลที่คืนคือขนาดขอ�
 `net_exposures()` จัดกลุ่มและรวมขนาด exposure ราย instrument ที่ไม่เป็นศูนย์ตามสกุลเงินของผลลัพธ์ โดยไม่หักกลบ
 exposure ตามทิศทางระหว่าง instrument ต่างตัวกัน
 
-### การ override ราคา {#price-overrides}
+### การ override ราคา [#price-overrides]
 
 เมธอด `unrealized_pnl`, `total_pnl` และ `net_exposure` รับ `price` (ไม่บังคับ) เมื่อระบุ Portfolio จะประเมินมูลค่า
 instrument ที่เลือกด้วยราคานั้นแทนการอ่านราคาตลาดจาก cache การคำนวณนี้ทำใหม่ทุกครั้ง และไม่แทนที่ PnL,
 exposure หรือราคาตลาดใน cache ที่ query ถัดไปจะใช้
 
-## Equity และ mark-to-market {#equity-and-mark-to-market}
+## Equity และ mark-to-market [#equity-and-mark-to-market]
 
 Portfolio มี query แบบ pull สำหรับการประเมินมูลค่า portfolio อย่างต่อเนื่องและ snapshot ที่บันทึกไว้
 ผลลัพธ์รายสกุลเงินใช้ base currency ของ account ที่เกี่ยวข้อง หรือ cost currency ดั้งเดิม
@@ -98,7 +100,7 @@ position ฝั่ง long นับ notional เป็นบวก ฝั่ง
 query `equity()` แบบระบุ account จะคืน `{}` สำหรับ account ที่ไม่รู้จัก สำหรับ account ที่รู้จัก หากการประเมิน
 มูลค่า snapshot แบบ exact ล้มเหลว จะคืน error แทนการแสดงผลเป็น equity ว่าง
 
-### สูตรของ equity {#equity-formula}
+### สูตรของ equity [#equity-formula]
 
 equity เริ่มจาก `balances_total` แล้วบวกมูลค่าของ position ที่เปิดอยู่รายสกุลเงิน:
 
@@ -109,7 +111,7 @@ equity เริ่มจาก `balances_total` แล้วบวกมูล�
 | Calculated margin                       | mark ของ premium แบบมีเครื่องหมาย + unrealized PnL ของ position อื่น |
 | Reported margin                         | unrealized PnL ของทุก position ที่เปิดอยู่                    |
 
-#### การประเมินมูลค่าแบบ Cash และ Wallet {#cash-and-wallet-valuation}
+#### การประเมินมูลค่าแบบ Cash และ Wallet [#cash-and-wallet-valuation]
 
 สำหรับ position ที่เป็นของ Cash account ที่ไม่มี base currency หรือของ Wallet account จะไม่นับ mark ของ base asset
 แบบ non-inverse เมื่อเข้าเงื่อนไขสองข้อ คือ balance ต้องถือ asset นั้นอยู่แล้ว และ cost currency ของ instrument
@@ -118,7 +120,7 @@ equity เริ่มจาก `balances_total` แล้วบวกมูล�
 `mark_values()` คืนมูลค่ารวม (gross) ของ position ที่เปิดอยู่เสมอ รวมถึง asset ที่ถูก credit แล้ว ส่วน `equity()` และ
 snapshot จะนับ base asset แบบ non-inverse แต่ละตัวเพียงครั้งเดียว ผ่าน balance หรือผ่าน mark
 
-#### การประเมินมูลค่าแบบ margin {#margin-valuation}
+#### การประเมินมูลค่าแบบ margin [#margin-valuation]
 
 margin account แบบ calculated (`calculate_account_state=true`) อัปเดตเงินสดจาก fill ส่วน account แบบ reported ใช้
 balance จาก venue query ของ margin ที่ระบุ venue จะใช้กฎของเจ้าของ position แต่ละราย ดู
@@ -136,7 +138,7 @@ mark แบบมีเครื่องหมายของ instrument เห
 - snapshot รายงาน unrealized PnL แยกต่างหากสำหรับทุก position รวมถึง option
 - spread combo ไม่สร้าง position ใน portfolio และไม่อัปเดต balance แบบ calculated มูลค่าอยู่ที่ leg แต่ละตัว
 
-### ราคาสำรอง {#price-fallback}
+### ราคาสำรอง [#price-fallback]
 
 การประเมินมูลค่าจะขอราคาจาก `Cache` ตามลำดับนี้ และหยุดที่รายการแรกที่พบ:
 
@@ -156,7 +158,7 @@ futures spread, option spread และ spot commodity) ซึ่งไม่ร
 และ snapshot ถัดไปจะระบุ instrument ไว้ใน `stale_instruments` หาก position ไม่เคยมีราคาที่ถูกต้องเลย จะถูกใส่ใน
 missing-price tracker, ระบุไว้ใน `unpriced_instruments` และไม่นำมารวมในผลรวม
 
-### การแปลงเป็น base currency {#base-currency-conversion}
+### การแปลงเป็น base currency [#base-currency-conversion]
 
 เมื่อ `convert_to_account_base_currency=true` (ค่าเริ่มต้น) และ account มีการตั้ง `base_currency` ค่าใน cost currency
 จะถูกแปลงเป็น base currency โดยใช้ xrate แบบ `MID` จาก `Cache.get_xrate()` เมื่อ `use_mark_xrates=true` จะใช้ mark
@@ -170,7 +172,7 @@ xrate ใน cache จาก `Cache.get_mark_xrate()` ก่อน และ fal
 `stale_currencies` หากไม่เคยมีอัตราที่ถูกต้องเลย position จะถือว่าประเมินราคาไม่ได้และถูก flag ผ่าน
 missing-price tracker โดยจะไม่ถูกประเมินมูลค่าด้วยอัตรา 1.0 อย่างเงียบ ๆ
 
-### Metadata การประเมินมูลค่าของ snapshot {#snapshot-valuation-metadata}
+### Metadata การประเมินมูลค่าของ snapshot [#snapshot-valuation-metadata]
 
 `PortfolioSnapshot.total_equity` ให้รายละเอียด MTM รายสกุลเงินเสมอ เมื่อเปิดการแปลงเป็น base currency และ
 account มี base currency `base_currency_equity` จะให้ค่าสเกลาร์หลักในสกุลเงินนั้น และเป็น `None` เมื่อปิดการแปลง
@@ -187,7 +189,7 @@ account มี base currency `base_currency_equity` จะให้ค่าส�
 ที่บันทึกไว้ (มีขอบเขตจำกัด) เมธอดเหล่านี้ใช้ได้จาก Portfolio และ Strategy API ของ Rust การ build snapshot ไม่ได้เพิ่ม
 snapshot นั้นลงในลำดับที่บันทึกไว้ มีเพียงการ emit ตาม lifecycle ที่ตั้งค่าไว้เท่านั้นที่บันทึก snapshot
 
-### Equity curve อัตโนมัติ {#automatic-equity-curve}
+### Equity curve อัตโนมัติ [#automatic-equity-curve]
 
 `PortfolioConfig.equity_curve=true` (ค่าเริ่มต้น) จะบันทึกและ publish snapshot แบบ mark-to-market:
 
@@ -201,7 +203,7 @@ snapshot นั้นลงในลำดับที่บันทึกไ�
 ค่า `snapshot_interval_ms` ที่แยกต่างหากยังเป็นแบบ opt-in เมื่อตั้งค่าไว้ จะเพิ่ม snapshot แบบละเอียดเฉพาะช่วงที่
 account มี position เปิดอยู่
 
-### การติดตามราคาที่ขาดหาย {#missing-price-tracking}
+### การติดตามราคาที่ขาดหาย [#missing-price-tracking]
 
 tracker เก็บชุด instrument ที่ขาดราคาล่าสุดของแต่ละ scope ของ query ที่กรองตาม account และ scope ของ venue
 ที่ไม่ได้กรอง `missing_price_instruments(venue)` คืน union ของทั้งหมดในระดับ venue ส่ง `account_id` เพื่อคืนเฉพาะ
@@ -226,7 +228,7 @@ instrument ที่ไม่มีราคา mark, quote, trade หรือ 
 missing-price tracker
 :::
 
-### Scope ของ venue และ account {#venue-and-account-scope}
+### Scope ของ venue และ account [#venue-and-account-scope]
 
 query แบบ collection รับ scope `venue` และ `account_id` (ไม่บังคับ) หากระบุทั้งสองค่า account ต้องออกภายใต้ venue
 นั้นหรือถือ position อยู่ที่ venue นั้น มิฉะนั้น query จะเกิด error เมื่อไม่ระบุ `account_id` query ระดับ venue จะรวม
@@ -238,7 +240,7 @@ query แบบ collection รับ scope `venue` และ `account_id` (ไ�
 การประเมินมูลค่าที่กรองตาม account จะ reconcile เฉพาะผลการสังเกตของ account นั้น flag ที่ account อื่นบน venue
 เดียวกันตั้งไว้จึงยังคงอยู่
 
-## สถิติของ portfolio {#portfolio-statistics}
+## สถิติของ portfolio [#portfolio-statistics]
 
 `Portfolio.statistics()` คำนวณค่า `PortfolioStatistics` ใหม่จากทุก account, position ใน cache, position snapshot,
 PnL ณ เวลาปิดที่บันทึกไว้ และ portfolio snapshot โดยคำนวณใหม่ทุกครั้งที่เรียก จึงควรเรียกให้น้อยที่สุดใน hot path
@@ -260,7 +262,7 @@ PnL ณ เวลาปิดที่บันทึกไว้ และ port
 พร้อม `returns_series` ที่เลือกใช้ เมื่อ `run_analysis=true` engine จะ log สถิติทั้งสามหมวดภายใต้
 `PORTFOLIO PERFORMANCE` หลังการรันด้วย
 
-### สถิติแบบกำหนดเอง {#custom-statistics}
+### สถิติแบบกำหนดเอง [#custom-statistics]
 
 สร้างสถิติของตัวเองบนพื้นฐาน `PortfolioStatistic` และ override เมธอดคำนวณสำหรับหมวด input ที่สถิตินั้นรองรับ
 แต่ละหมวดได้รับข้อมูลชุดเดียวกับที่สถิติในตัวใช้ และสถิติจะให้ค่าเฉพาะในหมวดที่ override เมธอดที่ตรงกัน
@@ -294,7 +296,7 @@ backtest และ log หลังการรันตลอดทั้งก
 จากภายในเมธอดคำนวณจะทำให้เกิด panic ให้สถิติเป็น pure function ของข้อมูลที่ได้รับเท่านั้น
 :::
 
-## ผลตอบแทน: position เทียบกับ portfolio {#returns-position-vs-portfolio}
+## ผลตอบแทน: position เทียบกับ portfolio [#returns-position-vs-portfolio]
 
 analyzer ติดตาม return series สองชุดที่แตกต่างกัน:
 
@@ -320,7 +322,7 @@ analyzer ติดตาม return series สองชุดที่แตก�
 accessor `analyzer.returns()` ช่วยเลือกตามลำดับความสำคัญนี้ให้: ใช้ portfolio returns เมื่อมี มิฉะนั้นใช้
 position returns
 
-### Account หลายสกุลเงิน {#multi-currency-accounts}
+### Account หลายสกุลเงิน [#multi-currency-accounts]
 
 portfolio returns ต้องการให้ equity ใน snapshot ของแต่ละ account สรุปเป็นสกุลเงินร่วมสกุลเดียวได้ โดยปกติการแปลงเป็น
 base currency จะให้ค่าสเกลาร์นั้น เมื่อ snapshot มีหลายสกุลเงิน หรือ account สรุปเป็นสกุลเงินต่างกัน analyzer จะ
@@ -330,12 +332,12 @@ fallback ไปใช้ position returns การระบุสกุลเ�
 สำหรับ portfolio returns แบบหลายสกุลเงิน ให้แปลง balance เป็นสกุลเงินร่วมก่อน แล้วคำนวณการเปลี่ยนแปลงเป็น
 เปอร์เซ็นต์ภายนอก
 
-### การคำนวณแบบหลาย account {#multi-account-calculation}
+### การคำนวณแบบหลาย account [#multi-account-calculation]
 
 การวิเคราะห์ backtest จะรวมทุก account ใน cache หลังจากแปลงเป็นสกุลเงินร่วมแล้ว tearsheet ใช้กฎการรวมทั้ง account
 แบบเดียวกันสำหรับ backtest หลาย venue
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Positions](positions.md): การติดตาม position ภายใน portfolio
 - [Reports](reports.md): การสร้างรายงานวิเคราะห์ portfolio

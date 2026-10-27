@@ -1,4 +1,6 @@
-# OrderInitialized
+---
+title: "OrderInitialized"
+---
 
 `OrderInitialized` คือ event ตั้งต้น (seed event) ของ order ใหม่ ซึ่งมีข้อมูลเพียงพอสำหรับส่ง order
 ออกไปทางเครือข่าย และสร้าง order ขึ้นมาใหม่ได้ด้วยคุณสมบัติเดิมทุกประการ execution pipeline จะเก็บ
@@ -8,7 +10,7 @@ event นี้ใช้เป็นจุดตั้งต้นทั้ง�
 reconciliation
 Handler: `on_order_initialized`
 
-## ฟิลด์ {#fields}
+## ฟิลด์ [#fields]
 
 นอกเหนือจาก[ฟิลด์ร่วมของ order event](index.md#common-python-order-event-fields)แล้ว
 `OrderInitialized` ยังมีฟิลด์ต่อไปนี้:
@@ -43,11 +45,11 @@ Handler: `on_order_initialized`
 | `exec_spawn_id`         | `None`           | client order ID ของ primary order ที่ให้กำเนิด order นี้ |
 | `tags`                  | `None`           | tag ที่ผู้ใช้กำหนดเอง                                   |
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Events](index.md) - หมวดหมู่ของ event, การ dispatch และฟิลด์ร่วมของ order event
 - [Orders](../orders/) - ประเภทของ order และ state machine

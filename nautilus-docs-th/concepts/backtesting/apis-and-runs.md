@@ -1,9 +1,11 @@
-# Backtest API และการรันซ้ำ
+---
+title: "Backtest API และการรันซ้ำ"
+---
 
 NautilusTrader มี API ระดับ **low-level** คือ `BacktestEngine` สำหรับควบคุมโดยตรง และ API ระดับ **high-level**
 คือ `BacktestNode` สำหรับการรันที่อิง catalog และกำหนดค่าผ่าน config ได้
 
-## การเลือกระดับ API {#choosing-an-api-level}
+## การเลือกระดับ API [#choosing-an-api-level]
 
 ใช้ low-level API เมื่อ:
 
@@ -19,7 +21,7 @@ NautilusTrader มี API ระดับ **low-level** คือ `BacktestEngin
 - ต้องการให้ config object เดียวอธิบายและระบุตัวตนของการรันที่อิง catalog
 - ต้องการให้การรันที่เป็นอิสระต่อกันแต่ละครั้งใช้ engine ใหม่
 
-## Low-level API {#low-level-api}
+## Low-level API [#low-level-api]
 
 Low-level API มี `BacktestEngine` เป็นศูนย์กลาง สร้าง engine ด้วย `BacktestEngineConfig` แล้วเพิ่ม venue,
 instrument, component และข้อมูล (`add_venue`, `add_instrument`, `add_strategy`, `add_data`) ก่อนเรียก `run()`
@@ -30,7 +32,7 @@ Instrument ID แต่ละตัวลงทะเบียนได้คร
 เดิมไว้ ดังนั้น resting order, สถานะ book และ ID ที่สร้างไว้จะยังอยู่ แต่การเพิ่มนิยามที่ต่างออกไปให้กับ ID
 ที่ลงทะเบียนแล้วจะเกิด error และ engine จะไม่เปลี่ยนแปลง การเปรียบเทียบนี้ไม่สนใจ `ts_event` และ `ts_init`
 
-### การโหลดข้อมูล {#loading-data}
+### การโหลดข้อมูล [#loading-data]
 
 การเรียก `add_data()` แต่ละครั้งจะคัดลอก input ไปเป็น stream อิสระหนึ่งชุด engine จะเรียงแต่ละ stream ตาม
 replay timestamp แล้ว merge ทุก stream ตามลำดับเวลาระหว่างรัน การเพิ่มข้อมูลทีละ batch ต่อ instrument
@@ -44,7 +46,7 @@ replay timestamp แล้ว merge ทุก stream ตามลำดับเ
 
 **ความเป็นเจ้าของ input**: การล้างหรือแก้ไข collection ต้นฉบับหลังเรียก `add_data()` ไม่ทำให้ stream ที่โหลดแล้วเปลี่ยน
 
-### การ stream batch เอง {#streaming-batches-manually}
+### การ stream batch เอง [#streaming-batches-manually]
 
 ใช้ **streaming mode** เมื่อชุดข้อมูลทั้งหมดใส่ใน memory ไม่พอ: เพิ่ม strategy ก่อน จากนั้นวนลูปแต่ละ batch โดยเรียก
 `add_data(batch)` ตามด้วย `run(streaming=True)` และ `clear_data()` แล้วเรียก `end()` เมื่อจบ
@@ -56,7 +58,7 @@ replay timestamp แล้ว merge ทุก stream ตามลำดับเ
 Low-level API ไม่มี method `add_data_iterator()` แบบ generator ส่วน `BacktestNode` มีการแบ่ง chunk จาก catalog
 ให้อัตโนมัติ ผู้ที่ใช้ engine โดยตรงให้ stream ด้วยลูปข้างต้น
 
-## High-level API {#high-level-api}
+## High-level API [#high-level-api]
 
 High-level API มี `BacktestNode` เป็นศูนย์กลาง `BacktestRunConfig` แต่ละตัวประกอบด้วย:
 
@@ -77,7 +79,7 @@ Fee เป็นส่วนหนึ่งของ config ของ venue ไ�
 
 `BacktestNode` ยังมี method สำหรับเพิ่ม actor และ strategy ที่มีมาในตัวเข้าไปในการรันที่ build แล้วด้วย
 
-### การ replay order book delta {#order-book-delta-replay}
+### การ replay order book delta [#order-book-delta-replay]
 
 โดยค่าเริ่มต้น `BacktestNode` จะ replay ข้อมูล `OrderBookDelta` จาก catalog เป็น batch แบบ `OrderBookDeltas`
 ทั้งการรันแบบครั้งเดียวและแบบ streaming โดยจัดกลุ่ม delta ของแต่ละ instrument ตามลำดับใน catalog และปิด batch
@@ -102,7 +104,7 @@ event ออกไปจะไม่ถูกตรวจพบ
 
 ตั้ง `batch_deltas=False` ใน `BacktestDataConfig` เพื่อ replay ทีละ delta
 
-## Shutdown เมื่อเกิด error {#shutdown-on-error}
+## Shutdown เมื่อเกิด error [#shutdown-on-error]
 
 ตั้ง `BacktestEngineConfig.shutdown_on_error=True` เพื่อขอให้ shutdown ตามปกติเมื่อ logger ของ Rust ปล่อย
 error record ออกมา
@@ -117,7 +119,7 @@ Backtest loop จะรับรู้คำขอ หยุด trader และ
 Trigger นี้จะ reset เมื่อเริ่มการรัน kernel ครั้งใหม่ สำหรับพฤติกรรมของ `on_stop` ช่วงสุดท้ายและการรอคำสั่งให้เสร็จ
 ดู [shutdown semantics](execution-flow.md#shutdown-semantics)
 
-## การรันซ้ำ {#repeated-runs}
+## การรันซ้ำ [#repeated-runs]
 
 `BacktestEngine.reset()` คืนสถานะการเทรดและสถานะของ component ที่โหลดไว้กลับเป็นค่าเริ่มต้น
 
@@ -135,14 +137,14 @@ Trigger นี้จะ reset เมื่อเริ่มการรัน k
 
 Instrument ยังคงโหลดอยู่ เพราะ config ของ cache สำหรับ backtest โดยค่าเริ่มต้นตั้ง `drop_instruments_on_reset=False`
 
-### ใช้ node ใหม่สำหรับการรันที่เป็นอิสระต่อกัน {#use-fresh-nodes-for-independent-runs}
+### ใช้ node ใหม่สำหรับการรันที่เป็นอิสระต่อกัน [#use-fresh-nodes-for-independent-runs]
 
 `BacktestNode` รับ `BacktestRunConfig` หนึ่งตัว หากต้องการรัน config ที่เป็นอิสระต่อกัน ให้สร้างและ dispose
 node ทีละตัว: สร้าง node ด้วย config แต่ละตัว เรียก `run()` เก็บผลลัพธ์ แล้วเรียก `dispose()` เสมอแม้จะเกิด error
 
 Build แต่ละ node และลงทะเบียน strategy ก่อน `run()` ในกรณีที่ไม่ได้ส่ง strategy มาจาก controller
 
-### ใช้ข้อมูลที่โหลดไว้ซ้ำสำหรับการรันหลายพารามิเตอร์ {#reuse-loaded-data-for-parameter-runs}
+### ใช้ข้อมูลที่โหลดไว้ซ้ำสำหรับการรันหลายพารามิเตอร์ [#reuse-loaded-data-for-parameter-runs]
 
 ใช้ `reset()` เมื่อต้องการให้การรันหลายครั้งใช้ข้อมูลและการตั้งค่า venue ที่โหลดไว้ร่วมกัน: เพิ่ม venue, instrument
 และข้อมูลครั้งเดียว แล้วสลับ `run()` กับ `reset()` และหากต้องการเปลี่ยน strategy ให้เรียก `clear_strategies()`

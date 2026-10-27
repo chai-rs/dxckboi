@@ -1,4 +1,6 @@
-# Crypto Perpetual
+---
+title: "Crypto Perpetual"
+---
 
 `CryptoPerpetual` แทนสัญญา crypto perpetual futures หรือที่เรียกว่า perpetual swap สัญญาประเภทนี้
 ไม่มีวันหมดอายุ อ้างอิง crypto base asset และ settle ด้วย crypto, stablecoin หรือ settlement currency
@@ -6,7 +8,7 @@
 
 ตัวอย่างเช่น `ETHUSDT-PERP.BINANCE`, `BTCUSD.BYBIT` และ `BTC-USD-SWAP.OKX`
 
-## ฟิลด์ {#fields}
+## ฟิลด์ [#fields]
 
 | Field                 | Rust type          | Required/default | หมายเหตุ |
 | --------------------- | ------------------ | ---------------- | ---------------------------------------- |
@@ -37,7 +39,7 @@
 
 **หมายเหตุ**: Rust เก็บค่า `instrument_id` ไว้ในชื่อ `id`
 
-## พฤติกรรม {#behavior}
+## พฤติกรรม [#behavior]
 
 - `CryptoPerpetual` มี asset class เป็น `Cryptocurrency` และ instrument class เป็น `Swap`
 - ไม่มี activation timestamp หรือ expiration timestamp
@@ -55,7 +57,7 @@ funding payment ไม่ได้เป็นฟิลด์ของ instrumen
 ซึ่งอ้างอิงถึง instrument ID
 :::
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -92,7 +94,7 @@ let ethusdt_perp = CryptoPerpetual::builder()
 let instrument = InstrumentAny::CryptoPerpetual(ethusdt_perp);
 ```
 
-## Adapter {#adapters}
+## Adapter [#adapters]
 
 **Adapter ที่สร้างหรือใช้ instrument แบบ `CryptoPerpetual` ได้แก่**:
 
@@ -104,7 +106,7 @@ let instrument = InstrumentAny::CryptoPerpetual(ethusdt_perp);
 - [OKX](../../integrations/okx.md) สำหรับตลาด swap
 - [Tardis](../../integrations/tardis.md) สำหรับ metadata ของ crypto perpetual
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Data](../data/) อธิบาย mark price, index price และ funding rate update
 - [Options](../options.md) อธิบายประเภท instrument เฉพาะของ option

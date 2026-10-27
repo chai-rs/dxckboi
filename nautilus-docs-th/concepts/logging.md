@@ -1,4 +1,6 @@
-# Logging
+---
+title: "Logging"
+---
 
 แพลตฟอร์มมีระบบ logging ฝั่ง Rust สำหรับ backtest และ live trading ผ่าน facade มาตรฐานของ crate `log`
 
@@ -15,7 +17,7 @@ output ของ logging ปรับแต่งได้ และรองร
 สามารถเชื่อมต่อ infrastructure อย่าง [Vector](https://github.com/vectordotdev/vector) เพื่อเก็บรวบรวมและ aggregate event ภายในระบบของคุณได้
 :::
 
-## สถาปัตยกรรม {#architecture}
+## สถาปัตยกรรม [#architecture]
 
 subsystem ของ logging รับ event จากหลายแหล่ง แล้วส่งต่อผ่าน MPSC channel ไปยัง thread สำหรับ logging โดยเฉพาะ:
 
@@ -70,7 +72,7 @@ flowchart TB
 - **Logging thread**: NautilusTrader ส่ง log event ทั้งหมดผ่าน MPSC channel ไปยัง thread เฉพาะ ดังนั้น
   การทำ I/O ของ log จึงไม่ block main thread
 
-## การตั้งค่า {#configuration}
+## การตั้งค่า [#configuration]
 
 ตั้งค่า logging ได้ผ่าน object `LoggerConfig`
 โดยค่าเริ่มต้น log event ที่มี `LogLevel` ตั้งแต่ `INFO` ขึ้นไปจะถูกเขียนออก stdout/stderr
@@ -99,11 +101,11 @@ log level ที่รองรับมีดังนี้:
 - พิมพ์ config ของ Rust ออก stdout ตอน initialize
 - ล้าง log file เดิมตอนเริ่มทำงาน (`clear_log_file`)
 
-### Logging ออก standard output {#standard-output-logging}
+### Logging ออก standard output [#standard-output-logging]
 
 stdout/stderr writer จะเขียน log message ออก console ตั้งระดับขั้นต่ำได้ด้วย `stdout_level`
 
-### Logging ลงไฟล์ {#file-logging}
+### Logging ลงไฟล์ [#file-logging]
 
 โดยค่าเริ่มต้น log file จะถูกเขียนลง current working directory โดยมี setting สำหรับควบคุมการตั้งชื่อไฟล์และการ rotate
 
@@ -127,7 +129,7 @@ sync ลง disk ดังนั้น log file ที่ tail ดูอยู�
 
 สำหรับรายละเอียดเรื่องข้อกำหนดการตั้งชื่อ log file และพฤติกรรมการ rotate ดูหัวข้อ [การ rotate log file](#log-file-rotation) และ [ข้อกำหนดการตั้งชื่อ log file](#log-file-naming-convention) ด้านล่าง
 
-#### การ rotate log file {#log-file-rotation}
+#### การ rotate log file [#log-file-rotation]
 
 พฤติกรรมการ rotate ขึ้นอยู่กับทั้งการมี size limit และการกำหนดชื่อไฟล์เอง:
 
@@ -153,7 +155,7 @@ sync ลง disk ดังนั้น log file ที่ tail ดูอยู�
   - หากการ rotate ล้มเหลว (เช่น เปิดไฟล์ใหม่ไม่ได้) logging จะเขียนต่อใน
     ไฟล์ปัจจุบัน และจะลอง rotate ใหม่เมื่อถึงขอบเขตขนาดหรือวันที่ครั้งถัดไป
 
-#### ข้อกำหนดการตั้งชื่อ log file {#log-file-naming-convention}
+#### ข้อกำหนดการตั้งชื่อ log file [#log-file-naming-convention]
 
 ข้อกำหนดการตั้งชื่อแบบค่าเริ่มต้นทำให้ log file ระบุตัวตนได้ไม่ซ้ำและมี timestamp กำกับ
 รูปแบบขึ้นอยู่กับว่าเปิดการ rotate ไฟล์หรือไม่:
@@ -189,7 +191,7 @@ sync ลง disk ดังนั้น log file ที่ tail ดูอยู�
 - นามสกุลที่ใส่ใน `file_name` จะถูกแทนที่ด้วยนามสกุลตามรูปแบบ ดังนั้น `my_custom_log.log` จะให้
   ชื่อไฟล์เหมือนกับ `my_custom_log`
 
-### การกรอง log ราย component {#component-log-filtering}
+### การกรอง log ราย component [#component-log-filtering]
 
 parameter `component_levels` ใช้กำหนด log level ให้แต่ละ component
 ค่าที่ใส่เป็น mapping จาก string ของ component ID ไปยัง string ของ log level
@@ -198,7 +200,7 @@ parameter `component_levels` ใช้กำหนด log level ให้แต�
 
 สำหรับ backtest สามารถใช้ `BacktestEngineConfig` แทน `LiveNodeConfig` ได้ เพราะมี option เดียวกัน
 
-### การตั้งค่าผ่าน environment variable {#environment-variable-configuration}
+### การตั้งค่าผ่าน environment variable [#environment-variable-configuration]
 
 environment variable `NAUTILUS_LOG` เป็นอีกทางหนึ่งในการตั้งค่า logging โดยใช้ spec string ที่คั่นด้วยเครื่องหมาย semicolon เหมาะสำหรับ Rust-only binary หรือเมื่อต้องการ override setting ของ logging โดยไม่ต้องแก้ code
 
@@ -225,7 +227,7 @@ flag จะเปิดใช้งานเมื่อปรากฏอยู
 `NAUTILUS_LOG` จะตั้งค่า logging ได้โดยไม่ต้องเรียก `init_logging()` เอง
 :::
 
-### Logging เฉพาะ component {#components-only-logging}
+### Logging เฉพาะ component [#components-only-logging]
 
 เมื่อต้องการโฟกัสเฉพาะบางส่วนของระบบที่มี log เยอะ ให้เปิด `log_components_only` เพื่อ log เฉพาะ message จาก
 component ที่ระบุไว้ใน `component_levels` เท่านั้น component อื่นทั้งหมดจะถูกปิดเสียงโดยไม่ขึ้นกับ
@@ -238,7 +240,7 @@ filter เช่น:
 export NAUTILUS_LOG="stdout=Info;log_components_only;RiskEngine=Debug;Portfolio=Info"
 ```
 
-### การกรองตาม module path (Rust เท่านั้น) {#module-path-filtering-rust-only}
+### การกรองตาม module path (Rust เท่านั้น) [#module-path-filtering-rust-only]
 
 เมื่อใช้ environment variable `NAUTILUS_LOG` สามารถกรองตาม module path ของ Rust ได้นอกเหนือจากชื่อ component โดย key ที่มี `::` จะถือเป็น module path filter แบบ match ด้วย prefix ส่วน key ที่ไม่มี `::` จะเป็น component filter แบบ match ตรงตัว
 
@@ -264,7 +266,7 @@ log macro ของ Rust จะเก็บ module path ให้อัตโน
 component filter อย่างน้อยหนึ่งตัว หรือปิด logging เฉพาะ component
 :::
 
-### สีของ log {#log-colors}
+### สีของ log [#log-colors]
 
 รหัสสี ANSI ช่วยให้อ่าน log บน terminal ได้ง่ายขึ้น
 แต่ในสภาพแวดล้อมที่ไม่รองรับการแสดงสี ANSI (เช่น cloud environment บางแห่งหรือ text editor)
@@ -272,7 +274,7 @@ component filter อย่างน้อยหนึ่งตัว หรื�
 
 ตั้ง `LoggerConfig.is_colored=False` สำหรับสภาพแวดล้อมเหล่านี้
 
-## การใช้ logger โดยตรง {#using-a-logger-directly}
+## การใช้ logger โดยตรง [#using-a-logger-directly]
 
 หากไม่มี object ที่ initialize `NautilusKernel` และ logging ให้ (เช่น `BacktestEngine` หรือ `LiveNode`)
 จะต้องเปิดใช้ logging เองด้วย `init_logging`
@@ -282,13 +284,13 @@ component filter อย่างน้อยหนึ่งตัว หรื�
 **เก็บ `LogGuard` ที่ได้คืนมาไว้ตลอด** ตราบเท่าที่ยังต้องการ logging โดยตรง subsystem ของ logging
 รองรับ guard พร้อมกันได้สูงสุด 255 ตัว
 
-## LogGuard: การจัดการวงจรชีวิตของ log {#logguard-managing-log-lifecycle}
+## LogGuard: การจัดการวงจรชีวิตของ log [#logguard-managing-log-lifecycle]
 
 `init_logging` คืนค่า `LogGuard` ที่ติดตามผู้ใช้หนึ่งรายของ subsystem logging ระดับ process-global
 `BacktestEngine` และ `LiveNode` ถือ guard ของตัวเองไว้ภายใน ดังนั้น application code จึงไม่จำเป็นต้อง
 ขอ guard จาก engine หรือ node
 
-### การ implement reference counting {#reference-counting-implementation}
+### การ implement reference counting [#reference-counting-implementation]
 
 ระบบ logging ใช้ reference counting เพื่อติดตาม instance ของ `LogGuard` ที่ยังใช้งานอยู่:
 
@@ -301,26 +303,26 @@ component filter อย่างน้อยหนึ่งตัว หรื�
 การจบ process กะทันหันยังอาจทำให้ log ใน buffer สูญหายได้ ควร dispose engine และ node ตามปกติ และเก็บ guard
 ที่ได้จากการเรียก `init_logging` โดยตรงไว้จนกว่า application จะไม่ต้องการ logging อีก
 
-## Tracing subscriber สำหรับ Rust library ภายนอก {#tracing-subscriber-for-external-rust-libraries}
+## Tracing subscriber สำหรับ Rust library ภายนอก [#tracing-subscriber-for-external-rust-libraries]
 
 Rust crate ภายนอกที่ใช้ crate `tracing` สามารถแสดง log output ได้โดยเปิดใช้
 tracing subscriber ซึ่งมีประโยชน์ในการ debug dependency ภายนอก หรือเมื่อ integrate
 Rust component ที่เขียนเอง (เช่น feature extractor หรือ adapter)
 
-### การเปิดใช้ subscriber {#enabling-the-subscriber}
+### การเปิดใช้ subscriber [#enabling-the-subscriber]
 
 initialize tracing subscriber โดยตรง
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-### การกรองด้วย RUST_LOG {#filtering-with-rust_log}
+### การกรองด้วย RUST_LOG [#filtering-with-rust_log]
 
 environment variable `RUST_LOG` ควบคุมว่าจะแสดง tracing event ใดบ้าง เช่น
 `RUST_LOG=my_feature_extractor=debug,hyper=warn` จะแสดง debug log จาก crate ของคุณ และแสดงตั้งแต่ระดับ warn ขึ้นไปจาก hyper
 
 หากไม่ได้ตั้ง `RUST_LOG` ระดับ filter ค่าเริ่มต้นคือ `warn`
 
-### หลักการทำงาน {#how-it-works}
+### หลักการทำงาน [#how-it-works]
 
 tracing subscriber ใช้ fmt layer ของ `tracing-subscriber` ร่วมกับ formatter ที่เขียนเองเพื่อส่ง output
 ออก stdout โดยตรง ซึ่งแยกจาก infrastructure ของ logging ใน Nautilus โดย tracing output
@@ -352,6 +354,6 @@ tracing subscriber initialize ได้เพียงครั้งเดี�
 จะเกิด error
 :::
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Architecture](architecture.md) - สถาปัตยกรรมของระบบ รวมถึง infrastructure ของ logging

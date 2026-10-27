@@ -1,10 +1,12 @@
-# Hyperliquid
+---
+title: "Hyperliquid"
+---
 
 [Hyperliquid](https://hyperliquid.gitbook.io/hyperliquid-docs) เป็น exchange แบบกระจายศูนย์สำหรับ perpetual
 futures และ spot บน Hyperliquid L1 ซึ่งเป็น blockchain ที่สร้างมาเพื่อการเทรดโดยเฉพาะ order book และ
 matching engine ของ HyperCore ทำงานบน on-chain ทั้งหมด adapter นี้ให้ข้อมูลตลาดแบบ live และการ execute order
 
-## ภาพรวม {#overview}
+## ภาพรวม [#overview]
 
 adapter นี้เขียนด้วย Rust และเชื่อมต่อกับ REST และ WebSocket API ของ Hyperliquid โดยตรง โดยไม่ใช้ไลบรารี
 client ภายนอก:
@@ -21,11 +23,11 @@ client ภายนอก:
 โดยตรงได้สำหรับการเรียก API ในระดับที่ต่ำกว่า
 :::
 
-## ตัวอย่าง {#examples}
+## ตัวอย่าง [#examples]
 
 - [ตัวอย่าง Rust](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/hyperliquid/examples/)
 
-## Builder code attribution {#builder-code-attribution}
+## Builder code attribution [#builder-code-attribution]
 
 order บน mainnet จะแนบ builder code ของ NautilusTrader ที่ **อัตราค่าธรรมเนียมเป็นศูนย์** การ attribution นี้
 ไม่เพิ่มต้นทุนการเทรด และช่วยให้ทีมวัดการใช้งานและจัดลำดับความสำคัญของงาน maintenance ผู้ใช้ที่ attribute
@@ -41,7 +43,7 @@ order จะไม่ใส่ builder address ในกรณีต่อไป
 - **Vault trading** (ตั้งค่า `vault_address` ไว้): vault อนุมัติ builder fee ไม่ได้ การใส่ address จะทำให้ถูกปฏิเสธ
 - **ปิด attribution** (`include_builder_attribution` เป็น false)
 
-### การอนุมัติ builder fee {#builder-fee-approval}
+### การอนุมัติ builder fee [#builder-fee-approval]
 
 order ต้องมีการอนุมัติ `ApproveBuilderFee` แบบครั้งเดียวจึงจะแนบ builder address ได้:
 
@@ -58,7 +60,7 @@ order ต้องมีการอนุมัติ `ApproveBuilderFee` แ�
 cargo run -p nautilus-hyperliquid --bin hyperliquid-builder-fee-approve
 ```
 
-### การเพิกถอนการอนุมัติ {#revoking-the-approval}
+### การเพิกถอนการอนุมัติ [#revoking-the-approval]
 
 การเพิกถอนจะจำกัด builder fee ที่เคยอนุมัติไว้ให้เหลือ 0% รวมถึงการอนุมัติจากเวอร์ชันที่เคยเก็บค่าธรรมเนียม
 โดยยังเก็บบันทึกการอนุมัติไว้ attribution จึงยังดำเนินต่อเว้นแต่จะปิด `include_builder_attribution`
@@ -73,7 +75,7 @@ mainnet (ค่าเริ่มต้นเมื่อไม่ได้ต�
 script ของ Rust จะแสดงสรุป action และรอให้กด Enter ก่อนเซ็น ให้ยกเลิกด้วย `Ctrl+C` หากสรุปไม่ถูกต้อง หรือเติม
 `-- --yes` ต่อท้าย `cargo run` เพื่อข้ามการถาม
 
-## การตั้งค่า testnet {#testnet-setup}
+## การตั้งค่า testnet [#testnet-setup]
 
 ทดสอบ strategy ด้วยเงินจำลองบน Hyperliquid testnet
 
@@ -81,7 +83,7 @@ script ของ Rust จะแสดงสรุป action และรอใ�
 **ต้องฝากเงินบน mainnet ก่อน** faucet ของ testnet ให้บริการเฉพาะ wallet address ที่เคยฝากเงินบน mainnet แล้ว
 :::
 
-### การรับเงิน testnet {#getting-testnet-funds}
+### การรับเงิน testnet [#getting-testnet-funds]
 
 ใช้ wallet address เดียวกันในทั้งสอง environment:
 
@@ -94,13 +96,13 @@ script ของ Rust จะแสดงสรุป action และรอใ�
 faucet ให้ export email wallet จาก mainnet แล้ว import เข้า MetaMask หรือ Rabby จากนั้นเชื่อม extension กับ testnet
 :::
 
-### การสร้าง testnet account {#creating-a-testnet-account}
+### การสร้าง testnet account [#creating-a-testnet-account]
 
 1. เข้า [Hyperliquid testnet portal](https://app.hyperliquid-testnet.xyz/)
 2. เชื่อมต่อ wallet ของคุณ (MetaMask, WalletConnect หรือ email)
 3. testnet จะสร้าง account สำหรับ wallet address ของคุณโดยอัตโนมัติ
 
-### การ export private key {#exporting-your-private-key}
+### การ export private key [#exporting-your-private-key]
 
 export private key ของ testnet wallet เพื่อใช้กับ NautilusTrader:
 
@@ -116,7 +118,7 @@ export private key ของ testnet wallet เพื่อใช้กับ Na
 version control
 :::
 
-### การตั้ง environment variable {#setting-environment-variables}
+### การตั้ง environment variable [#setting-environment-variables]
 
 ตั้ง credential ของ testnet เป็น environment variable:
 
@@ -135,7 +137,7 @@ WebSocket user feed จะคืนผลว่างแม้จะมี order
 ดู [GH-4010](https://github.com/nautechsystems/nautilus_trader/issues/4010)
 :::
 
-## ผลิตภัณฑ์ที่รองรับ {#product-support}
+## ผลิตภัณฑ์ที่รองรับ [#product-support]
 
 Hyperliquid มี linear perpetual futures, perpetual แบบ HIP-3 ที่ builder deploy เอง, ตลาด spot แบบ native และ
 ตลาด binary outcome แบบ HIP-4
@@ -163,11 +165,11 @@ perpetual มาตรฐานของ Hyperliquid ชำระด้วย US
 และ [HIP-4 outcome markets](#hip-4-outcome-markets)
 :::
 
-## Symbology {#symbology}
+## Symbology [#symbology]
 
 symbol ของ instrument ระบุผลิตภัณฑ์ และสำหรับ HIP-3 perpetual จะระบุ builder dex ด้วย
 
-### ตลาด spot {#spot-markets}
+### ตลาด spot [#spot-markets]
 
 รูปแบบ: `{Base}-{Quote}-SPOT`
 
@@ -195,7 +197,7 @@ HTTP client จึงสังเคราะห์ instrument `{coin}-USDC-SPOT
 instrument สังเคราะห์เหล่านี้ไม่มี metadata ของ venue: `info` เป็น `None`
 :::
 
-### Perpetual futures {#perpetual-futures}
+### Perpetual futures [#perpetual-futures]
 
 รูปแบบ: `{Base}-USD-PERP`
 
@@ -207,7 +209,7 @@ instrument สังเคราะห์เหล่านี้ไม่มี
 
 ใน strategy ให้ subscribe ด้วย instrument ID เช่น `BTC-USD-PERP.HYPERLIQUID` และ `ETH-USD-PERP.HYPERLIQUID`
 
-### HIP-3 perpetuals {#hip-3-perpetuals}
+### HIP-3 perpetuals [#hip-3-perpetuals]
 
 รูปแบบ: `{dex}:{Asset}-USD-PERP`
 
@@ -223,7 +225,7 @@ instrument สังเคราะห์เหล่านี้ไม่มี
 
 ใน strategy ให้ subscribe ด้วย instrument ID เช่น `xyz:TSLA-USD-PERP.HYPERLIQUID`
 
-### Side token ของ HIP-4 outcome {#hip-4-outcome-side-tokens}
+### Side token ของ HIP-4 outcome [#hip-4-outcome-side-tokens]
 
 รูปแบบ: `{outcome_index}-{YES|NO}-OUTCOME.HYPERLIQUID` โดย `outcome_index` คือฟิลด์ `outcome` จาก
 `outcomeMeta` และ `YES|NO` ระบุฝั่ง suffix ของผลิตภัณฑ์ใช้รูปแบบเดียวกับ `-PERP` และ `-SPOT`
@@ -259,7 +261,7 @@ curl -s -X POST https://api.hyperliquid.xyz/info \
 
 ดู [HIP-4 outcome markets](#hip-4-outcome-markets) สำหรับลำดับการเทรด, settlement และข้อจำกัดในปัจจุบัน
 
-## HIP-3 builder-deployed perpetuals {#hip-3-builder-deployed-perpetuals}
+## HIP-3 builder-deployed perpetuals [#hip-3-builder-deployed-perpetuals]
 
 [HIP-3](https://hyperliquid.gitbook.io/hyperliquid-docs/hyperliquid-improvement-proposals-hips/hip-3-builder-deployed-perpetuals)
 อนุญาตให้ผู้ deploy ที่มีคุณสมบัติเปิด perp dex แบบ permissionless บน Hyperliquid ได้ ตลาดเหล่านี้รวมถึงหุ้น
@@ -272,9 +274,9 @@ data client ไม่มีตัวกรองราย dex โดย strategy
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-### Reconciliation ของ open order และ position {#open-order-and-position-reconciliation}
+### Reconciliation ของ open order และ position [#open-order-and-position-reconciliation]
 
-#### Mass status ตอนเริ่มต้น {#startup-mass-status}
+#### Mass status ตอนเริ่มต้น [#startup-mass-status]
 
 ตอน `LiveNode` เริ่มต้น reconciliation ของ open order และ position แบบไม่กรองจะ query perp dex ค่าเริ่มต้น และ
 HIP-3 dex แต่ละตัวที่ปรากฏใน order หรือ fill ย้อนหลังล่าสุดของ wallet:
@@ -302,7 +304,7 @@ lookback ไว้ `lookback_start` จะเก็บขอบล่างข�
 สร้าง position ขึ้น แต่อาจทำให้ position ใน cache ยังเปิดอยู่หลังการปิดขณะออฟไลน์ เมื่อ position ที่เป็นศูนย์ไม่ได้
 อยู่ใน report ดู [bounded history safety](../concepts/execution/reconciliation.md#bounded-history-safety)
 
-#### ปริมาณ fill ของ reduce-only {#reduce-only-fill-quantity}
+#### ปริมาณ fill ของ reduce-only [#reduce-only-fill-quantity]
 
 Hyperliquid อาจรายงาน reduce-only order เป็น `filled` โดยไม่มีส่วนที่เหลือเมื่อปิด position ที่เล็กกว่า order ระหว่าง
 mass status ตอนเริ่มต้นหรือการค้นหา order เดียวด้วย venue order ID, adapter จะ clamp order แบบนั้นให้เท่ากับ fill
@@ -313,7 +315,7 @@ mass status ตอนเริ่มต้นหรือการค้นห�
 สำหรับการ clamp นี้ การค้นหา order เดียวจะดึง `userFills` เฉพาะสำหรับ reduce-only order ที่ถูกรายงานเป็น `Filled`
 ส่วน `QueryOrder` ยังอ่านประวัติ fill สำหรับ [order ปกติที่ filled และมีสิทธิ์](#order-fill-recovery) ด้วย
 
-#### Command และ request โดยตรง {#command-and-direct-requests}
+#### Command และ request โดยตรง [#command-and-direct-requests]
 
 นอกเหนือจาก mass status ตอนเริ่มต้น command สำหรับ report ของ open order และ position แบบไม่กรองของ
 `LiveNode` และ request โดยตรงของ `HyperliquidHttpClient` จะ query perp dex ค่าเริ่มต้น และ builder dex แต่ละตัวที่มี
@@ -328,12 +330,12 @@ perpetual instrument อยู่ใน cache:
 - หากการค้นหาสถานะ order ผ่าน HTTP แบบเจาะจงพบแถวของ venue ที่ใช้ไม่ได้ จะคืน error แทนการรายงานว่า order หายไป
   command `GenerateOrderStatusReport` ก็ทำเช่นเดียวกันเมื่อไม่เหลือ fallback ด้วย venue order ID แล้ว
 
-#### Commission ของ fill ที่อนุมาน {#inferred-fill-commissions}
+#### Commission ของ fill ที่อนุมาน [#inferred-fill-commissions]
 
 event `OrderFilled` ที่อนุมานขึ้นจะมี `commission=None` เพราะ adapter ไม่ประมาณค่าธรรมเนียมของ fill เหล่านี้
 ปริมาณและราคายังคง reconcile ได้ แต่ realized PnL ของ fill เหล่านี้ไม่รวมค่าธรรมเนียมการเทรด
 
-### ความแตกต่างจาก perpetual มาตรฐาน {#differences-from-standard-perpetuals}
+### ความแตกต่างจาก perpetual มาตรฐาน [#differences-from-standard-perpetuals]
 
 ตลาด HIP-3 ซื้อขายบน matching engine ของ HyperCore ตัวเดียวกันและใช้ order API เดียวกัน ความแตกต่างหลักคือ:
 
@@ -355,7 +357,7 @@ event `OrderFilled` ที่อนุมานขึ้นจะมี `commiss
 - [Asset IDs](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/asset-ids)
 - [Fees](https://hyperliquid.gitbook.io/hyperliquid-docs/trading/fees)
 
-### การ sanitize อักขระ wildcard {#wildcard-character-sanitization}
+### การ sanitize อักขระ wildcard [#wildcard-character-sanitization]
 
 ชื่อบน venue ของ HIP-3 อาจมี `*` หรือ `?` เช่น `dex:STREAMABCD****-USD-PERP` อักขระเหล่านี้หมายถึงการจับคู่
 ศูนย์ตัวขึ้นไปและหนึ่งตัวใน pattern ของ message bus ของ Nautilus การปล่อยไว้ใน topic string จึงทำให้การ routing
@@ -372,7 +374,7 @@ adapter จะแทนที่ทั้งสองอักขระด้ว
 symbol ของ Nautilus ตัวเดียวกัน การชนกันแบบนี้จะใช้พฤติกรรม first-write-wins ตามที่อธิบายไว้ใน
 [Instrument loading](#instrument-loading)
 
-## HIP-4 outcome markets {#hip-4-outcome-markets}
+## HIP-4 outcome markets [#hip-4-outcome-markets]
 
 ตลาด [HIP-4](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/asset-ids#outcomes) เป็นสัญญา
 binary ที่มี collateral เต็มจำนวน token Yes และ No ของแต่ละตลาดจะชำระเป็น quote token `1` (ชนะ) หรือ `0` (แพ้)
@@ -381,7 +383,7 @@ instrument ของ HIP-4 โดยไม่ทำให้การโหล�
 
 การรองรับ HIP-4 ยังเป็นแบบทดลอง ดูขีดจำกัดของการตรวจสอบได้ที่ [Product support](#product-support) ก่อนใช้งาน
 
-### การโหลด outcome instrument {#loading-outcome-instruments}
+### การโหลด outcome instrument [#loading-outcome-instruments]
 
 `LiveNode` จะโหลด outcome instrument โดยอัตโนมัติเมื่อมี `outcomeMeta` โดยไม่ต้องตั้งค่าใดๆ
 
@@ -419,7 +421,7 @@ key ในคำอธิบายจะถูกแปลงจาก camelCase
 `priceThresholds` -> `price_thresholds`) ค่าถูกเก็บเป็นสตริงเพื่อคงความถูกต้องตาม wire ส่วนตัวระบุที่เป็นตัวเลข
 (`outcome_index`, `outcome_side`, `encoding`, `asset_id`, `question`, `named_index`) ถูกเก็บเป็นตัวเลข JSON
 
-### สกุลเงินของ settlement {#settlement-currency}
+### สกุลเงินของ settlement [#settlement-currency]
 
 `quoteToken` ของแต่ละ outcome ใน `outcomeMeta` กำหนด `BinaryOption.currency`, `quote_currency` และสกุลเงินของ
 settlement fill ที่ค่าธรรมเนียมเป็นศูนย์และมี side token เป็น `feeToken` จะใช้ quote currency ของ instrument เป็น
@@ -436,14 +438,14 @@ instrument ที่สร้างขึ้นใหม่จะเข้า ca
 balance spot ของ USDH จะรวมเข้ากับมุมมอง clearinghouse ของ perp ดังนั้น `AccountState` จะมี USDH ควบคู่กับ USDC
 และ spot holding อื่นที่ไม่เป็นศูนย์
 
-### ลำดับการเทรด {#trading-flow}
+### ลำดับการเทรด [#trading-flow]
 
 เทรด side token ของ outcome ด้วยคำสั่ง `SubmitOrder` ปกติ execution client จะส่ง action `Order` มาตรฐานไปยัง
 order book `#{encoding}` โดย `encoding = 10 * outcome_index + outcome_side` ไม่ต้องเรียกอะไรที่เฉพาะกับ HIP-4
 
 settlement ขับเคลื่อนโดย venue ดู [Settlement dispatch](#settlement-dispatch)
 
-#### Workflow ขั้นสูง {#advanced-workflows}
+#### Workflow ขั้นสูง [#advanced-workflows]
 
 ใช้ action `userOutcome` บน `HyperliquidHttpClient` เพื่อจัดการ inventory ของ side token นอก order book
 
@@ -458,7 +460,7 @@ settlement ขับเคลื่อนโดย venue ดู [Settlement disp
 
 ใช้คำสั่ง `SubmitOrder` ปกติสำหรับการเทรดแบบมีทิศทาง ส่วน action เหล่านี้สร้างหรือทำลาย inventory นอก order book
 
-### ข้อจำกัดของ order {#order-constraints}
+### ข้อจำกัดของ order [#order-constraints]
 
 side token ของ outcome ทำงานเหมือน spot token (ไม่มี margin, ไม่มี funding, ไม่มี liquidation) execution client
 จะปฏิเสธฟีเจอร์ที่ไม่เกี่ยวข้อง:
@@ -469,7 +471,7 @@ side token ของ outcome ทำงานเหมือน spot token (ไ�
 รองรับ order แบบ `Limit` และ `Market` ที่มี time-in-force เป็น `GTC`, `IOC` หรือ `ALO` ขั้นต่ำของ venue คือ notional
 10 quote token ให้กำหนด `order_qty` เป็นจำนวน token เต็มโดยให้ `order_qty * limit_price >= 10`
 
-### การ dispatch settlement {#settlement-dispatch}
+### การ dispatch settlement [#settlement-dispatch]
 
 เมื่อหมดอายุ venue จะปิด balance ของ side token ที่ถืออยู่และ emit fill แบบ `Settlement` ฝั่งละหนึ่งตัว adapter จะรับ
 fill เหล่านี้ผ่านการ poll user fill ทาง HTTP และการอัปเดตทาง WebSocket โดยคง commission ของ venue ไว้
@@ -497,7 +499,7 @@ fill แบบสังเคราะห์มี commission เป็นศู
 เมื่อไม่มี instrument ใน cache โดยใช้ USDC เป็นค่าสำรอง fill เหล่านี้ไม่มี `client_order_id` และถูก dispatch เป็น
 `FillReport`
 
-### Reconciliation ของ position {#position-reconciliation}
+### Reconciliation ของ position [#position-reconciliation]
 
 side token ของ HIP-4 มาใน `spotClearinghouseState` โดยตั้ง `coin` เป็นรูปแบบ token `+E` และไม่มีฟิลด์ `token`
 adapter จะ:
@@ -507,14 +509,14 @@ adapter จะ:
 - ข้ามการดึง clearinghouse ของ perp เมื่อตัวกรอง position-status เป็น outcome instrument (outcome ไม่เคยปรากฏใน
   `assetPositions`)
 
-### ตลาด multi-outcome (priceBucket) {#multi-outcome-pricebucket-markets}
+### ตลาด multi-outcome (priceBucket) [#multi-outcome-pricebucket-markets]
 
 array `outcomeMeta.questions` ระดับบนสุดกำหนดตลาด multi-outcome แต่ละตลาดพร้อม fallback และ outcome แบบมีชื่อ
 คำอธิบายของ outcome แบบมีชื่อแต่ละตัวอ้างถึงคำถามแม่ด้วย `index:N` และ side token แต่ละตัวเป็น `BinaryOption`
 อิสระ ใช้ `HyperliquidHttpClient.submit_merge_question` เพื่อปิดตะกร้าของคำถาม และ `submit_negate_outcome`
 สำหรับการหมุนข้าม outcome
 
-## การโหลด instrument {#instrument-loading}
+## การโหลด instrument [#instrument-loading]
 
 ตอน connect, data client จะโหลดตลาด spot, perpetual มาตรฐาน, HIP-3 dex ทุกตัว และ side token ของ HIP-4 โดยไม่มี
 ตัวกรองผลิตภัณฑ์หรือ symbol strategy เลือก instrument ผ่านการตั้งค่า `instrument_id` ของตัวเอง
@@ -547,7 +549,7 @@ loader รวมทั้งคู่ canonical และไม่ใช่ cano
 หากต้องการดึงชุดที่แคบลงนอก `LiveNode` ให้เรียก `load_instrument_definitions` บน `HyperliquidHttpClient` โดยตรง
 พร้อม flag ของผลิตภัณฑ์ที่ต้องการ
 
-### สถานะของ instrument {#instrument-status}
+### สถานะของ instrument [#instrument-status]
 
 Hyperliquid ไม่มีสตรีมสถานะตลาด adapter จึงหา `InstrumentStatus` จากการ refresh instrument ซึ่ง poll ตามช่วงเวลา
 ที่ตั้งด้วย `update_instruments_interval_mins`
@@ -556,7 +558,7 @@ Hyperliquid ไม่มีสตรีมสถานะตลาด adapter �
 - ตลาดที่ถูกเอาออกจาก venue จะเป็น `NOT_AVAILABLE_FOR_TRADING` การดึง metadata ที่ล้มเหลวไม่นับเป็นการเอาออก
 - การ subscribe จะ emit สถานะปัจจุบันทันที
 
-## Data subscription {#data-subscriptions}
+## Data subscription [#data-subscriptions]
 
 mark price, index price และ funding rate ใช้กับทั้ง perpetual มาตรฐานและ HIP-3
 
@@ -585,7 +587,7 @@ mark price, index price และ funding rate ใช้กับทั้ง pe
 ถือว่าไม่มีข้อมูลครอบคลุมและตอบด้วย response ว่าง trade แบบ live ยังได้รับผ่าน WebSocket `trades`
 :::
 
-### การควบคุมความละเอียดของ order book {#order-book-precision-controls}
+### การควบคุมความละเอียดของ order book [#order-book-precision-controls]
 
 หากต้องการลดความละเอียดของการรวม `l2Book` ฝั่ง venue ให้ส่ง `n_sig_figs` และ `mantissa` ใน `params` ของ
 `subscribe_book_deltas` หรือ `subscribe_book_depth` adapter จะส่งต่อเป็น `nSigFigs` และ `mantissa`
@@ -602,7 +604,7 @@ book delta และ depth snapshot ของ instrument เดียวกั�
 - สตรีมจะปิดเมื่อการใช้งานตัวสุดท้ายจากทั้งสองแบบ unsubscribe
 - การ reconnect จะคืนสตรีมพร้อม option ความละเอียดเดิม
 
-### ข้อมูลเฉพาะของ Hyperliquid {#hyperliquid-specific-data}
+### ข้อมูลเฉพาะของ Hyperliquid [#hyperliquid-specific-data]
 
 adapter มี custom data type ต่อไปนี้:
 
@@ -616,7 +618,7 @@ adapter มี custom data type ต่อไปนี้:
 - `HyperliquidTwapSliceFill` จาก feed `userTwapSliceFills` ทาง WebSocket แต่ละ event คือ fill ของ child slice ของ
   TWAP หนึ่งตัว
 
-#### All mids {#all-mids}
+#### All mids [#all-mids]
 
 | ฟิลด์       | Type                        | คำอธิบาย                                                                |
 | ---------- | --------------------------- | -------------------------------------------------------------------------- |
@@ -630,7 +632,7 @@ subscribe จาก actor หรือ strategy ด้วยชนิดข้�
 ค่า `dex` คือ identifier ของ builder dex ที่ venue กำหนดจาก `perpDexs` เช่น `xyz`, `flx` หรือ `vntl` ให้ละ key นี้
 (หรือส่งสตริงว่าง) สำหรับ perp dex ค่าเริ่มต้น
 
-#### Open interest {#open-interest}
+#### Open interest [#open-interest]
 
 `HyperliquidOpenInterest` เก็บ open interest ล่าสุดของ perpetual instrument ให้ตั้ง ID แบบ canonical ของ Nautilus ไว้ใน
 `metadata["instrument_id"]`:
@@ -645,7 +647,7 @@ subscribe จาก actor หรือ strategy ด้วยชนิดข้�
 open interest ใช้ subscription `activeAssetCtx` ที่มีอยู่แล้วของ coin ร่วมกับ mark price, index price และ funding rate
 จึงไม่เปิด subscription เพิ่มที่ venue
 
-#### Public trades {#public-trades}
+#### Public trades [#public-trades]
 
 `HyperliquidPublicTrade` เป็นทางเลือกแบบ opt-in แทน `TradeTick` ทั่วไป สำหรับการวิจัย order flow สาธารณะ โดยมี
 `instrument_id`, `price`, `size`, `aggressor_side`, `trade_id`, `buyer`, `seller`, `hash`, `ts_event` และ `ts_init`
@@ -655,7 +657,7 @@ public trade ใช้ subscription `trades` ของ venue ร่วมกั�
 serialize เป็น Arrow ได้อย่างอิสระ การบันทึกลง catalog และการ query จึงไม่ต้อง join กับ event `users` แยกต่างหาก
 `RequestCustomData` ใช้ snapshot `recentTrades` แบบล่าสุดเท่านั้นเช่นเดียวกับ request trade ย้อนหลัง
 
-#### TWAP history และ fill {#twap-history-and-fills}
+#### TWAP history และ fill [#twap-history-and-fills]
 
 เลือกเปิด `HyperliquidTwapHistory` และ `HyperliquidTwapSliceFill` โดยใส่ wallet address เป้าหมายใน
 `metadata["user"]` ซึ่งไม่จำเป็นต้องเป็น account ที่ใช้เทรด `subscribe_all_user_channels` ไม่รวม feed เหล่านี้
@@ -708,7 +710,7 @@ serialize เป็น Arrow ได้อย่างอิสระ การ�
 snapshot batch จาก venue จะตั้ง `is_snapshot=True` ให้ทุกแถว/fill ใน batch นั้น เพื่อให้ผู้ใช้ล้างและสร้างสถานะ TWAP
 ในเครื่องขึ้นใหม่ได้
 
-#### All dex asset contexts {#all-dex-asset-contexts}
+#### All dex asset contexts [#all-dex-asset-contexts]
 
 `HyperliquidAllDexsAssetCtxs` รวม feed ทั้งหมดไว้ด้วยกัน ให้ subscribe ครั้งเดียวแล้วกรองรายการที่ normalize แล้ว
 เพราะไม่มี topic ราย instrument ตารางนี้อธิบาย type ฝั่ง Rust:
@@ -744,7 +746,7 @@ feed นี้ไม่มีชื่อ coin รายรายการ adapt
 ของ dex ที่ไม่ตรงกันจะ log คำเตือนจนกว่าจะสร้างใหม่ครั้งถัดไป การจัดตำแหน่งตามลำดับนี้ทำให้ mapping ถูกต้องสำหรับ
 การลิสต์ที่ต่อท้ายเข้ามา
 
-### ช่วงเวลาของ bar ที่รองรับ {#supported-bar-intervals}
+### ช่วงเวลาของ bar ที่รองรับ [#supported-bar-intervals]
 
 | Resolution | Hyperliquid candle |
 | ---------- | ------------------ |
@@ -763,12 +765,12 @@ feed นี้ไม่มีชื่อ coin รายรายการ adapt
 | 1-WEEK     | `1w`               |
 | 1-MONTH    | `1M`               |
 
-## ความสามารถด้าน order {#orders-capability}
+## ความสามารถด้าน order [#orders-capability]
 
 ในตารางเหล่านี้ "Perpetuals" รวมทั้ง perp มาตรฐานที่ validator ดำเนินการและ perp แบบ HIP-3 ที่ builder deploy เอง
 ทั้งสองแบบรองรับชนิด order, option ของ time-in-force และ execution instruction ชุดเดียวกัน
 
-### ชนิดของ order {#order-types}
+### ชนิดของ order [#order-types]
 
 | ชนิด order           | Perpetuals | Spot | หมายเหตุ                                               |
 | ------------------- | ---------- | ---- | --------------------------------------------------- |
@@ -784,7 +786,7 @@ order แบบ stop และ if-touched ใช้ trigger แบบ native ท
 venue จนกว่าจะถูก trigger ไม่ว่าจะเป็น `reduce_only` หรือไม่ adapter จะส่ง child ของ TP/SL แบบกลุ่ม (bracket) เป็น
 reduce-only เสมอ
 
-### การตั้งราคา market order {#market-order-pricing}
+### การตั้งราคา market order [#market-order-pricing]
 
 market order ใช้ IOC limit ที่ตั้งราคาจาก best ask สำหรับฝั่งซื้อ หรือ best bid สำหรับฝั่งขาย บวก slippage buffer ตั้ง
 `market_order_slippage_bps` บน `HyperliquidExecutionClientConfig` (ค่าเริ่มต้น 50 bps) หรือ override ราย order ใน
@@ -799,7 +801,7 @@ buffer เดียวกัน โดยปัดเป็นเลขนัย
 ให้ subscribe quote ของทุก instrument ที่ตั้งใจจะเทรดด้วย market order
 :::
 
-### ปริมาณที่ระบุเป็นหน่วย quote {#quote-denominated-quantities}
+### ปริมาณที่ระบุเป็นหน่วย quote [#quote-denominated-quantities]
 
 Hyperliquid ต้องการขนาดเป็นหน่วย base (`s`) สำหรับทุก order เมื่อตั้ง `quote_quantity=True` บน order factory,
 adapter จะแปลงเป็นขนาด base ตอนส่ง โดยใช้ best ask ใน cache สำหรับฝั่งซื้อ หรือ best bid สำหรับฝั่งขาย แล้วปัดตาม
@@ -818,7 +820,7 @@ size increment ของ instrument
 `OrderDenied` แทนการเดาขนาด ให้ subscribe quote ของทุก instrument ที่ตั้งใจจะเทรดด้วยปริมาณที่ระบุเป็นหน่วย quote
 :::
 
-### การ normalize ราคา {#price-normalization}
+### การ normalize ราคา [#price-normalization]
 
 :::warning
 **การ normalize ราคาเปิดอยู่โดยค่าเริ่มต้น** Hyperliquid จำกัดราคา order ไว้ที่เลขนัยสำคัญ 5 ตัว และขีดจำกัดทศนิยม
@@ -837,7 +839,7 @@ adapter จะปัดราคา limit และ trigger ขาออกท�
 
 :::
 
-### Time in force {#time-in-force}
+### Time in force [#time-in-force]
 
 | Time in force | Perpetuals | Spot | หมายเหตุ                |
 | ------------- | ---------- | ---- | -------------------- |
@@ -860,7 +862,7 @@ payload `orderStatus` และ `historicalOrders` ของ venue อาจร�
 ด้วยปริมาณและ commission ของ venue
 :::
 
-### Execution instruction {#execution-instructions}
+### Execution instruction [#execution-instructions]
 
 | Instruction      | Perpetuals | Spot | หมายเหตุ                                                        |
 | ---------------- | ---------- | ---- | ------------------------------------------------------------ |
@@ -873,7 +875,7 @@ post-only order ใช้ช่อง ALO (Add-Liquidity-Only) ของ Hyperli
 `OrderRejected`
 :::
 
-### การดำเนินการกับ order {#order-operations}
+### การดำเนินการกับ order [#order-operations]
 
 | การดำเนินการ         | Perpetuals | Spot | หมายเหตุ                                          |
 | ----------------- | ---------- | ---- | ---------------------------------------------- |
@@ -909,7 +911,7 @@ report ของ order และ fill แบบ bulk ของ `HyperliquidHttpC
 CLOID คือ hash ของ client order ID ของ Nautilus หากไม่มี cache ที่เก็บไว้ การเริ่มต้นจะใช้ CLOID ดิบสำหรับ external
 order และไม่สามารถสร้าง ID เดิมกลับคืนได้
 
-### การยกเลิกตามกำหนดเวลา {#scheduled-cancellation}
+### การยกเลิกตามกำหนดเวลา [#scheduled-cancellation]
 
 [dead man's switch](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/exchange-endpoint#schedule-cancel-dead-mans-switch)
 ของ Hyperliquid จะยกเลิก open order เมื่อถึง deadline ที่กำหนดไว้ deadline ใหม่จะแทนที่ตัวก่อนหน้า การอัปเดต
@@ -930,7 +932,7 @@ account ไม่ถึงเกณฑ์ volume หากฟีเจอร์�
 [รายงาน issue บน GitHub](https://github.com/nautechsystems/nautilus_trader/issues)
 :::
 
-#### การ refresh อัตโนมัติ {#automatic-refresh}
+#### การ refresh อัตโนมัติ [#automatic-refresh]
 
 สำหรับ node ที่กำลังรัน ให้ตั้ง `scheduled_cancel_timeout_secs` ใน `HyperliquidExecutionClientConfig` แล้วส่ง config
 นี้ให้ `LiveNode.builder().add_exec_client` พร้อม `HyperliquidExecutionClientFactory`
@@ -951,7 +953,7 @@ account ไม่ถึงเกณฑ์ volume หากฟีเจอร์�
 ใช้ process ที่จัดการเพียงตัวเดียวต่อ account หรือ vault เพราะการ refresh ทุกครั้งแทนที่ deadline ระดับ account อย่าใช้
 การเรียก schedule ด้วยมือปนกับการ refresh อัตโนมัติสำหรับเป้าหมายเดียวกัน
 
-#### การควบคุมด้วยมือ {#manual-control}
+#### การควบคุมด้วยมือ [#manual-control]
 
 `HyperliquidHttpClient::schedule_cancel(Option<u64>)` ใช้ตั้งหรือแทนที่ deadline ให้ส่ง Unix timestamp หน่วย
 **มิลลิวินาที** ที่ล่วงหน้าอย่างน้อยห้าวินาที โดยเผื่อเวลาสำหรับ rate limiting, latency และ clock skew ให้แปลงนาโนวินาที
@@ -979,7 +981,7 @@ account ด้วย จาก root ของ repository ให้รัน:
 cargo run --example hyperliquid-scheduled-cancel --package nautilus-hyperliquid -- testnet
 ```
 
-### Modify แบบ cancel-replace {#modify-as-cancel-replace}
+### Modify แบบ cancel-replace [#modify-as-cancel-replace]
 
 Hyperliquid modify order ด้วยวิธี **cancel-replace** action `modify` บน
 [exchange endpoint](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/exchange-endpoint#modify-an-order)
@@ -1051,7 +1053,7 @@ sequenceDiagram
 
 การ modify ที่สำเร็จจะ emit `OrderUpdated` หนึ่งตัวพร้อม `oid` ใหม่ ส่วนการยกเลิกที่จับคู่กับขาเดิมจะไม่ไปถึง strategy เลย
 
-#### การยกเลิกที่มาก่อนตัวแทน {#early-cancel-before-the-replacement}
+#### การยกเลิกที่มาก่อนตัวแทน [#early-cancel-before-the-replacement]
 
 ก่อน dispatch, client จะเข้าคิว modify intent หาก `CANCELED(old_oid)` มาถึงก่อน `ACCEPTED(new_oid)` intent จะเก็บการ
 ยกเลิกนั้นไว้แม้ request ยังดำเนินอยู่ การยอมรับที่ตามมาจะถูกยกระดับเป็น `OrderUpdated` และทิ้งการยกเลิกที่เก็บไว้
@@ -1066,7 +1068,7 @@ sequenceDiagram
 ที่เก็บไว้ไปใช้เป็น `OrderCanceled` ผ่านเส้นทางสตรีม การจัดการ bracket จึงทำงานเหมือนการยกเลิกอื่นๆ การยกเลิกที่ถูกเก็บไว้
 หลัง request ที่ไม่รู้ผลจะรอจนกว่าการตรวจ in-flight จะได้ข้อสรุปของ order
 
-#### Modify ต่อเนื่อง {#chained-modifies}
+#### Modify ต่อเนื่อง [#chained-modifies]
 
 การ modify ซ้ำภายใต้ `cloid` เดียวจะเข้าคิวเป็นสายของ intent request ที่มาทีหลังคงการระงับขาเดิมของ request ก่อนหน้าไว้
 ความล้มเหลวจะล้างเฉพาะความพยายามของตัวเอง โดย intent ที่ใหม่กว่ายังอยู่ `ACCEPTED` ของตัวแทนแต่ละตัวจะยกระดับ intent
@@ -1087,14 +1089,14 @@ modify ค้างอยู่ การตรวจเหล่านี้ป
 ขานั้น หลังการยกระดับ report `Canceled` ของขาในอดีตจะไปถึง reconciliation กลาง ซึ่งจะระงับการยกเลิกเก่าขณะกู้คืน fill
 ที่หายไป report `Filled` ที่มาช้าก็ยังใช้กู้คืนได้
 
-#### การยอมรับของตัวแทนที่หายไป {#dropped-replacement-acceptance}
+#### การยอมรับของตัวแทนที่หายไป [#dropped-replacement-acceptance]
 
 หาก `ACCEPTED(new_oid)` หายไปและยังไม่มี fill มาถึง inflight query และ reconciliation ของ order เดียวจะหาตัวแทนด้วย
 `cloid` ใน `frontendOpenOrders` แล้ว emit `OrderUpdated`, ผูกใหม่กับ `new_oid` และเลื่อนสาย modify ดังนั้น modify และ
 การยกเลิกที่ตามมาจะเล็งไปที่ตัวแทนที่ live อยู่ ไม่ใช่ขาที่ถูกยกเลิก
 ดู [GH-4270](https://github.com/nautechsystems/nautilus_trader/issues/4270)
 
-#### Fill ที่แข่งกับตัวแทน {#fills-racing-the-replacement}
+#### Fill ที่แข่งกับตัวแทน [#fills-racing-the-replacement]
 
 `FillReport` ของขาตัวแทนอาจมาถึงก่อน `ACCEPTED(new_oid)` ได้ เมื่อตั้ง marker ของ modify ที่ค้างอยู่ไว้และ `oid` ของ report
 ไม่ตรงกับค่าใน cache การ dispatch จะยกระดับ binding โดยตรงจาก fill (`OrderUpdated` แล้วตามด้วย `OrderFilled`) โดยใช้
@@ -1108,7 +1110,7 @@ modify ค้างอยู่ การตรวจเหล่านี้ป
 ID ที่เลิกใช้แล้ว หรือระบาย fill เมื่อ modify ล้มเหลว
 :::
 
-## Order book {#order-books}
+## Order book [#order-books]
 
 ข้อความ L2 ทาง WebSocket แต่ละข้อความเป็น snapshot สูงสุด 20 ระดับราคาต่อฝั่ง ไม่ใช่การอัปเดตแบบส่วนต่าง adapter จะ
 สร้าง book ใหม่ด้วย event group เดียว: delta `Clear` แล้วตามด้วย `Add` ทั้งหมดมี flag `F_SNAPSHOT` และ delta ตัวสุดท้าย
@@ -1119,7 +1121,7 @@ trader instance หนึ่งตัวดูแล order book หนึ่ง�
 เดียวกันและ option ความละเอียดฝั่ง venue เดียวกัน
 :::
 
-### การกู้คืน order book {#order-book-recovery}
+### การกู้คืน order book [#order-book-recovery]
 
 data client ติดตาม subscription ของ order book delta แต่ละตัวด้วย
 [กลไกการกู้คืน book กลาง](../developer_guide/adapters.md#order-book-recovery-ownership) ข้อความ `l2Book` ไม่มี
@@ -1165,7 +1167,7 @@ frame ที่ไม่ถูกต้อง หรือรายงานส�
 - การกู้คืนถูกยกเลิก
 - งบเริ่มต้น 180 วินาทีหมดลง
 
-### การตรวจสอบการกู้คืนแบบ live {#live-recovery-validation}
+### การตรวจสอบการกู้คืนแบบ live [#live-recovery-validation]
 
 harness สำหรับการพัฒนา `hyperliquid-book-stress` ตรวจการ sync และการกู้คืนของ book โดยใช้ข้อมูลสาธารณะบน mainnet
 โดยไม่ส่ง order ใดๆ harness จะตรวจ perpetual book หกตัวเทียบกับสัญญาของสตรีม และเปรียบเทียบ 20 ระดับที่ดีที่สุดต่อฝั่ง
@@ -1193,7 +1195,7 @@ CARGO_BUILD_JOBS=16 bash scripts/strip-adapter-env.bash \
 harness ต้องใช้สตรีม WebSocket ของ mainnet และ info API สาธารณะ ดู
 [Stress harnesses](../developer_guide/spec_data_testing.md#stress-harnesses) สำหรับ flag ที่ใช้ร่วมกันและรูปแบบ output
 
-## การจัดการ account และ position {#account-and-position-management}
+## การจัดการ account และ position [#account-and-position-management]
 
 `AccountState` รวม margin ของ perp และ balance ของ spot เข้าด้วยกันตามโหมด account `userAbstraction`:
 
@@ -1220,7 +1222,7 @@ leverage จัดการโดยตรงผ่าน web UI หรือ AP
 บน Hyperliquid ก่อนเทรด
 :::
 
-## การจัดการ liquidation และ ADL {#liquidation-and-adl-handling}
+## การจัดการ liquidation และ ADL [#liquidation-and-adl-handling]
 
 subscription `userEvents` ระบุการปิดที่ venue เป็นผู้เริ่มได้สามแบบ:
 
@@ -1241,11 +1243,11 @@ risk และ reconciliation จัดการเหมือน fill แบ�
 - [WebSocket `userEvents` (`liquidation` and `FillLiquidation`)](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/websocket/subscriptions)
 - [Liquidation mechanics](https://hyperliquid.gitbook.io/hyperliquid-docs/trading/liquidations)
 
-## การกู้คืน fill ของ order {#order-fill-recovery}
+## การกู้คืน fill ของ order [#order-fill-recovery]
 
 `QueryOrder` จะกู้คืน fill จาก venue ที่พลาดไปก่อนส่งต่อ status report ของ order ที่ fill เต็มแล้ว
 
-### Order ที่มีสิทธิ์ {#eligible-orders}
+### Order ที่มีสิทธิ์ [#eligible-orders]
 
 การกู้คืนต้องเป็นไปตามเงื่อนไขทั้งหมดนี้:
 
@@ -1254,7 +1256,7 @@ risk และ reconciliation จัดการเหมือน fill แบ�
 - ตอนเริ่ม query มี venue order ID เดียว ไม่มีประวัติการ modify หรือ modify ที่ค้างอยู่ และไม่มี fill ที่นำไปใช้แล้ว
 - venue รายงาน order เดียวกันเป็น `Filled` โดยมีปริมาณและปริมาณที่ fill เท่ากับปริมาณใน cache
 
-### การกู้คืนและ fallback {#recovery-and-fallback}
+### การกู้คืนและ fallback [#recovery-and-fallback]
 
 หลังค้นหาสถานะ adapter จะอ่าน `userFills` หนึ่งครั้งด้วย `aggregateByTime=false` การกู้คืนต้องมี identity ของ fill
 ที่ถูกต้อง, ครอบคลุม trade ที่ไม่ซ้ำได้ครบ และไม่สูญเสียความละเอียดในปริมาณ, ราคา หรือค่าธรรมเนียมของ fill ที่ตรงกัน
@@ -1269,13 +1271,13 @@ adapter จะ emit fill ที่ตรวจสอบแล้วตามล�
 จะไม่ให้ fill สำหรับการกู้คืน การตรวจนี้รวมถึง fill ของ order อื่นด้วย reconciliation ของสถานะปกติยังดำเนินต่อ fill ที่อนุมาน
 ขึ้นจะไม่มี commission (ดู [Inferred-fill commissions](#inferred-fill-commissions))
 
-### ค่าธรรมเนียม {#fees}
+### ค่าธรรมเนียม [#fees]
 
 การกู้คืนคงค่าธรรมเนียมที่เป็นศูนย์, rebate ที่เป็นลบ และสกุลเงินค่าธรรมเนียมที่รองรับไว้ `fee` รวม `builderFee` ค่าธรรมเนียม
 ศูนย์ใน token ที่ไม่ได้ลงทะเบียนหรือใน side token ของ outcome จะใช้ quote currency ของ instrument ส่วนค่าธรรมเนียมที่ไม่เป็น
 ศูนย์ในทั้งสองแบบจะทำให้ปฏิเสธการกู้คืน
 
-### ข้อจำกัด {#limits}
+### ข้อจำกัด [#limits]
 
 `GenerateOrderStatusReport` และการรวบรวม mass status ไม่กระตุ้นการกู้คืนนี้ และไม่ครอบคลุม order ที่ fill บางส่วนหรือ
 ถูกยกเลิก, สายการแทนที่, external order ที่ไม่รู้จัก หรือ order ที่โหลดกลับมาหลัง restart
@@ -1284,7 +1286,7 @@ adapter จะ emit fill ที่ตรวจสอบแล้วตามล�
 fill ที่กู้คืนจะนำไปใช้ หรือซ่อม commission ของมันไม่ได้ และไม่มี pagination หรือ loop การลองใหม่เพิ่ม timeout, การลองใหม่
 และการรอ rate limit ของ HTTP ที่มีอยู่ยังมีผล
 
-## การจัดการการเชื่อมต่อ {#connection-management}
+## การจัดการการเชื่อมต่อ [#connection-management]
 
 การ disconnect ของ WebSocket จะกระตุ้นการ reconnect อัตโนมัติด้วย exponential backoff ตั้งแต่ 250 ms ถึง 5 วินาที การ
 reconnect จะเข้าคิว subscription ที่ active ทั้งหมดแล้วส่งต่อ `Reconnected` order book จะสร้างใหม่จาก snapshot โดยแต่ละตัว
@@ -1297,7 +1299,7 @@ data client และ execution client แบบ live จะ publish `SocketStat
 `hyperliquid-user-streams` ทั้งสอง endpoint ลงทะเบียน reconnect handle ไว้ `reconnect_socket` จึงเล็งไปที่ endpoint
 เหล่านี้ได้โดยไม่ต้องวนรอบ client ที่ครอบอยู่
 
-### การกู้คืน execution หลัง reconnect {#execution-recovery-after-reconnect}
+### การกู้คืน execution หลัง reconnect [#execution-recovery-after-reconnect]
 
 การ resubscribe `orderUpdates` และ `userEvents` ไม่ให้ snapshot สตรีมจึงไม่ส่ง event ในช่วงที่ขาดการเชื่อมต่อ หลัง reconnect,
 execution client จะรอการยืนยัน subscription ทั้งสองแล้วอ่าน `historicalOrders` ของ account ตามด้วย `userFills` ผ่าน REST
@@ -1329,7 +1331,7 @@ execution client จะรอการยืนยัน subscription ทั้�
 
 endpoint ประวัติแต่ละตัวคืนเฉพาะ 2,000 record ล่าสุดของ account การกู้คืนจึงไปไม่ถึง event ที่เก่ากว่านั้น
 
-### สุขภาพของสตรีมและการกู้คืน {#stream-health-and-recovery}
+### สุขภาพของสตรีมและการกู้คืน [#stream-health-and-recovery]
 
 data client ติดตามความสดของการรับข้อมูลสำหรับ order book delta, depth-10 snapshot และ BBO quote:
 
@@ -1350,7 +1352,7 @@ data client ติดตามความสดของการรับข�
   client จะร้องขอ reconnect WebSocket ทั้งหมด
 - ข้อมูลที่สดจะรีเซ็ตลำดับขั้นการกู้คืนของสตรีม
 
-## API credentials {#api-credentials}
+## API credentials [#api-credentials]
 
 ส่ง credential ใน config ของ client หรือใช้ environment variable ต่อไปนี้:
 
@@ -1364,7 +1366,7 @@ data client ติดตามความสดของการรับข�
 แนะนำให้ใช้ environment variable ในการจัดการ credential
 :::
 
-## Agent wallet {#agent-wallets}
+## Agent wallet [#agent-wallets]
 
 master account สามารถอนุมัติ [agent wallet](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/nonces-and-api-wallets)
 (API wallet หรือ sub-key) ให้เซ็น order แทนได้ order เหล่านี้เป็นของ master account ไม่ใช่ address ของ agent
@@ -1400,7 +1402,7 @@ wallet ที่ login ด้วย email จะสร้าง address ต่�
 environment ใน `HyperliquidExecutionClientConfig` เมื่อ master account ต่างกัน
 :::
 
-## Vault trading {#vault-trading}
+## Vault trading [#vault-trading]
 
 Hyperliquid รองรับ [vault trading](https://hyperliquid.gitbook.io/hyperliquid-docs/trading/vaults) ซึ่ง wallet จะทำงานแทน
 vault (sub-account) order จะเซ็นด้วย private key ของ wallet แต่ใส่ vault address ใน payload ของ signature
@@ -1414,20 +1416,20 @@ query ผ่าน REST และ WebSocket user subscription หากตั้
 จะมีผลกับ query และ subscription ขณะที่ `vault_address` ยังถูกใส่ใน exchange payload ที่เซ็น
 :::
 
-## Funding rate {#funding-rates}
+## Funding rate [#funding-rates]
 
 perpetual futures ของ Hyperliquid ใช้ช่วง funding คงที่ 1 ชั่วโมง adapter ตั้ง `interval` เป็น `60` (นาที) ให้กับ object
 `FundingRateUpdate` ทุกตัว
 
-## Rate limiting {#rate-limiting}
+## Rate limiting [#rate-limiting]
 
 Hyperliquid ใช้ limit ตาม IP address และ user address โดย adapter ใช้ limit คงที่ของ venue จาก
 [เอกสาร rate limit ของ Hyperliquid](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/rate-limits-and-user-limits)
 และไม่เปิดให้ override เป็นค่าที่สูงกว่า
 
-### REST limit {#rest-limits}
+### REST limit [#rest-limits]
 
-#### ขอบเขตการใช้ร่วมกัน {#sharing-scope}
+#### ขอบเขตการใช้ร่วมกัน [#sharing-scope]
 
 client ใน process เดียวกันใช้ token bucket ขนาด 1,200 weight ต่อนาทีร่วมกัน เมื่อ environment, origin ของ HTTP endpoint
 และเส้นทาง proxy ตรงกัน `/info` และ `/exchange` บน origin เดียวกันใช้ bucket เดียวกัน
@@ -1435,7 +1437,7 @@ client ใน process เดียวกันใช้ token bucket ขนา�
 process, โปรแกรม, เส้นทาง proxy และ HTTP client ภายนอกที่แยกกันไม่ได้ใช้ bucket ในหน่วยความจำนี้ร่วมกัน ให้เผื่อ
 ความจุไว้สำหรับ traffic นั้นเมื่อใช้ egress IP ร่วมกัน
 
-#### Weight ของ request {#request-weights}
+#### Weight ของ request [#request-weights]
 
 | Endpoint    | Request                  | Weight พื้นฐาน                    |
 | ----------- | ------------------------ | -----------------------------: |
@@ -1460,7 +1462,7 @@ batch ของ order หรือการยกเลิกนับเป็�
 | TWAP                      | `twapHistory`, `userTwapSliceFills`, `userTwapSliceFillsByTime` | +1 ต่อ 20 รายการที่คืนมา    |
 | Delegators และ validators  | `delegatorHistory`, `delegatorRewards`, `validatorStats`        | +1 ต่อ 20 รายการที่คืนมา    |
 
-#### การลองใหม่ {#retries}
+#### การลองใหม่ [#retries]
 
 ความพยายาม HTTP แต่ละครั้งใช้ weight เต็มของ request
 
@@ -1486,13 +1488,13 @@ data client และ HTTP client แบบ standalone ใช้การลอ�
 จึงไม่ทำให้การส่งซ้ำปลอดภัยหลัง timeout หรือ response หาย adapter จะคืน error โดยไม่ส่งซ้ำ ส่วน WebSocket post ยังคง
 [การลองใหม่ก่อนเขียน](#post-deadlines-and-retries)
 
-### WebSocket limit {#websocket-limits}
+### WebSocket limit [#websocket-limits]
 
-#### ขอบเขตการใช้ร่วมกัน {#sharing-scope-1}
+#### ขอบเขตการใช้ร่วมกัน [#sharing-scope-1]
 
 client ใน process เดียวกันใช้ WebSocket limit ร่วมกันเมื่อ environment, origin ของ WebSocket endpoint และเส้นทาง proxy ตรงกัน
 
-#### Limit ที่บังคับใช้ {#enforced-limits}
+#### Limit ที่บังคับใช้ [#enforced-limits]
 
 | Limit             | สูงสุด         | ใช้กับ                                                            |
 | ----------------- | -----------: | ---------------------------------------------------------------- |
@@ -1503,43 +1505,43 @@ client ใน process เดียวกันใช้ WebSocket limit ร่�
 | Subscriptions     |        1,000 | subscription ที่ active และที่ค้างอยู่                                  |
 | Unique users      |           10 | subscription เฉพาะผู้ใช้ โดยจับคู่ address แบบไม่สนตัวพิมพ์เล็กใหญ่          |
 
-#### Reconnect และการปล่อยคืน {#reconnects-and-releases}
+#### Reconnect และการปล่อยคืน [#reconnects-and-releases]
 
 การ reconnect อัตโนมัติจะคง slot ของการเชื่อมต่อเชิงตรรกะและการจอง subscription ที่ active ไว้ แต่ยังใช้อัตราการเชื่อมต่อใหม่
 การ unsubscribe ที่ได้รับการยืนยัน, การ disconnect client อย่างชัดเจน หรือการจบของ handler แบบ terminal จะปล่อยการจอง
 subscription ที่เกี่ยวข้องคืน
 
-#### Deadline ของ post และการลองใหม่ {#post-deadlines-and-retries}
+#### Deadline ของ post และการลองใหม่ [#post-deadlines-and-retries]
 
 deadline ของผู้เรียกหนึ่งค่าครอบคลุมการรอ in-flight slot, command channel, outbound quota, การเชื่อมต่อที่ active และ response
 post จะถูกลองใหม่เฉพาะเมื่อชั้น network พิสูจน์ได้ว่ายังไม่เริ่มเขียน timeout หรือ disconnect หลังเริ่มเขียนแล้วทำให้ไม่รู้ผลจาก
 venue adapter จะคืน error โดยไม่ส่งซ้ำ
 
-### Limit ของ address และ exchange {#address-and-exchange-limits}
+### Limit ของ address และ exchange [#address-and-exchange-limits]
 
 Hyperliquid ยังบังคับใช้ limit ฝั่ง server ที่ process ของ adapter ตัวเดียวคำนวณได้ไม่แม่นยำ
 
-#### Limit ของ action {#action-limits}
+#### Limit ของ action [#action-limits]
 
 แต่ละ address เริ่มต้นด้วย action request 10,000 ครั้ง และได้เพิ่มหนึ่งครั้งต่อ USDC ที่เทรดสะสม เมื่อถูกจำกัดแล้ว address นั้น
 ส่ง request ได้หนึ่งครั้งทุก 10 วินาที subaccount มี limit แยกเป็นอิสระ
 
-#### โควตาการยกเลิก {#cancel-allowance}
+#### โควตาการยกเลิก [#cancel-allowance]
 
 การยกเลิกได้ request `min(action limit + 100,000, action limit * 2)` ครั้ง batch ของ `n` action ใช้ IP request หนึ่งครั้ง
 แต่ใช้ address request `n` ครั้ง
 
-#### Limit ของ open order {#open-order-limits}
+#### Limit ของ open order [#open-order-limits]
 
 แต่ละ address เริ่มต้นด้วย open order 1,000 ตัว ได้เพิ่มหนึ่งตัวต่อ volume สะสม $5 ล้าน และมีเพดานที่ 5,000 Hyperliquid จะ
 ปฏิเสธ reduce-only หรือ trigger order ใหม่เมื่อ address มี open order อื่นอยู่แล้วอย่างน้อย 1,000 ตัว
 
-#### ความแออัด {#congestion}
+#### ความแออัด [#congestion]
 
 ระหว่างที่ระบบแออัด สัดส่วน maker ของ address ในวัน UTC ก่อนหน้าและ fee tier ของ asset จะกำหนดโควตา block space ของ address นั้น
 อย่าส่งการยกเลิกซ้ำหลังจาก Hyperliquid ตอบกลับแล้ว
 
-#### ขอบเขตการบังคับใช้ {#enforcement-boundary}
+#### ขอบเขตการบังคับใช้ [#enforcement-boundary]
 
 Hyperliquid ยังเป็นผู้มีอำนาจตัดสินสำหรับ limit เหล่านี้ เพราะ volume, open order และ request อาจมาจาก process และ client อื่น
 การปฏิเสธจาก venue จะถูกส่งคืนให้ผู้เรียก
@@ -1547,9 +1549,9 @@ Hyperliquid ยังเป็นผู้มีอำนาจตัดสิ�
 adapter ไม่ได้ใช้ explorer API ของ Hyperliquid หรือ EVM JSON-RPC endpoint อย่างเป็นทางการ weight และ request limit ที่แยกกัน
 ของสิ่งเหล่านั้นจึงอยู่นอก limiter ของ adapter นี้
 
-## การตั้งค่า {#configuration}
+## การตั้งค่า [#configuration]
 
-### Option ของ data client {#data-client-configuration-options}
+### Option ของ data client [#data-client-configuration-options]
 
 | Option                                   | ค่าเริ่มต้น   | คำอธิบาย                                                                                          |
 | ---------------------------------------- | --------- | ---------------------------------------------------------------------------------------------------- |
@@ -1570,7 +1572,7 @@ adapter ไม่ได้ใช้ explorer API ของ Hyperliquid หรื
 | `update_instruments_interval_mins`       | `60`      | ช่วงการ refresh instrument หน่วยนาที `0` ปิดการ refresh เป็นระยะ                                         |
 | `transport_backend`                      | `Sockudo` | backend ของ WebSocket transport                                                                      |
 
-### Option ของ execution client {#execution-client-configuration-options}
+### Option ของ execution client [#execution-client-configuration-options]
 
 | Option                          | ค่าเริ่มต้น   | คำอธิบาย                                                                                                                                |
 | ------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -1599,7 +1601,7 @@ adapter ไม่ได้ใช้ explorer API ของ Hyperliquid หรื
 [การตั้งค่าการลองใหม่ของ `/info` แบบอ่านอย่างเดียว](#retries) ไม่รวม exchange action และ WebSocket post
 :::
 
-### การตั้งค่า live node {#live-node-configuration}
+### การตั้งค่า live node [#live-node-configuration]
 
 บน node builder ให้ลงทะเบียน `HyperliquidDataClientConfig` กับ `HyperliquidDataClientFactory` และ
 `HyperliquidExecutionClientConfig` กับ `HyperliquidExecutionClientFactory` โดย node เป็นผู้ให้ `TraderId` ส่วน execution
@@ -1609,7 +1611,7 @@ config เป็นผู้ให้ `AccountId` ดูตัวอย่าง
 เมื่อ `environment=HyperliquidEnvironment.TESTNET`, adapter จะใช้ `HYPERLIQUID_TESTNET_PK` และ
 `HYPERLIQUID_TESTNET_VAULT` แทน environment variable ของ mainnet
 
-## การมีส่วนร่วม {#contributing}
+## การมีส่วนร่วม [#contributing]
 
 :::info
 สำหรับคำขอฟีเจอร์หรือการมีส่วนร่วม ดู

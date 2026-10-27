@@ -1,10 +1,12 @@
-# Stream ข้อมูลเข้า Parquet catalog
+---
+title: "Stream ข้อมูลเข้า Parquet catalog"
+---
 
 ใช้ Parquet streaming writer เพื่อพักข้อมูล (stage) record จาก live หรือ backtest ไว้ในรูปแบบ Feather แล้ว promote
 เป็นไฟล์ catalog ที่ query ได้ ส่วนการเรียก `ParquetDataCatalog.write_*` โดยตรงจะเขียนข้อมูล catalog โดยไม่ผ่าน
 lifecycle การ stage นี้
 
-## ตั้งค่า writer {#configure-the-writer}
+## ตั้งค่า writer [#configure-the-writer]
 
 กำหนด `writer_path` ในเครื่องสำหรับไฟล์ Feather และ `catalog` ที่จะ promote ไฟล์เข้าไปให้กับ `StreamingConfig`
 หากไม่มี `catalog` writer จะเก็บไว้เพียงไฟล์ Feather สำหรับการแปลงด้วยมือ
@@ -35,7 +37,7 @@ runtime จะตรวจสอบ config ก่อนเปิด writer ห�
 ในเครื่องเดียวกัน `ParquetDataCatalog.convert_stream_to_data()` เขียนเข้า catalog ที่ถูกเปิดอยู่ ดังนั้นการแปลงด้วยมือ
 สำหรับการรันที่ stage ไว้ที่อื่นจะเขียนเข้า catalog ที่เปิดไว้ที่ `writer_path`
 
-### การหมุนไฟล์ (rotate) {#rotate-files}
+### การหมุนไฟล์ (rotate) [#rotate-files]
 
 `rotation_config` จะปิดผนึก (seal) ไฟล์ที่เปิดอยู่ของ type หนึ่งและเริ่มไฟล์ใหม่ตามขนาด, ตามช่วงเวลา หรือตามตาราง
 เวลา ค่าเริ่มต้น `RotationConfig.no_rotation()` จะ seal ไฟล์เฉพาะตอน promote และตอนปิดเท่านั้น ตัวเลือกอื่นได้แก่
@@ -48,7 +50,7 @@ runtime จะตรวจสอบ config ก่อนเปิด writer ห�
 ไฟล์ได้ จากนั้นการ promote ไฟล์ที่ตามมาจะปฏิเสธช่วงของ catalog ที่ซ้อนทับกันและเก็บไฟล์ต้นทางนั้นไว้ หากแถวที่มี
 `ts_init` เดียวกันต้องอยู่ในไฟล์เดียวกัน ให้ไม่ใช้การ rotate และไม่ตั้ง `promotion_interval_ms`
 
-## ทำความเข้าใจการมองเห็นใน query {#understand-query-visibility}
+## ทำความเข้าใจการมองเห็นใน query [#understand-query-visibility]
 
 แกนกลางของ writer ที่ใช้ร่วมกันรับผิดชอบการกรอง, การต่อท้ายไฟล์ Feather, การ rotate และการจัดตารางการ promote
 ส่วน backend ของ Parquet จะแปลงไฟล์ที่ seal แล้วและบันทึก replay identity ของการ promote ที่เสร็จสมบูรณ์
@@ -80,7 +82,7 @@ promote ตอนปิดหรือการแปลงด้วยมือ
 ไม่ได้เริ่ม timer แบบ live ที่เป็นอิสระ การ flush อาจ trigger การ promote เมื่อถึงกำหนดช่วงเวลา การปิดจะรองานที่ค้างอยู่
 และโดยค่าเริ่มต้นจะ promote record ที่เหลือ
 
-## การเก็บและกู้คืนไฟล์ที่ stage ไว้ {#retain-and-recover-staged-files}
+## การเก็บและกู้คืนไฟล์ที่ stage ไว้ [#retain-and-recover-staged-files]
 
 คง `delete_feather_after_promotion` เป็น false เพื่อเก็บไฟล์ Feather ต้นทางไว้หลังการ promote สำเร็จ เปิดเฉพาะเมื่อ
 ต้องการเก็บกวาดไฟล์ต้นทาง การเก็บกวาดจะเกิดหลัง commit สำเร็จ และแยกจากการทำให้ข้อมูลใน catalog query ได้
@@ -106,7 +108,7 @@ writer ถือ exclusive lock บนไฟล์ `.feather.partial` แต่�
 แบบที่ catalog backend เชิง transaction มี หากแอปพลิเคชันต้องการให้ไฟล์ทั้งหมดจากการ promote หนึ่งครั้งมองเห็นได้
 พร้อมกัน ให้ประสานงานฝั่งผู้อ่านเอง
 
-### ช่วงเวลาของ schema group ที่ซ้อนทับกัน {#overlapping-schema-group-intervals}
+### ช่วงเวลาของ schema group ที่ซ้อนทับกัน [#overlapping-schema-group-intervals]
 
 การ promote จัดกลุ่ม Feather batch ที่กู้คืนมาตาม identifier และตาม schema รวมถึง metadata ด้าน precision
 กลุ่มถูกแบ่งตาม schema ไม่ใช่ตามเวลา ดังนั้นสองกลุ่มของ identifier เดียวกันอาจมีช่วง `ts_init` ร่วมกันได้

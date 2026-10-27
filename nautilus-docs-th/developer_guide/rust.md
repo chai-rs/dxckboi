@@ -1,4 +1,6 @@
-# Rust
+---
+title: "Rust"
+---
 
 หน้านี้กำหนด convention ของ NautilusTrader สำหรับ source code ภาษา Rust, Cargo manifest และ test
 
@@ -9,7 +11,7 @@ ownership model และประสิทธิภาพที่คาดก�
 
 `rustfmt` และ lint ของ workspace เป็นผู้กำหนด style ทั่วไปของ Rust กฎด้านล่างนี้เป็นส่วนเสริม
 
-## แหล่งอ้างอิงหลัก {#sources-of-truth}
+## แหล่งอ้างอิงหลัก [#sources-of-truth]
 
 | เรื่อง                       | แหล่งอ้างอิง                                        |
 | -------------------------- | -------------------------------------------------- |
@@ -30,7 +32,7 @@ ownership model และประสิทธิภาพที่คาดก�
 เมื่อเครื่องมือไม่ได้ชี้ขาดทางเลือกใด ให้ทำตามโค้ดที่อยู่ใกล้เคียง หากต้องการเปลี่ยนไฟล์ที่ generate ขึ้น ให้เปลี่ยน
 input ของ generator แล้ว generate ใหม่ แทนการแก้ไขไฟล์ที่ generate ขึ้นโดยตรง
 
-## การตั้งค่า lint {#lint-configuration}
+## การตั้งค่า lint [#lint-configuration]
 
 `Cargo.toml` กำหนดระดับของ lint ที่ใช้ร่วมกันไว้ใต้ `[workspace.lints]` แต่ละ package สืบทอดค่าเหล่านี้ด้วย
 `[lints] workspace = true` ส่วน `clippy.toml` ตั้งค่าพฤติกรรมของ lint รวมถึง threshold, ข้อยกเว้นสำหรับ test
@@ -70,11 +72,11 @@ allowance ที่ใช้ร่วมกันจาก generator ตัว�
 `make clippy-strict-audit` ใช้ `--force-warn` เพื่อรายงาน lint ที่เป็นตัวเลือก แม้ในจุดที่จงใจอนุญาตไว้
 ผลที่พบจะไม่ทำให้ audit นั้นล้มเหลว
 
-## โครงสร้างของ module {#module-layout}
+## โครงสร้างของ module [#module-layout]
 
 จัดเรียง module ที่เขียนเองแต่ละตัวให้พฤติกรรมหลักปรากฏก่อนรายละเอียดของ implementation ที่เป็นส่วนสนับสนุน
 
-### Module root และการประกาศ {#module-roots-and-declarations}
+### Module root และการประกาศ [#module-roots-and-declarations]
 
 คงรูปแบบของ module root เดิมไว้เมื่อเพิ่ม module ลูก ในแต่ละ block การประกาศที่ต่อเนื่องกันในไฟล์ `mod.rs`
 ให้เรียงการประกาศ module ที่อยู่นอกไฟล์ตามหมวดต่อไปนี้:
@@ -91,21 +93,21 @@ formatting hook บังคับลำดับนี้ในไฟล์ `mo
 
 ใช้ visibility ที่แคบที่สุดที่ยังรองรับผู้เรียกได้ workspace จะ deny item แบบ `pub` ที่เข้าถึงไม่ได้
 
-### Import {#imports}
+### Import [#imports]
 
 ให้ import อยู่ที่ด้านบนของไฟล์หรือ module ใช้ import เฉพาะที่ (local import) ก็ต่อเมื่อ scope ที่แคบ
 ช่วยให้อ่านเข้าใจง่ายขึ้นอย่างมีนัยสำคัญ
 
-### ค่าคงที่และ global state {#constants-and-global-state}
+### ค่าคงที่และ global state [#constants-and-global-state]
 
 จัดกลุ่มค่าคงที่และ global state ระดับ module ไว้ใกล้ด้านบนของ module ให้ item แบบ `const` อยู่ก่อน
 การประกาศ `static` และ `thread_local!` ส่วนค่าคงที่หรือ static ที่ใช้เฉพาะจุดให้วางไว้ข้างผู้ใช้งานแทน
 
-### Type หลักและ implementation {#primary-types-and-implementations}
+### Type หลักและ implementation [#primary-types-and-implementations]
 
 ให้ type หลักและ inherent implementation ของมันอยู่ใกล้ด้านบนของ module
 
-### Enum {#enums}
+### Enum [#enums]
 
 วาง enum ตามบทบาทแทนการรวมไว้ใน block เดียวทั้ง module:
 
@@ -113,19 +115,19 @@ formatting hook บังคับลำดับนี้ในไฟล์ `mo
 - ให้ enum ของสถานะขนาดเล็กอยู่ข้าง global ที่มันแทนสถานะ
 - วาง enum แบบ private ที่เป็นส่วนสนับสนุนไว้ใต้ผู้เรียกตัวแรก
 
-### นิยามที่เป็นส่วนสนับสนุน {#supporting-definitions}
+### นิยามที่เป็นส่วนสนับสนุน [#supporting-definitions]
 
 วางฟังก์ชันและ type แบบ private ไว้ใต้ผู้เรียก ใน adapter ให้วาง route type แบบ private,
 enum ที่ใช้ตัดสินใจ และฟังก์ชัน parse ไว้ใต้ implementation หลักของ client
 
-### Comment แบบกล่อง (banner) {#box-style-banner-comments}
+### Comment แบบกล่อง (banner) [#box-style-banner-comments]
 
 อย่าเพิ่ม comment แบบกล่องหรือเส้นคั่นเพื่อแบ่งเนื้อหาของ module ให้ใช้ module และ
 implementation block ในการแสดงโครงสร้าง header ลิขสิทธิ์และ license มาตรฐานเป็นข้อยกเว้น
 
-## Cargo manifest {#cargo-manifests}
+## Cargo manifest [#cargo-manifests]
 
-### Dependency และ section {#dependencies-and-sections}
+### Dependency และ section [#dependencies-and-sections]
 
 - ใช้การสืบทอดจาก workspace สำหรับ dependency ที่ใช้ร่วมกัน เช่น
   `serde = { workspace = true }` ปักเวอร์ชันใน crate ก็ต่อเมื่อ dependency นั้นไม่ได้
@@ -166,7 +168,7 @@ implementation block ในการแสดงโครงสร้าง head
 - ให้ crate ของ adapter ได้ `libfuzzer-sys` ผ่าน `nautilus-live` อย่าเพิ่มโดยตรงลงใน manifest
   ของ adapter
 
-### ฟิลด์ของ package {#package-fields}
+### ฟิลด์ของ package [#package-fields]
 
 section `[package]` ของ crate ใช้ prefix มาตรฐานนี้ Cargo จะอนุมาน `README.md` ที่อยู่ข้าง
 manifest เอง ดังนั้นให้ละ `readme` ไว้ ส่วนฟิลด์อื่นที่แสดงเป็นฟิลด์ที่จำเป็น
@@ -189,7 +191,7 @@ homepage.workspace = true
 
 วางฟิลด์ optional `publish`, `build` และ `include` ไว้หลัง `homepage.workspace`
 
-### Feature {#features}
+### Feature [#features]
 
 - คงสัญญาของ default feature เดิมของ crate ไว้ crate หลักส่วนใหญ่มี default ว่าง
   ในขณะที่ crate ของ adapter จำนวนมากเปิด `high-precision` เป็นค่าเริ่มต้น
@@ -198,7 +200,7 @@ homepage.workspace = true
 - จัดทำเอกสารของ feature แบบ public ที่ไม่ใช่ค่าเริ่มต้นแต่ละตัวเพียงครั้งเดียว เรียงตามตัวอักษร ใต้ `## Feature flags` ใน
   README ของ crate และ `# Feature Flags` ในเอกสารระดับ crate ของ library
 
-### Target {#targets}
+### Target [#targets]
 
 - ใช้ชื่อไฟล์แบบ snake_case สำหรับ source ใน `bin/` และชื่อ executable แบบ kebab-case เช่น
   `path = "bin/ws_data.rs"` และ `name = "hyperliquid-ws-data"`
@@ -206,7 +208,7 @@ homepage.workspace = true
 - เรียง crate type ของ library เป็น `rlib`, `staticlib` แล้วจึง `cdylib` เมื่อ crate สร้างมากกว่า
   หนึ่ง type
 
-## ข้อกำหนดของ header ไฟล์ {#file-header-requirements}
+## ข้อกำหนดของ header ไฟล์ [#file-header-requirements]
 
 copy header ลิขสิทธิ์และ license มาตรฐานจากไฟล์ Rust ที่เขียนเองซึ่งอยู่ใกล้เคียง ไฟล์ที่ generate ขึ้น
 ให้คง header ของ generator ไว้แทน copyright hook จะตรวจสอบปี
@@ -214,7 +216,7 @@ copy header ลิขสิทธิ์และ license มาตรฐาน�
 เปลี่ยน input ของ generator แล้วรัน generator ใหม่ แทนการแก้ไข Rust, C header
 หรือ doc comment ของ wrapper ที่ generate ขึ้น
 
-## การจัดรูปแบบและ attribute {#formatting-and-attributes}
+## การจัดรูปแบบและ attribute [#formatting-and-attributes]
 
 `rustfmt` จัดกลุ่ม import ของ standard library, crate ภายนอก และของภายใน แล้วเรียงแต่ละกลุ่มตามตัวอักษร
 ให้รัน formatter แทนการเรียง import ด้วยมือ
@@ -290,7 +292,7 @@ lint นั้นไม่เกี่ยวข้อง:
 ใช้ `try_update` แทน `fetch_update` ที่ deprecated แล้วบน atomic ของ standard library pre-commit hook
 จะปฏิเสธ `fetch_update`
 
-## การระบุ path ของ type {#type-qualification}
+## การระบุ path ของ type [#type-qualification]
 
 | Item                          | Convention                                                                       |
 | ----------------------------- | -------------------------------------------------------------------------------- |
@@ -306,9 +308,9 @@ lint นั้นไม่เกี่ยวข้อง:
 ใช้ `// nautilus-import-ok` เฉพาะจุดที่ macro, path ที่ generate ขึ้น หรือ import แบบมีเงื่อนไขต้องการ
 type ของ Nautilus แบบระบุ path เต็ม ให้ใส่ marker ไว้บนบรรทัดที่ได้รับผลกระทบหรือเหนือ block ที่แคบนั้นโดยตรง
 
-## การจัดการ error และสัญญา {#error-handling-and-contracts}
+## การจัดการ error และสัญญา [#error-handling-and-contracts]
 
-### Design by contract {#design-by-contract}
+### Design by contract [#design-by-contract]
 
 ใช้กลไกที่แคบที่สุดที่แสดงสัญญานั้นได้:
 
@@ -328,7 +330,7 @@ type ของ Nautilus แบบระบุ path เต็ม ให้ใส�
 `Condition failed: ...` ใช้ระบุการละเมิด input ของผู้เรียก ส่วน `Invariant: ...` ใช้ระบุ bug ของ
 สัญญาภายใน
 
-### ขอบเขตของ error {#error-boundaries}
+### ขอบเขตของ error [#error-boundaries]
 
 เลือก error type ที่ขอบเขตของ API:
 
@@ -352,7 +354,7 @@ parse_timestamp(value).context("failed to parse timestamp")?;
 connect().context("Bybit websocket did not become active")?;
 ```
 
-### นโยบายเรื่อง panic {#panic-policy}
+### นโยบายเรื่อง panic [#panic-policy]
 
 panic ใช้ได้สำหรับการละเมิด invariant ภายในที่ผู้เรียกไม่สามารถกู้คืนได้อย่างสมเหตุสมผล
 ให้ API เป็นแบบไม่ล้มเหลว (infallible) เมื่อการคืน `Result` จะเพียงบังคับให้ผู้เรียกต้องจัดการข้อบกพร่องของ
@@ -379,7 +381,7 @@ audit ยังรายงาน `clippy::panic_in_result_fn` ซึ่ง Clip
 แบบจำกัด scope เมื่อจำเป็น audit ใช้ warning แบบบังคับ ดังนั้นยอดรวมจะรวมจุดที่จงใจไว้ซึ่งมี allowance ของ lint
 เฉพาะจุดและ diagnostic จากการขยาย macro ด้วย
 
-### ตัวอย่างสัญญาของความล้มเหลว {#failure-contract-examples}
+### ตัวอย่างสัญญาของความล้มเหลว [#failure-contract-examples]
 
 API ที่มีสัญญาเรื่อง panic ระบุไว้ในเอกสารจะใช้ panic สำหรับ:
 
@@ -411,7 +413,7 @@ release profile ของ repository ตั้ง `panic = "abort"` ไว้ �
 supervisor หรือระบบ orchestration จัดการต่อ binary ของ Rust ปลายทางควบคุม release
 profile ของตัวเอง
 
-## Logging {#logging}
+## Logging [#logging]
 
 - ระบุ path เต็มของ log macro เช่น `log::debug!` และ `log::info!`
 - ขึ้นต้นข้อความด้วยคำที่ขึ้นต้นด้วยตัวพิมพ์ใหญ่ และไม่ใส่จุดปิดท้าย
@@ -428,7 +430,7 @@ profile ของตัวเอง
   example, bench, test, adapter, CLI และ testkit สามารถควบคุม process ของตัวเองได้เมื่อเป็น
   ส่วนหนึ่งของบทบาท
 
-## โค้ด async {#async-code}
+## โค้ด async [#async-code]
 
 crate หลักแบบ synchronous จะไม่ใช้ Tokio เป็น dependency ปกติ crate `common` ให้ Tokio
 เป็น optional ส่วนรายชื่อ crate ที่แน่นอนกำหนดโดย Tokio convention hook
@@ -458,9 +460,9 @@ get_runtime().spawn(async move {
 การ spawn task และการเข้าถึงเครือข่ายผ่าน seam ของโปรเจกต์ และใช้ `biased;` ใน block `tokio::select!`
 บนเส้นทางนั้น
 
-## Ownership และการเข้าถึงใน runtime {#runtime-ownership-and-access}
+## Ownership และการเข้าถึงใน runtime [#runtime-ownership-and-access]
 
-### การเข้าถึง order ใน cache {#cache-order-access}
+### การเข้าถึง order ใน cache [#cache-order-access]
 
 `Cache` ซ่อนที่เก็บ order แบบ `SharedCell` ไว้หลัง accessor ที่ผูกกับ lifetime ให้ใช้ accessor
 ที่ผูกกับ lifetime เหล่านี้:
@@ -475,7 +477,7 @@ get_runtime().spawn(async move {
 event หรือการยืมที่อาจกลับเข้ามาที่ order เดิมอีก (re-enter) ให้ drop `OrderRef` หรือ `OrderRefMut` ก่อน แล้วจึงค้นหา
 order อีกครั้งเพื่อดูสถานะหลัง event
 
-### Invariant ของ runtime {#runtime-invariants}
+### Invariant ของ runtime [#runtime-invariants]
 
 actor registry, component registry และ message bus ใช้ที่เก็บแบบ `thread_local!` object
 ที่ลงทะเบียนบน thread หนึ่งจะมองไม่เห็นจาก thread อื่น `LiveNodeHandle` คือช่องทางควบคุม
@@ -488,9 +490,9 @@ actor ทุกครั้งที่ callback ทำงาน
 component registry จะปฏิเสธการเข้าถึงแบบ mutable ที่ซ้อนกัน (aliased) ด้วย borrow guard แบบจำกัด scope อย่าทำให้
 การดำเนินการ lifecycle ของ component เป็นแบบ re-entrant
 
-## การสร้างและการแปลง {#construction-and-conversion}
+## การสร้างและการแปลง [#construction-and-conversion]
 
-### รูปแบบ constructor {#constructor-patterns}
+### รูปแบบ constructor [#constructor-patterns]
 
 value type ที่ผ่านการตรวจสอบจะจับคู่ `new_checked()` ที่ล้มเหลวได้กับ `new()` เพื่อความสะดวก:
 
@@ -525,7 +527,7 @@ pub fn build_checked(/* same inputs as new_checked */) -> CorrectnessResult<Self
 ฟิลด์ที่จำเป็นยังคงจำเป็นใน typestate ของ `bon` ฟิลด์ optional ยังละได้ และ `build()`
 คืน `CorrectnessResult` แบบเดียวกับเส้นทางการตรวจสอบภายใน
 
-### รูปแบบการแปลง {#conversion-patterns}
+### รูปแบบการแปลง [#conversion-patterns]
 
 - implement `From` เฉพาะการแปลงที่ไม่ล้มเหลวและครบถ้วนเท่านั้น
 - implement `TryFrom` เมื่อ source อาจมีค่าที่ไม่ถูกต้องหรือแทนค่าไม่ได้
@@ -538,7 +540,7 @@ pub fn build_checked(/* same inputs as new_checked */) -> CorrectnessResult<Self
 - deserialize payload ของ adapter เป็น wire model ก่อนสร้าง domain object ให้การ parse
   และการตรวจสอบอยู่ในฟังก์ชันการแปลง แทนการฝังรายละเอียด wire ของ venue ไว้ใน domain type
 
-### Type ตัวเลขของโดเมน {#domain-numeric-types}
+### Type ตัวเลขของโดเมน [#domain-numeric-types]
 
 คงค่าทางการเงินที่ไม่ต่อเนื่องไว้เป็น decimal ตั้งแต่ตอนนำเข้า:
 
@@ -551,9 +553,9 @@ pub fn build_checked(/* same inputs as new_checked */) -> CorrectnessResult<Self
 อย่าส่งค่าจาก wire ผ่าน constructor แบบ `f64` ใน test ให้เปรียบเทียบ `.as_decimal()` กับ
 `dec!(value)`
 
-## การจัดเก็บ identifier {#identifier-storage}
+## การจัดเก็บ identifier [#identifier-storage]
 
-### String interning ทำงานอย่างไร {#how-string-interning-works}
+### String interning ทำงานอย่างไร [#how-string-interning-works]
 
 string interning จะเก็บสำเนาที่ใช้ร่วมกันหนึ่งชุดของแต่ละ string ที่ไม่ซ้ำกันไว้ใน cache ส่วนกลาง ค่าที่ซ้ำกัน
 จะอ้างถึง byte ใน cache ชุดเดียวกันแทนการจัดสรรสำเนาใหม่ handle ขนาดเล็กทำให้ copy และเปรียบเทียบค่า
@@ -563,7 +565,7 @@ NautilusTrader ใช้ `Ustr` สำหรับส่วนประกอบ
 ขนาดเท่า pointer ที่มี hash คำนวณไว้ล่วงหน้าและเข้าถึง string ได้โดยตรงอย่างเสถียร type แบบประกอบอย่าง
 `InstrumentId` คงความหมายของการ copy ที่ถูกแบบเดียวกันไว้ด้วยการเก็บ handle เหล่านี้
 
-### ขอบเขตของการคืนหน่วยความจำ {#reclamation-boundary}
+### ขอบเขตของการคืนหน่วยความจำ [#reclamation-boundary]
 
 string cache เก็บทุกค่าที่ไม่ซ้ำไว้ตลอดอายุของ process การเก็บไว้แบบนี้ทำให้ handle ที่ copy ไปและ
 string slice ที่คืนออกไปยังใช้ได้ โดยไม่ต้องมี reference counting, access guard หรือ lifetime parameter
@@ -580,7 +582,7 @@ string slice ที่คืนออกไปยังใช้ได้ โด
 - การ reset cache ทั้งหมดจะปลอดภัยก็ต่อเมื่ออยู่ ณ จุดที่พิสูจน์แล้วว่าไม่มีการทำงานใดๆ (quiescent point) handle, reference
   และ foreign pointer ทั้งหมดต้องถูกทำลายก่อน และไม่มี task หรือ thread ใดถือไว้ได้ ณ จุดนั้น
 
-### ขอบเขตของการจัดเก็บ {#storage-boundaries}
+### ขอบเขตของการจัดเก็บ [#storage-boundaries]
 
 interning เหมาะที่สุดกับ identifier ที่มาจากชุดค่าที่มีขอบเขตภายใน process และค่าที่ซ้ำกัน
 มากพอที่จะได้ประโยชน์จากการตัดค่าซ้ำ identifier ที่จำนวนค่าไม่ซ้ำอาจเพิ่มขึ้นตามทุก
@@ -599,7 +601,7 @@ binding แบบอาศัยการแปลงเข้ามาแทน
 ระหว่างการ parse การใช้ `Ustr` ทั้งหมดใน process ใช้ cache ร่วมกัน ดังนั้นต้นทุนหน่วยความจำจึงมาจากชุดค่ารวม
 ไม่ใช่งบประมาณแยกของแต่ละ identifier type
 
-### ตัวอย่างระดับสเกลของ Polymarket {#polymarket-scale-example}
+### ตัวอย่างระดับสเกลของ Polymarket [#polymarket-scale-example]
 
 symbol ของ instrument ใน Polymarket ประกอบด้วย condition ID ขนาด 66 byte กับ token ID ขนาด 77 หรือ 78 byte รวมเป็น
 symbol ที่ถูก intern ขนาด 144 หรือ 145 byte ด้วย layout ของ `ustr` 1.1.0 แบบ 64 บิต ค่า `InstrumentId` ที่ไม่ซ้ำ
@@ -615,7 +617,7 @@ instrument object, คำอธิบาย, map และ metadata อื่น
 NautilusTrader ยอมรับต้นทุนที่มีขอบเขตนี้เพื่อรักษา `Copy`, การเข้าถึงโดยตรงที่เสถียร และการตัดค่าซ้ำแบบ global
 ทั่วทั้งชุด instrument ส่วน stream ของ external ID ที่ไม่ซ้ำแบบไม่มีขอบเขตยังคงอยู่นอก storage model นี้
 
-## Collection {#collections}
+## Collection [#collections]
 
 เลือก hash collection ตามความหมายของการวนซ้ำ (iteration) และขอบเขตความน่าเชื่อถือ:
 
@@ -644,9 +646,9 @@ instance ของ `AHashMap` และ `AHashSet` แบบค่าเริ�
 `AHash` ไม่ปลอดภัยในเชิง cryptography ให้ใช้ `HashMap` หรือ `HashSet` ในจุดที่ key ที่ไม่น่าเชื่อถือทำให้
 ความทนทานต่อ hash flooding เป็นส่วนหนึ่งของขอบเขตความปลอดภัย
 
-## เอกสาร {#documentation}
+## เอกสาร [#documentation]
 
-### ความครอบคลุมและน้ำเสียง {#coverage-and-tone}
+### ความครอบคลุมและน้ำเสียง [#coverage-and-tone]
 
 - เพิ่ม doc comment ให้ item แบบ public ส่วนพฤติกรรมแบบ private ให้อธิบายด้วย comment ปกติเฉพาะเมื่อ
   บริบทที่ไม่ชัดเจนอาจทำให้เข้าใจผิดได้
@@ -662,7 +664,7 @@ instance ของ `AHashMap` และ `AHashSet` แบบค่าเริ�
 เขียนเอกสารให้ฟังก์ชัน public เมื่อสัญญาของมันไม่ชัดเจนจาก type และชื่อทั้งหมด ให้ครอบคลุม
 เงื่อนไขที่ล้มเหลวได้, เงื่อนไขที่ panic, หน้าที่ด้านความปลอดภัย และความหมายของ input ที่ไม่ชัดเจน
 
-### Section ใน Rustdoc {#rustdoc-sections}
+### Section ใน Rustdoc [#rustdoc-sections]
 
 ใช้ Title Case สำหรับหัวข้อ section ใน Rustdoc:
 
@@ -720,7 +722,7 @@ documentation hook จะรู้จักจุด panic โดยตรงใ
 ใช้ `// errors-doc-ok` ในตำแหน่งเดียวกันเฉพาะสำหรับสัญญา error พิเศษที่
 การตรวจสอบ signature ไม่สามารถรู้จักได้
 
-### ตัวอย่างในเอกสาร {#doc-examples}
+### ตัวอย่างในเอกสาร [#doc-examples]
 
 `make cargo-test-doc` จะ compile และรันตัวอย่างในเอกสาร ให้ระบุ annotation ให้ทุก fence:
 
@@ -739,7 +741,7 @@ documentation hook จะรู้จักจุด panic โดยตรงใ
 ใส่ตัวอย่างไว้บน item แบบ public Rustdoc รวบรวม fence จากเอกสารของ item แบบ private ด้วย แต่ตัวอย่างเหล่านั้น
 ไม่สามารถ import item ที่ตัวเองอธิบายได้
 
-## Convention ของการทดสอบ {#testing-conventions}
+## Convention ของการทดสอบ [#testing-conventions]
 
 - ใช้ `mod tests` สำหรับ test แบบ inline ทั่วไป
 - ใช้ `#[rstest]` แทน `#[test]` รวมถึง test ที่ไม่มีพารามิเตอร์
@@ -768,7 +770,7 @@ fn test_symbol_is_composite(#[case] input: &str, #[case] expected: bool) {
 }
 ```
 
-### Test spec {#test-specs}
+### Test spec [#test-specs]
 
 event ที่มี argument ของ constructor จำนวนมากจะใช้ spec แบบ fluent ของ `bon` ที่อยู่ข้าง event ใต้
 `events/order/spec/` ให้กั้น module ด้วย `#[cfg(any(test, feature = "test-support"))]` เพื่อให้ test
@@ -793,7 +795,7 @@ let fill = OrderFilledSpec::builder()
 เมื่อใช้ `cargo test` ธรรมดา ให้เรียก `reset_test_uuid_rng()` ก่อน test ที่เปรียบเทียบลำดับของ UUID
 `cargo nextest` เริ่มแต่ละ test ใน process ใหม่ ลำดับจึง reset ให้อัตโนมัติ
 
-### Property-based test {#property-based-tests}
+### Property-based test [#property-based-tests]
 
 ใช้ `proptest` เมื่อ invariant ครอบคลุมกลุ่ม input ที่ตัวอย่างไม่สามารถครอบคลุมได้ ให้ strategy อยู่
 ใกล้ property suite และผสาน range กับ edge case ที่ระบุชัดเจน
@@ -802,7 +804,7 @@ let fill = OrderFilledSpec::builder()
 อาจใช้ module `property_tests` หรือไฟล์เฉพาะ แต่ repository ก็ยังเก็บ property ที่เจาะจง
 ไว้ข้าง unit test ของมันด้วย
 
-## Unsafe Rust {#unsafe-rust}
+## Unsafe Rust [#unsafe-rust]
 
 โค้ด unsafe ต้องทำให้หน้าที่ในการพิสูจน์ (proof obligation) ของมันตรวจสอบ (review) ได้:
 
@@ -827,9 +829,9 @@ let fill = OrderFilledSpec::builder()
 สำหรับ raw vector ที่ข้าม FFI ให้ทำตาม[สัญญาด้านหน่วยความจำของ FFI](ffi.md) โค้ดฝั่ง foreign เป็นเจ้าของ
 allocation หลังการโอน และต้องเรียกฟังก์ชัน `vec_drop_*` ที่ตรงกันเพียงครั้งเดียวเท่านั้น
 
-## Artifact อื่นที่ generate ขึ้น {#other-generated-artifacts}
+## Artifact อื่นที่ generate ขึ้น [#other-generated-artifacts]
 
-### FFI binding และ precision {#ffi-bindings-and-precision}
+### FFI binding และ precision [#ffi-bindings-and-precision]
 
 มีเพียง `nautilus-core` และ `nautilus-model` ที่มี feature `ffi` ให้ตรวจสอบทั้งสอง crate โดยตรงเมื่อ
 เปลี่ยน C ABI ของมัน:

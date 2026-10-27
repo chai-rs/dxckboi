@@ -1,4 +1,6 @@
-# เขียน Actor (Rust)
+---
+title: "เขียน Actor (Rust)"
+---
 
 actor รับ market data, custom data/signal และ system event แต่ไม่ได้จัดการ order
 คู่มือนี้จะพาสร้าง `SpreadMonitor` ที่ subscribe quote และ log ค่า bid-ask spread
@@ -6,7 +8,7 @@ actor รับ market data, custom data/signal และ system event แต่
 สำหรับพื้นฐานเรื่อง actor, trait และการ dispatch handler ดูคู่มือ concept
 [Actors](../concepts/actors.md) และ [Rust](../concepts/rust.md)
 
-## กำหนด struct {#define-the-struct}
+## กำหนด struct [#define-the-struct]
 
 actor เป็นเจ้าของ `DataActorCore` และ state ที่ตัวเองต้องใช้ core เก็บ runtime state ของ actor ไว้
 โดยปกติ user code จะเข้าถึง state นั้นผ่าน facade method ของ `DataActor` เช่น:
@@ -28,7 +30,7 @@ pub struct SpreadMonitor {
 }
 ```
 
-## Implement constructor {#implement-the-constructor}
+## Implement constructor [#implement-the-constructor]
 
 สร้าง `DataActorConfig` พร้อม actor ID แล้วส่งให้ `DataActorCore::new`
 ฟิลด์ของ config ใช้ `Option` ที่มีค่าเริ่มต้น ดังนั้น `..Default::default()` จะครอบคลุมทุกอย่างยกเว้น actor ID
@@ -48,7 +50,7 @@ impl SpreadMonitor {
 }
 ```
 
-## เชื่อม core และ implement Debug {#wire-up-the-core-and-implement-debug}
+## เชื่อม core และ implement Debug [#wire-up-the-core-and-implement-debug]
 
 macro `nautilus_actor!` เชื่อมฟิลด์ `DataActorCore` ของ actor เข้ากับ runtime contract โดยค่าเริ่มต้นจะ delegate
 ไปยังฟิลด์ชื่อ `core` หากใช้ชื่อฟิลด์อื่นให้ส่ง argument ตัวที่สองเข้าไป callback ทั่วไปไม่ต้องเรียก native accessor ที่
@@ -67,7 +69,7 @@ impl std::fmt::Debug for SpreadMonitor {
 }
 ```
 
-## Implement trait DataActor {#implement-the-dataactor-trait}
+## Implement trait DataActor [#implement-the-dataactor-trait]
 
 override handler method เพื่อรับข้อมูล handler ทุกตัวมี implementation เริ่มต้นแบบ no-op ดังนั้น override เฉพาะตัวที่
 ต้องการก็พอ handler แต่ละตัวคืนค่า `anyhow::Result<()>`
@@ -90,7 +92,7 @@ impl DataActor for SpreadMonitor {
 `subscribe_quotes` เรียกใช้ได้โดยตรงบน `self` ผ่าน trait `DataActor` ดู handler ทั้งหมดที่มีได้ใน
 [ตาราง handler](../concepts/rust.md#handler-methods)
 
-## การเข้าถึง native runtime {#native-runtime-access}
+## การเข้าถึง native runtime [#native-runtime-access]
 
 โดยค่าเริ่มต้นให้ใช้ facade สาธารณะของ `DataActor` เพิ่ม `DataActorNative` เฉพาะเมื่อต้องการ access path แบบ
 native-only อย่างชัดเจนที่ facade method ให้ไม่ได้ property แบบอ่านอย่างเดียวมีให้ใช้บน facade:
@@ -110,7 +112,7 @@ actor ที่ต้องการความ portable จึงควรใ�
 - `clock()`
 - `cache()`
 
-## Register actor {#register-the-actor}
+## Register actor [#register-the-actor]
 
 กับ `BacktestEngine`:
 
@@ -126,7 +128,7 @@ let actor = SpreadMonitor::new(instrument_id);
 node.add_actor(actor)?;
 ```
 
-## ความปลอดภัยของ guard {#guard-safety}
+## ความปลอดภัยของ guard [#guard-safety]
 
 เมื่อระบบ dispatch message ไปยัง actor ของคุณ ระบบจะขอ guard `ActorRef` อายุสั้นจาก registry คุณไม่ต้องจัดการ guard
 เหล่านี้เอง แต่หากเขียน code ที่เข้าถึง actor ตัวอื่นภายใน callback ให้ทำตามกฎเหล่านี้:
@@ -139,7 +141,7 @@ method สำหรับ subscription บน `DataActorCore` จัดการ
 callback closure ดูโมเดลด้าน threading และ registry ฉบับเต็มได้ที่
 [Runtime invariants](../developer_guide/rust.md#runtime-invariants)
 
-## ตัวอย่างฉบับเต็ม {#full-example}
+## ตัวอย่างฉบับเต็ม [#full-example]
 
 ดู
 [`BookImbalanceActor`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/trading/src/examples/actors/imbalance)

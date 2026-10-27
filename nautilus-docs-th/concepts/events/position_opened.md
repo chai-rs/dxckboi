@@ -1,11 +1,13 @@
-# PositionOpened
+---
+title: "PositionOpened"
+---
 
 `PositionOpened` บันทึก snapshot ตอนเปิดของ position ใหม่ `ExecutionEngine` จะส่ง event นี้ออกมาเมื่อ
 fill สร้าง position ขึ้น (ดู
 [จาก fill สู่ position](index.md#from-fill-to-position-the-causal-chain)) Handler:
 `on_position_opened`
 
-## ฟิลด์ {#fields}
+## ฟิลด์ [#fields]
 
 ดูตารางฟิลด์ทั้งหมดได้ที่[ฟิลด์ของ position event](index.md#position-event-fields) `PositionOpened`
 มี snapshot ตอนเปิด position ส่วน event ที่ตามมาภายหลังจะมีฟิลด์เกี่ยวกับยอดรวมและวงจรชีวิตเพิ่มเติม
@@ -29,7 +31,7 @@ fill สร้าง position ขึ้น (ดู
 position แบบ `NETTING` ที่ถูกเปิดใหม่อีกครั้งจะเริ่มรอบใหม่ ส่วน realized PnL ของรอบก่อนหน้าจะยังคงอยู่ใน
 [snapshot ของ position ที่ปิดแล้ว](../positions.md#position-snapshotting)
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Events](index.md) - หมวดหมู่ของ event, การ dispatch และลำดับเหตุการณ์จาก fill สู่ position
 - [Positions](../positions.md) - วงจรชีวิตของ position, การรวม (aggregation) และ PnL

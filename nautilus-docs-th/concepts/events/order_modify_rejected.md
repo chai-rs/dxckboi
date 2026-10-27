@@ -1,4 +1,6 @@
-# OrderModifyRejected
+---
+title: "OrderModifyRejected"
+---
 
 `OrderModifyRejected` บันทึกว่าคำสั่ง `ModifyOrder` ถูกปฏิเสธ `ExecutionEngine` จะนำ event นี้ไปใช้กับ order
 อัปเดต `Cache` และ publish ลงบน `MessageBus` ผู้ปฏิเสธคำขออาจเป็น trading venue, simulated matching engine
@@ -10,7 +12,7 @@
 ในสถานะ `SUBMITTED`, `ACCEPTED`, `TRIGGERED` และ `PARTIALLY_FILLED` การปฏิเสธจะคงสถานะและเงื่อนไขของ order ไว้
 ตามเดิม รวมถึงการแก้ไขที่ `OrderUpdated` นำไปใช้แล้ว ส่วนในสถานะ `PENDING_CANCEL` จะคงการยกเลิกที่ค้างอยู่ไว้
 
-## ฟิลด์ {#fields}
+## ฟิลด์ [#fields]
 
 นอกเหนือจาก[ฟิลด์ทั่วไปของ order event](index.md#common-python-order-event-fields) แล้ว
 `OrderModifyRejected` ยังมีฟิลด์ต่อไปนี้:
@@ -24,7 +26,7 @@
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Events](index.md) - ประเภทของ event, การ dispatch และฟิลด์ทั่วไปของ order event
 - [Orders](../orders/) - ประเภทของ order และ state machine

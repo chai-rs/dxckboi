@@ -1,4 +1,6 @@
-# หลักการออกแบบ
+---
+title: "หลักการออกแบบ"
+---
 
 หน้านี้กำหนดหลักการ นโยบาย และ trade-off ที่ใช้เป็นแนวทางในการออกแบบ การ implement และการ review
 NautilusTrader ส่วน [Architecture](../concepts/architecture.md) อธิบาย component และโครงสร้างขณะ runtime
@@ -7,7 +9,7 @@ NautilusTrader ส่วน [Architecture](../concepts/architecture.md) อธ�
 ปัจจุบัน ส่วน [runtime conformance contract](runtime_conformance.md) จะจับคู่ข้อกำหนดที่เลือกไว้กับ source code,
 การตรวจสอบตัวแทน และข้อจำกัดของการ implement
 
-## ลำดับความสำคัญในการออกแบบ {#design-priorities}
+## ลำดับความสำคัญในการออกแบบ [#design-priorities]
 
 การตัดสินใจด้านการออกแบบจะชั่งน้ำหนักคุณลักษณะด้านคุณภาพเหล่านี้โดยประมาณตามลำดับดังนี้:
 
@@ -22,13 +24,13 @@ NautilusTrader ส่วน [Architecture](../concepts/architecture.md) อธ�
 maintainability ช่วยค้ำจุน reliability ส่วน deployability มีผลต่อการ rollout, การตั้งค่า และการกู้คืนอย่างปลอดภัย
 ลำดับความสำคัญนี้ไม่ได้ทำให้คุณลักษณะใดเป็นเรื่องที่ไม่จำเป็น
 
-## ความถูกต้องของข้อมูลและความล้มเหลว {#data-integrity-and-failure}
+## ความถูกต้องของข้อมูลและความล้มเหลว [#data-integrity-and-failure]
 
 NautilusTrader ให้ความสำคัญกับความถูกต้องของข้อมูล (data integrity) มากกว่าความพร้อมใช้งาน (availability) สำหรับ
 การดำเนินการด้านการเทรด ขอบเขตของการคำนวณทางคณิตศาสตร์และการจัดการข้อมูลจะคืนค่า error หรือ panic แทนที่จะ
 ยอมรับค่าที่ไม่ถูกต้องแบบเงียบ ๆ ซึ่งอาจส่งผลต่อการตัดสินใจเทรด
 
-### การดำเนินการที่ไม่ถูกต้อง {#invalid-operations}
+### การดำเนินการที่ไม่ถูกต้อง [#invalid-operations]
 
 ระบบจะ fail fast โดยคืนค่า error หรือ panic ตาม API contract ในกรณีต่อไปนี้:
 
@@ -56,7 +58,7 @@ NautilusTrader ให้ความสำคัญกับความถู�
 ส่วนการละเมิด invariant ที่กู้คืนไม่ได้จะหยุดการดำเนินการหรือ process ก่อนที่ state ที่ไม่ถูกต้องจะลุกลาม
 [Rust error contracts](rust.md#failure-contract-examples) กำหนดพฤติกรรมของ panic และ API ที่อาจล้มเหลว (fallible)
 
-### การจำกัดขอบเขตความล้มเหลว {#failure-containment}
+### การจำกัดขอบเขตความล้มเหลว [#failure-containment]
 
 ให้หยุดขอบเขตที่เล็กที่สุดซึ่งไม่สามารถยืนยันความถูกต้องได้อีกต่อไป หากส่วนที่เหลือของระบบยังทำงานต่อได้อย่างปลอดภัย
 input ที่ถูกปฏิเสธหรือการดำเนินการที่ล้มเหลวไม่จำเป็นต้องหยุด component ที่ไม่เกี่ยวข้อง เมื่อพิสูจน์ได้ว่ามีการแยกส่วน
@@ -66,7 +68,7 @@ input ที่ถูกปฏิเสธหรือการดำเนิ�
 การหยุด process ไม่ได้ยกเลิก order ที่ยังทำงานอยู่บน venue หรือลด exposure การกู้คืนต้องยืนยัน state ของ venue
 ให้ได้ก่อน จึงจะตัดสินใจได้ว่าการกระทำต่อไปใดที่ปลอดภัย
 
-## Invariant ที่ตรวจสอบได้ด้วยการรัน {#executable-invariants}
+## Invariant ที่ตรวจสอบได้ด้วยการรัน [#executable-invariants]
 
 NautilusTrader นำแนวปฏิบัติแบบ high-assurance มาใช้กับ critical path ทีละขั้น executable invariant ช่วยตรวจสอบว่า
 พฤติกรรมตรงกับ business requirement:
@@ -83,7 +85,7 @@ NautilusTrader นำแนวปฏิบัติแบบ high-assurance ม�
 
 อ่านเพิ่มเติม: [High Assurance Rust](https://highassurance.rs/)
 
-## Message immutability {#message-immutability}
+## Message immutability [#message-immutability]
 
 message (request, response, event และ command) เป็น immutable หลังจากถูกสร้าง ฟิลด์ต่าง ๆ จะไม่เปลี่ยนแปลงตลอด
 อายุของ message ดูกฎด้าน ownership ที่เป็นผลมาจาก invariant นี้ได้ที่
@@ -105,7 +107,7 @@ invariant นี้ปกป้องคุณสมบัติหลายอ�
 - **การกระจายที่ทนทานขึ้น**: message ที่ serialize แล้วข้ามขอบเขตของ process และ service ในรูปของสำเนาอยู่แล้ว
   กฎ ownership เดียวกันจึงทำให้ in-memory model สอดคล้องกับความเป็นจริงนี้
 
-## หลักฐานและแหล่งอำนาจ {#evidence-and-authority}
+## หลักฐานและแหล่งอำนาจ [#evidence-and-authority]
 
 แยกแยะระหว่างรายงานจากภายนอก การสังเกตภายในระบบ การอนุมาน และการตัดสินใจเชิงนโยบาย รักษาแหล่งที่มาและความไม่แน่นอน
 ของสิ่งเหล่านี้ไว้เมื่อนำไปสร้าง state ค่าตัวเลขที่ถูกต้องหรือการเปลี่ยน state ที่ถูกต้อง ไม่ได้ยืนยันข้อเท็จจริงฝั่ง venue
@@ -114,7 +116,7 @@ invariant นี้ปกป้องคุณสมบัติหลายอ�
 [Execution policies](../concepts/execution/policies.md) นำกฎนี้ไปใช้กับผลลัพธ์ของ command, reconciliation และ
 ข้อจำกัดของประวัติที่เก็บไว้
 
-## การควบคุม nondeterminism {#controlled-nondeterminism}
+## การควบคุม nondeterminism [#controlled-nondeterminism]
 
 ทำให้เวลา ความสุ่ม ลำดับของ input และผลกระทบภายนอกชัดเจน ณ ขอบเขตที่ใช้สิ่งเหล่านั้น test ที่ทำซ้ำได้ต้องควบคุมแหล่ง
 ที่มีผลต่อ assertion และเก็บ input, seed และ config ที่จำเป็นสำหรับสืบสวนความล้มเหลวไว้ ระบุเงื่อนไขด้าน binary,
@@ -123,7 +125,7 @@ platform และ input ของการรับประกัน determini
 [DST contract](../concepts/dst.md) กำหนดขอบเขตที่รองรับของการ execute แบบควบคุมด้วย seed พฤติกรรมของ live venue
 และ input ภายนอกที่เป็นอิสระยังคงอยู่นอกการรับประกันนั้น
 
-## การใช้ทรัพยากรแบบมีขอบเขต {#bounded-resource-use}
+## การใช้ทรัพยากรแบบมีขอบเขต [#bounded-resource-use]
 
 ออกแบบ queue, retry, ประวัติที่เก็บไว้ และ callback chain ให้มี resource budget และพฤติกรรมเมื่อทรัพยากรหมดที่ชัดเจน
 หากการใช้หน่วยความจำแปรผัน ให้คำนึงถึงขนาด payload ด้วยนอกเหนือจากจำนวน item จำกัดทั้งปริมาณงานและพื้นที่จัดเก็บ
@@ -134,7 +136,7 @@ platform และ input ของการรับประกัน determini
 ทั้งหมดนี้เป็นข้อกำหนดด้านการออกแบบ path ที่มีอยู่ยังอาจไม่มีขอบเขตได้ ตามที่บันทึกไว้ใน [live dispatch and overload
 behavior](../concepts/live.md#dispatch-priority-and-overload-behavior)
 
-## การกู้คืนหลังความล้มเหลว {#recovery-after-failure}
+## การกู้คืนหลังความล้มเหลว [#recovery-after-failure]
 
 fault ที่กู้คืนไม่ได้ต้องไม่ปล่อยให้ระบบทำงานต่อบน state ที่อาจไม่ถูกต้อง การ startup ตามปกติรวมการกู้คืน state ที่
 ตั้งค่าไว้ ดังนั้นการ restart จึงใช้ initialization path เดียวกับการ startup ทั่วไป การกู้คืนขึ้นอยู่กับ state ที่เก็บไว้และ
@@ -148,13 +150,13 @@ cleanup ไม่ปลอดภัย
 [Runtime failure and recovery](../concepts/architecture.md#crash-only-design) อธิบายขอบเขตของ process และ
 persistence
 
-## ขอบเขตของ domain และ integration {#domain-and-integration-boundaries}
+## ขอบเขตของ domain และ integration [#domain-and-integration-boundaries]
 
 domain type และ contract กำหนดพฤติกรรมด้านการเทรด component สื่อสารกันผ่าน interface ที่ชัดเจนและ message ที่เป็น
 immutable แนวทาง ports and adapters ทำให้ implementation ของ venue transport และ backing store อยู่นอก trading core
 ที่ใช้ร่วมกัน ดังนั้น custom integration จึงรักษา domain contract เดียวกันไว้ได้
 
-## พฤติกรรมของ backtest และ live {#backtest-and-live-behavior}
+## พฤติกรรมของ backtest และ live [#backtest-and-live-behavior]
 
 สภาพแวดล้อม backtest, sandbox และ live ใช้ core trading component และ behavioral contract ร่วมกัน code ของ strategy
 และ execution algorithm ชุดเดียวกันสามารถรันได้ในทุกสภาพแวดล้อมเหล่านี้ live execution ยังนำพฤติกรรมด้าน venue,
@@ -164,7 +166,7 @@ transport, จังหวะเวลา, persistence, กิจกรรมภ
 [Common core](../concepts/architecture.md#common-core) จัดเตรียม engine และ interface ส่วน
 [Behavioral models](../concepts/behavioral_models.md) กำหนดวิธีที่ implementation ของ model เข้าสู่ runtime
 
-## ข้อกำหนดของ queued callback dispatch {#queued-callback-dispatch-requirements}
+## ข้อกำหนดของ queued callback dispatch [#queued-callback-dispatch-requirements]
 
 การส่งมอบ callback ให้ actor และ strategy ตามแบบแผนต้องรักษาลำดับการ publish, การเข้าถึง component แบบ exclusive และ
 คุณสมบัติตาม lifecycle ไว้ พร้อมความคืบหน้าที่มีขอบเขต reentrancy ต้องไม่เปลี่ยนกฎของลำดับ การส่งมอบตามลำดับไม่ได้

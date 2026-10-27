@@ -1,9 +1,11 @@
-# QuoteTick
+---
+title: "QuoteTick"
+---
 
 `QuoteTick` แทน bid และ ask ระดับ top-of-book ของ instrument หนึ่งตัว คือราคาและขนาดที่ดีที่สุด
 ที่มีอยู่ ณ เวลาของ event นั้น
 
-## Fields {#fields}
+## Fields [#fields]
 
 | Field           | Rust type      | Required/default | หมายเหตุ                                  |
 | --------------- | -------------- | ---------------- | ----------------------------------------- |
@@ -15,7 +17,7 @@
 | `ts_event`      | `UnixNanos`    | Required         | timestamp ของ event หน่วยนาโนวินาที          |
 | `ts_init`       | `UnixNanos`    | Required         | timestamp ตอน initialize หน่วยนาโนวินาที     |
 
-## พฤติกรรม {#behavior}
+## พฤติกรรม [#behavior]
 
 - ราคา bid และ ask ต้องใช้ precision เดียวกัน
 - ขนาด bid และ ask ต้องใช้ precision เดียวกัน
@@ -24,7 +26,7 @@
 - ผลลัพธ์แบบ `MID` มี precision เพิ่มขึ้นหนึ่งหลัก โดยไม่เกิน `FIXED_PRECISION`
 - quote bar ใช้ price type แบบ `BID`, `ASK` หรือ `MID` ได้
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -45,7 +47,7 @@ let quote = QuoteTick::new(
 );
 ```
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [OrderBookDepth](order_book_depth.md) อธิบาย snapshot แบบความลึกแปรผันพร้อมระดับราคาบนสุด
 - [Bars และการ aggregate](index.md#bars-and-aggregation) อธิบายการ aggregate quote เป็น bar

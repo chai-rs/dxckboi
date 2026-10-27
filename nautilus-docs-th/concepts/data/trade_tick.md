@@ -1,9 +1,11 @@
-# TradeTick
+---
+title: "TradeTick"
+---
 
 `TradeTick` แทน trade หรือ match event หนึ่งครั้งจาก venue โดยเก็บราคาที่ซื้อขาย
 size, ฝั่ง aggressor และ trade identifier ของ venue
 
-## ฟิลด์ {#fields}
+## ฟิลด์ [#fields]
 
 | Field            | Rust type       | Required/default | Notes                                    |
 | ---------------- | --------------- | ---------------- | ---------------------------------------- |
@@ -15,7 +17,7 @@ size, ฝั่ง aggressor และ trade identifier ของ venue
 | `ts_event`       | `UnixNanos`     | Required         | timestamp ของ event หน่วยนาโนวินาที      |
 | `ts_init`        | `UnixNanos`     | Required         | timestamp ตอน initialize หน่วยนาโนวินาที |
 
-## พฤติกรรม {#behavior}
+## พฤติกรรม [#behavior]
 
 - `size` ต้องเป็นค่าบวก
 - information-driven bar ต้องใช้ข้อมูล `TradeTick` เพราะใช้ `aggressor_side`
@@ -24,7 +26,7 @@ size, ฝั่ง aggressor และ trade identifier ของ venue
 - การ parse และ deserialize ยอมรับค่า `BUYER`/`SELLER` ที่ deprecated แล้ว แต่ string ที่ output ออกมาจะเป็นค่า canonical
   `BUY`/`SELL` เสมอ
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -46,7 +48,7 @@ let trade = TradeTick::new(
 );
 ```
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Bar](bar.md) อธิบายการ aggregate trade เป็น bar
 - [Information-driven bars](index.md#information-driven-bars) อธิบายการใช้ฝั่ง aggressor

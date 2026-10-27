@@ -1,4 +1,6 @@
-# dYdX
+---
+title: "dYdX"
+---
 
 dYdX เป็นหนึ่งใน exchange cryptocurrency แบบกระจายศูนย์ (decentralized) ที่ใหญ่ที่สุดสำหรับผลิตภัณฑ์ crypto derivatives
 integration นี้รองรับการรับ market data แบบ live และการส่ง order กับ dYdX v4 ซึ่งรันบน blockchain เฉพาะแอปพลิเคชัน
@@ -6,16 +8,16 @@ integration นี้รองรับการรับ market data แบบ 
 ทำงานบน chain เป็นส่วนหนึ่งของ process ของ validator order ถูกส่งเป็น Cosmos transaction ผ่าน gRPC และ settle
 ในทุก block ส่วน service ชื่อ Indexer เปิด REST และ WebSocket API สำหรับ market data และสถานะของ account
 
-## ตัวอย่าง {#examples}
+## ตัวอย่าง [#examples]
 
 - [ตัวอย่าง Rust](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/dydx/examples/)
 
-## ภาพรวม {#overview}
+## ภาพรวม [#overview]
 
 adapter นี้ implement ด้วย Rust และเชื่อมต่อโดยตรงกับ Indexer API ของ dYdX (REST/WebSocket) สำหรับ market data
 และใช้ gRPC สำหรับส่ง transaction ของ Cosmos SDK โดยไม่ต้องใช้ client library ภายนอก
 
-### ผลิตภัณฑ์ที่รองรับ {#product-support}
+### ผลิตภัณฑ์ที่รองรับ [#product-support]
 
 | Product Type      | Data Feed | Trading | หมายเหตุ                                                     |
 | ----------------- | --------- | ------- | ---------------------------------------------------------- |
@@ -27,13 +29,13 @@ adapter นี้ implement ด้วย Rust และเชื่อมต่�
 adapter นี้รองรับเฉพาะ perpetual futures ทุกตลาด quote เป็น USD และ settle เป็น USDC
 :::
 
-## สถาปัตยกรรมของ chain {#chain-architecture}
+## สถาปัตยกรรมของ chain [#chain-architecture]
 
 ต่างจาก exchange แบบรวมศูนย์ (CEX) ที่เปิด REST/WebSocket API เพียงชุดเดียว dYdX v4 รันบน
 **blockchain เฉพาะแอปพลิเคชันที่สร้างด้วย Cosmos SDK** ของตัวเอง หมายความว่าทุก trade เป็น Cosmos transaction
 ที่ต้องผ่าน consensus และ adapter ต้องจัดการ sequence, gas และการหมดอายุที่อิงตาม block height
 
-### ชั้นของ transport {#transport-layers}
+### ชั้นของ transport [#transport-layers]
 
 adapter สื่อสารผ่าน transport สามชั้นที่แยกจากกัน:
 
@@ -60,7 +62,7 @@ adapter สื่อสารผ่าน transport สามชั้นที�
 | WebSocket | Indexer   | Read-only | market data แบบ real-time, update ของ order/fill/position |
 | gRPC      | Validator | Write     | การวาง order, การยกเลิก และการทำงานแบบ batch              |
 
-### การ settle ตาม block {#block-based-settlement}
+### การ settle ตาม block [#block-based-settlement]
 
 trade จะ settle เมื่อ block ถูก commit และ short-term order หมดอายุตาม block height ไม่ใช่ตามเวลาจริง
 adapter ติดตาม block height และ timestamp จาก WebSocket ในหน้าต่างแบบเลื่อนขนาด 100 block แล้วประมาณค่า
@@ -70,7 +72,7 @@ adapter ติดตาม block height และ timestamp จาก WebSocket 
 ที่สังเกตได้บน mainnet ใกล้เคียงหนึ่งวินาที ดังนั้นค่า fallback จะประเมินหน้าต่าง short-term ต่ำกว่าความจริง
 ทำให้ order ที่อยู่ก้ำกึ่งถูก route ไปทาง long-term แทนที่จะเป็นในทางกลับกัน
 
-## สถาปัตยกรรม {#architecture}
+## สถาปัตยกรรม [#architecture]
 
 adapter ของ dYdX v4 ประกอบด้วยหลาย component ที่ใช้ร่วมกันหรือแยกกันได้:
 
@@ -97,9 +99,9 @@ account สำหรับเทรดของ dYdX v4 (sub-account 0) จะ�
 แล้ว client จะเชื่อมต่อได้ตามปกติ
 :::
 
-## การแก้ปัญหา {#troubleshooting}
+## การแก้ปัญหา [#troubleshooting]
 
-### gRPC `NotFound` ตอน connect {#grpc-notfound-on-connect}
+### gRPC `NotFound` ตอน connect [#grpc-notfound-on-connect]
 
 **สาเหตุ**: wallet/sub-account ยังไม่เคยได้รับเงินฝาก จึงยังไม่มีอยู่บน chain
 
@@ -114,11 +116,11 @@ account สำหรับเทรดของ dYdX v4 (sub-account 0) จะ�
 เพื่อให้ client retry จนกว่าเงินฝากจะปรากฏ
 :::
 
-## Symbology {#symbology}
+## Symbology [#symbology]
 
 dYdX ใช้รูปแบบ symbol เฉพาะสำหรับสัญญา perpetual futures
 
-### รูปแบบ symbol {#symbol-format}
+### รูปแบบ symbol [#symbol-format]
 
 รูปแบบ: `{Base}-USD-PERP`
 
@@ -139,13 +141,13 @@ ticker ของ perpetual ใน dYdX Indexer คือ `{Base}-USD` (เช่
 เพื่อให้สอดคล้องกับ adapter อื่น และเผื่อไว้สำหรับผลิตภัณฑ์ประเภทอื่นในอนาคต
 :::
 
-## ความสามารถด้าน order {#orders-capability}
+## ความสามารถด้าน order [#orders-capability]
 
 dYdX รองรับการเทรด perpetual futures ด้วยประเภท order และฟีเจอร์การ execute ครบชุด adapter จะจัดประเภท
 แต่ละ order เป็น short-term, long-term หรือ conditional ให้อัตโนมัติจากประเภท, time-in-force และวันหมดอายุ
 จึงไม่ต้องติด tag เอง
 
-### ประเภท order {#order-types}
+### ประเภท order [#order-types]
 
 | Order Type             | Perpetuals | หมายเหตุ                                             |
 | ---------------------- | ---------- | -------------------------------------------------- |
@@ -158,7 +160,7 @@ dYdX รองรับการเทรด perpetual futures ด้วยป�
 | `TRAILING_STOP_MARKET` | -          | *ไม่รองรับ*                                         |
 | `TRAILING_STOP_LIMIT`  | -          | *ไม่รองรับ*                                         |
 
-### Execution instructions {#execution-instructions}
+### Execution instructions [#execution-instructions]
 
 | Instruction   | Perpetuals | หมายเหตุ                                                                                                                                                                                         |
 | ------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -175,7 +177,7 @@ dYdX รองรับการเทรด perpetual futures ด้วยป�
 
 ตั้ง `reduce_only` กับ market order หรือใช้ร่วมกับ `IOC` บน limit order ประเภทที่รองรับ
 
-### ตัวเลือก time in force {#time-in-force-options}
+### ตัวเลือก time in force [#time-in-force-options]
 
 | Time in force | Perpetuals | หมายเหตุ                                                                                                                                                                |
 | ------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -185,7 +187,7 @@ dYdX รองรับการเทรด perpetual futures ด้วยป�
 | `FOK`         | -          | *ถูกยกเลิกการใช้งานใน dYdX v4* chain จะ reject FOK order ด้วย `code=48` adapter จึงสร้าง `OrderDenied` ในเครื่องและไม่ broadcast                               |
 | `DAY`         | -          | *ไม่รองรับ* adapter สร้าง `OrderDenied` ในเครื่องและไม่ broadcast                                                                                                   |
 
-### ฟีเจอร์ order ขั้นสูง {#advanced-order-features}
+### ฟีเจอร์ order ขั้นสูง [#advanced-order-features]
 
 | Feature            | Perpetuals | หมายเหตุ                                                                                                                                                                                    |
 | ------------------ | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -193,7 +195,7 @@ dYdX รองรับการเทรด perpetual futures ด้วยป�
 | Bracket/OCO orders | -          | *ไม่รองรับ*                                                                                                                                                                                |
 | Iceberg orders     | -          | *ไม่รองรับ*                                                                                                                                                                                |
 
-### การทำงานแบบ batch {#batch-operations}
+### การทำงานแบบ batch [#batch-operations]
 
 | Operation    | Perpetuals | หมายเหตุ                                                                                                              |
 | ------------ | ---------- | ---------------------------------------------------------------------------------------------------------------------- |
@@ -201,7 +203,7 @@ dYdX รองรับการเทรด perpetual futures ด้วยป�
 | Batch modify | -          | *ไม่รองรับ*                                                                                                             |
 | Batch cancel | ✓          | แบ่งกลุ่ม: short-term order ใช้ `MsgBatchCancel` (เรียก gRPC ครั้งเดียว) ส่วน long-term order ใช้ `MsgCancelOrder` แบบ batch |
 
-### การจัดการ position {#position-management}
+### การจัดการ position [#position-management]
 
 | Feature          | Perpetuals | หมายเหตุ                                                          |
 | ---------------- | ---------- | --------------------------------------------------------------- |
@@ -215,7 +217,7 @@ dYdX ทำ netting ของ position (หนึ่ง position ต่อ instr
 โหมด `NETTING` เท่านั้น
 :::
 
-### การ query order {#order-querying}
+### การ query order [#order-querying]
 
 | Feature              | Perpetuals | หมายเหตุ                          |
 | -------------------- | ---------- | ------------------------------ |
@@ -224,7 +226,7 @@ dYdX ทำ netting ของ position (หนึ่ง position ต่อ instr
 | Order status updates | ✓          | การเปลี่ยนสถานะ order แบบ real-time |
 | Trade history        | ✓          | report ของการ execute และ fill    |
 
-### Contingent orders {#contingent-orders}
+### Contingent orders [#contingent-orders]
 
 | Feature            | Perpetuals | หมายเหตุ                                            |
 | ------------------ | ---------- | ------------------------------------------------ |
@@ -233,7 +235,7 @@ dYdX ทำ netting ของ position (หนึ่ง position ต่อ instr
 | Bracket orders     | -          | *ไม่รองรับ*                                       |
 | Conditional orders | ✓          | stop, take-profit market และ take-profit limit   |
 
-### ขีดจำกัดตาม equity tier {#equity-tier-limit}
+### ขีดจำกัดตาม equity tier [#equity-tier-limit]
 
 dYdX จำกัดจำนวน **stateful order** (long-term และ conditional) ที่ subaccount หนึ่งเปิดค้างไว้ได้พร้อมกัน
 โดยอิงตาม net collateral ของ subaccount ส่วน short-term order ไม่ถูกนับรวมในขีดจำกัดนี้ การส่ง order เกินขีดจำกัด
@@ -253,7 +255,7 @@ dYdX จำกัดจำนวน **stateful order** (long-term และ cond
 tier เหล่านี้ปรับได้ผ่าน governance query ค่าปัจจุบันได้จาก endpoint `/dydxprotocol/clob/equity_tier`
 ของ node หรือดู [equity tier limits](https://docs.dydx.xyz/concepts/trading/limits/equity-tier-limits)
 
-### การแปลงไปกลับของ MIT และ LIT {#mit-and-lit-round-tripping}
+### การแปลงไปกลับของ MIT และ LIT [#mit-and-lit-round-tripping]
 
 protocol ของ dYdX ใช้ order type `TAKE_PROFIT` แบบเดียวที่มีราคา (`subticks`) และราคา trigger ส่วนจะทำงานแบบ
 market-on-trigger หรือ limit-on-trigger นั้นแฝงอยู่ในราคา adapter ส่ง `MARKET_IF_TOUCHED` ของ Nautilus
@@ -265,7 +267,7 @@ market-on-trigger หรือ limit-on-trigger นั้นแฝงอยู�
 `MARKET_IF_TOUCHED` หากใกล้กว่านั้นจะถือว่าเป็นราคา limit ที่ผู้ใช้เลือกและ reconcile เป็น `LIMIT_IF_TOUCHED`
 threshold 2% แยกช่วง pay-through ออกจาก offset ของ take-profit limit ทั่วไปซึ่งมักต่ำกว่า 1% มาก
 
-### การจัดการ liquidation และ ADL (deleveraging) {#liquidation-and-adl-deleveraging-handling}
+### การจัดการ liquidation และ ADL (deleveraging) [#liquidation-and-adl-deleveraging-handling]
 
 dYdX v4 ใช้กลไกความเสี่ยงสองขั้นตามลำดับ:
 
@@ -297,7 +299,7 @@ deleveraging จากนั้นส่ง `FillReport` ออกไปตา�
 - [Liquidations](https://docs.dydx.xyz/concepts/trading/liquidations)
 - [Contract loss mechanisms (deleveraging)](https://help.dydx.trade/en/articles/166973-contract-loss-mechanisms-on-dydx-chain)
 
-### การจัดประเภท order {#order-classification}
+### การจัดประเภท order [#order-classification]
 
 dYdX จัดทุก order ไว้ในหนึ่งในสามหมวดบน chain adapter จะกำหนดหมวดให้อัตโนมัติตาม time-in-force และวันหมดอายุ
 จึงไม่ต้องตั้งค่าเอง
@@ -316,7 +318,7 @@ market order มี lifecycle `Submitted > Accepted > Filled` เหมือน
 ดู [เอกสาร order ของ dYdX](https://docs.dydx.xyz/concepts/trading/orders) สำหรับรายละเอียดระดับ protocol
 ทั้งหมดของกลไก short-term เทียบกับ stateful order
 
-#### Short-term orders {#short-term-orders}
+#### Short-term orders [#short-term-orders]
 
 short-term order อยู่ **ในหน่วยความจำของ validator เท่านั้น** และหมดอายุตาม block height `ShortBlockWindow`
 ของ protocol จำกัดอายุไว้ไม่เกิน **40 block** จาก height ปัจจุบัน เป็น order ที่เร็วที่สุดบน dYdX
@@ -333,7 +335,7 @@ short-term order อยู่ **ในหน่วยความจำของ
   ส่งออกเป็น `OrderCanceled`
 - รวมเป็น batch ใน transaction เดียวไม่ได้ (`MsgPlaceOrder` หนึ่งตัวต่อหนึ่ง tx)
 
-#### Long-term orders {#long-term-orders}
+#### Long-term orders [#long-term-orders]
 
 long-term order (แบบ stateful) **ถูกเก็บบน chain** และหมดอายุตาม timestamp แบบ UTC จะสร้าง cancel event
 ที่ชัดเจนเมื่อหมดอายุหรือถูก cancel
@@ -346,7 +348,7 @@ long-term order (แบบ stateful) **ถูกเก็บบน chain** แ�
 - ต้อง broadcast **ทีละตัวตามลำดับ** โดยเลข sequence เพิ่มขึ้นเรื่อย ๆ
 - รวมเป็น batch ใน transaction เดียวได้
 
-#### Conditional orders {#conditional-orders}
+#### Conditional orders [#conditional-orders]
 
 conditional order (stop-loss, take-profit) **ถูกเก็บบน chain เสมอ** และถูก trigger ด้วยเงื่อนไขราคาบน validator
 
@@ -356,7 +358,7 @@ conditional order (stop-loss, take-profit) **ถูกเก็บบน chain �
 - ใช้เส้นทาง broadcast แบบ long-term เสมอ (เรียงลำดับด้วย semaphore)
 - รวมถึง `StopMarket`, `StopLimit`, `TakeProfitMarket` และ `TakeProfitLimit`
 
-#### การ route อัตโนมัติ {#automatic-routing}
+#### การ route อัตโนมัติ [#automatic-routing]
 
 adapter กำหนดอายุของ order อัตโนมัติจากเวลา block ที่ประมาณได้:
 
@@ -367,7 +369,7 @@ max_short_term_secs = 40 blocks (ShortBlockWindow) × seconds_per_block
 หากเวลาที่เหลือก่อนหมดอายุของ order อยู่ภายใน `max_short_term_secs` จะถูก route เป็น short-term
 มิฉะนั้นจะถูก route เป็น long-term โดยไม่ต้องตั้งค่าเอง
 
-#### การ implement MARKET order {#market-order-implementation}
+#### การ implement MARKET order [#market-order-implementation]
 
 dYdX ไม่มี market order แบบ native adapter จึง implement `MARKET` order เป็น **IOC limit order**
 แบบ aggressive ที่ตั้งราคาไว้ที่:
@@ -379,7 +381,7 @@ buffer slippage 5% นี้ (`DEFAULT_MARKET_ORDER_SLIPPAGE = 0.05`) กำห�
 เนื่องจาก order เป็น IOC slippage ส่วนที่ไม่ได้ fill จะไม่ถูกใช้ buffer ถูกตั้งให้กว้างโดยเจตนาเพื่อเพิ่มโอกาส fill
 ให้มากที่สุดในสภาวะตลาดผันผวน
 
-### การ encode client order ID {#client-order-id-encoding}
+### การ encode client order ID [#client-order-id-encoding]
 
 dYdX ต้องการ client ID แบบ `u32` บน chain แต่ Nautilus ใช้ค่า `ClientOrderId` แบบ string
 (เช่น `O-20260220-031943-001-000-51`) adapter จะ encode ค่าเหล่านี้แบบสองทิศทาง เพื่อให้ reconcile order
@@ -399,7 +401,7 @@ dYdX ต้องการ client ID แบบ `u32` บน chain แต่ Naut
 `client_metadata` ถูกตั้งเป็น marker คงที่ จึง decode ข้ามการ restart ได้เช่นกัน รูปแบบอื่นนอกจากนี้จะ fallback
 ไปใช้การจัดสรรแบบเรียงลำดับพร้อม reverse map ในหน่วยความจำ และ ID เหล่านั้นจะ decode ได้ภายใน session เดียวกันเท่านั้น
 
-#### การป้องกันการชนกันหลัง restart {#restart-collision-prevention}
+#### การป้องกันการชนกันหลัง restart [#restart-collision-prevention]
 
 เมื่อ restart Nautilus จะ reset ตัวนับ order ภายในตามจำนวน order ที่ reconcile ได้ ซึ่งอาจต่ำกว่าค่าตัวนับสูงสุด
 ที่ใช้ใน session ก่อน (เช่น เมื่อ order บางตัวหมดอายุไปจาก response ของ API แล้ว) ทำให้ order ใหม่อาจได้
@@ -415,9 +417,9 @@ adapter ป้องกันปัญหานี้โดยลงทะเบ
 ด้วย ID ทางเลือก
 :::
 
-## กลยุทธ์การ broadcast และ retry {#broadcasting-and-retry-strategy}
+## กลยุทธ์การ broadcast และ retry [#broadcasting-and-retry-strategy]
 
-### Short-term broadcast {#short-term-broadcast}
+### Short-term broadcast [#short-term-broadcast]
 
 short-term order ใช้ Good-Til-Block (GTB) ป้องกัน replay ante handler `ClobDecorator` ของ chain
 จะข้ามการตรวจสอบ sequence ของ Cosmos SDK สำหรับ message แบบ short-term ดังนั้น:
@@ -427,7 +429,7 @@ short-term order ใช้ Good-Til-Block (GTB) ป้องกัน replay ant
 - **ไม่มี retry**: หาก broadcast ล้มเหลวจะล้มเหลวทันที
 - error ของการ cancel ที่ไม่เป็นอันตรายจะถือว่าสำเร็จ (ดูด้านล่าง)
 
-### Long-term broadcast {#long-term-broadcast}
+### Long-term broadcast [#long-term-broadcast]
 
 long-term และ conditional order ต้องจัดการ sequence ของ Cosmos SDK อย่างถูกต้อง:
 
@@ -438,7 +440,7 @@ long-term และ conditional order ต้องจัดการ sequence �
 - ความล้มเหลวชั่วคราวของ gRPC (unavailable, deadline exceeded, resource exhausted) ก็จะ resync ก่อน retry
   เช่นกัน เพื่อไม่ให้ timeout ซ้ำ ๆ ทำให้ sequence ในเครื่องเลื่อนนำหน้า chain
 
-### การตรวจจับ sequence ที่ไม่ตรงกัน {#sequence-mismatch-detection}
+### การตรวจจับ sequence ที่ไม่ตรงกัน [#sequence-mismatch-detection]
 
 | Error code | แหล่งที่มา           | ความหมาย                                            |
 | ---------- | ------------------ | ------------------------------------------------ |
@@ -447,7 +449,7 @@ long-term และ conditional order ต้องจัดการ sequence �
 
 ทั้งสองกรณีจะ trigger การ resync + retry อัตโนมัติผ่าน `RetryManager`
 
-### Error ของการ cancel ที่ไม่เป็นอันตราย {#benign-cancel-errors}
+### Error ของการ cancel ที่ไม่เป็นอันตราย [#benign-cancel-errors]
 
 error เหล่านี้ระหว่างการ cancel แบบ short-term จะถือว่า **สำเร็จ**:
 
@@ -457,7 +459,7 @@ error เหล่านี้ระหว่างการ cancel แบบ sh
 | `code=9`    | มี cancel อยู่ใน memclob แล้วด้วย GoodTilBlock ที่ >=                 |
 | `code=3006` | order ที่จะ cancel ไม่มีอยู่ (fill/หมดอายุ/cancel ไปแล้ว)               |
 
-### การแบ่งกลุ่ม batch cancel {#batch-cancel-partitioning}
+### การแบ่งกลุ่ม batch cancel [#batch-cancel-partitioning]
 
 เมื่อ cancel หลาย order adapter จะแบ่งกลุ่มตามอายุของ order:
 
@@ -466,14 +468,14 @@ error เหล่านี้ระหว่างการ cancel แบบ sh
 
 วิธีนี้ทำให้แต่ละกลุ่มใช้กลยุทธ์การ broadcast ที่เหมาะสม
 
-## Funding rates {#funding-rates}
+## Funding rates [#funding-rates]
 
 perpetual futures ของ dYdX ใช้รอบ funding คงที่ 1 ชั่วโมง adapter ตั้ง `interval` เป็น `60` (นาที)
 ใน `FundingRateUpdate` ทุกตัว ทั้งข้อมูล funding จาก WebSocket และข้อมูลในอดีต
 
-## Rate limiting {#rate-limiting}
+## Rate limiting [#rate-limiting]
 
-### gRPC rate limiting {#grpc-rate-limiting}
+### gRPC rate limiting [#grpc-rate-limiting]
 
 adapter จำกัด rate ของการเรียก gRPC `broadcast_tx` เพื่อป้องกัน error `ResourceExhausted` (429)
 จาก validator node
@@ -484,7 +486,7 @@ adapter จำกัด rate ของการเรียก gRPC `broadcast_t
 
 ค่านี้เป็น field ของ config struct
 
-### ขีดจำกัดของผู้ให้บริการ {#provider-limits}
+### ขีดจำกัดของผู้ให้บริการ [#provider-limits]
 
 rate limit ที่ทราบของผู้ให้บริการ gRPC สาธารณะ:
 
@@ -496,7 +498,7 @@ rate limit ที่ทราบของผู้ให้บริการ gR
 
 ค่าเริ่มต้น 4 req/s เป็นค่าที่ระมัดระวังและใช้ได้กับผู้ให้บริการสาธารณะทุกราย
 
-### Fallback หลาย gRPC URL {#multiple-grpc-url-fallback}
+### Fallback หลาย gRPC URL [#multiple-grpc-url-fallback]
 
 adapter จะเชื่อมต่อกับ node แรกที่เข้าถึงได้ในรายการ gRPC URL และ fallback ไปตัวถัดไปเมื่อการเชื่อมต่อล้มเหลว
 เรื่องนี้สำคัญบน DEX ซึ่ง node สาธารณะแต่ละตัวอาจล่มได้โดยไม่แจ้งล่วงหน้า execution config จะ resolve รายการนี้ตามลำดับ:
@@ -507,12 +509,12 @@ adapter จะเชื่อมต่อกับ node แรกที่เข
 
 ทั้งสอง field เป็นส่วนหนึ่งของ config struct
 
-## Quantization ของราคาและขนาด {#price-and-size-quantization}
+## Quantization ของราคาและขนาด [#price-and-size-quantization]
 
 dYdX ใช้ quantization แบบจำนวนเต็มสำหรับราคาและขนาด adapter จัดการการแปลงทั้งหมดให้อัตโนมัติผ่าน
 `OrderMessageBuilder` แต่การเข้าใจ parameter เหล่านี้ช่วยในการ debug
 
-### Parameter ของตลาด {#market-parameters}
+### Parameter ของตลาด [#market-parameters]
 
 | Parameter                     | คำอธิบาย                                                  |
 | ----------------------------- | ------------------------------------------------------- |
@@ -521,7 +523,7 @@ dYdX ใช้ quantization แบบจำนวนเต็มสำหรั�
 | `step_base_quantums`          | ขั้นขนาด order ต่ำสุดในหน่วย quantum                         |
 | `subticks_per_tick`           | ความละเอียดของราคาภายในแต่ละ tick                            |
 
-### การตั้งราคาของ market order {#market-order-pricing}
+### การตั้งราคาของ market order [#market-order-pricing]
 
 order ที่ส่งโดยไม่ระบุราคาจะใช้ราคา oracle พร้อม buffer slippage 5% ("pay-through price") ซึ่งครอบคลุม
 `MARKET`, `STOP_MARKET` และ `MARKET_IF_TOUCHED`:
@@ -534,12 +536,12 @@ order ที่ส่งโดยไม่ระบุราคาจะใช�
 oracle แบบ live จาก markets channel แยกต่างหาก และใช้ราคาเหล่านั้นประเมินมูลค่าสถานะ account และ position
 ไม่ได้ใช้ตั้งราคา order
 
-### การจัดการอัตโนมัติ {#automatic-handling}
+### การจัดการอัตโนมัติ [#automatic-handling]
 
 quantization ของราคาและขนาดทั้งหมดถูกจัดการอัตโนมัติโดย `OrderMessageBuilder`
 ไม่ต้องแปลงเองเมื่อส่ง order ผ่าน Nautilus
 
-## Data subscriptions {#data-subscriptions}
+## Data subscriptions [#data-subscriptions]
 
 adapter รองรับ data subscription ต่อไปนี้:
 
@@ -555,7 +557,7 @@ adapter รองรับ data subscription ต่อไปนี้:
 | Funding rates        | ✓            | ✓                  | real-time ผ่าน markets channel ข้อมูลในอดีตผ่าน HTTP |
 | Instrument status    | ✓            | -                  | ผ่าน markets channel                              |
 
-### Precision ของ mark และ index price {#mark-and-index-price-precision}
+### Precision ของ mark และ index price [#mark-and-index-price-precision]
 
 mark และ index price ที่ได้จาก oracle ใช้ precision คงที่ 16 ตำแหน่งทศนิยมใน build แบบ high-precision
 และ 9 ตำแหน่งใน build แบบ standard-precision วิธีนี้รักษาหลักของ oracle ที่ละเอียดกว่า tick ของการเทรดไว้
@@ -564,7 +566,7 @@ mark และ index price ที่ได้จาก oracle ใช้ precisio
 ข้อความราคาจะมีศูนย์ต่อท้ายจนถึง precision นี้ ให้อ่าน recording ที่ precision 16 ด้วย build แบบ high-precision
 ส่วนตัวอ่านแบบ standard-precision จะ reject metadata ด้าน precision ของ recording เหล่านั้น
 
-### Resolution ของ bar ที่รองรับ {#supported-bar-resolutions}
+### Resolution ของ bar ที่รองรับ [#supported-bar-resolutions]
 
 | Resolution | dYdX candle |
 | ---------- | ----------- |
@@ -576,11 +578,11 @@ mark และ index price ที่ได้จาก oracle ใช้ precisio
 | 4-HOUR     | `4HOURS`    |
 | 1-DAY      | `1DAY`      |
 
-## Subaccounts {#subaccounts}
+## Subaccounts [#subaccounts]
 
 dYdX รองรับหลาย subaccount ต่อหนึ่ง wallet address ทำให้แยก strategy และการบริหารความเสี่ยงได้ภายใน wallet เดียว
 
-### แนวคิด {#concepts}
+### แนวคิด [#concepts]
 
 - แต่ละ wallet address มี subaccount แบบมีหมายเลขได้หลายตัว (0, 1, 2, ..., 127) หมายเลข 128 ขึ้นไป
   เป็น child subaccount แบบ isolated-margin ของ venue ซึ่ง adapter นี้ไม่รองรับ
@@ -591,7 +593,7 @@ dYdX รองรับหลาย subaccount ต่อหนึ่ง wallet a
   - Collateral balance
   - Margin requirements
 
-### การตั้งค่า {#configuration}
+### การตั้งค่า [#configuration]
 
 ระบุหมายเลข subaccount ด้วย option `subaccount_number` ใน config ของ execution client
 (ร่วมกับ `account_id` เช่น `DYDX-001`)
@@ -601,13 +603,13 @@ dYdX รองรับหลาย subaccount ต่อหนึ่ง wallet a
 สำหรับ subaccount ต่างกัน เพื่อแยก strategy หรือแยกความเสี่ยง
 :::
 
-## การตั้งค่า testnet {#testnet-setup}
+## การตั้งค่า testnet [#testnet-setup]
 
 testnet ของ dYdX (`dydx-testnet-4`) เป็นแบบจำลองเต็มรูปแบบของ mainnet สำหรับทดสอบ strategy
 โดยไม่เสี่ยงเงินจริง endpoint เริ่มต้นของ testnet ทั้งหมดจะถูก resolve อัตโนมัติเมื่อตั้ง
 `network=DydxNetwork.TESTNET`
 
-### 1. สร้าง testnet wallet {#1-create-a-testnet-wallet}
+### 1. สร้าง testnet wallet [#1-create-a-testnet-wallet]
 
 **ทางเลือก A: ผ่านเว็บแอป testnet ของ dYdX (ง่ายที่สุด)**
 
@@ -621,7 +623,7 @@ testnet ของ dYdX (`dydx-testnet-4`) เป็นแบบจำลอง�
 private key แบบ secp256k1 ขนาด 32 byte ที่ encode เป็น hex ใช้ได้ทั้งหมด adapter จะ derive address
 `dydx1...` จาก key ให้อัตโนมัติด้วยการ encode แบบ bech32 ของ Cosmos
 
-### 2. เติมเงินให้ testnet account {#2-fund-the-testnet-account}
+### 2. เติมเงินให้ testnet account [#2-fund-the-testnet-account]
 
 ต้องเติมเงินให้ subaccount ก่อน adapter จึงจะเชื่อมต่อได้ (ดู [การ activate account ครั้งแรก](#architecture))
 
@@ -644,20 +646,20 @@ curl -X POST https://faucet.v4testnet.dydx.exchange/faucet/native-token \
   -d '{"address": "dydx1..."}'
 ```
 
-### 3. ตั้งค่า environment variable {#3-set-environment-variables}
+### 3. ตั้งค่า environment variable [#3-set-environment-variables]
 
 ```bash
 export DYDX_TESTNET_WALLET_ADDRESS="dydx1..."
 export DYDX_TESTNET_PRIVATE_KEY="0x..."  # hex-encoded, 0x prefix optional
 ```
 
-### 4. ตั้งค่า trading node {#4-configure-the-trading-node}
+### 4. ตั้งค่า trading node [#4-configure-the-trading-node]
 
 ตั้ง `network=DydxNetwork.TESTNET` ให้ทั้ง data client และ execution client หากไม่ระบุ `wallet_address`
 และ `private_key` ใน execution config จะ fallback ไปใช้ `DYDX_TESTNET_WALLET_ADDRESS` และ
 `DYDX_TESTNET_PRIVATE_KEY` ตามลำดับ
 
-### Endpoint ของ testnet {#testnet-endpoints}
+### Endpoint ของ testnet [#testnet-endpoints]
 
 adapter เลือก endpoint เริ่มต้นของ testnet ให้อัตโนมัติ:
 
@@ -669,7 +671,7 @@ adapter เลือก endpoint เริ่มต้นของ testnet ใ�
 | Faucet    | `https://faucet.v4testnet.dydx.exchange`             |
 | Web app   | `https://v4.testnet.dydx.exchange`                   |
 
-### Endpoint ของ mainnet {#mainnet-endpoints}
+### Endpoint ของ mainnet [#mainnet-endpoints]
 
 adapter เลือก endpoint เริ่มต้นของ mainnet ให้อัตโนมัติ:
 
@@ -679,19 +681,19 @@ adapter เลือก endpoint เริ่มต้นของ mainnet ใ�
 | WebSocket | `wss://indexer.dydx.trade/v4/ws`                    |
 | gRPC      | `https://dydx-ops-grpc.kingnodes.com:443` (primary) |
 
-## Configuration {#configuration-1}
+## Configuration [#configuration-1]
 
 ตั้งค่า adapter ของ dYdX ผ่าน configuration ของ trading node execution client รองรับการ fallback ไปใช้
 environment variable สำหรับ credential ส่วน data client ใช้ endpoint สาธารณะและไม่ต้องใช้ credential ของ wallet
 
-### Option ของ data client {#data-client-configuration-options}
+### Option ของ data client [#data-client-configuration-options]
 
 | Option      | Default   | คำอธิบาย                                         |
 | ----------- | --------- | ----------------------------------------------- |
 | `network`   | `MAINNET` | `DydxNetwork.MAINNET` หรือ `DydxNetwork.TESTNET` |
 | `proxy_url` | `None`    | proxy URL (optional) สำหรับ HTTP และ WebSocket  |
 
-### Option ของ execution client {#execution-client-configuration-options}
+### Option ของ execution client [#execution-client-configuration-options]
 
 | Option              | Default   | คำอธิบาย                                                                           |
 | ------------------- | --------- | --------------------------------------------------------------------------------- |
@@ -702,18 +704,18 @@ environment variable สำหรับ credential ส่วน data client ใ�
 | `subaccount_number` | `0`       | หมายเลข subaccount ตั้งแต่ `0` ถึง `127`                                          |
 | `proxy_url`         | `None`    | proxy URL (optional) สำหรับ HTTP และ WebSocket                                    |
 
-### การตั้งค่าพื้นฐาน {#basic-setup}
+### การตั้งค่าพื้นฐาน [#basic-setup]
 
 ลงทะเบียน `DydxDataClientConfig` กับ `DydxDataClientFactory` และ `DydxExecutionClientConfig` กับ
 `DydxExecutionClientFactory` บน builder ของ node ดูตัวอย่างการใช้งานได้ที่
 [ตัวอย่าง Rust](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/dydx/examples/)
 
-### API credentials {#api-credentials}
+### API credentials [#api-credentials]
 
 credential ส่งผ่าน config โดยตรงได้ (`wallet_address`, `private_key`) หรือ resolve อัตโนมัติจาก
 environment variable ตาม `network` ที่ตั้งค่าไว้
 
-#### Environment variables {#environment-variables}
+#### Environment variables [#environment-variables]
 
 | Variable                      | Network | คำอธิบาย                                         |
 | ----------------------------- | ------- | ---------------------------------------------- |
@@ -722,20 +724,20 @@ environment variable ตาม `network` ที่ตั้งค่าไว้
 | `DYDX_TESTNET_WALLET_ADDRESS` | Testnet | wallet address ของ testnet (`dydx1...`)        |
 | `DYDX_TESTNET_PRIVATE_KEY`    | Testnet | private key ของ testnet                        |
 
-#### ลำดับการ resolve {#resolution-priority}
+#### ลำดับการ resolve [#resolution-priority]
 
 1. ค่าที่ส่งมาใน config (ถ้าไม่ว่าง)
 2. environment variable ที่เลือกตาม `network`
 
-### การเทรดด้วย permissioned key {#permissioned-key-trading}
+### การเทรดด้วย permissioned key [#permissioned-key-trading]
 
-#### API Trading Keys คืออะไร {#what-are-api-trading-keys}
+#### API Trading Keys คืออะไร [#what-are-api-trading-keys]
 
 API Trading Keys ช่วยให้มอบหมายการเทรดให้ signing key แยกต่างหากได้ โดยไม่ต้องเปิดเผย seed phrase ของ
 wallet หลัก API key สามารถวาง trade โดยใช้ margin ทั้งหมดที่มีใน cross-margin account ของเจ้าของ
 แต่ถอนเงินหรือโอน asset ไม่ได้
 
-#### การสร้าง API key {#creating-an-api-key}
+#### การสร้าง API key [#creating-an-api-key]
 
 1. ในเว็บแอปของ dYdX ไปที่ **More > API Trading Keys**
 2. คลิก **Generate New API Key**
@@ -748,7 +750,7 @@ wallet หลัก API key สามารถวาง trade โดยใช้
 [คู่มือการใช้งานผ่านหน้าเว็บ](https://help.dydx.trade/en/articles/267486-api-trading-keys-creating-a-new-key-on-the-front-end)
 สำหรับการสร้างและจัดการ key ในเว็บแอป
 
-#### การตั้งค่า adapter {#adapter-configuration}
+#### การตั้งค่า adapter [#adapter-configuration]
 
 ตั้ง private key ของ API key เป็น `DYDX_PRIVATE_KEY` และ wallet address ของเจ้าของเป็น `DYDX_WALLET_ADDRESS`
 (หรือส่งผ่าน `wallet_address` ซึ่งเป็น account ของเจ้าของที่ถือ margin และ `private_key` ซึ่งเป็น private key
@@ -759,13 +761,13 @@ wallet หลัก API key สามารถวาง trade โดยใช้
 API Trading Keys ใช้ได้เฉพาะกับ account แบบ **cross-margin** และตลาดแบบ cross เท่านั้น ไม่รองรับ isolated margin
 :::
 
-## Order books {#order-books}
+## Order books [#order-books]
 
 order book สามารถดูแลได้แบบ full depth หรือแบบ quote ระดับ top-of-book ขึ้นอยู่กับ subscription
 venue ไม่ได้ให้ quote โดยตรง adapter จึง subscribe order book delta แล้วสังเคราะห์ quote ให้ `DataEngine`
 เมื่อราคาหรือขนาดที่ top-of-book เปลี่ยน รองรับเฉพาะ book type แบบ L2 (MBP)
 
-## การมีส่วนร่วม {#contributing}
+## การมีส่วนร่วม [#contributing]
 
 :::info
 หากต้องการฟีเจอร์เพิ่มเติมหรือมีส่วนร่วมพัฒนา adapter ของ dYdX โปรดดู

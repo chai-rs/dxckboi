@@ -1,4 +1,6 @@
-# Crypto Futures Spread
+---
+title: "Crypto Futures Spread"
+---
 
 `CryptoFuturesSpread` แทน spread strategy ที่ exchange กำหนดขึ้นบน crypto futures
 venue จะเผยแพร่ strategy นี้เป็น instrument เดียวที่มี symbol, ประเภท strategy, precision,
@@ -6,7 +8,7 @@ increment และวันหมดอายุเป็นของตัว�
 
 ตัวอย่างเช่น crypto futures calendar spread ที่จดทะเบียนซื้อขายใน exchange
 
-## Field {#fields}
+## Field [#fields]
 
 | Field                 | Rust type          | จำเป็น/ค่าเริ่มต้น | หมายเหตุ                                       |
 | --------------------- | ------------------ | ------------------ | ---------------------------------------------- |
@@ -38,7 +40,7 @@ increment และวันหมดอายุเป็นของตัว�
 | `ts_event`            | `UnixNanos`        | จำเป็น             | timestamp ของ event หน่วยนาโนวินาที            |
 | `ts_init`             | `UnixNanos`        | จำเป็น             | timestamp ตอน initialize หน่วยนาโนวินาที       |
 
-## พฤติกรรม {#behavior}
+## พฤติกรรม [#behavior]
 
 - `CryptoFuturesSpread` มี asset class เป็น `Cryptocurrency` และ instrument class เป็น
   `FuturesSpread`
@@ -48,7 +50,7 @@ increment และวันหมดอายุเป็นของตัว�
   instrument class นี้ ยกเว้น spread แบบ inverse
 - หาก adapter มีรายละเอียด leg เฉพาะของ venue ให้ ให้เก็บไว้ใน `info`
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 ```rust tab="Rust"
 use jiff::Timestamp;
@@ -86,14 +88,14 @@ let btc_spread = CryptoFuturesSpread::builder()
     .unwrap();
 ```
 
-## Adapter {#adapters}
+## Adapter [#adapters]
 
 **Adapter ที่สร้างหรือใช้ instrument `CryptoFuturesSpread` ได้แก่**:
 
 - [Deribit](../../integrations/deribit.md) สำหรับ crypto futures combo
 - [OKX](../../integrations/okx.md) สำหรับตลาด crypto futures spread
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Crypto Future](crypto_future.md) อธิบาย crypto futures แบบมีวันหมดอายุที่มี leg เดียว
 - [Futures Spread](futures_spread.md) อธิบาย futures spread ที่ไม่ใช่ crypto

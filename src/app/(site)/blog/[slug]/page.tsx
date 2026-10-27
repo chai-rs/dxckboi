@@ -13,11 +13,11 @@ export async function generateStaticParams() {
 export async function generateMetadata({
   params,
 }: {
-  params: {
+  params: Promise<{
     slug: string;
-  };
+  }>;
 }): Promise<Metadata | undefined> {
-  let post = await getPost(params.slug);
+  let post = await getPost((await params).slug);
 
   let {
     title,
@@ -54,11 +54,11 @@ export async function generateMetadata({
 export default async function Blog({
   params,
 }: {
-  params: {
+  params: Promise<{
     slug: string;
-  };
+  }>;
 }) {
-  let post = await getPost(params.slug);
+  let post = await getPost((await params).slug);
 
   if (!post) {
     notFound();
@@ -99,7 +99,7 @@ export default async function Blog({
         </Suspense>
       </div>
       <article
-        className="prose dark:prose-invert"
+        className="typography dark:typography-invert"
         dangerouslySetInnerHTML={{ __html: post.source }}
       ></article>
     </section>

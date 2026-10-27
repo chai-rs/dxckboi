@@ -1,11 +1,13 @@
-# Crypto Option Spread
+---
+title: "Crypto Option Spread"
+---
 
 `CryptoOptionSpread` แทน strategy ที่ exchange นิยามขึ้นบน crypto option โดย venue จะ publish
 strategy นี้เป็น instrument เดียวที่มี symbol, strategy type, precision, increment และวันหมดอายุเป็นของตัวเอง
 
 ตัวอย่างเช่น option combo ของ BTC หรือ ETH ที่ list อยู่บน venue ซื้อขาย crypto derivatives
 
-## ฟิลด์ {#fields}
+## ฟิลด์ [#fields]
 
 | ฟิลด์                  | Rust type          | Required/default | หมายเหตุ                                      |
 | --------------------- | ------------------ | ---------------- | -------------------------------------------- |
@@ -39,7 +41,7 @@ strategy นี้เป็น instrument เดียวที่มี symbol,
 
 **หมายเหตุ**: Rust เก็บค่าของ `instrument_id` ไว้ในฟิลด์ `id` (builder ใช้ `.instrument_id(...)`)
 
-## พฤติกรรม {#behavior}
+## พฤติกรรม [#behavior]
 
 - `CryptoOptionSpread` มี asset class เป็น `Cryptocurrency` และ instrument class เป็น
   `OptionSpread`
@@ -48,7 +50,7 @@ strategy นี้เป็น instrument เดียวที่มี symbol,
 - ราคา spread อาจเป็นศูนย์หรือติดลบได้ และ `RiskEngine` ยอมรับราคาที่ไม่เป็นบวกสำหรับ instrument class นี้
 - ให้เก็บรายละเอียดของแต่ละ leg ที่เฉพาะกับ venue ไว้ใน `info` เมื่อ adapter ส่งมาให้
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 ```rust tab="Rust"
 use jiff::Timestamp;
@@ -85,14 +87,14 @@ let btc_spread = CryptoOptionSpread::builder()
     .unwrap();
 ```
 
-## Adapters {#adapters}
+## Adapters [#adapters]
 
 **adapter ที่สร้างหรือใช้ instrument แบบ `CryptoOptionSpread` ได้แก่**:
 
 - [Deribit](../../integrations/deribit.md) สำหรับ crypto option combo
 - [OKX](../../integrations/okx.md) สำหรับตลาด crypto option spread
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Crypto Option](crypto_option.md) อธิบาย crypto option แบบ leg เดียว
 - [Option Spread](option_spread.md) อธิบาย option spread ที่ไม่ใช่ crypto

@@ -1,4 +1,6 @@
-# Cache
+---
+title: "Cache"
+---
 
 `Cache` คือที่เก็บข้อมูลใน memory ส่วนกลางสำหรับ trading state และ market data ล่าสุด actor และ strategy
 ใช้ cache เพื่ออ่านข้อมูลที่ data engine และ execution engine ดูแลอยู่ หรือเพื่อแชร์ข้อมูลแบบ raw bytes ภายใต้
@@ -10,7 +12,7 @@ cache ทำหน้าที่:
 - ติดตาม order, position, account, instrument และ currency จนกว่าจะถูก purge หรือ reset
 - แชร์ข้อมูลที่ผู้เรียก serialize เองระหว่าง component และ persist ข้อมูลนั้นเมื่อมีการตั้งค่า backing database
 
-## การทำงานของ cache {#how-caching-works}
+## การทำงานของ cache [#how-caching-works]
 
 engine จะเพิ่มข้อมูลแบบ built-in ลงใน `Cache` เมื่อ event ไหลผ่านระบบ live adapter ส่ง event ให้ engine
 แบบ asynchronous ดังนั้น cache จะเปลี่ยน **เมื่อ engine ประมวลผล event** ไม่ใช่ตอนที่ adapter ได้รับ event
@@ -33,14 +35,14 @@ flowchart LR
 ดูการไล่ลำดับทีละขั้นแบบเต็มได้ที่
 [Data flow: วงจรชีวิตของ quote tick](architecture.md#data-flow-life-of-a-quote-tick)
 
-### ตัวอย่างพื้นฐาน {#basic-example}
+### ตัวอย่างพื้นฐาน [#basic-example]
 
 ภายใน strategy สามารถเข้าถึง `Cache` ที่ใช้ร่วมกันเพื่ออ่าน bar ล่าสุด, state ของ position ปัจจุบัน และ
 open order ของ instrument ได้
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-## การตั้งค่า {#configuration}
+## การตั้งค่า [#configuration]
 
 ใช้ `CacheConfig` เพื่อตั้งค่าพฤติกรรมและความจุของ `Cache` แล้วส่งให้ `BacktestEngine` หรือ `LiveNode`
 ขึ้นอยู่กับ [environment context](architecture.md#environment-contexts)
@@ -53,7 +55,7 @@ open order ของ instrument ได้
 strategy ต้องการ lookback ใน memory ที่ยาวขึ้น และยอมรับการใช้ memory ที่เพิ่มขึ้นได้
 :::
 
-### ตัวเลือกการตั้งค่า {#configuration-options}
+### ตัวเลือกการตั้งค่า [#configuration-options]
 
 `CacheConfig` รองรับพารามิเตอร์ต่อไปนี้:
 
@@ -82,7 +84,7 @@ let config = CacheConfig {
 เมื่อถึง `bar_capacity` แล้ว `Cache` จะลบข้อมูลที่เก่าที่สุดออกโดยอัตโนมัติ
 :::
 
-### การตั้งค่า database {#database-configuration}
+### การตั้งค่า database [#database-configuration]
 
 ตั้งค่า database backing เพื่อกู้คืน cache record ที่รองรับและ persist สำเร็จแล้วหลังจาก restart record ที่
 กู้คืนได้ ได้แก่ general data, currency, instrument, instrument close, account, order และ position
@@ -174,9 +176,9 @@ nautilus database assign-account --account-id <ACCOUNT_ID> --trader-id <TRADER_I
 `CacheConfig.buffer_interval_ms` ไว้ การ return ออกจาก `run()` ทันทีอาจทำให้ข้อมูลเหล่านั้นหายไป
 :::
 
-## การใช้งาน cache {#using-the-cache}
+## การใช้งาน cache [#using-the-cache]
 
-### การเข้าถึง market data {#accessing-market-data}
+### การเข้าถึง market data [#accessing-market-data]
 
 `Cache` ให้เข้าถึง order book, quote, trade, bar และ market data อื่น ๆ ประวัติ market data ใน cache ใช้
 **reverse indexing**: index 0 คือรายการล่าสุด และ index 1 คือรายการก่อนหน้า accessor ที่คืนค่าเป็นรายการ
@@ -203,7 +205,7 @@ accessor ของประวัติแต่ละตัวคืนค่�
 `CacheConfig.bar_capacity` จำกัดประวัติของแต่ละ bar type ส่วน `CacheConfig.tick_capacity` จำกัดประวัติ
 อื่น ๆ แต่ละชนิดต่อ instrument เมื่อประวัติเต็มความจุแล้ว การเพิ่มรายการใหม่จะลบรายการสุดท้ายออก
 
-#### Order book {#order-book}
+#### Order book [#order-book]
 
 cache เก็บ state ของ order book ปัจจุบันของแต่ละ instrument ไม่ได้เก็บประวัติการอัปเดตของ book
 instrument close ก็เก็บค่าเดียวต่อ instrument เช่นกัน: `instrument_close(instrument_id)` คืนค่า close
@@ -212,11 +214,11 @@ instrument close ก็เก็บค่าเดียวต่อ instrument 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python ของ accessor ในส่วนนี้ (order book, quote, trade, bar, price,
 > bar type) จึงตัดออก
 
-#### Trade tick {#trade-ticks}
+#### Trade tick [#trade-ticks]
 
 quote และ trade จะสะสม tick ทั้งหมด รวมถึง tick ที่มี timestamp เดียวกัน
 
-#### การเข้าถึง bar {#bar-access}
+#### การเข้าถึง bar [#bar-access]
 
 ถ้าต้องการประมวลผล bar จากเก่าไปใหม่ ให้กลับลำดับรายการที่ได้คืนมา
 
@@ -230,20 +232,20 @@ bar ถูกเก็บแบบ **ใหม่สุดก่อนต่อ 
 - **Internal request aggregation**: cache จะแทรก bar ที่สร้างจาก request ลงในตำแหน่งตามลำดับแทนที่จะข้าม
   เพราะ cache เป็นช่องทางเดียวที่ส่ง bar เหล่านี้ออกไป
 
-#### การเข้าถึงราคา {#price-access}
+#### การเข้าถึงราคา [#price-access]
 
 ดึงราคาปัจจุบันตามประเภทได้ โดยมีตัวเลือก `BID`, `ASK`, `MID`, `LAST` และ `MARK`
 
-#### Bar type {#bar-types}
+#### Bar type [#bar-types]
 
 ดึง bar type ทั้งหมดที่มีของ instrument ได้ โดยกรองตาม price type (`BID`, `ASK`, `MID`, `LAST`, `MARK`)
 และ aggregation source
 
-#### ตัวอย่างอย่างง่าย {#simple-example}
+#### ตัวอย่างอย่างง่าย [#simple-example]
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-### Trading object {#trading-objects}
+### Trading object [#trading-objects]
 
 `Cache` ให้เข้าถึง trading object เช่น:
 
@@ -252,38 +254,38 @@ bar ถูกเก็บแบบ **ใหม่สุดก่อนต่อ 
 - Account
 - Instrument
 
-#### Order {#orders}
+#### Order [#orders]
 
 query order ได้ตาม venue, strategy, instrument, account หรือ order side
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python ของการเข้าถึง order, การ query สถานะ (open, closed, emulated,
 > inflight, active local) และสถิติของ order จึงตัดออก
 
-#### Position {#positions}
+#### Position [#positions]
 
 `Cache` เก็บ position ไว้จนกว่าจะถูก purge หรือ reset และมีหลายวิธีให้ query
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python ของการเข้าถึง position, การ query สถานะ และสถิติของ position
 > จึงตัดออก
 
-#### Account {#accounts}
+#### Account [#accounts]
 
 การค้นหาด้วย venue จะได้ผลก็ต่อเมื่อมี account ที่ออกภายใต้ venue นั้นเพียงหนึ่ง account เท่านั้น (venue คือ
 prefix ของ account ID เช่น `BINANCE` ใน `BINANCE-001`) เมื่อมีหลาย account ใช้ venue เดียวกัน
 `account_for_venue` และ `account_id` จะไม่คืนค่า ให้ดึง account เหล่านั้นด้วย ID แทน
 
-#### Instrument {#instruments}
+#### Instrument [#instruments]
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python (ดึง instrument ตาม ID, ทั้งหมด, ตาม venue และดึง instrument ID)
 > จึงตัดออก
 
-### การ purge ข้อมูลใน cache {#purging-cached-data}
+### การ purge ข้อมูลใน cache [#purging-cached-data]
 
 session ที่ทำงานยาวนานจะสะสม closed order, closed position, account event และ instrument ที่ไม่ได้ใช้แล้ว
 cache มี method สำหรับ purge ทั้งแบบเจาะจงและแบบเป็นชุด เพื่อให้ strategy และ live trading engine คุมการใช้
 memory ได้โดยไม่ต้อง restart ระบบ
 
-#### การ purge แบบเจาะจง {#targeted-purges}
+#### การ purge แบบเจาะจง [#targeted-purges]
 
 ใช้เพื่อลบ entity ทีละตัว แต่ละ method จะไม่ purge ถ้า entity นั้นยัง active อยู่
 
@@ -304,7 +306,7 @@ instrument แล้ว การ purge instrument ที่ component อื่
 ถ้าไม่ต้องการรับอัปเดตอีก
 :::
 
-#### การ purge แบบเป็นชุด {#bulk-purges}
+#### การ purge แบบเป็นชุด [#bulk-purges]
 
 ใช้เพื่อกวาดรายการที่เก่าออกตามอายุ โดยรับ timestamp ปัจจุบันและช่วง buffer หรือ lookback หน่วยวินาที
 
@@ -319,7 +321,7 @@ instrument แล้ว การ purge instrument ที่ component อื่
 การ purge position นั้นจะลบประวัติที่จำเป็นสำหรับ route fill ที่ตามมา และอาจทำให้ engine reject fill เหล่านั้น
 :::
 
-#### การ purge อัตโนมัติใน live trading {#automatic-purging-in-live-trading}
+#### การ purge อัตโนมัติใน live trading [#automatic-purging-in-live-trading]
 
 `LiveExecutionEngineConfig` ตั้งเวลาให้ purge แบบเป็นชุดทำงานด้วย timer ช่วงเวลา purge ทุกตัวมีค่า default
 เป็น `None` ซึ่งปิด loop ที่เกี่ยวข้องไว้ ตั้งค่า interval เพื่อเปิด loop และตั้ง buffer หรือ lookback เพื่อควบคุม
@@ -339,12 +341,12 @@ interval ที่สั้นลงทำให้ purge บ่อยขึ้�
 ไม่ใช่อายุ ให้เรียก `cache.purge_instrument` จาก actor หรือ strategy ที่ดูแล lifecycle ของ instrument นั้น
 :::
 
-### Custom data {#custom-data}
+### Custom data [#custom-data]
 
 `Cache` เก็บ raw bytes ภายใต้ string key ที่แอปพลิเคชันกำหนด ให้ serialize ค่าก่อนเพิ่ม และ deserialize หลัง
 ดึงออกมา actor และ strategy ใช้รายการเหล่านี้เพื่อแชร์ข้อมูลแอปพลิเคชันจำนวนเล็กน้อยได้
 
-#### การเก็บและดึงข้อมูลเบื้องต้น {#basic-storage-and-retrieval}
+#### การเก็บและดึงข้อมูลเบื้องต้น [#basic-storage-and-retrieval]
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python (`add` และ `get` ด้วย key) จึงตัดออก
 
@@ -352,9 +354,9 @@ interval ที่สั้นลงทำให้ purge บ่อยขึ้�
 `Cache` ไม่ใช่ database ทั่วไป ให้ใช้ที่เก็บข้อมูลเฉพาะทางสำหรับชุดข้อมูลขนาดใหญ่หรือ query ที่ซับซ้อน
 :::
 
-## แนวปฏิบัติที่ดีและคำถามที่พบบ่อย {#best-practices-and-common-questions}
+## แนวปฏิบัติที่ดีและคำถามที่พบบ่อย [#best-practices-and-common-questions]
 
-### Cache กับ portfolio {#cache-vs-portfolio-usage}
+### Cache กับ portfolio [#cache-vs-portfolio-usage]
 
 `Cache` และ `Portfolio` มีหน้าที่ต่างกัน:
 
@@ -369,7 +371,7 @@ interval ที่สั้นลงทำให้ purge บ่อยขึ้�
 - รวบรวมข้อมูล position, exposure และ account
 - คำนวณมูลค่า portfolio ปัจจุบันจาก state ใน cache และราคาตลาด
 
-### Cache กับตัวแปรของ strategy {#cache-vs-strategy-variables}
+### Cache กับตัวแปรของ strategy [#cache-vs-strategy-variables]
 
 ใช้รายการใน cache สำหรับข้อมูลที่แชร์และ serialize แล้ว และใช้ตัวแปรของ strategy สำหรับ working state ภายใน
 
@@ -393,7 +395,7 @@ interval ที่สั้นลงทำให้ purge บ่อยขึ้�
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Data](data/): ชนิดข้อมูลที่เก็บใน cache
 - [Strategies](strategies.md): strategy เข้าถึง cache เพื่ออ่าน market data และ state

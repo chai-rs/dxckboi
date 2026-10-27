@@ -1,11 +1,13 @@
-# Crypto Option
+---
+title: "Crypto Option"
+---
 
 `CryptoOption` แทน option แบบ put หรือ call บน underlying ที่เป็น crypto โดยกำหนดชนิดของ option,
 strike price, เวลา activation, เวลาหมดอายุ, quote currency, settlement currency และขนาดของสัญญา
 
 ตัวอย่างเช่น option ของ BTC และ ETH บน venue ประเภท crypto derivatives
 
-## Field {#fields}
+## Field [#fields]
 
 | Field                 | Rust type          | Required/default | หมายเหตุ                                       |
 | --------------------- | ------------------ | ---------------- | --------------------------------------------- |
@@ -38,14 +40,14 @@ strike price, เวลา activation, เวลาหมดอายุ, quote 
 | `ts_event`            | `UnixNanos`        | Required         | Event timestamp หน่วย nanosecond               |
 | `ts_init`             | `UnixNanos`        | Required         | Initialization timestamp หน่วย nanosecond      |
 
-## พฤติกรรม {#behavior}
+## พฤติกรรม [#behavior]
 
 - `CryptoOption` มี asset class เป็น `Cryptocurrency` และ instrument class เป็น `Option`
 - ชนิดของ option และ strike price เป็นตัวกำหนดรูปแบบ payoff
 - สัญญาอาจเป็นแบบ linear, inverse หรือ quanto ขึ้นอยู่กับชุดของสกุลเงิน
 - สำหรับ listed option ที่ไม่ใช่ crypto ให้ใช้ `OptionContract`
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 ```rust tab="Rust"
 use jiff::Timestamp;
@@ -89,7 +91,7 @@ let btc_option = CryptoOption::builder()
     .unwrap();
 ```
 
-## Adapter {#adapters}
+## Adapter [#adapters]
 
 **Adapter ที่สร้างหรือใช้งาน instrument ประเภท `CryptoOption` ได้แก่**:
 
@@ -98,7 +100,7 @@ let btc_option = CryptoOption::builder()
 - [OKX](../../integrations/okx.md) สำหรับ crypto option
 - [Tardis](../../integrations/tardis.md) สำหรับ metadata ของ crypto option
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Options](../options.md) อธิบายข้อมูล option, Greeks และการ subscribe option chain
 - [Crypto Option Spread](crypto_option_spread.md) อธิบาย crypto option spread ที่ exchange กำหนดขึ้น

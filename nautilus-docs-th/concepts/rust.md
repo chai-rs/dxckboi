@@ -1,4 +1,6 @@
-# Rust
+---
+title: "Rust"
+---
 
 Nautilus มี implementation ที่สมบูรณ์ด้วย Rust อยู่ใต้ไดเรกทอรี `crates/`
 คุณเขียน actor, strategy, รัน backtest และทำ live trading ได้โดยไม่ต้องใช้ Python เลย
@@ -8,12 +10,12 @@ Rust API ยังอยู่ระหว่างการพัฒนาอ�
 อาจเปลี่ยนแปลงได้ระหว่าง release
 :::
 
-## ส่วนประกอบของระบบ {#system-implementations}
+## ส่วนประกอบของระบบ [#system-implementations]
 
 implementation แบบ Rust ล้วนอยู่ใต้ `crates/` และรันได้โดยไม่ต้องมี Python runtime ให้ performance แบบ native
 และมีฟังก์ชันการเทรดหลักครบทั้งหมด เหมาะกับ deployment ที่อ่อนไหวต่อ latency หรือทีมที่ชอบภาษาแบบ compile
 
-### ตารางความสามารถ {#capability-matrix}
+### ตารางความสามารถ [#capability-matrix]
 
 | Component       | Rust |
 | --------------- | ---- |
@@ -42,7 +44,7 @@ runtime ของ Controller เขียนด้วย Rust แต่ตาร
 (controller config ที่ import ได้) ยังใช้จาก Rust ไม่ได้
 :::
 
-### Adapters {#adapters}
+### Adapters [#adapters]
 
 | Adapter             | Rust |
 | ------------------- | ---- |
@@ -65,7 +67,7 @@ runtime ของ Controller เขียนด้วย Rust แต่ตาร
 | Sandbox             | ✓    |
 | Tardis              | ✓    |
 
-## การตั้งค่าโปรเจกต์ {#project-setup}
+## การตั้งค่าโปรเจกต์ [#project-setup]
 
 crate ของ Nautilus publish อยู่บน
 [crates.io](https://crates.io/crates/nautilus-backtest) เพิ่มลงใน
@@ -105,7 +107,7 @@ nautilus-trading = { git = "https://github.com/nautechsystems/nautilus_trader.gi
 
 Rust เวอร์ชันต่ำสุดที่รองรับ (MSRV) คือ **1.99.1**
 
-### Feature flags {#feature-flags}
+### Feature flags [#feature-flags]
 
 | Flag             | Crate               | ผล                                                    |
 | ---------------- | ------------------- | ---------------------------------------------------- |
@@ -120,7 +122,7 @@ precision มาตรฐาน 9 หลักเพียงพอสำหร�
 เปิด `high-precision` สำหรับ venue crypto ที่ราคาหรือ quantity ต้องการทศนิยมมากกว่าเก้าตำแหน่ง
 :::
 
-### Memory allocator {#memory-allocator}
+### Memory allocator [#memory-allocator]
 
 CLI `nautilus` ใช้ [mimalloc](https://crates.io/crates/mimalloc) สำหรับการจองหน่วยความจำของ Rust
 binary ของ Rust จะเลือก allocator ของตัวเอง ดังนั้นให้เพิ่ม mimalloc ลงใน binary ของคุณเพื่อให้ตรงกัน:
@@ -149,7 +151,7 @@ fn main() {
 system allocator แบบ default ก็ใช้ได้เช่นกัน เมื่อเปรียบเทียบ allocator ให้วัด throughput และ resident memory บน
 workload และ platform ของคุณเอง ดูพื้นหลังเพิ่มเติมได้ที่ [architecture guide](architecture.md#memory-allocation)
 
-## Actors {#actors}
+## Actors [#actors]
 
 actor รับ market data, custom data/signal และ system event แต่ไม่จัดการ order ให้ implement trait `DataActor`
 และใช้ `nautilus_actor!` เพื่อเชื่อมฟิลด์ `DataActorCore` ของคุณเข้ากับ runtime contract type ของคุณต้อง implement
@@ -157,7 +159,7 @@ actor รับ market data, custom data/signal และ system event แต่
 
 โดยปกติโค้ดของผู้ใช้จะใช้ facade method ของ `DataActor` สำหรับการ subscribe, การเข้าถึง cache และ clock
 
-### Handler methods {#handler-methods}
+### Handler methods [#handler-methods]
 
 override handler ใดก็ได้บน trait `DataActor` เพื่อรับข้อมูลหรือ event ที่ตรงกัน handler ทุกตัวมี implementation
 default ที่ไม่ทำอะไร (no-op) คุณจึง override เฉพาะที่ต้องใช้
@@ -184,7 +186,7 @@ default ที่ไม่ทำอะไร (no-op) คุณจึง override
 และดูตัวอย่างที่สมบูรณ์ได้ที่
 [`BookImbalanceActor`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/trading/src/examples/actors/imbalance)
 
-## Strategies {#strategies}
+## Strategies [#strategies]
 
 strategy ขยาย actor ด้วยความสามารถในการจัดการ order ให้ implement `DataActor` สำหรับการจัดการข้อมูล และใช้
 `nautilus_strategy!` เพื่อเชื่อมฟิลด์ `StrategyCore` ของคุณเข้ากับ strategy runtime contract `StrategyCore`
@@ -194,7 +196,7 @@ logic ของ strategy ตามปกติใช้ method ของ `Strate
 strategy ยัง override order event handler บน trait `Strategy` ได้ด้วย เช่น `on_order_filled` (`OrderFilled`) และ
 `on_order_canceled` (`OrderCanceled`)
 
-### การจัดการ order {#order-management}
+### การจัดการ order [#order-management]
 
 trait `Strategy` มี method สำหรับ order ผ่าน facade:
 
@@ -225,7 +227,7 @@ trait `Strategy` มี method สำหรับ order ผ่าน facade:
 - `bracket`
 - `create_list`
 
-### การเข้าถึง cache และ clock {#cache-and-clock-access}
+### การเข้าถึง cache และ clock [#cache-and-clock-access]
 
 การเข้าถึง cache และ clock รายงาน borrow conflict ผ่าน interface ที่ต่างกัน:
 
@@ -237,7 +239,7 @@ trait `Strategy` มี method สำหรับ order ผ่าน facade:
 
 ให้ปล่อย borrow ที่ขัดแย้งกันก่อน retry error เหล่านี้ไม่ได้เลื่อน callback หรือเปลี่ยนลำดับการส่ง callback
 
-### Macro สำหรับเชื่อม core {#core-wiring-macros}
+### Macro สำหรับเชื่อม core [#core-wiring-macros]
 
 actor, strategy และ execution algorithm ของ Rust เก็บ runtime core ไว้เป็นฟิลด์ของ struct macro จะบอก trait
 ว่าฟิลด์นั้นอยู่ที่ไหน
@@ -252,7 +254,7 @@ macro คาดหวังฟิลด์ชื่อ `core` ถ้าจำเ
 หรือ `StrategyCore` deref ไปยังส่วนภายในของ runtime macro ของ execution algorithm รับ implementation block
 ของ `on_order()` เพราะ method นั้นนิยามการจัดการ order ที่ algorithm ต้องมี
 
-### Native trait {#native-traits}
+### Native trait [#native-traits]
 
 โดย default ให้ใช้ facade method:
 
@@ -288,7 +290,7 @@ logic ปกติของ execution algorithm ควรใช้ `id()`, `acto
 ให้เลือก native handle ที่เล็กที่สุดและจำกัดขอบเขตของแต่ละ borrow ใช้ `order()` สำหรับการสร้าง order ตามปกติของ
 strategy และใช้ `order_factory()` เฉพาะเมื่อโค้ด native ต้องการ borrow แบบ mutable ของ factory โดยตรง
 
-#### Method ของ `DataActorNative` {#dataactornative-methods}
+#### Method ของ `DataActorNative` [#dataactornative-methods]
 
 | Native method | Return shape             | ใช้เมื่อ                                 |
 | ------------- | ------------------------ | --------------------------------------- |
@@ -310,7 +312,7 @@ error จะระบุ resource และการทำงานที่พ�
 เพียงอย่างเดียวไม่ได้บอกสาเหตุ ดูความหมายของข้อความและวิธีแก้ได้ที่ [reentrancy
 diagnostics](../developer_guide/callback_dispatch.md#reentrancy-and-dispatch-diagnostics)
 
-#### Method ของ `StrategyNative` {#strategynative-methods}
+#### Method ของ `StrategyNative` [#strategynative-methods]
 
 | Native method         | Return shape                | ใช้เมื่อ                                 |
 | --------------------- | --------------------------- | --------------------------------------- |
@@ -320,7 +322,7 @@ diagnostics](../developer_guide/callback_dispatch.md#reentrancy-and-dispatch-dia
 | `order_factory_rc()`  | `Rc<RefCell<OrderFactory>>` | เก็บหรือส่งต่อ factory                     |
 | `portfolio_rc()`      | `Rc<RefCell<Portfolio>>`    | เก็บหรือส่งต่อ portfolio                   |
 
-#### Method ของ `ExecutionAlgorithmNative` {#executionalgorithmnative-methods}
+#### Method ของ `ExecutionAlgorithmNative` [#executionalgorithmnative-methods]
 
 | Native method               | Return shape                  | ใช้เมื่อ                                     |
 | --------------------------- | ----------------------------- | ------------------------------------------- |
@@ -333,11 +335,11 @@ diagnostics](../developer_guide/callback_dispatch.md#reentrancy-and-dispatch-dia
 และ
 [`GridMarketMaker`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/trading/src/examples/strategies/grid_mm)
 
-### การรัน Rust component {#running-rust-components}
+### การรัน Rust component [#running-rust-components]
 
 ตัวอย่างด้านล่างใช้ strategy แต่ใช้รูปแบบเดียวกันกับ actor ผ่าน `add_actor`
 
-#### Rust ล้วน {#pure-rust}
+#### Rust ล้วน [#pure-rust]
 
 เขียน strategy และฟังก์ชัน `main` ด้วย Rust แล้ว build เป็น binary แบบ standalone ด้วย `cargo build`
 วิธีนี้ไม่ต้องมี Python runtime
@@ -350,12 +352,12 @@ node.run().await?;
 
 ดูคำอธิบายฉบับเต็มได้ที่ [Run Live Trading (Rust)](../how_to/run_rust_live_trading.md)
 
-## Backtesting {#backtesting}
+## Backtesting [#backtesting]
 
 ดูคำอธิบายพร้อม annotation ของทั้งสอง API ได้ที่คู่มือ
 [Run a Backtest (Rust)](../how_to/run_rust_backtest.md)
 
-### `BacktestEngine` (API ระดับล่าง) {#backtestengine-low-level-api}
+### `BacktestEngine` (API ระดับล่าง) [#backtestengine-low-level-api]
 
 สร้าง engine เพิ่ม venue และ instrument โหลดข้อมูล ลงทะเบียน strategy แล้วรัน ดูตัวอย่างที่ใช้งานได้ฉบับเต็ม:
 
@@ -366,7 +368,7 @@ cargo run -p nautilus-backtest --features examples --example engine-ema-cross
 Source:
 [`crates/backtest/examples/engine_ema_cross.rs`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/backtest/examples/engine_ema_cross.rs)
 
-### `BacktestNode` (API ระดับสูง) {#backtestnode-high-level-api}
+### `BacktestNode` (API ระดับสูง) [#backtestnode-high-level-api]
 
 โหลดข้อมูลจาก `ParquetDataCatalog` และรองรับการ stream เป็น chunk ที่ตั้งขนาดได้ ต้องเปิด feature `streaming`
 บน `nautilus-backtest` ดูตัวอย่างที่ใช้งานได้ฉบับเต็ม:
@@ -378,7 +380,7 @@ cargo run -p nautilus-backtest --features examples,streaming --example node-ema-
 Source:
 [`crates/backtest/examples/node_ema_cross.rs`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/backtest/examples/node_ema_cross.rs)
 
-## Live trading {#live-trading}
+## Live trading [#live-trading]
 
 ดูคำอธิบายพร้อม annotation ได้ที่คู่มือ
 [Run Live Trading (Rust)](../how_to/run_rust_live_trading.md)
@@ -410,7 +412,7 @@ execution client จากนั้น `run()` จะเริ่ม async event
 adapter ส่วนใหญ่มีตัวอย่าง `node_data_tester.rs` และ `node_exec_tester.rs` ซึ่งทดสอบการ request ข้อมูล
 การ stream และการ execute order กับ venue จริง
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [เขียน Actor (Rust)](../how_to/write_rust_actor.md) - คำอธิบาย actor ทีละขั้น
 - [เขียน Strategy (Rust)](../how_to/write_rust_strategy.md) - คำอธิบาย strategy ทีละขั้น

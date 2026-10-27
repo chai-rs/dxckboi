@@ -1,9 +1,11 @@
-# Data catalog
+---
+title: "Data catalog"
+---
 
 Data catalog จัดเก็บข้อมูลของ NautilusTrader ในไฟล์ [Parquet](https://parquet.apache.org) เพื่อใช้ใน backtest,
 live trading และงานวิจัย
 
-## ภาพรวมและสถาปัตยกรรม {#overview-and-architecture}
+## ภาพรวมและสถาปัตยกรรม [#overview-and-architecture]
 
 `ParquetDataCatalog` ทำงานบน catalog ที่เขียนด้วย Rust และ query engine ของ DataFusion crate ด้าน model และ
 persistence ของ Rust เป็นตัวกำหนด Arrow schema ของข้อมูลที่มีมาให้ ส่วน custom data ที่ลงทะเบียนไว้จะส่ง schema และ
@@ -16,17 +18,17 @@ query ของ Nautilus จะคงความละเอียดระด�
 Parquet ให้การจัดเก็บแบบ columnar ที่บีบอัดได้และเข้าถึงได้จากหลายภาษา catalog เก็บไฟล์เหล่านี้ไว้ใต้ root เดียว
 โดยไม่ต้องมี database service แยกต่างหาก path แบบ local หรือ URI ของ object store เป็นตัวเลือก storage backend
 
-## การ initialize {#initializing}
+## การ initialize [#initializing]
 
 ส่ง path แบบ local หรือ URI เป็น argument แรกของ constructor
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-## Filesystem protocol และ storage option {#filesystem-protocols-and-storage-options}
+## Filesystem protocol และ storage option [#filesystem-protocols-and-storage-options]
 
 Catalog รองรับ storage protocol ตามที่ object-store backend ฝั่ง Rust รองรับ
 
-### Filesystem protocol ที่รองรับ {#supported-filesystem-protocols}
+### Filesystem protocol ที่รองรับ [#supported-filesystem-protocols]
 
 | Storage              | URI scheme         | Option key ที่ใช้บ่อย                                                       |
 | -------------------- | ------------------ | ------------------------------------------------------------------------- |
@@ -50,7 +52,7 @@ Option key คือ configuration key ของ `object_store` สำหรั�
 และต้องไม่มีอักขระที่ path ของ object-store จะ encode เช่น `~`, `%`, `#`, `?`, `^` หรือ `|` catalog จะปฏิเสธ URI
 ลักษณะนี้ตอนเปิด พร้อม error ที่ระบุ URI นั้น
 
-## การบีบอัดและ row group {#compression-and-row-groups}
+## การบีบอัดและ row group [#compression-and-row-groups]
 
 `DataCatalogConfig` กำหนดวิธีที่ catalog ที่ตั้งค่าไว้อ่านและเขียนไฟล์ข้อมูล:
 
@@ -83,7 +85,7 @@ codec `LZ4` แบบเก่าที่มี Hadoop framing แล้ว cat
 ไม่รองรับ LZO เพราะ Parquet writer สร้างไม่ได้ ชื่อ `lzo` และรหัส `3` จึงล้มเหลวตอนสร้าง
 :::
 
-## การเขียนข้อมูล {#writing-data}
+## การเขียนข้อมูล [#writing-data]
 
 ใช้ writer ที่ตรงกับประเภทข้อมูลจริง instrument definition และ custom data มี writer แยกต่างหาก
 
@@ -105,7 +107,7 @@ identity เดียว เช่น instrument ID หรือ bar type เด
 อย่าให้ query, การเขียน record หรือ [catalog operation](#catalog-operations) ทับซ้อนกับการเรียกอื่นบน instance เดียวกัน
 การเรียกพร้อมกันอาจเกิด error หากการเรียกตัวใดตัวหนึ่งต้องการสิทธิ์เข้าถึงแบบ exclusive
 
-## การตั้งชื่อไฟล์และการจัดระเบียบข้อมูล {#file-naming-and-data-organization}
+## การตั้งชื่อไฟล์และการจัดระเบียบข้อมูล [#file-naming-and-data-organization]
 
 Catalog ตั้งชื่อไฟล์ตามช่วง timestamp ด้วยรูปแบบ `{start_timestamp}_{end_timestamp}.parquet` โดยแปลง timestamp
 ISO 8601 แต่ละตัวให้ปลอดภัยสำหรับชื่อไฟล์ด้วยการแทน `:` และ `.` ด้วย `-`
@@ -140,7 +142,7 @@ Query ของ catalog และ backtest จึงอ่าน **เฉพา�
 ตั้ง `skip_disjoint_check=True` เฉพาะเมื่อตั้งใจให้ทับซ้อนเท่านั้น
 :::
 
-## การอ่านข้อมูล {#reading-data}
+## การอ่านข้อมูล [#reading-data]
 
 ใช้ typed query เมื่อทราบประเภทผลลัพธ์ที่ต้องการ (เช่น `query_quote_ticks`, `query_trade_ticks`) โดย `start` และ `end`
 เป็น UNIX nanosecond
@@ -168,11 +170,11 @@ Request ของ quote และ trade ที่ระบุ `params["schema"]`
 
 ความล้มเหลวในการเขียน catalog จะถูก log ไว้และไม่ทำให้ข้อมูลที่คืนมาถูกทิ้ง
 
-## `BacktestDataConfig`: ข้อมูลสำหรับ backtest {#backtestdataconfig-backtest-data}
+## `BacktestDataConfig`: ข้อมูลสำหรับ backtest [#backtestdataconfig-backtest-data]
 
 `BacktestDataConfig` กำหนดข้อมูลใน catalog ที่ `BacktestNode` จะโหลดสำหรับหนึ่ง run
 
-### พารามิเตอร์หลัก {#core-parameters}
+### พารามิเตอร์หลัก [#core-parameters]
 
 - `data_type` เป็นค่า `NautilusDataType`: `QuoteTick`, `TradeTick`, `Bar`, `OrderBookDelta`, `OrderBookDepth`,
   `MarkPriceUpdate`, `IndexPriceUpdate`, `FundingRateUpdate`, `InstrumentStatus`, `OptionGreeks`, `InstrumentClose`
@@ -191,17 +193,17 @@ Request ของ quote และ trade ที่ระบุ `params["schema"]`
 - `batch_deltas` (ค่าเริ่มต้น `True`) จะ replay ข้อมูล `OrderBookDelta` เป็น batch `OrderBookDeltas` ที่ปิดด้วย `F_LAST`
   ดู [order book delta replay](../backtesting/apis-and-runs.md#order-book-delta-replay)
 
-### Cloud storage และการกรอง {#cloud-storage-and-filtering}
+### Cloud storage และการกรอง [#cloud-storage-and-filtering]
 
 สำหรับ catalog บน cloud ให้ใช้ `catalog_fs_protocol` (เช่น `s3`) ร่วมกับ `catalog_fs_rust_storage_options` เพื่อส่ง credential
 และใช้ `filter_expr` (เช่น `ts_init >= 1704067200000000000`) เพื่อกรองข้อมูล
 
-### การใช้ร่วมกับ BacktestRunConfig {#integration-with-backtestrunconfig}
+### การใช้ร่วมกับ BacktestRunConfig [#integration-with-backtestrunconfig]
 
 ส่ง data config เหล่านี้ให้ `BacktestRunConfig` ผ่าน field `data` ร่วมกับ config ของ venue และขอบเขตเวลา `start`/`end`
 ของ run
 
-### ขั้นตอนการโหลดข้อมูล {#data-loading-process}
+### ขั้นตอนการโหลดข้อมูล [#data-loading-process]
 
 เมื่อ backtest ทำงาน `BacktestNode` จะประมวลผล `BacktestDataConfig` แต่ละตัวดังนี้:
 
@@ -210,14 +212,14 @@ Request ของ quote และ trade ที่ระบุ `params["schema"]`
 1. สร้างและรัน DataFusion query จาก field ใน configuration
 1. เรียงข้อมูลที่ merge แล้วตาม `ts_init` และเพิ่มเข้าไปใน backtest engine
 
-## การเข้าถึง catalog โดยตรง {#direct-catalog-access}
+## การเข้าถึง catalog โดยตรง [#direct-catalog-access]
 
 - ใช้ `ParquetDataCatalog` เพื่อ query หรือเขียน catalog โดยตรง
 - ใช้ `BacktestDataConfig` เมื่อต้องการให้ `BacktestNode` โหลดข้อมูลจาก catalog สำหรับ run
 - ใช้ `LiveNodeConfig.catalogs` เพื่อลงทะเบียน catalog สำหรับ historical request ซึ่งไม่ได้ preload ข้อมูลแบบที่
   `BacktestDataConfig` ทำ ส่วน field `streaming` ที่แยกต่างหากใช้กำหนดการเขียน Feather เท่านั้น
 
-## การ query และการกรอง {#querying-and-filtering}
+## การ query และการกรอง [#querying-and-filtering]
 
 `query` แบบ generic เลือกกลุ่มข้อมูลผ่าน `NautilusDataType` ซึ่ง map ไปยัง directory ของ catalog เช่น `quotes`,
 `trades` หรือ `bars` ใช้เมื่อต้องการควบคุม `files` หรือ `optimize_file_loading`
@@ -238,7 +240,7 @@ Query method ทั้งหมดนี้ใช้ขอบเขตเวล�
 ให้ตรงกันใน `.cargo/audit.toml` และ `deny.toml` จนกว่า DataFusion จะ migrate
 :::
 
-## Catalog operation {#catalog-operations}
+## Catalog operation [#catalog-operations]
 
 Catalog operation ใช้เปลี่ยนชื่อ, รวม หรือลบไฟล์ข้อมูล โดยมีตัวเลือกประเภทดังนี้:
 
@@ -248,7 +250,7 @@ Catalog operation ใช้เปลี่ยนชื่อ, รวม หร�
 
 `delete_data_range(...)` รับเฉพาะ `NautilusDataType` เพราะมีแต่กลุ่มข้อมูลเท่านั้นที่รองรับการลบเป็นช่วง
 
-### Reset ชื่อไฟล์ {#reset-file-names}
+### Reset ชื่อไฟล์ [#reset-file-names]
 
 Reset ชื่อไฟล์ Parquet ให้ตรงกับ timestamp ของเนื้อหา เพื่อให้การกรองตามชื่อไฟล์ยังแม่นยำ `reset_all_file_names()`
 ประมวลผลทั้ง catalog ส่วน `reset_data_file_names(...)` เจาะจง data path
@@ -259,7 +261,7 @@ Reset ชื่อไฟล์ Parquet ให้ตรงกับ timestamp ข
 - หากไม่ระบุ ID การทำงานจะอ่าน directory ของประเภทนั้นแบบ recursive และเปลี่ยนชื่อแต่ละไฟล์ภายใน directory ของ
   instrument ของมันเอง โดยตรวจสอบช่วงเวลาของแต่ละ directory ก่อนเปลี่ยนชื่อไฟล์ใด ๆ
 
-### กู้คืนจากชื่อไฟล์ที่ทับซ้อนกัน {#recover-from-overlapping-file-names}
+### กู้คืนจากชื่อไฟล์ที่ทับซ้อนกัน [#recover-from-overlapping-file-names]
 
 ชื่อไฟล์ที่ทับซ้อนกันจะบล็อกการเขียนลงใน directory ที่ได้รับผลกระทบ การขยายความครอบคลุมที่ถูกปฏิเสธจะไม่เปลี่ยนชื่อไฟล์เลย
 ดังนั้นการทับซ้อนจึงบ่งชี้ว่าเกิดจากการเปลี่ยนชื่อครั้งก่อน, การย้ายไฟล์ด้วยมือ หรือ writer ที่ทำงานพร้อมกัน
@@ -283,13 +285,13 @@ directory นั้นเลย ส่วน directory ที่ reset ไปก
 ใช้การ reset ชื่อไฟล์เฉพาะกรณีที่เสียหายแค่ชื่อไฟล์เท่านั้น เมื่อเนื้อหาของไฟล์ทับซ้อนกัน การ reset ชื่อไฟล์ไม่สามารถ
 กระทบยอดข้อมูลได้และจะล้มเหลว ให้สร้างช่วงที่ได้รับผลกระทบขึ้นใหม่จากต้นทางผ่านกระบวนการที่ตรวจสอบแยกต่างหาก
 
-### รวม catalog {#consolidate-catalog}
+### รวม catalog [#consolidate-catalog]
 
 รวมไฟล์ Parquet ขนาดเล็กเข้าด้วยกันเพื่อลดจำนวนไฟล์และ overhead ของ query เมื่อไม่ระบุขอบเขต `consolidate_catalog()`
 จะประมวลผลทุก leaf data directory ใน catalog ส่วน `consolidate_data(...)` ทำงานกับ directory เดียว ระบุ instrument ID
 สำหรับประเภทข้อมูลที่แบ่ง partition ตาม instrument โดยรับขอบเขต `start`/`end` และ option `ensure_contiguous_files` ได้
 
-### รวม catalog ตามช่วงเวลา {#consolidate-catalog-by-period}
+### รวม catalog ตามช่วงเวลา [#consolidate-catalog-by-period]
 
 แบ่งไฟล์ข้อมูลเป็นช่วงเวลาคงที่ ทั้ง duration และขอบเขตเวลาใช้หน่วย nanosecond ทั้งสอง method
 (`consolidate_catalog_by_period` และ `consolidate_data_by_period`) รับขอบเขตแบบ optional และ `period_nanos`
@@ -300,7 +302,7 @@ directory นั้นเลย ส่วน directory ที่ reset ไปก
 - **Method ราย data type**: ปฏิเสธตัวเลือกแบบ instrument และ record ซึ่งไม่มีการเขียนใหม่ตามช่วงเวลา ให้ใช้
   `consolidate_data(...)` สำหรับกรณีเหล่านั้น
 
-### ลบช่วงข้อมูล {#delete-data-range}
+### ลบช่วงข้อมูล [#delete-data-range]
 
 ลบข้อมูลภายในช่วงเวลา โดยอาจจำกัดเฉพาะ data type และ instrument เดียว ระบุ instrument ID สำหรับข้อมูลที่แบ่ง partition
 ตาม instrument ขอบเขตเวลาทำงานดังนี้:
@@ -321,7 +323,7 @@ directory นั้นเลย ส่วน directory ที่ reset ไปก
 การลบไม่สามารถย้อนกลับได้ catalog จะแบ่งไฟล์ที่ทับซ้อนบางส่วนเพื่อรักษาข้อมูลที่อยู่นอกช่วงไว้
 :::
 
-## Feather streaming และการแปลง {#feather-streaming-and-conversion}
+## Feather streaming และการแปลง [#feather-streaming-and-conversion]
 
 Runtime สามารถพัก record ไว้ในไฟล์ Feather แบบ local แล้ว promote เข้า catalog ได้ด้วย
 `StreamingConfig(writer_path=..., catalog=DataCatalogConfig(...))` record ที่พักไว้จะ query จาก catalog ได้

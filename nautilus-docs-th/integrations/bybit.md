@@ -1,15 +1,17 @@
-# Bybit
+---
+title: "Bybit"
+---
 
 Bybit ก่อตั้งในปี 2018 และเป็นหนึ่งใน cryptocurrency exchange ที่ใหญ่ที่สุดเมื่อวัดจาก volume การซื้อขายรายวัน
 และ open interest ของ crypto asset และผลิตภัณฑ์ crypto derivative
 
 NautilusTrader มี integration กับ Bybit สำหรับ live market data และ execution โดย adapter นี้ implement ด้วย Rust
 
-## ตัวอย่าง {#examples}
+## ตัวอย่าง [#examples]
 
 - [ตัวอย่าง Rust](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/bybit/examples/)
 
-## ภาพรวม {#overview}
+## ภาพรวม [#overview]
 
 คู่มือนี้สมมติว่า trader กำลังตั้งค่าทั้ง live market data feed และ trade execution Bybit adapter ประกอบด้วยหลาย
 component ซึ่งใช้ร่วมกันหรือแยกกันก็ได้ตาม use case
@@ -30,11 +32,11 @@ component ซึ่งใช้ร่วมกันหรือแยกกั�
 ผู้ใช้ส่วนใหญ่จะตั้งค่า live trading node ตามที่แสดงด้านล่าง และไม่จำเป็นต้องใช้ component ระดับล่างโดยตรง
 :::
 
-## เอกสารของ Bybit {#bybit-documentation}
+## เอกสารของ Bybit [#bybit-documentation]
 
 อ่าน [Bybit help center](https://www.bybit.com/en/help-center) ควบคู่กับคู่มือ integration ของ NautilusTrader นี้
 
-## ผลิตภัณฑ์ {#products}
+## ผลิตภัณฑ์ [#products]
 
 product เป็นคำรวมที่หมายถึงกลุ่มของ instrument type ที่เกี่ยวข้องกัน
 
@@ -53,7 +55,7 @@ Bybit รองรับ product type ต่อไปนี้:
 | Inverse futures contracts   | ✓         | delivery futures ที่ใช้เหรียญเป็น margin   |
 | Option contracts            | ✓         | European option ที่ settle เป็น USDT หรือ USDC |
 
-## Symbology {#symbology}
+## Symbology [#symbology]
 
 เพื่อแยก product type ต่าง ๆ บน Bybit นั้น Nautilus ใช้ suffix ตามหมวดของ product ต่อท้าย symbol:
 
@@ -74,12 +76,12 @@ symbol ของ option ใน Bybit จะมีสกุลเงิน settle
 `BTC-27MAR26-70000-P-USDT`) แต่ไม่มีสำหรับสัญญาที่ settle เป็น USDC (เช่น `ETH-28FEB25-2800-C`) adapter จะต่อ
 `-OPTION` ท้าย symbol ใดก็ตามที่ API คืนมา
 
-## การโหลด instrument {#instrument-loading}
+## การโหลด instrument [#instrument-loading]
 
 data client และ execution client จะโหลด instrument ทั้งหมดของ `product_types` ที่ตั้งค่าไว้เมื่อเชื่อมต่อ ค่า default
 คือ `LINEAR` ให้ใส่ทุก product type ที่ subscription หรือ order ของคุณต้องใช้
 
-## Environment {#environments}
+## Environment [#environments]
 
 Bybit มี trading environment สามแบบ ตั้งค่า environment ที่เหมาะสมด้วย enum `environment` ใน config ของ client
 
@@ -89,13 +91,13 @@ Bybit มี trading environment สามแบบ ตั้งค่า enviro
 | **Demo**    | `BybitEnvironment.DEMO`    | ฝึกเทรดด้วยเงินจำลองบนโครงสร้างพื้นฐานของ mainnet                 |
 | **Testnet** | `BybitEnvironment.TESTNET` | test network แยกต่างหากสำหรับพัฒนาและทดสอบ integration            |
 
-### Mainnet (Production) {#mainnet-production}
+### Mainnet (Production) [#mainnet-production]
 
 environment default สำหรับ live trading ด้วยเงินจริง
 
 Environment variable: `BYBIT_API_KEY`, `BYBIT_API_SECRET`
 
-### Demo trading {#demo-trading}
+### Demo trading [#demo-trading]
 
 demo trading ใช้โครงสร้างพื้นฐาน mainnet ของ Bybit ด้วยเงินจำลอง สร้าง demo API key ได้จาก
 [หน้า demo trading ของ Bybit](https://www.bybit.com/en/demo-trading)
@@ -113,7 +115,7 @@ Environment variable: `BYBIT_DEMO_API_KEY`, `BYBIT_DEMO_API_SECRET`
 
 :::
 
-### Testnet {#testnet}
+### Testnet [#testnet]
 
 test network แยกต่างหากสำหรับพัฒนาและทดสอบ integration
 
@@ -133,7 +135,7 @@ Testnet รองรับฟีเจอร์การเทรดทั้ง
 - Private WebSocket: `wss://stream-testnet.bybit.com/v5/private`
 - Trade WebSocket: `wss://stream-testnet.bybit.com/v5/trade`
 
-### การตั้งค่า testnet {#testnet-setup}
+### การตั้งค่า testnet [#testnet-setup]
 
 การตั้งค่า account และ credential ของ Bybit testnet:
 
@@ -159,7 +161,7 @@ Testnet รองรับฟีเจอร์การเทรดทั้ง
 - Testnet แยกจาก mainnet อย่าฝากเงินจริงเข้า testnet account
 - ปัจจุบัน Bybit อธิบายการตั้งค่า testnet account ผ่าน browser บน desktop
 
-## Quote และ order book {#quotes-and-order-books}
+## Quote และ order book [#quotes-and-order-books]
 
 สำหรับ product แบบ SPOT, LINEAR และ INVERSE นั้น quote subscription ใช้ order book snapshot แบบ depth-1 ของ Bybit
 feed นี้ให้ราคาและขนาดของ best bid/ask ด้วยความถี่การ push ตามเอกสารที่ 10 ms ส่วน quote ของ OPTION ใช้ ticker feed
@@ -170,9 +172,9 @@ quote และ book subscription แบบ depth-1 ใช้ WebSocket topic �
 ดังนั้นการเพิ่ม book delta จะไม่เปลี่ยนแหล่งของ quote book delta มาจากความลึกที่ request เท่านั้น ให้ subscribe
 book เพียงความลึกเดียวต่อ instrument และ unsubscribe book เดิมก่อนเลือกความลึกอื่น
 
-## การกู้คืน order book {#order-book-recovery}
+## การกู้คืน order book [#order-book-recovery]
 
-### การตรวจสอบลำดับ {#sequence-validation}
+### การตรวจสอบลำดับ [#sequence-validation]
 
 delta แต่ละตัวต้องมี update ID `u` ที่ต่อจาก frame ล่าสุดที่ book รับไว้ delta อื่นใดจะระงับ output ของ book และ
 ขอการกู้คืน delta ที่มาถึง book ก่อน snapshot แรกก็เช่นกัน ตัวอย่างเช่น update ที่ส่งมาก่อนการ resubscribe อย่าง
@@ -186,7 +188,7 @@ snapshot ทุกตัวจะแทนที่ book ตามที่
 จาก state ก่อนหน้า แล้ว delta จะต่อจาก snapshot นั้น snapshot ที่มาถึงขณะที่การเขียน subscription หรือการแทนที่ของ
 book ยังดำเนินอยู่จะถูกทิ้ง
 
-### Snapshot deadline {#snapshot-deadlines}
+### Snapshot deadline [#snapshot-deadlines]
 
 subscription เริ่มต้นและ subscription เพื่อกู้คืนจะรอ snapshot ได้สูงสุด `book_snapshot_timeout_secs`
 (default **10 วินาที**) หลังการเขียน subscription เสร็จ book บน socket ที่ reconnect แล้วจะรอเท่ากันนับจากการ
@@ -198,7 +200,7 @@ reconnect ถ้าไม่ได้ snapshot จะเริ่มหรือ
 book แบบ depth-1 ใช้ topic ร่วมกับ quote เมื่อ quote ถือ topic อยู่แล้ว การ subscribe book จะไม่ส่งอะไรออกไป และ
 snapshot depth-1 ถัดไปจะ sync book นั้น
 
-### ขีดจำกัดการ retry และการ reconnect {#retry-limits-and-reconnects}
+### ขีดจำกัดการ retry และการ reconnect [#retry-limits-and-reconnects]
 
 การกู้คืนจะ unsubscribe และ resubscribe topic ของ book บน connection เดิม และ venue จะตอบด้วย snapshot ใหม่
 การกู้คืนแต่ละรอบพยายาม **ได้สูงสุดแปดครั้งภายใน 180 วินาที** ด้วย exponential backoff และ jitter จากนั้นจะ
@@ -219,7 +221,7 @@ retry ทันทีบน connection ใหม่
 ดู [ownership ของการกู้คืน order book](../developer_guide/adapters.md#order-book-recovery-ownership)
 สำหรับกลไกการกู้คืนที่ใช้ร่วมกันและความรับผิดชอบของ adapter
 
-### การตรวจสอบการกู้คืนแบบ live {#live-recovery-validation}
+### การตรวจสอบการกู้คืนแบบ live [#live-recovery-validation]
 
 harness `bybit-book-stress` เป็นเครื่องมือสำหรับนักพัฒนาเมื่อแก้ไขการ sync และการกู้คืน book มันเชื่อมต่อกับ public
 market data ของ Bybit mainnet และไม่ส่ง order ใด ๆ โดยตรวจ linear book หกตัวที่ความลึก default 50 เทียบกับสัญญา
@@ -249,12 +251,12 @@ CARGO_BUILD_JOBS=16 bash scripts/strip-adapter-env.bash \
 harness นี้ต้องใช้ linear WebSocket stream ของ mainnet และ REST API สาธารณะ `instruments-info` ดู flag ที่ใช้ร่วมกัน
 และรูปแบบ output ได้ที่ [Stress harnesses](../developer_guide/spec_data_testing.md#stress-harnesses)
 
-## ความสามารถด้าน order {#orders-capability}
+## ความสามารถด้าน order [#orders-capability]
 
 Bybit มี trigger type หลายแบบที่ผสมกันได้อย่างยืดหยุ่น ทำให้ใช้ order ของ Nautilus ได้หลากหลายขึ้น order type
 ทั้งหมดด้านล่างใช้ได้ *ทั้ง* สำหรับเข้าและออก position
 
-### Order type {#order-types}
+### Order type [#order-types]
 
 | Order Type             | Spot | Linear | Inverse | Option | หมายเหตุ                               |
 | ---------------------- | ---- | ------ | ------- | ------ | -------------------------------------- |
@@ -269,14 +271,14 @@ Bybit มี trigger type หลายแบบที่ผสมกันได
 ตอน submit adapter จะ deny order type ที่ไม่รองรับภายในเครื่องด้วยเหตุผล `UNSUPPORTED_ORDER_TYPE` และไม่ส่ง
 order ไปยัง venue
 
-### Execution instruction {#execution-instructions}
+### Execution instruction [#execution-instructions]
 
 | Instruction   | Spot | Linear | Inverse | Option | หมายเหตุ                                                          |
 | ------------- | ---- | ------ | ------- | ------ | ----------------------------------------------------------------- |
 | `post_only`   | ✓    | ✓      | ✓       | ✓      | เฉพาะ limit order type ส่งเป็น time in force `PostOnly` ของ Bybit |
 | `reduce_only` | -    | ✓      | ✓       | ✓      | *ไม่รองรับสำหรับ Spot*                                             |
 
-### Time in force {#time-in-force}
+### Time in force [#time-in-force]
 
 | Time in force | Spot | Linear | Inverse | Option | หมายเหตุ                         |
 | ------------- | ---- | ------ | ------- | ------ | -------------------------------- |
@@ -289,7 +291,7 @@ order ไปยัง venue
 `UNSUPPORTED_TIME_IN_FORCE` ก่อนส่งผ่าน HTTP หรือ WebSocket ซึ่งใช้กับ market order และ post-only order ด้วย
 TIF ที่ไม่รองรับใน order list จะ deny ทุก leg ก่อนส่ง
 
-### ฟีเจอร์ order ขั้นสูง {#advanced-order-features}
+### ฟีเจอร์ order ขั้นสูง [#advanced-order-features]
 
 | Feature            | Spot | Linear | Inverse | Option | หมายเหตุ                               |
 | ------------------ | ---- | ------ | ------- | ------ | -------------------------------------- |
@@ -297,7 +299,7 @@ TIF ที่ไม่รองรับใน order list จะ deny ทุก 
 | Bracket/OCO Orders | -    | -      | -       | -      | ไม่ได้ implement ให้ส่งแต่ละ leg เอง    |
 | Iceberg Orders     | -    | -      | -       | -      | ไม่ได้ implement                        |
 
-### Batch operation {#batch-operations}
+### Batch operation [#batch-operations]
 
 | Operation    | Spot | Linear | Inverse | Option | หมายเหตุ                                  |
 | ------------ | ---- | ------ | ------- | ------ | ----------------------------------------- |
@@ -314,7 +316,7 @@ Bybit รับได้ไม่เกิน 10 Spot order, 20 Linear หรื
 มาตรฐาน และแบ่ง batch ของ Option เป็นกลุ่มละห้า method batch-cancel แบบ HTTP รับ Option operation ได้สูงสุด 20
 รายการในการเรียกครั้งเดียว
 
-### Cancel-all order {#cancel-all-orders}
+### Cancel-all order [#cancel-all-orders]
 
 สำหรับ cancel-all ทั้ง venue (`strategy_only=False`) ที่ไม่มีตัวกรอง `order_side` adapter จะอัปเดต order ใน
 cache ก็ต่อเมื่อ venue ยืนยันการ cancel แล้วเท่านั้น fill ใช้ execution stream และ reconciliation cancel request,
@@ -324,14 +326,14 @@ cache ก็ต่อเมื่อ venue ยืนยันการ cancel �
 batch cancel กับ order ที่ตรงกันแทน ดูการ route command ได้ที่
 [Cancel-all routing](../concepts/execution/index.md#cancel-all-routing)
 
-### Reconciliation report {#reconciliation-reports}
+### Reconciliation report [#reconciliation-reports]
 
 เมื่อใช้ `LiveNode` การตรวจ open order และ order แบบเจาะจงจะรวบรวม order report บน runtime worker node จะรับ
 report ก่อนที่ขั้นตอน finalization จะอัปเดต identity ของ order บน core thread การรวบรวมที่หมดเวลาหรือถูกยกเลิกยัง
 เก็บ identity ที่จำเป็นสำหรับการ reject ของ pending cancel และ amend ไว้ ส่วน mass status ตอน startup และ method
 report แบบ asynchronous โดยตรงยังคงรวบรวมและ finalize ในการเรียกครั้งเดียว
 
-### การจัดการ position {#position-management}
+### การจัดการ position [#position-management]
 
 | Feature          | Spot | Linear | Inverse | Option | หมายเหตุ                                                    |
 | ---------------- | ---- | ------ | ------- | ------ | ----------------------------------------------------------- |
@@ -342,7 +344,7 @@ report แบบ asynchronous โดยตรงยังคงรวบรว�
 
 ตั้ง `margin_mode` ใน config ของ execution client เพื่อใช้ `BybitMarginMode` กับ account เมื่อ client เชื่อมต่อ
 
-#### Hedge mode (BothSides) {#hedge-mode-bothsides}
+#### Hedge mode (BothSides) [#hedge-mode-bothsides]
 
 Bybit รับโหมด Both Sides เฉพาะบน USDT linear perpetual ให้ตั้งค่า position mode ที่ Bybit แล้วส่ง `position_idx`
 ผ่าน `params` ของ order ใช้ `1` สำหรับฝั่ง long หรือ `2` สำหรับฝั่ง short ใช้ `0` หรือไม่ส่งพารามิเตอร์นี้สำหรับโหมด
@@ -360,7 +362,7 @@ resolve ไปที่ index ของ long และ reduce-only buy จะ re
 
 ถ้าต้องการ override ให้ส่ง `position_idx` ผ่าน `params` (`0` one-way, `1` long, `2` short)
 
-### Risk event {#risk-events}
+### Risk event [#risk-events]
 
 | Feature              | Spot | Linear | Inverse | Option | หมายเหตุ                                              |
 | -------------------- | ---- | ------ | ------- | ------ | ----------------------------------------------------- |
@@ -406,7 +408,7 @@ position) ถึง 5 (ถัดไปที่จะถูก deleverage) adapt
 - [กลไก liquidation](https://www.bybit.com/en/help-center/article/Liquidation-Process-Derivatives-Trading)
 - [กลไก Auto-Deleveraging](https://www.bybit.com/en/help-center/article/Auto-Deleveraging-ADL-Derivatives-Trading)
 
-### การ query order {#order-querying}
+### การ query order [#order-querying]
 
 | Feature              | Spot | Linear | Inverse | Option | หมายเหตุ                       |
 | -------------------- | ---- | ------ | ------- | ------ | ------------------------------ |
@@ -415,7 +417,7 @@ position) ถึง 5 (ถัดไปที่จะถูก deleverage) adapt
 | Order status updates | ✓    | ✓      | ✓       | ✓      | การเปลี่ยนสถานะ order แบบ real-time |
 | Trade history        | ✓    | ✓      | ✓       | ✓      | execution report และ fill report |
 
-### Contingent order {#contingent-orders}
+### Contingent order [#contingent-orders]
 
 | Feature            | Spot | Linear | Inverse | Option | หมายเหตุ                               |
 | ------------------ | ---- | ------ | ------- | ------ | -------------------------------------- |
@@ -427,7 +429,7 @@ position) ถึง 5 (ถัดไปที่จะถูก deleverage) adapt
 order list จะถูกตรวจสอบเป็นหน่วยเดียวก่อนส่ง leg ใด ๆ เมื่อ leg หนึ่งไม่ผ่านการตรวจสอบ leg นั้นจะถูก deny ด้วยเหตุผล
 เฉพาะของมัน ส่วน leg ที่เหลือจะถูก deny ด้วย `ORDER_LIST_DENIED` ดังนั้น list ที่ส่งไปเพียงบางส่วนจะไปไม่ถึง venue
 
-### Order parameter {#order-parameters}
+### Order parameter [#order-parameters]
 
 ปรับแต่ง order แต่ละตัวได้ด้วย `params` ตอน submit order:
 
@@ -485,7 +487,7 @@ adapter จะตรวจสอบ params เหล่านี้ก่อน�
 ราคาของ order ใน API request BBO order รองรับสำหรับ limit, stop-limit และ limit-if-touched order ของ linear และ
 inverse
 
-#### Self-match prevention {#self-match-prevention}
+#### Self-match prevention [#self-match-prevention]
 
 self-match prevention (SMP) บอก Bybit ว่าต้องทำอย่างไรเมื่อ order ของคุณตัวหนึ่งจะเทรดกับ order อื่นของคุณเอง Bybit
 รับค่าบน order ได้สี่ค่า ซึ่งแสดงด้านล่างในรูปการสะกดมาตรฐานบน wire adapter เทียบค่าแบบไม่สนตัวพิมพ์เล็กใหญ่ และส่ง
@@ -516,21 +518,21 @@ Bybit อธิบายค่าและกฎตามภูมิภาค�
 ไว้ใน account ของ Bybit ก็ตาม
 :::
 
-### ข้อจำกัดของการเทรด Spot {#spot-trading-limitations}
+### ข้อจำกัดของการเทรด Spot [#spot-trading-limitations]
 
 ข้อจำกัดต่อไปนี้ใช้กับ product แบบ Spot เพราะ venue ไม่ได้ติดตาม position ให้:
 
 - *ไม่รองรับ* order แบบ `reduce_only`
 - *ไม่รองรับ* trailing stop order
 
-### การเทรด option {#options-trading}
+### การเทรด option [#options-trading]
 
 Bybit มี option แบบ European บนสินทรัพย์อ้างอิงที่เป็น crypto และหุ้นสหรัฐ เช่น BTC, ETH, SOL และ NVDA ซึ่ง settle
 เป็น USDT หรือ USDC
 adapter ใช้ instrument type `CryptoOption` และ symbol suffix `-OPTION` ดูรูปแบบ symbol ทั้งหมดได้ที่
 [หัวข้อ symbology](#symbology)
 
-#### ข้อมูล option {#options-data}
+#### ข้อมูล option [#options-data]
 
 adapter รองรับ market data ของ option แบบ real-time ผ่าน WebSocket ticker channel:
 
@@ -551,7 +553,7 @@ subscribe Greeks ต่อ instrument หรือรวมเป็น option c
 
 ข้อมูล bar (kline) ไม่มีสำหรับ option เพราะ Bybit ไม่มี kline stream สำหรับ product type นี้
 
-#### Order parameter ของ option {#options-order-parameters}
+#### Order parameter ของ option [#options-order-parameters]
 
 นอกจาก order parameter มาตรฐานแล้ว option order ยังรับ:
 
@@ -563,7 +565,7 @@ subscribe Greeks ต่อ instrument หรือรวมเป็น option c
 พารามิเตอร์เหล่านี้ส่งผ่าน `params` บน `SubmitOrder` บน mainnet จะไหลผ่าน WebSocket trade channel บน demo จะ
 route ผ่าน HTTP create-order endpoint การแก้ไข order ที่มีอยู่ด้วย `order_iv` ไม่รองรับในโหมด demo
 
-#### ข้อจำกัดของการเทรด option {#options-trading-limitations}
+#### ข้อจำกัดของการเทรด option [#options-trading-limitations]
 
 - การแก้ไข order ด้วย implied volatility (`order_iv`) และฟีเจอร์อื่นที่มีเฉพาะใน WS trade ไม่รองรับในโหมด demo
 - ตั้งค่า leverage ไม่ได้ ผู้ซื้อ option จ่าย premium ผู้ขายวาง margin
@@ -573,7 +575,7 @@ route ผ่าน HTTP create-order endpoint การแก้ไข order ท
 - funding rate ไม่ใช้กับ option
 - option ต้องใช้ Unified Trading Account (UTA)
 
-### Trailing stop {#trailing-stops}
+### Trailing stop [#trailing-stops]
 
 adapter ไม่ส่ง order `TRAILING_STOP_MARKET` ของ Nautilus ไปยัง Bybit การส่ง order แบบนี้จะถูก deny ภายในเครื่อง
 ด้วยเหตุผล `UNSUPPORTED_ORDER_TYPE`
@@ -582,18 +584,18 @@ Bybit model trailing stop เป็น attribute ของ position แบบ ne
 client order ID ฝั่ง venue และ query ไม่ได้จนกว่าจะเปิดแล้ว ถ้าต้องการ trailing stop ให้แนบผ่าน interface ของ Bybit
 และจัดการการออกจาก position ที่เกิดขึ้นนอก Nautilus
 
-## การกู้ยืมและชำระคืน spot margin {#spot-margin-borrowing-and-repayment}
+## การกู้ยืมและชำระคืน spot margin [#spot-margin-borrowing-and-repayment]
 
 NautilusTrader มีฟังก์ชันชำระคืนการกู้ยืม spot margin อัตโนมัติ เพื่อป้องกันดอกเบี้ยสะสมหลังปิด short position บน Bybit
 
-### ความเป็นมา {#background}
+### ความเป็นมา [#background]
 
 เมื่อเทรด Spot โดยเปิด margin (`is_leverage=True`) Bybit จะกู้เหรียญให้อัตโนมัติเมื่อคุณเปิด short position
 แต่หลังจากปิด short position แล้ว (BUY order ถูก fill) เหรียญที่กู้มา **จะไม่ถูกชำระคืนโดยอัตโนมัติ** และจะยังมีดอกเบี้ย
 รายชั่วโมงสะสมต่อไปจนกว่าจะชำระคืนเอง
 ซึ่งอาจทำให้เสียดอกเบี้ยจำนวนมากถ้าปล่อยทิ้งไว้
 
-### การชำระคืนอัตโนมัติ (แนะนำ) {#automatic-repayment-recommended}
+### การชำระคืนอัตโนมัติ (แนะนำ) [#automatic-repayment-recommended]
 
 execution client สามารถชำระคืนการกู้ยืม spot margin โดยอัตโนมัติหลังจาก BUY order ถูก fill ทั้งหมดบน Spot
 instrument ฟีเจอร์นี้ปิดไว้โดย default ให้ตั้ง `auto_repay_spot_borrows=True` เพื่อเปิดใช้
@@ -613,18 +615,18 @@ instrument ฟีเจอร์นี้ปิดไว้โดย default ใ
 > หมายเหตุ: ต้นฉบับมีตัวอย่าง config เฉพาะในภาษา Python (ตั้ง `product_types` เป็น Spot และ
 > `auto_repay_spot_borrows=True`) จึงตัดออก
 
-### UTC blackout window {#utc-blackout-window}
+### UTC blackout window [#utc-blackout-window]
 
 Bybit block repayment endpoint ทั้งสองตัวตั้งแต่ **นาทีที่ 4 ถึง 5 นาที 30 วินาทีหลังต้นชั่วโมง UTC ทุกชั่วโมง** เพื่อ
 คำนวณดอกเบี้ย การชำระคืนอัตโนมัติจะคง request ไว้ในคิวและพยายามส่งที่ 5 นาที 31 วินาทีหลังต้นชั่วโมง
 
-### การตั้งค่าการชำระคืนอัตโนมัติ {#auto-repayment-configuration}
+### การตั้งค่าการชำระคืนอัตโนมัติ [#auto-repayment-configuration]
 
 | ตัวเลือก                  | Type   | Default | คำอธิบาย                                                                                                                   |
 | ------------------------- | ------ | ------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `auto_repay_spot_borrows` | `bool` | `False` | ถ้าเป็น `True` จะชำระคืนการกู้ยืม Spot margin โดยอัตโนมัติหลัง BUY order ถูก fill ทั้งหมด การชำระคืนจะถูกเลื่อนในช่วง blackout |
 
-### หมายเหตุเกี่ยวกับการชำระคืนอัตโนมัติ {#auto-repayment-notes}
+### หมายเหตุเกี่ยวกับการชำระคืนอัตโนมัติ [#auto-repayment-notes]
 
 - การชำระคืนอัตโนมัติทำงานเฉพาะกับ **Spot BUY order** ไม่ใช่ derivatives
 - การชำระคืนใช้ converting repayment ยกเว้น MNT ซึ่งใช้ no-convert repayment
@@ -633,7 +635,7 @@ Bybit block repayment endpoint ทั้งสองตัวตั้งแต�
   [Manual Repay Without Asset Conversion](https://bybit-exchange.github.io/docs/v5/account/no-convert-repay)
 - ยังต้องกู้ยืมเองก่อนเปิด short position เว้นแต่จะเปิด auto-borrow ไว้ใน account ของ Bybit
 
-## Funding rate {#funding-rates}
+## Funding rate [#funding-rates]
 
 adapter รับข้อมูล funding rate จาก WebSocket stream
 [Linear Ticker](https://bybit-exchange.github.io/docs/v5/websocket/public/ticker#linear-inverse-perpetual-response)
@@ -646,9 +648,9 @@ adapter cache ค่า `fundingIntervalHour` ล่าสุดที่รู�
 สำหรับ request funding rate ย้อนหลัง adapter จะคำนวณ interval จาก funding timestamp ที่ต่อเนื่องกัน record ที่เก่าที่สุด
 ใน response ไม่มี timestamp ก่อนหน้าให้จับคู่ จึงไม่มีค่า interval
 
-## ข้อมูลเฉพาะของ Bybit {#bybit-specific-data}
+## ข้อมูลเฉพาะของ Bybit [#bybit-specific-data]
 
-### Liquidation {#liquidations}
+### Liquidation [#liquidations]
 
 adapter ส่ง custom data `BybitLiquidation` จาก WebSocket stream สาธารณะ
 [all liquidation](https://bybit-exchange.github.io/docs/v5/websocket/public/all-liquidation) ของ Bybit
@@ -686,7 +688,7 @@ feed นี้มี liquidation event ที่ Bybit publish ให้ถื�
 liquidation ที่ผ่านการตรวจสอบอย่างอิสระ
 :::
 
-## Rate limiting {#rate-limiting}
+## Rate limiting [#rate-limiting]
 
 adapter เข้าคิว request ตาม rolling window ที่แม่นยำก่อนสร้าง authentication timestamp หรือ signature HTTP client
 และ trade WebSocket ใช้ UID state ร่วมกันสำหรับ API key และ environment เดียวกัน data client และ execution client
@@ -730,7 +732,7 @@ transport timeout, การ restart ของ service และ request identif
 รายละเอียดเพิ่มเติมเกี่ยวกับ rate limiting ดูได้ที่เอกสารทางการ: <https://bybit-exchange.github.io/docs/v5/rate-limit>
 :::
 
-## Account type {#account-types}
+## Account type [#account-types]
 
 execution client factory กำหนด account type และ OMS type จาก product type ที่ตั้งค่าไว้:
 
@@ -758,7 +760,7 @@ classic account ถือเป็นแบบเก่า
 เว้นแต่จะเปิดอย่างชัดเจน
 :::
 
-## ตรรกะของสกุลเงินค่าธรรมเนียม {#fee-currency-logic}
+## ตรรกะของสกุลเงินค่าธรรมเนียม [#fee-currency-logic]
 
 การเข้าใจว่า Bybit กำหนดสกุลเงินของค่าธรรมเนียมการเทรดอย่างไรสำคัญต่อการทำบัญชีและการติดตาม position ที่แม่นยำ
 กฎของสกุลเงินค่าธรรมเนียมแตกต่างกันระหว่าง product แบบ Spot และ derivatives
@@ -766,17 +768,17 @@ classic account ถือเป็นแบบเก่า
 adapter ใช้จำนวนและสกุลเงินของ commission โดยตรงจากฟิลด์ `execFee` และ `feeCurrency` ของ venue ดังนั้นกฎด้านล่าง
 อธิบายสิ่งที่ Bybit รายงาน ไม่ใช่การคำนวณภายในเครื่อง
 
-### ค่าธรรมเนียมการเทรด Spot {#spot-trading-fees}
+### ค่าธรรมเนียมการเทรด Spot [#spot-trading-fees]
 
 สำหรับการเทรด Spot สกุลเงินของค่าธรรมเนียมขึ้นกับฝั่งของ order และค่าธรรมเนียมเป็น rebate หรือไม่ (ค่าธรรมเนียมติดลบ
 สำหรับ maker order):
 
-#### ค่าธรรมเนียมปกติ (บวก) {#normal-fees-positive}
+#### ค่าธรรมเนียมปกติ (บวก) [#normal-fees-positive]
 
 - **BUY order**: คิดค่าธรรมเนียมเป็น **base currency** (เช่น BTC สำหรับ BTCUSDT)
 - **SELL order**: คิดค่าธรรมเนียมเป็น **quote currency** (เช่น USDT สำหรับ BTCUSDT)
 
-#### Maker rebate (ค่าธรรมเนียมติดลบ) {#maker-rebates-negative-fees}
+#### Maker rebate (ค่าธรรมเนียมติดลบ) [#maker-rebates-negative-fees]
 
 เมื่อ maker fee ติดลบ (rebate) ตรรกะของสกุลเงินจะ **กลับด้าน**:
 
@@ -787,14 +789,14 @@ adapter ใช้จำนวนและสกุลเงินของ commi
 **taker order ไม่มีการกลับด้านของตรรกะ** แม้ maker fee rate จะติดลบ taker fee เป็นไปตามกฎสกุลเงินค่าธรรมเนียมปกติเสมอ
 :::
 
-#### ตัวอย่าง: BTCUSDT Spot {#example-btcusdt-spot}
+#### ตัวอย่าง: BTCUSDT Spot [#example-btcusdt-spot]
 
 - **ซื้อ 1 BTC แบบ taker (ค่าธรรมเนียม 0.1%)**: จ่ายค่าธรรมเนียม 0.001 BTC
 - **ขาย 1 BTC แบบ taker (ค่าธรรมเนียม 0.1%)**: จ่ายค่าธรรมเนียมเป็น USDT ในมูลค่าเทียบเท่า
 - **ซื้อ 1 BTC แบบ maker (rebate -0.01%)**: ได้รับ rebate เป็น USDT (กลับด้าน)
 - **ขาย 1 BTC แบบ maker (rebate -0.01%)**: ได้รับ rebate เป็น BTC (กลับด้าน)
 
-### ค่าธรรมเนียมการเทรด derivatives {#derivatives-trading-fees}
+### ค่าธรรมเนียมการเทรด derivatives [#derivatives-trading-fees]
 
 สำหรับ product แบบ derivatives ทั้งหมด (LINEAR, INVERSE, OPTION) จะคิดค่าธรรมเนียมเป็น **settlement currency** เสมอ:
 
@@ -804,24 +806,24 @@ adapter ใช้จำนวนและสกุลเงินของ commi
 | INVERSE      | Base coin (เช่น BTC สำหรับ BTCUSD) | Base coin  |
 | OPTION       | USDT หรือ USDC                   | Settle coin  |
 
-### ข้อมูลค่าธรรมเนียมที่ขาดหาย {#missing-fee-data}
+### ข้อมูลค่าธรรมเนียมที่ขาดหาย [#missing-fee-data]
 
 private channel `execution.fast` ของ Bybit ไม่มีฟิลด์ค่าธรรมเนียมและ execution type ดังนั้น fill report ที่ parse
 จาก channel นั้นจะมี commission เป็นศูนย์ ให้ subscribe channel `execution` มาตรฐานเมื่อต้องการข้อมูลค่าธรรมเนียม
 ที่แม่นยำ
 
-### เอกสารทางการ {#official-documentation}
+### เอกสารทางการ [#official-documentation]
 
 รายละเอียดทั้งหมดเกี่ยวกับโครงสร้างค่าธรรมเนียมและกฎสกุลเงินของ Bybit ดูได้ที่:
 
 - [Bybit WebSocket Private Execution](https://bybit-exchange.github.io/docs/v5/websocket/private/execution)
 - [Bybit Spot Fee Currency Instruction](https://bybit-exchange.github.io/docs/v5/enum#spot-fee-currency-instruction)
 
-## การตั้งค่า {#configuration}
+## การตั้งค่า [#configuration]
 
 ต้องระบุ product type ของแต่ละ client ใน config
 
-### ตัวเลือกการตั้งค่าของ data client {#data-client-configuration-options}
+### ตัวเลือกการตั้งค่าของ data client [#data-client-configuration-options]
 
 | ตัวเลือก                           | Default    | คำอธิบาย                                                                                                        |
 | ---------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------- |
@@ -845,7 +847,7 @@ private channel `execution.fast` ของ Bybit ไม่มีฟิลด์�
 | `transport_backend`                | `Sockudo`  | transport backend ของ WebSocket                                                                                 |
 | `bars_timestamp_on_close`          | `True`     | ใส่ timestamp ของ bar ที่ตอนปิดช่วงเวลา ค่า `False` ใส่ timestamp ที่ตอนเปิดช่วงเวลา                            |
 
-### ตัวเลือกการตั้งค่าของ execution client {#execution-client-configuration-options}
+### ตัวเลือกการตั้งค่าของ execution client [#execution-client-configuration-options]
 
 | ตัวเลือก                    | Default    | คำอธิบาย                                                                                                        |
 | --------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------- |
@@ -878,7 +880,7 @@ private channel `execution.fast` ของ Bybit ไม่มีฟิลด์�
 [ตัวอย่าง Rust](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/bybit/examples/)
 และ [รัน live trading (Rust)](../how_to/run_rust_live_trading.md)
 
-### API credential {#api-credentials}
+### API credential [#api-credentials]
 
 มีสองวิธีในการให้ credential แก่ Bybit client คือส่งค่า `api_key` และ `api_secret` ไปใน config object หรือตั้ง
 environment variable ต่อไปนี้:
@@ -904,7 +906,7 @@ environment variable ต่อไปนี้:
 
 เมื่อเริ่ม trading node จะได้รับการยืนยันทันทีว่า credential ถูกต้องและมี permission สำหรับการเทรดหรือไม่
 
-## การมีส่วนร่วม {#contributing}
+## การมีส่วนร่วม [#contributing]
 
 :::info
 หากต้องการฟีเจอร์เพิ่มเติมหรือต้องการร่วมพัฒนา Bybit adapter ดูได้ที่

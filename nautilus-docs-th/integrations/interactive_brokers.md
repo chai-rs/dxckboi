@@ -1,4 +1,6 @@
-# Interactive Brokers
+---
+title: "Interactive Brokers"
+---
 
 adapter ของ Interactive Brokers เชื่อมต่อ NautilusTrader กับ Trader Workstation (TWS) หรือ IB Gateway ผ่าน
 [TWS API](https://ibkrcampus.com/campus/ibkr-api-page/twsapi-doc/) โดยให้บริการ market data แบบ live, การ execution,
@@ -6,7 +8,7 @@ adapter ของ Interactive Brokers เชื่อมต่อ NautilusTrader
 
 ตัวอย่างฝั่ง Rust ดูได้ที่หัวข้อ[ทดสอบ adapter](#test-the-adapter)
 
-## เชื่อมต่อกับ TWS หรือ IB Gateway {#connect-to-tws-or-ib-gateway}
+## เชื่อมต่อกับ TWS หรือ IB Gateway [#connect-to-tws-or-ib-gateway]
 
 เปิดการเข้าถึง socket API ใน TWS หรือ IB Gateway ก่อนเริ่ม client IB ใช้ port ค่าเริ่มต้นดังนี้:
 
@@ -41,7 +43,7 @@ data client และ execution client ใช้ provider configuration ชุ�
 
 ส่ง factory และ config เหล่านี้ให้ builder ของ `LiveNode`
 
-### โหมดของ market data {#market-data-modes}
+### โหมดของ market data [#market-data-modes]
 
 | ค่า enum                        | โหมดของ IB                                     |
 | ------------------------------- | -------------------------------------------- |
@@ -53,7 +55,7 @@ data client และ execution client ใช้ provider configuration ชุ�
 สิทธิ์ของ IB ยังเป็นตัวกำหนดว่าโหมดและ instrument ใดจะได้รับข้อมูล ข้อมูลแบบ delayed หรือ delayed-frozen ใช้ตรวจสอบ
 paper account นอกเวลาตลาดได้ แต่ไม่ได้พิสูจน์ว่าเส้นทาง tick แบบ live ทำงาน
 
-### IB Gateway ใน Docker {#dockerized-ib-gateway}
+### IB Gateway ใน Docker [#dockerized-ib-gateway]
 
 `DockerizedIBGateway` จัดการ [container IB Gateway ของ gnzsnz](https://github.com/gnzsnz/ib-gateway-docker)
 ให้ระบุ credential ใน config หรือตั้ง `TWS_USERNAME` และ `TWS_PASSWORD`
@@ -63,7 +65,7 @@ client รับเพียง `host` และ `port` ตั้ง `read_only_
 ใช้ข้อความ login จาก session ปัจจุบันของ container ดังนั้น log ที่ค้างจาก session ก่อนหน้าจะไม่ทำให้รายงานสถานะพร้อม
 ผิดพลาด
 
-## สถาปัตยกรรม {#architecture}
+## สถาปัตยกรรม [#architecture]
 
 adapter เป็น implementation ของ Rust ชุดเดียวที่เปิดให้ใช้ผ่าน Rust API แบบ native มันแปลงระหว่าง TWS API ของ IB
 กับ live engine ของ Nautilus โดยไม่ได้เป็นเจ้าของ transport เอง: `ibapi` เป็นผู้สื่อสารด้วย TWS socket protocol และ
@@ -123,7 +125,7 @@ data client ส่ง data event แบบมี type (tick, bar, instrument แ
 channel เหล่านี้เป็นเส้นทางเดียวที่เข้าสู่ engine ส่วน reconciliation เป็น interface แบบ pull ที่ขับเคลื่อนโดย execution engine
 (ดู [Reconciliation](#reconciliation))
 
-### Reconnect และ resubscribe {#reconnect-and-resubscribe}
+### Reconnect และ resubscribe [#reconnect-and-resubscribe]
 
 transport `ibapi` จะ reconnect socket ด้วย Fibonacci backoff จนถึงจำนวนครั้งที่จำกัดไว้ (`max_reconnect_attempts`)
 แล้วจึงสร้าง session ที่สมบูรณ์ การเชื่อมต่อ TCP ที่ตามด้วย error ชั่วคราวระหว่าง handshake หรือการเริ่มต้นจะนับเป็นหนึ่งครั้ง
@@ -163,7 +165,7 @@ execution client จะทิ้ง subscription รอ แล้ว bind ให
 bind ใหม่จะไม่ถูก replay หาก transport ของ ibapi ปิดตัวลงแล้ว หรือ global notice stream จบลง execution client จะรายงาน
 ว่า disconnected แทนที่จะดูเหมือนปกติทั้งที่ stream ตายแล้ว
 
-### Identity ของ order และการยกเลิก {#order-identity-and-cancellation}
+### Identity ของ order และการยกเลิก [#order-identity-and-cancellation]
 
 permanent ID ของ broker ที่ต่างกันแต่ใช้ client order reference เดียวกันยังคงเป็น order จริงคนละตัว adapter จะรายงาน order
 เพิ่มเติมแต่ละตัวภายใต้ client order ID ของมันเอง: `DUP-<account length>:<account ID>:PERM-<permanent ID>` ดังนั้น
@@ -186,7 +188,7 @@ adapter ยกเลิกเฉพาะ route ที่ bind แบบไม�
 การตรวจสอบความเสี่ยงและการ execution ใช้การ route account เดียวกัน risk engine จะ deny order ที่ resolve account ไม่ได้
 แทนที่จะข้ามการตรวจ account
 
-### Order flow ของการ execution {#execution-order-flow}
+### Order flow ของการ execution [#execution-order-flow]
 
 execution client ถูกแบ่งตามทิศทางของ message: command ขาออก (submit, modify, cancel), การอัปเดตขาเข้าจาก venue, การประกอบ
 fill ของ combo และ account stream เป็น module แยกกันที่ใช้เจ้าของ state ของ order ร่วมกันหนึ่งตัว เจ้าของนี้เก็บ map ของ ID
@@ -248,7 +250,7 @@ code คำเตือนในช่วง `[2100, 2169]`, message ของ o
 ใด ๆ fill จึงไม่มีทางถูกรายงานผิดเป็นการยกเลิก cancel-all เลือกใช้ TWS order ID ที่ติดตามไว้ก่อน permanent ID ทำให้ client
 ต้นทางยกเลิก order live ของตัวเองได้โดยไม่ต้องค้นหาข้าม client
 
-## ความสามารถด้านข้อมูล {#data-capabilities}
+## ความสามารถด้านข้อมูล [#data-capabilities]
 
 | Data type ของ Nautilus | Live subscribe | Historical request | หมายเหตุ                                     |
 | ------------------ | -------------- | ------------------ | ----------------------------------------- |
@@ -297,9 +299,9 @@ IB เป็นผู้ควบคุม pacing, ประวัติข้�
 IB จะปฏิเสธเวลาสิ้นสุดของ bar ที่ระบุชัด adapter จึงละไว้และ request duration segment หนึ่งช่วงโดยยึดเวลาของ request
 ผลลัพธ์จึงอาจอยู่นอกช่วงเวลาเริ่มต้นและสิ้นสุดที่ร้องขอ
 
-## ความสามารถด้าน execution {#execution-capabilities}
+## ความสามารถด้าน execution [#execution-capabilities]
 
-### ประเภทของ order {#order-types}
+### ประเภทของ order [#order-types]
 
 | ประเภท order ของ Nautilus | ประเภท order ของ IB   | Input ด้านราคา                           |
 | ---------------------- | ------------------- | ------------------------------------- |
@@ -322,7 +324,7 @@ adapter ปฏิเสธ order แบบ post-only quote quantity ใช้ไ
 offset แบบราคาและแบบ basis point ซึ่ง IB รับเป็น trailing percent การตรวจสอบเหล่านี้ รวมถึง order ใดที่ adapter resolve
 หรือแปลงให้ IB ไม่ได้ จะส่งเหตุผล `OrderDenied` แบบมี code ก่อนที่ adapter จะส่ง order ไปยัง IB
 
-### Command และคุณสมบัติของ order {#commands-and-order-attributes}
+### Command และคุณสมบัติของ order [#commands-and-order-attributes]
 
 | ความสามารถ        | รองรับ | หมายเหตุ                                                        |
 | ----------------- | ------- | ------------------------------------------------------------ |
@@ -366,7 +368,7 @@ array `conditions` (ไม่บังคับ) รับรูปแบบเ�
 
 ทุก condition รับ `conjunction="and"` หรือ `"or"` ค่าเริ่มต้นคือ `"and"`
 
-### Account state {#account-state}
+### Account state [#account-state]
 
 เมื่อเชื่อมต่อและทุกครั้งที่ query account execution client จะอ่าน snapshot ของ `reqAccountSummary` หนึ่งครั้งสำหรับ account
 ที่ตั้งค่าไว้ และจับคู่ tag ต่าง ๆ เป็นยอดเงินและ margin แบบมี type จากนั้นอ่าน snapshot ของ `reqAccountUpdates` หนึ่งครั้ง
@@ -380,7 +382,7 @@ account ไม่มี base currency เป็นค่าเริ่มต้
 ด้วยอัตราแลกเปลี่ยนจาก cache เช่นเดียวกับ account ใด ๆ ที่มี base currency client จะ log error หาก IB รายงานยอดเงินใน
 สกุลเงินอื่น
 
-## Reconciliation {#reconciliation}
+## Reconciliation [#reconciliation]
 
 request แบบ mass status จะ query แหล่งข้อมูลของ IB ที่เป็นอิสระต่อกันสามแหล่ง:
 
@@ -431,7 +433,7 @@ spread leg ที่สร้างขึ้นด้วย
 คำตอบของ query execution (`reqExecutions`) ก็มาถึงทาง order update stream ของ IB ด้วย adapter ถือว่าเฉพาะ execution
 detail ที่ไม่ได้ร้องขอเท่านั้นเป็น fill แบบ live query execution ตอนเริ่มต้นและแบบเป็นระยะจึงไม่นำ fill เดิมไปใช้ซ้ำ
 
-## Symbology และ instrument {#symbology-and-instruments}
+## Symbology และ instrument [#symbology-and-instruments]
 
 `InteractiveBrokersInstrumentProviderConfig.symbology_method` เลือกหนึ่งในสองวิธีสาธารณะ:
 
@@ -479,7 +481,7 @@ pseudo-venue เป็นส่วนหนึ่งของ namespace ขอ�
 ใช้ provider config เดียวกันสำหรับ data client และ execution client เพื่อให้ทั้งคู่ resolve ได้ ID เดียวกัน `load_ids` และ
 `load_contracts` ตอนเริ่มต้นเป็นรายการที่บังคับ: การ initialize client จะล้มเหลวหาก resolve instrument ที่ตั้งค่าไว้ไม่ได้
 
-### Provider configuration {#provider-configuration}
+### Provider configuration [#provider-configuration]
 
 | Option                          | Default      | วัตถุประสงค์                                                 |
 | ------------------------------- | ------------ | ------------------------------------------------------- |
@@ -504,7 +506,7 @@ dictionary ของ contract ใช้ชื่อฟิลด์ของ IB �
 หากไม่มี flag ของ chain `CONTFUT` จะแทน continuous future ของ IB ซึ่ง IB จำกัดให้ใช้ได้เฉพาะข้อมูลย้อนหลัง ไม่รองรับ
 การ subscribe แบบ live หรือ order
 
-### Generic spread {#generic-spreads}
+### Generic spread [#generic-spreads]
 
 สร้าง spread ID ด้วย `new_generic_spread_id` อย่าจัดรูปแบบไวยากรณ์ของ leg ด้วยมือ ทุก leg ต้องใช้ venue เดียวกัน และ
 เครื่องหมายของ ratio เป็นตัวเลือก action ของ leg ใน IB (เช่น `1` สำหรับ leg ฝั่ง long และ `-1` สำหรับ leg ฝั่ง short)
@@ -521,7 +523,7 @@ execution ของ leg เท่านั้น fill ระดับ combo จ�
 reconciliation ตอนเริ่มต้นจึงกู้คืน order เหล่านั้นได้แม้ node จะไม่ได้โหลด spread เอง fill report ตอนเริ่มต้นเก็บ fill ระดับ combo
 ของแต่ละ combo order ส่วน execution ของ leg จะไม่ถูกรวม และ position ของ leg จะ reconcile จาก position report ของ IB
 
-### Price magnifier {#price-magnifier}
+### Price magnifier [#price-magnifier]
 
 IB กำหนดราคาของบาง contract ในหน่วยย่อยของสกุลเงิน เช่น ธัญพืชของ CBOT เป็นเซนต์และหุ้นใน LSE เป็นเพนนี และรายงาน
 `priceMagnifier` ของ contract เหล่านั้น (100 ทั้งคู่) adapter จะหารทุกราคาที่ IB รายงานสำหรับ contract แบบนี้ด้วย magnifier
@@ -543,7 +545,7 @@ order หรือปฏิเสธการ modify เมื่อไม่ม
 cancel-all จะถูกยกเลิกใน client และไม่ไปถึง IB การยกเลิก order หนึ่งตัวใน order list ที่กำลังรอจะหยุดทั้ง list และ client จะ
 deny order ตัวอื่นใน list
 
-#### การอัปเกรดเมื่อมี contract ที่ใช้ magnifier {#upgrading-with-magnified-contracts}
+#### การอัปเกรดเมื่อมี contract ที่ใช้ magnifier [#upgrading-with-magnified-contracts]
 
 เวอร์ชันก่อนหน้าแปลงราคาของ contract ที่มี magnifier ต่างกันในแต่ละเส้นทาง ก่อนอัปเกรด node ที่เทรดหรือบันทึกข้อมูล
 contract ที่มี magnifier มากกว่า 1:
@@ -562,9 +564,9 @@ contract ที่มี magnifier มากกว่า 1:
   แต่ข้อมูลที่บันทึกจาก subscription ไม่ได้ถูกหาร: ให้หาร quote แบบ tick-by-tick ด้วย magnifier ยกกำลังสอง และหาร quote อื่น,
   trade, bar และข้อมูล order book ด้วย magnifier ส่วน fill, order และ position ที่บันทึกไว้เป็นไปตามสเกลในข้อแรก
 
-## เอกสารอ้างอิง configuration {#configuration-reference}
+## เอกสารอ้างอิง configuration [#configuration-reference]
 
-### Data client {#data-client}
+### Data client [#data-client]
 
 | Option                           | Default                   | วัตถุประสงค์                                                                     |
 | -------------------------------- | ------------------------- | --------------------------------------------------------------------------- |
@@ -594,7 +596,7 @@ contract ที่มี magnifier มากกว่า 1:
 client, instrument, subscription, timeout และเวลาที่ได้รับข้อมูลในเครื่องครั้งล่าสุด instrument ที่เงียบหรือตลาดที่ปิดก็อาจ trigger
 event ได้ การไม่มีความเคลื่อนไหวเพียงอย่างเดียวไม่ได้ทำให้ subscription เริ่มใหม่
 
-### Execution client {#execution-client}
+### Execution client [#execution-client]
 
 | Option                                       | Default                 | วัตถุประสงค์                                              |
 | -------------------------------------------- | ----------------------- | ---------------------------------------------------- |
@@ -611,7 +613,7 @@ event ได้ การไม่มีความเคลื่อนไห�
 | `instrument_provider`                        | config ของ provider ค่าเริ่มต้น | ตั้งค่าการโหลด contract และ instrument                   |
 | `dockerized_gateway`                         | `None`                  | สงวนไว้และจะถูกปฏิเสธ ให้เริ่ม gateway แยกต่างหาก             |
 
-### Gateway ใน Docker {#dockerized-gateway}
+### Gateway ใน Docker [#dockerized-gateway]
 
 | Option            | Default                            | วัตถุประสงค์                                                              |
 | ----------------- | ---------------------------------- | -------------------------------------------------------------------- |
@@ -626,7 +628,7 @@ event ได้ การไม่มีความเคลื่อนไห�
 `DockerizedIBGateway` มี method `start`, `safe_start` และ `stop` ทั้งแบบ asynchronous และแบบ blocking รวมถึง
 `container_status` method แบบ safe start จะใช้ container ที่พร้อมอยู่แล้วซ้ำ และแทนที่ container ที่ไม่สมบูรณ์
 
-## ทดสอบ adapter {#test-the-adapter}
+## ทดสอบ adapter [#test-the-adapter]
 
 สำหรับ market data ให้รันด้วย `cargo run --example ib-data-tester --package nautilus-interactive-brokers --features examples`
 ซึ่ง stream instrument ที่ตั้งค่าไว้ด้วย actor `DataTester` ในตัว โดยเชื่อมต่อกับ TWS หรือ IB Gateway ที่รันอยู่ในเครื่องและไม่ส่ง
@@ -660,7 +662,7 @@ cargo run --example ib-exec-tester \
 execution profile ที่มีให้ใช้ได้แก่ `lifecycle`, `cancel-modify`, `rejection`, `options`, `stop`, `stop-limit`, `trailing`,
 `bracket` และ `unsupported-flags` รัน live test เฉพาะกับ account และ instrument ที่ตั้งใจใช้กับ profile ที่เลือกเท่านั้น
 
-## การแก้ปัญหา {#troubleshooting}
+## การแก้ปัญหา [#troubleshooting]
 
 - ตรวจว่า TWS หรือ IB Gateway กำลังรัน, login แล้ว และตั้งค่าให้เข้าถึง socket API ได้
 - ตรวจว่า port ตรงกับแอปพลิเคชันและโหมดการเทรด

@@ -1,4 +1,6 @@
-# Integrations
+---
+title: "Integrations"
+---
 
 NautilusTrader ใช้ *adapter* แบบ modular ในการเชื่อมต่อกับ trading venue และผู้ให้บริการข้อมูล adapter
 จะแปลง API ดิบให้เป็น interface เดียวกันและ domain model ที่ normalize แล้ว
@@ -35,7 +37,7 @@ integration ที่มีให้ใช้หรืออยู่ในแ�
 สำหรับ Lighter on Robinhood นั้น `LIGHTER_ROBINHOOD` คือ venue และ client ID ที่ต้องลงทะเบียนอย่างชัดเจน
 ส่วน factory ของ Lighter ที่ใช้ร่วมกันยังคงใช้ `LIGHTER` เป็นค่าเริ่มต้นเพื่อความเข้ากันได้
 
-## สถานะ {#status}
+## สถานะ [#status]
 
 - `planned`: อยู่ในแผนการพัฒนาในอนาคต
 - `building`: อยู่ระหว่างการสร้างและน่าจะยังใช้งานไม่ได้
@@ -43,7 +45,7 @@ integration ที่มีให้ใช้หรืออยู่ในแ�
 - `stable`: ชุด feature และ API มีความเสถียร นักพัฒนาและผู้ใช้ทดสอบ integration ไปในระดับที่สมเหตุสมผลแล้ว
   แต่อาจยังมี bug หลงเหลืออยู่บ้าง
 
-## เป้าหมายของการ implement {#implementation-goals}
+## เป้าหมายของการ implement [#implementation-goals]
 
 NautilusTrader มุ่งให้เป็นระบบเทรดแบบรวมศูนย์สำหรับ integration ที่หลากหลาย เพื่อรองรับ strategy การเทรด
 ให้กว้างที่สุด การพัฒนาจึงให้ความสำคัญกับความสามารถ*มาตรฐาน*ก่อน:
@@ -69,7 +71,7 @@ log ระดับ TRACE อาจมี payload ของ WebSocket ขาอ�
 
 ::::
 
-## การรวม API ให้เป็นมาตรฐานเดียวกัน {#api-unification}
+## การรวม API ให้เป็นมาตรฐานเดียวกัน [#api-unification]
 
 integration ทั้งหมดต้องเป็นไปตาม system API ของ NautilusTrader ซึ่งต้องมีการ normalize และทำให้เป็นมาตรฐาน:
 

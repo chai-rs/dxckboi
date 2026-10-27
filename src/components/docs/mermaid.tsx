@@ -1,37 +1,33 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useId, useState } from "react";
 
-// Renders every `.mermaid` block on the page; re-renders on navigation and theme change.
-export function MermaidRenderer() {
-  const pathname = usePathname();
+export function Mermaid({ chart }: { chart: string }) {
+  const id = useId().replace(/:/g, "");
   const { resolvedTheme } = useTheme();
+  const [svg, setSvg] = useState<string>();
 
   useEffect(() => {
-    const blocks = Array.from(document.querySelectorAll<HTMLElement>(".mermaid[data-code]"));
-    if (!blocks.length) return;
     let cancelled = false;
-
-    import("mermaid").then(({ default: mermaid }) => {
-      if (cancelled) return;
-      for (const block of blocks) {
-        block.removeAttribute("data-processed");
-        block.textContent = block.dataset.code ?? "";
-      }
+    import("mermaid").then(async ({ default: mermaid }) => {
       mermaid.initialize({
         startOnLoad: false,
-        theme: resolvedTheme === "dark" ? "dark" : "default",
         securityLevel: "strict",
+        theme: resolvedTheme === "dark" ? "dark" : "default",
       });
-      mermaid.run({ nodes: blocks, suppressErrors: true });
+      try {
+        const { svg } = await mermaid.render(`mermaid-${id}`, chart);
+        if (!cancelled) setSvg(svg);
+      } catch {
+        if (!cancelled) setSvg(undefined);
+      }
     });
-
     return () => {
       cancelled = true;
     };
-  }, [pathname, resolvedTheme]);
+  }, [chart, id, resolvedTheme]);
 
-  return null;
+  if (!svg) return <pre className="text-sm">{chart}</pre>;
+  return <div className="my-6 flex justify-center overflow-x-auto" dangerouslySetInnerHTML={{ __html: svg }} />;
 }

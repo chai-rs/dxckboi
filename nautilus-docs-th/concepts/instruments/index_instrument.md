@@ -1,4 +1,6 @@
-# Index Instrument
+---
+title: "Index Instrument"
+---
 
 `IndexInstrument` แทน index อ้างอิง เช่น ดัชนีหุ้น, ดัชนีความผันผวน หรือชุดราคา benchmark
 มันมี metadata ของ precision และ increment เพื่อให้ Nautilus จัดเก็บและ route ราคาได้อย่างสม่ำเสมอ
@@ -6,7 +8,7 @@
 
 ตัวอย่างเช่น `SPX.XCBO`, `VIX.XCBO` และ index อ้างอิงเฉพาะของแต่ละ venue
 
-## Field {#fields}
+## Field [#fields]
 
 | Field             | Rust type        | จำเป็น/ค่าเริ่มต้น | หมายเหตุ                                 |
 | ----------------- | ---------------- | ------------------ | ---------------------------------------- |
@@ -22,7 +24,7 @@
 | `tick_scheme`     | `Option<Ustr>`   | `None`             | ชื่อ variable tick scheme ที่ลงทะเบียนไว้  |
 | `info`            | `Option<Params>` | `None`             | metadata ของ adapter                     |
 
-## พฤติกรรม {#behavior}
+## พฤติกรรม [#behavior]
 
 - `IndexInstrument` มี asset class เป็น `Index` และ instrument class เป็น `Spot`
 - ไม่มี limit, margin, ค่าธรรมเนียม, contract multiplier, วันหมดอายุ หรือ settlement currency
@@ -33,7 +35,7 @@
 instrument futures หรือ option ที่สอดคล้องกันแทน
 :::
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -57,12 +59,12 @@ let spx = IndexInstrument::builder()
     .unwrap();
 ```
 
-## Adapter {#adapters}
+## Adapter [#adapters]
 
 Adapter [Interactive Brokers](../../integrations/interactive_brokers.md) สร้าง definition ของ
 `IndexInstrument` สำหรับ index อ้างอิง
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Option Contract](option_contract.md) อธิบาย option ที่จดทะเบียนซื้อขายซึ่งมี underlying เป็น index
 - [Futures Contract](futures_contract.md) อธิบาย index futures

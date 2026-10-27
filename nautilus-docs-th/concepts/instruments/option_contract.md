@@ -1,11 +1,13 @@
-# Option Contract
+---
+title: "Option Contract"
+---
 
 `OptionContract` แทน option แบบ put หรือ call ที่จดทะเบียนซื้อขาย โดยมีสินทรัพย์อ้างอิงที่ไม่ใช่ crypto
 กำหนดชนิดของ option, strike price, เวลาเริ่มใช้งาน, เวลาหมดอายุ, สกุลเงิน, multiplier และ lot size
 
 ตัวอย่างเช่น equity option, index option และ futures option
 
-## ฟิลด์ {#fields}
+## ฟิลด์ [#fields]
 
 | ฟิลด์              | Rust type          | จำเป็น/ค่าเริ่มต้น  | หมายเหตุ                                    |
 | ----------------- | ------------------ | ---------------- | ---------------------------------------- |
@@ -36,14 +38,14 @@
 | `ts_event`        | `UnixNanos`        | Required         | timestamp ของ event หน่วยนาโนวินาที         |
 | `ts_init`         | `UnixNanos`        | Required         | timestamp ตอนสร้าง หน่วยนาโนวินาที           |
 
-## พฤติกรรม {#behavior}
+## พฤติกรรม [#behavior]
 
 - `OptionContract` มี instrument class เป็น `Option`
 - ซื้อขายเป็นจำนวนสัญญาเต็ม โดยมี size precision เป็น `0` และ size increment เป็น `1`
 - ชนิดของ option และ strike price กำหนดรูปแบบของ payoff
 - ใช้ `CryptoOption` สำหรับ option ที่สินทรัพย์อ้างอิงและการชำระเป็นสกุลเงิน crypto
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 ```rust tab="Rust"
 use jiff::Timestamp;
@@ -80,14 +82,14 @@ let aapl_call = OptionContract::builder()
     .unwrap();
 ```
 
-## Adapter {#adapters}
+## Adapter [#adapters]
 
 **adapter ที่สร้างหรือใช้ instrument แบบ `OptionContract` ได้แก่**:
 
 - [Databento](../../integrations/databento.md) สำหรับข้อมูล option ที่จดทะเบียนซื้อขาย
 - [Interactive Brokers](../../integrations/interactive_brokers.md) สำหรับสัญญา option ที่จดทะเบียนซื้อขาย
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Options](../options.md) อธิบายข้อมูล option, greeks และการ subscribe option chain
 - [Crypto Option](crypto_option.md) อธิบายสัญญา crypto option

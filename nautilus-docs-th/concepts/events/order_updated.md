@@ -1,4 +1,6 @@
-# OrderUpdated
+---
+title: "OrderUpdated"
+---
 
 `OrderUpdated` บันทึกการเปลี่ยนแปลง quantity, price, trigger price หรือ protection price ที่คำนวณได้
 ของ order execution pipeline จะ apply event นี้กับ order อัปเดต `Cache` และ publish ลงบน
@@ -8,7 +10,7 @@
 transition ที่พบบ่อย: `PENDING_UPDATE` -> สถานะก่อนหน้า (เช่น `ACCEPTED`) handler:
 `on_order_updated`
 
-## สัญญา (contract) {#contract}
+## สัญญา (contract) [#contract]
 
 `quantity` คือ quantity แบบ **gross** ของ order: รวม filled quantity และ voided quantity ที่ไม่ได้
 reopen (ดู [OrderFillVoided](order_fill_voided.md)) Nautilus คำนวณ leaves ที่ยังทำงานอยู่เป็น
@@ -26,7 +28,7 @@ leaves ถูกหัก quantity นั้นซ้ำสองครั้ง
 quantity ที่มีผลจริง หลังหัก voided quantity แล้ว ดังนั้น adapter ที่ปิด order ตามจำนวนที่ fill ได้จะรายงาน
 `filled_qty` แทน gross quantity
 
-## ฟิลด์ {#fields}
+## ฟิลด์ [#fields]
 
 นอกจาก[ฟิลด์ทั่วไปของ order event](index.md#common-python-order-event-fields) แล้ว
 `OrderUpdated` ยังมี:
@@ -44,7 +46,7 @@ quantity ที่มีผลจริง หลังหัก voided quantity
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Events](index.md) - หมวดหมู่ของ event, การ dispatch และฟิลด์ทั่วไปของ order event
 - [Orders](../orders/) - ประเภทของ order และ state machine

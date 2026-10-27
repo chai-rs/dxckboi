@@ -1,4 +1,6 @@
-# Simulation Modules
+---
+title: "Simulation Modules"
+---
 
 Simulation module มีทั้งรูปแบบ enum และรูปแบบ shared handle ตามที่อธิบายไว้ใน
 [การออกแบบ behavioral model](../behavioral_models.md) ขอบเขตของการตั้งค่า (configuration boundary)
@@ -15,7 +17,7 @@ state ของมัน ส่วนการ clone ค่า enum ของโ
 state แยกกันจึงต้องใช้ instance ของโมดูลที่แยกกัน
 :::
 
-## Lifecycle {#lifecycle}
+## Lifecycle [#lifecycle]
 
 exchange จะรันแต่ละโมดูลผ่าน lifecycle ดังนี้:
 
@@ -27,7 +29,7 @@ exchange จะรันแต่ละโมดูลผ่าน lifecycle ด
    แบบ `Money` ตามลำดับ จากนั้นเรียก `acknowledge` ของโมดูลนั้นเพียงครั้งเดียวพร้อมผลลัพธ์ที่ตรงกัน
    แม้ batch จะว่างก็ตาม
 
-## การจัดการความล้มเหลว {#failure-handling}
+## การจัดการความล้มเหลว [#failure-handling]
 
 - **ความล้มเหลวใน lifecycle**: ความล้มเหลวจาก `pre_process`, `process`, `acknowledge` หรือ `reset` จะทำให้
   exchange อยู่ในสถานะ error จนกว่าทุกโมดูลจะ reset สำเร็จ เพื่อป้องกันไม่ให้ acknowledgement ที่ล้มเหลว
@@ -35,7 +37,7 @@ exchange จะรันแต่ละโมดูลผ่าน lifecycle ด
 - **ความล้มเหลวเชิงวินิจฉัย (diagnostic)**: จะส่งกลับไปยัง engine พร้อม index ของโมดูลและชื่อ hook
   โดยไม่เปลี่ยนสถานะ error ของ exchange
 
-## โมดูลในตัว {#built-in-modules}
+## โมดูลในตัว [#built-in-modules]
 
 โมดูล FX rollover และ CFD swap ที่มีมาในตัวใช้ flow แบบ acknowledgement ต่อ batch ที่เสร็จสมบูรณ์
 

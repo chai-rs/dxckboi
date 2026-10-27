@@ -1,4 +1,6 @@
-# Live Trading
+---
+title: "Live Trading"
+---
 
 โค้ด strategy และ execution algorithm ชุดเดียวกันสามารถรันได้ทั้งใน backtest และ live แต่การ execute
 แบบ live ยังมีพฤติกรรมด้าน venue, transport, จังหวะเวลา, persistence, กิจกรรมจากภายนอก และ
@@ -9,7 +11,7 @@ reconciliation ที่การจำลองอาจไม่ได้จ�
 การดำเนินงานของ node, execution reconciliation และความแตกต่างระหว่าง backtest กับ live trading
 :::
 
-## ความแตกต่างระหว่าง backtest และ live {#backtest-and-live-differences}
+## ความแตกต่างระหว่าง backtest และ live [#backtest-and-live-differences]
 
 backtest จะเดิน clock ที่ควบคุมได้จากข้อมูลย้อนหลัง และ execute order บน venue จำลอง ส่วน live node
 ใช้โค้ด strategy และ execution algorithm ร่วมกับ backtest แต่ต้องประสานงานกับระบบที่อยู่นอกขอบเขตของ process
@@ -28,7 +30,7 @@ backtest จะเดิน clock ที่ควบคุมได้จาก�
 - **Reconciliation**: การตรวจสอบตอนเริ่มต้นและระหว่างรันจะปรับสถานะในเครื่องที่เก็บไว้ให้ตรงกับ report
   ของ venue ดู [Execution reconciliation](execution/reconciliation.md)
 
-## การ routing ไปยัง execution client {#execution-client-routing}
+## การ routing ไปยัง execution client [#execution-client-routing]
 
 live node สามารถลงทะเบียน execution client หลายตัวที่ตั้งชื่อแยกกันสำหรับ venue เดียวกันได้ `client_id`
 ของคำสั่งจะเลือก client ที่ลงทะเบียนไว้โดยตรง ส่วนเส้นทางตาม venue และเส้นทางค่าเริ่มต้นจะใช้เลือก client
@@ -40,7 +42,7 @@ end-to-end ระหว่าง account บน venue เดียวกัน �
 ของ client ที่จะรันคำสั่งนั้นๆ ดู [Account selection](execution/index.md#account-selection)
 :::
 
-### การ routing order {#order-routing}
+### การ routing order [#order-routing]
 
 ตั้งค่าเส้นทางตาม venue และเส้นทางค่าเริ่มต้นผ่าน `RoutingConfig` ของแต่ละ client:
 
@@ -53,19 +55,19 @@ route venue นั้นอย่างชัดเจน หากมีหล�
 หรือ client ค่าเริ่มต้น แม้ strategy จะระบุ `client_id` ให้ทุกคำสั่งก็ตาม client ID ซ้ำกัน, เส้นทาง venue
 ที่ขัดกัน และการมีค่าเริ่มต้นหลายตัว จะทำให้การสร้าง node ล้มเหลว
 
-### การอัปเดต instrument {#instrument-updates}
+### การอัปเดต instrument [#instrument-updates]
 
 การอัปเดต instrument จะไปถึงทุก client ที่ venue ของตัวเองตรงกัน รวมถึง client ที่ถูก route ไปยัง venue นั้น
 (ถ้ามี) client ที่ตรงเงื่อนไขแต่ละตัวจะได้รับการอัปเดตเพียงครั้งเดียว การได้รับการอัปเดต instrument ไม่ได้
 ทำให้ client นั้นถูกเลือกเป็นผู้รับคำสั่ง order
 
-### การเรียกจาก Rust โดยตรง {#direct-rust-callers}
+### การเรียกจาก Rust โดยตรง [#direct-rust-callers]
 
 `ExecutionEngine::register_client` ลงทะเบียน client โดยไม่กำหนด routing ให้เรียก
 `register_venue_routing` หรือ `set_default_client` ตามหลังเพื่อตั้งค่าเส้นทาง venue หรือเส้นทางสำรอง
 อีกทางหนึ่งคือ `register_default_client` ซึ่งลงทะเบียน client และตั้งให้เป็นค่าเริ่มต้นไปพร้อมกัน
 
-## วงจรชีวิตของ live node {#live-node-lifecycle}
+## วงจรชีวิตของ live node [#live-node-lifecycle]
 
 `LiveNode::run()` ของ Rust จะเตรียมสถานะใน cache และสถานะของ venue ก่อนเริ่ม component ของ trader
 จากนั้นจะเป็นเจ้าของ event loop และการ shutdown แบบประสานงาน
@@ -96,7 +98,7 @@ flowchart TD
 การสร้าง `LiveNode` อีกตัวบน thread เดียวกันจะเกิด error ขณะที่ node ตัวแรกยังมีอยู่หรือกำลังถูกสร้าง
 :::
 
-### การกู้คืน submission ตอน shutdown {#submission-recovery-at-shutdown}
+### การกู้คืน submission ตอน shutdown [#submission-recovery-at-shutdown]
 
 `LiveNode::stop`, `run` และ `run_with_mode` ของ Rust ใช้ขอบเขตการกู้คืน submission เดียวกัน:
 
@@ -117,7 +119,7 @@ flowchart TD
 ที่มีอยู่เดิม และผลลัพธ์นี้ไม่ได้ขยาย cleanup ให้เลยช่วง `delay_post_stop` หรือทำการกู้คืนข้ามการ restart
 ดูกฎเรื่อง identity และงบการ query ได้ที่ [submission recovery](execution/reconciliation.md#submission-recovery)
 
-## การตั้งค่า {#configuration}
+## การตั้งค่า [#configuration]
 
 สำหรับวิธีที่ config struct จัดการค่าเริ่มต้น, ความหมายของ `T` เทียบกับ `Option<T>` และรูปแบบ builder
 ดูคู่มือแนวคิด [Configuration](configuration.md)
@@ -125,7 +127,7 @@ flowchart TD
 สำหรับการตั้งค่า node และ execution engine, การตั้งค่า strategy, cache backing และการเชื่อมหลาย venue
 ดูคู่มือ how-to [Configure a live trading node](../how_to/configure_live_trading.md)
 
-## Execution reconciliation {#execution-reconciliation}
+## Execution reconciliation [#execution-reconciliation]
 
 สำหรับวิธีที่คำสั่ง submit, modify และ cancel ได้ข้อสรุป ดู
 [Command outcomes](execution/policies.md#command-outcomes)
@@ -144,7 +146,7 @@ fill ใน report เหล่านั้นไปใช้ก็ต่อเ�
 สำหรับการป้องกัน snapshot ที่ล้าสมัยระหว่างรัน และความแตกต่างจากการแก้ไขจริงและ event fill-void ที่ระบุ
 ชัดเจน ดู [Snapshot freshness and fill corrections](execution/reconciliation.md#snapshot-freshness-and-fill-corrections)
 
-## Metrics ของ live runner ใน Rust {#rust-live-runner-metrics}
+## Metrics ของ live runner ใน Rust [#rust-live-runner-metrics]
 
 `LiveNode` ของ Rust เปิดให้ดู metrics พื้นฐานของ runner ผ่าน `LiveNodeHandle::metrics_snapshot()`
 ให้ดึง handle จาก node ก่อนเรียก `run()` แล้ว poll snapshot จาก task อื่น และคำนวณอัตราหรือ utilization
@@ -203,7 +205,7 @@ tokio::spawn(async move {
 node.run().await?;
 ```
 
-### ขอบเขตและการตีความ snapshot {#snapshot-scope-and-interpretation}
+### ขอบเขตและการตีความ snapshot [#snapshot-scope-and-interpretation]
 
 snapshot ครอบคลุมการ dispatch ผ่าน channel ของ `LiveNode::run` หลังการเริ่มต้น รวมถึงการ dispatch ที่
 ค้างอยู่ในช่วง grace period ของการ shutdown แต่ **ไม่** รวม buffer ตอนเริ่มต้น, การ flush ตอนเริ่มต้น หรือ
@@ -217,7 +219,7 @@ snapshot ครอบคลุมการ dispatch ผ่าน channel ขอ�
   ด้วย **saturating delta**
 - ตัวนับจะรีเซ็ตเมื่อ `LiveNode::run` เข้าสู่ steady state
 
-## ลำดับความสำคัญของการ dispatch และพฤติกรรมเมื่อโหลดเกิน {#dispatch-priority-and-overload-behavior}
+## ลำดับความสำคัญของการ dispatch และพฤติกรรมเมื่อโหลดเกิน [#dispatch-priority-and-overload-behavior]
 
 message channel ภายในทั้งเจ็ดของ live runner แยกจากกันและไม่จำกัดขนาด เมื่อมีหลาย channel พร้อมในเวลา
 เดียวกัน runner จะ poll branch ที่มีสิทธิ์ตามลำดับนี้:
@@ -248,13 +250,13 @@ channel ของ runner ไม่มี backpressure ไปยังผู้�
 ไม่ใช่การรับประกันเวลาให้บริการ แอปพลิเคชันต้องตัดสินใจเองว่าจะแจ้งเตือน, ลด input, หยุดเปิด exposure ใหม่
 หรือหยุด node อย่างไรเมื่อแรงกดดันยังคงอยู่
 
-## การเฝ้าดูแรงกดดันของคิว {#queue-pressure-monitoring}
+## การเฝ้าดูแรงกดดันของคิว [#queue-pressure-monitoring]
 
 `LiveNode` จะแปลงค่าตัวอย่างคิวของ runner เป็นการเปลี่ยนสถานะแบบมี type เมื่อตั้งค่า
 `LiveNodeConfig.queue_monitor` ไว้ ตัวเฝ้าดูนี้ **ปิดโดยค่าเริ่มต้น** และจะไม่ publish queue-state event ใดๆ
 ขณะที่ฟิลด์นี้ยังไม่ได้ตั้งค่า
 
-### ตั้งค่าเกณฑ์ {#configure-thresholds}
+### ตั้งค่าเกณฑ์ [#configure-thresholds]
 
 ตัวอย่างต่อไปนี้ตั้งเกณฑ์ที่ใช้กับแต่ละ runner channel ที่ถูกเฝ้าดู:
 
@@ -284,7 +286,7 @@ let config = LiveNodeConfig {
 
 เกณฑ์ clear แต่ละตัวต้อง **ต่ำกว่าเกณฑ์ trigger ของมัน** การตรวจสอบ config จะปฏิเสธเกณฑ์ที่เท่ากันหรือกลับด้าน
 
-### การเปลี่ยนสถานะ {#state-transitions}
+### การเปลี่ยนสถานะ [#state-transitions]
 
 live runner จะประเมินตัวเฝ้าดูทุก maintenance tick ที่ 100 ms หลังสุ่มวัดความลึกคิวปัจจุบัน ความลึกคิวเป็น
 ค่า ณ จุดเวลา ส่วนเวลา dispatch เฉลี่ยใช้จำนวนข้อความและเวลาที่ dispatch ไม่ว่างที่สะสมมาตั้งแต่ metrics
@@ -302,7 +304,7 @@ snapshot ครั้งก่อน
 - หน้าต่างตัวอย่างที่ไม่มีการ dispatch จะไม่ประเมิน `Slow` เงื่อนไขนี้จะคงสถานะเดิมจนกว่าจะมีหน้าต่างที่มี
   การ dispatch
 
-### การส่งแบบมี type {#typed-delivery}
+### การส่งแบบมี type [#typed-delivery]
 
 การเปลี่ยนสถานะแต่ละครั้งจะ publish ค่า `QueueStateChanged` ใหม่บน
 `events.system.QueueStateChanged.<channel>` โดย `<channel>` คือชื่อ variant ใน Rust เช่น `DataEvents`
@@ -313,9 +315,9 @@ actor subscribe ด้วย `subscribe_queue_state(...)` และรับ eve
 อยู่บน message bus แบบมี type ภายใน process และ event นี้ไม่มีรูปแบบ wire สำหรับการสตรีมผ่าน external
 message bus ดูตัวอย่างสำหรับ actor ได้ที่ [Queue pressure state](actors.md#queue-pressure-state)
 
-## สถานะ transport ของ socket {#socket-transport-state}
+## สถานะ transport ของ socket [#socket-transport-state]
 
-### การ publish และการ routing {#publication-and-routing}
+### การ publish และการ routing [#publication-and-routing]
 
 actor สามารถสังเกตความพร้อมใช้งานของ transport สำหรับ adapter ที่เลือกเปิดการรายงานสถานะ socket ได้
 `LiveNode` จะ publish `SocketStateChanged` บน `events.system.SocketStateChanged.<client_id>.<endpoint>`
@@ -330,7 +332,7 @@ adapter ส่งการแจ้งนี้ผ่าน system-event channel
 ดังนั้นจุดและอักขระ wildcard ใน label จึงเปลี่ยนการจับคู่ topic ไม่ได้ ใช้ตัวกรองของ
 `subscribe_socket_state` เพื่อเลือก client, endpoint หรือทั้งสองอย่าง โดยไม่ต้องสร้างชื่อ topic เอง
 
-### ความหมายของสถานะ {#state-semantics}
+### ความหมายของสถานะ [#state-semantics]
 
 | event หรือเงื่อนไขของ transport          | การ publish                                             |
 | ----------------------------------- | ------------------------------------------------------ |
@@ -349,12 +351,12 @@ subscription หรือการกู้คืนของ adapter เสร�
 เป็นผู้ให้หลักฐานนั้นภายใต้ [command outcome policy](execution/policies.md#command-outcomes)
 :::
 
-### การตรวจจับ peer ที่ตายแล้ว {#dead-peer-detection}
+### การตรวจจับ peer ที่ตายแล้ว [#dead-peer-detection]
 
 การเชื่อมต่ออาจหยุดส่งข้อมูลโดยไม่ปิด เช่น NAT หรือ load balancer ทิ้งการเชื่อมต่อไปโดยไม่มี `FIN` และ
 ไม่มี `RST` การเขียนจึงยังสำเร็จลง send buffer ต่อไปและไม่มีอะไรบ่งชี้ว่าการเชื่อมต่อหายไป
 
-#### Heartbeat timeout {#heartbeat-timeout}
+#### Heartbeat timeout [#heartbeat-timeout]
 
 WebSocket และ raw TCP client แบบ handler-mode จะ reconnect เมื่อ heartbeat timeout เมื่อตั้งค่า heartbeat
 ไว้ timeout ค่าเริ่มต้นคือ **สามช่วง heartbeat** หากระบุ `heartbeat_timeout_secs` ชัดเจนจะใช้ค่านั้นแทน
@@ -366,14 +368,14 @@ timeout ที่ระบุชัดเจนยังเปิดการต
 สำหรับ WebSocket client หน้าต่างนี้นับทุก frame การตอบ keepalive จึงรีเฟรชหน้าต่าง และตลาดที่เงียบจะไม่
 ทำให้ timeout
 
-#### Feed idle timeout {#feed-idle-timeout}
+#### Feed idle timeout [#feed-idle-timeout]
 
 adapter สามารถตั้ง idle timeout แยกต่างหากเพื่อตรวจจับ feed ที่หยุดไหลขณะที่ transport ยังปกติดี มีเพียง
 frame แบบ Text และ Binary เท่านั้นที่รีเฟรช timeout นี้ หน้าต่างที่สองนี้เหมาะกับ venue ที่ push ข้อมูลตาม
 จังหวะที่รู้แน่นอน ในกรณีที่ venue ตอบ keepalive ด้วย payload แบบ text การตอบนั้นจะรีเฟรช idle timeout
 เหมือนข้อมูลจริง หน้าต่างนี้จึงมีความหมายก็ต่อเมื่อตั้งไว้ต่ำกว่าช่วง heartbeat
 
-### การเชื่อมกับ adapter และ actor {#adapter-and-actor-integration}
+### การเชื่อมกับ adapter และ actor [#adapter-and-actor-integration]
 
 การเชื่อม adapter จะสร้าง `SocketStateSink` และตั้งผ่าน builder option `state_sink` ของ network client
 การ publish ต้องใช้ runner ของ `LiveNode` ส่วน `AsyncRunner` แบบ standalone จะไม่ publish event เหล่านี้
@@ -381,7 +383,7 @@ frame แบบ Text และ Binary เท่านั้นที่รีเ
 actor subscribe ด้วย `subscribe_socket_state(...)` และรับ event ผ่าน `on_socket_state(...)` การส่งอยู่บน
 bus แบบมี type ภายใน process การสตรีมผ่าน external message bus และรูปแบบ wire จะไม่เปิดเผย event เหล่านี้
 
-### คำสั่ง reconnect ราย endpoint {#endpoint-reconnect-commands}
+### คำสั่ง reconnect ราย endpoint [#endpoint-reconnect-commands]
 
 actor หรือ strategy สามารถเรียก `reconnect_socket(client_id, endpoint)` ด้วย label ของ endpoint จาก
 state event ได้ runner จะ route คำสั่งแบบมี type ผ่าน kernel และ engine ที่เป็นเจ้าของ endpoint ที่ลงทะเบียนไว้
@@ -405,7 +407,7 @@ kernel จะ log client ที่ไม่รู้จัก, client ที่�
 disconnect และ transport ที่ปิดแล้ว การปฏิเสธเหล่านี้จะไม่ emit การเปลี่ยนสถานะ socket และไม่กระทบ
 endpoint อื่น label ของ endpoint ใช้เฉพาะอักขระของ identifier และไม่มี URL ดิบ
 
-## Shutdown เมื่อเกิด error {#shutdown-on-error}
+## Shutdown เมื่อเกิด error [#shutdown-on-error]
 
 ตั้ง `LiveNodeConfig.shutdown_on_error=True` เพื่อให้ error log ใน Rust ร้องขอการ shutdown ของ live node
 logger ของ Rust จะบันทึก `log::error!` ตัวแรกที่ถูก emit หลัง kernel เริ่ม รวมถึง error log จาก thread อื่น
@@ -426,7 +428,7 @@ option `graceful_shutdown_on_error` ราย engine ถูกนำออกแ
 node/kernel แทน
 :::
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Execution reconciliation](execution/reconciliation.md) - การกู้คืนสถานะและการตรวจความสอดคล้องระหว่างรัน
 - [Execution policies](execution/policies.md) - ขอบเขตของการส่งคำสั่ง, persistence และการกู้คืน

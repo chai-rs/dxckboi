@@ -1,4 +1,6 @@
-# Architecture
+---
+title: "Architecture"
+---
 
 หน้านี้อธิบาย component, ขอบเขตของ runtime และการไหลของข้อมูลใน NautilusTrader
 โครงสร้างนี้ยึดตาม [หลักการออกแบบและนโยบาย](../developer_guide/design_principles.md)
@@ -7,7 +9,7 @@
 ในคู่มือนี้ **ขอบเขตของระบบ Nautilus** หมายถึง runtime ของ Nautilus node หนึ่ง instance
 :::
 
-## รูปแบบสถาปัตยกรรม {#architectural-style}
+## รูปแบบสถาปัตยกรรม [#architectural-style]
 
 NautilusTrader ใช้เทคนิคทางสถาปัตยกรรมและ design pattern ต่อไปนี้:
 
@@ -21,7 +23,7 @@ NautilusTrader ใช้เทคนิคทางสถาปัตยกร�
 [หลักการออกแบบและนโยบาย](../developer_guide/design_principles.md) ระบุลำดับความสำคัญและข้อตกลง (contract)
 ที่เทคนิคเหล่านี้รองรับ
 
-## สถาปัตยกรรมของระบบ {#system-architecture}
+## สถาปัตยกรรมของระบบ [#system-architecture]
 
 NautilusTrader มีทั้ง framework สำหรับประกอบระบบเทรด และ implementation เริ่มต้นสำหรับ
 [environment context](#environment-contexts) หลายแบบ
@@ -65,9 +67,9 @@ flowchart LR
 kernel เป็นเจ้าของแกนกลางการเทรดที่ใช้ร่วมกัน adapter แลกเปลี่ยน market data และ message ด้าน execution
 ผ่านขอบเขตของ engine
 
-### Component หลัก {#core-components}
+### Component หลัก [#core-components]
 
-#### `NautilusKernel` {#nautiluskernel}
+#### `NautilusKernel` [#nautiluskernel]
 
 component ศูนย์กลางที่ประสานการทำงานทั้งหมด:
 
@@ -77,7 +79,7 @@ component ศูนย์กลางที่ประสานการทำ�
 - ประสานทรัพยากรที่ใช้ร่วมกันและการจัดการ lifecycle
 - เป็นขอบเขต lifecycle เดียวสำหรับการทำงานของระบบ
 
-#### `MessageBus` {#messagebus}
+#### `MessageBus` [#messagebus]
 
 `MessageBus` เป็นศูนย์กลางในการ route การสื่อสารระหว่าง component:
 
@@ -88,7 +90,7 @@ component ศูนย์กลางที่ประสานการทำ�
   ผ่าน backing อย่าง Redis ได้ด้วย stream เหล่านี้ทำหน้าที่เป็น transport แบบ live ส่วนการกู้คืนสถานะแบบถาวร
   เป็นหน้าที่ของ cache หรือ event store
 
-#### `Cache` {#cache}
+#### `Cache` [#cache]
 
 `Cache` เก็บสถานะการเทรดไว้ในหน่วยความจำ:
 
@@ -96,7 +98,7 @@ component ศูนย์กลางที่ประสานการทำ�
 - ให้การอ่านแบบมี index สำหรับ component ด้านการเทรด
 - persist สถานะที่ตั้งค่าไว้ผ่าน database backing ของ cache ได้ (optional)
 
-#### `DataEngine` {#dataengine}
+#### `DataEngine` [#dataengine]
 
 ประมวลผลและ route market data ไปทั่วทั้งระบบ:
 
@@ -107,7 +109,7 @@ component ศูนย์กลางที่ประสานการทำ�
 - route ข้อมูลที่ได้ไปยังผู้รับตาม subscription และ request ของแต่ละราย
 - จัดการการไหลของข้อมูลจากแหล่งภายนอกไปยัง component ภายใน
 
-#### `ExecutionEngine` {#executionengine}
+#### `ExecutionEngine` [#executionengine]
 
 จัดการ lifecycle ของ order และการ execute:
 
@@ -122,7 +124,7 @@ component ศูนย์กลางที่ประสานการทำ�
 [แผนภาพ component ของ reconciliation](execution/reconciliation.md#component-responsibilities)
 สำหรับความเป็นเจ้าของและ dependency ของแต่ละส่วน
 
-#### `RiskEngine` {#riskengine}
+#### `RiskEngine` [#riskengine]
 
 ทำหน้าที่บริหารความเสี่ยง:
 
@@ -130,21 +132,21 @@ component ศูนย์กลางที่ประสานการทำ�
 - ใช้ rate limit ที่ตั้งค่าได้สำหรับการส่งและแก้ไข order
 - ติดตาม event ของ order และ position ที่ตัวควบคุมของมันใช้
 
-#### `Portfolio` {#portfolio}
+#### `Portfolio` [#portfolio]
 
 ดูแลสถานะของ account และ position ที่คำนวณต่อยอดมา:
 
 - ติดตาม balance, net position, margin, กำไรขาดทุนที่ realize และยังไม่ realize (PnL) และ exposure
 - อัปเดตสถานะและการประเมินมูลค่าจาก event ของ account, order, position, quote, bar และ mark price
 
-#### `Trader` {#trader}
+#### `Trader` [#trader]
 
 ประสาน component ด้านการเทรดของผู้ใช้:
 
 - ลงทะเบียน actor, strategy และ execution algorithm
 - จัดการ lifecycle, clock และ event subscription ของสิ่งเหล่านี้
 
-### Environment contexts {#environment-contexts}
+### Environment contexts [#environment-contexts]
 
 environment context กำหนดแหล่งข้อมูลและรูปแบบการ execute ของ node:
 
@@ -152,7 +154,7 @@ environment context กำหนดแหล่งข้อมูลและร
 - `Sandbox`: ข้อมูล real-time กับการ execute แบบจำลอง
 - `Live`: ข้อมูล real-time กับการเชื่อมต่อ venue จริง ทั้ง account แบบ paper และ account จริง
 
-### แกนกลางร่วม {#common-core}
+### แกนกลางร่วม [#common-core]
 
 ระบบ backtest, sandbox และ live ใช้ struct `NautilusKernel` จาก crate `nautilus-system` ร่วมกัน
 kernel เป็นเจ้าของ cache, portfolio, engine, trader, clock และโครงสร้างพื้นฐานด้าน messaging ที่ใช้ร่วมกัน
@@ -160,9 +162,9 @@ kernel เป็นเจ้าของ cache, portfolio, engine, trader, clock
 รูปแบบสถาปัตยกรรมแบบ *ports and adapters* ทำให้ component แบบ modular เชื่อมเข้ากับแกนกลางได้ผ่าน interface
 ที่ชัดเจนของ client, backing store และ component รวมถึง implementation ที่เขียนเอง
 
-### รูปแบบการไหลของข้อมูลและ execution {#data-and-execution-flow-patterns}
+### รูปแบบการไหลของข้อมูลและ execution [#data-and-execution-flow-patterns]
 
-#### Data flow: เส้นทางของ quote tick {#data-flow-life-of-a-quote-tick}
+#### Data flow: เส้นทางของ quote tick [#data-flow-life-of-a-quote-tick]
 
 ลำดับต่อไปนี้แสดงเส้นทางที่ `QuoteTick` เดินทางจาก network ไปถึง strategy trade และ bar ใช้เส้นทาง
 cache-แล้ว-publish แบบเดียวกันแต่ชื่อ handler ต่างกัน ส่วน order book delta และ depth snapshot ใช้เส้นทางอื่น
@@ -217,7 +219,7 @@ order book delta และ depth snapshot ถูก publish โดยตรง �
 ของ book แยกต่างหาก
 :::
 
-#### Execution flow: เส้นทางของ order {#execution-flow-life-of-an-order}
+#### Execution flow: เส้นทางของ order [#execution-flow-life-of-an-order]
 
 ลำดับแบบย่อนี้แสดงการส่ง order โดยตรงที่ venue accept สำเร็จแล้วตามด้วย fill โดยไม่รวม execution algorithm,
 emulation และผลลัพธ์ของ transport ที่ไม่ชัดเจน ดู [Execution](execution/index.md) และ
@@ -257,7 +259,7 @@ sequenceDiagram
    `Rejected` หรือ `Expired`) ไหลผ่าน `ExecutionEngine` ซึ่งอัปเดตสถานะ order ใน `Cache` และส่ง event
    ไปยัง handler ของ strategy event ของ fill ยังทำให้เกิดการอัปเดต position และ portfolio ด้วย
 
-#### การจัดการสถานะของ component {#component-state-management}
+#### การจัดการสถานะของ component [#component-state-management]
 
 type ที่ implement trait `Component` ใช้ finite state machine `ComponentState` นิยามสถานะแบบคงที่และ
 สถานะระหว่างเปลี่ยน ส่วน `ComponentTrigger` จำกัดการเปลี่ยนสถานะที่ถูกต้อง:
@@ -348,7 +350,7 @@ RESETTING โดย subscription ยังคงอยู่ครบ
 ทางกายภาพตัวเดียวกันแล้วเท่านั้น ทรัพยากรที่ engine จัดการ เช่น book snapshot, synthetic feed, spread quote,
 internal bar และ option chain ก็ใช้กฎเจ้าของรายสุดท้ายเดียวกันนี้
 
-#### Trait `Actor` เทียบกับ `Component` {#actor-vs-component-traits}
+#### Trait `Actor` เทียบกับ `Component` [#actor-vs-component-traits]
 
 implementation ใน Rust แยกการ dispatch message แบบเจาะจงเป้าหมายออกจากการจัดการ lifecycle:
 
@@ -452,11 +454,11 @@ mutable borrow ของ runtime ที่ครอบอยู่ก็ต้�
 ลำดับการ publish ระหว่าง fan-out แบบซ้อน การส่งที่ค้างอยู่ต้องมี identity ของการลงทะเบียนและ lifecycle
 เพื่อบังคับใช้ [ข้อกำหนดของ dispatch](../developer_guide/callback_dispatch.md)
 
-### Messaging {#messaging}
+### Messaging [#messaging]
 
 `MessageBus` ส่งผ่านข้อมูล, คำสั่ง และ event ระหว่าง component โดยไม่ต้องมี reference ถึง component กันโดยตรง
 
-#### โมเดล threading {#threading-model}
+#### โมเดล threading [#threading-model]
 
 ภายใน node แกนกลางจะรับและ dispatch message บน **thread เดียว** ซึ่งรวมถึง:
 
@@ -488,7 +490,7 @@ producer แบบ async ส่ง data และ execution event ผ่าน c
 `MessageBus` แบบ thread-local dispatch ไปยัง endpoint ของ engine บน core thread แต่ละ thread มี instance
 ของ bus เป็นของตัวเอง channel ทำหน้าที่เชื่อมงานจาก thread หรือ task อื่น
 
-## Crash-only design {#crash-only-design}
+## Crash-only design [#crash-only-design]
 
 NautilusTrader นำแนวคิด [crash-only design](https://en.wikipedia.org/wiki/Crash-only_software) มาใช้
 เมื่อจัดการ fault ที่กู้คืนไม่ได้ release build ของ repository จะ abort เมื่อเกิด panic เพื่อให้ supervisor
@@ -532,18 +534,18 @@ NautilusTrader นำแนวคิด [crash-only design](https://en.wikipedia
 - [Recovery-Oriented Computing (ROC) Project](http://roc.cs.berkeley.edu/): UC Berkeley และ
   Stanford
 
-## การจัดระเบียบ framework {#framework-organization}
+## การจัดระเบียบ framework [#framework-organization]
 
 Rust workspace จัดกลุ่มพฤติกรรมที่เกี่ยวข้องกันเป็น crate ภายใต้ `crates/`
 
-### Core และ domain {#core-and-domain}
+### Core และ domain [#core-and-domain]
 
 - `core`: primitive ระดับล่างด้านเวลา, string, serialization และ runtime
 - `model`: type ของ domain การเทรด รวมถึง instrument, account, order, position และ market data
 - `common`: service ของ runtime ที่ใช้ร่วมกัน รวมถึง cache, message bus, clock, actor, component และ logging
 - `serialization`: การรองรับ schema และ encoding สำหรับ type ของ model และ event
 
-### การเทรดและการวิเคราะห์ {#trading-and-analysis}
+### การเทรดและการวิเคราะห์ [#trading-and-analysis]
 
 - `analysis`: สถิติผลงานการเทรดและการวิเคราะห์
 - `indicators`: technical indicator
@@ -553,7 +555,7 @@ Rust workspace จัดกลุ่มพฤติกรรมที่เก�
 - `risk`: การควบคุมก่อนเทรด, การกำหนดขนาด position และสถานะการเทรด
 - `trading`: strategy และ execution algorithm
 
-### โครงสร้างพื้นฐานและ runtime {#infrastructure-and-runtimes}
+### โครงสร้างพื้นฐานและ runtime [#infrastructure-and-runtimes]
 
 - `network` และ `cryptography`: network client, การรองรับ transport, การ sign และผู้ให้บริการด้าน cryptography
 - `infrastructure`, `persistence` และ `event_store`: database backing, data catalog, object storage
@@ -563,14 +565,14 @@ Rust workspace จัดกลุ่มพฤติกรรมที่เก�
 - `adapters/*`: integration กับ venue, broker, ข้อมูล, blockchain และ sandbox
 - `plugin`, `cli` และ `testkit`: interface ของ plugin, เครื่องมือ command-line และการรองรับการทดสอบ
 
-## โครงสร้างโค้ด {#code-structure}
+## โครงสร้างโค้ด [#code-structure]
 
 directory `crates/` เก็บ implementation ที่เป็น Rust
 
 crate `nautilus-core` และ `nautilus-model` มี C FFI แบบ optional ไว้สำหรับผู้ใช้แบบ native ส่วน crate อื่นใน
 workspace ใช้ Rust API
 
-### Rust crates {#rust-crates}
+### Rust crates [#rust-crates]
 
 manifest ของ Rust crate ประกาศ workspace dependency และ feature flag แบบ optional feature จะเปิดความสามารถ
 เสริมโดยไม่เพิ่มเข้าไปใน build ขั้นต่ำ
@@ -639,17 +641,17 @@ flowchart BT
 | `cloud`     | `persistence`                             | เพิ่ม backend ของ object store สำหรับ AWS, Azure, GCP และ HTTP     |
 | `defi`      | crate ด้าน domain, data, runtime และ binding | เพิ่ม type และเส้นทางของ runtime สำหรับ DeFi และ blockchain           |
 
-### Type safety {#type-safety}
+### Type safety [#type-safety]
 
 codebase ของ Rust อาศัยการรับประกันของ compiler สำหรับโค้ดที่ปลอดภัย แต่ละ block ที่เป็น `unsafe` คือการเลือก
 ไม่ใช้การรับประกันเหล่านั้นอย่างชัดเจน ดังนั้นความปลอดภัยของหน่วยความจำและ type จึงขึ้นอยู่กับ invariant
 ที่ระบุไว้ในเอกสาร ดูส่วน Rust ใน [Developer Guide](../developer_guide/rust.md)
 
-### Errors และ exceptions {#errors-and-exceptions}
+### Errors และ exceptions [#errors-and-exceptions]
 
 เอกสาร API อธิบาย error ที่คาดว่าจะเกิดจาก NautilusTrader และเงื่อนไขที่ทำให้เกิด error เหล่านั้น
 
-### Processes และ threads {#processes-and-threads}
+### Processes และ threads [#processes-and-threads]
 
 :::warning[หนึ่ง node ต่อหนึ่ง process]
 การรัน `LiveNode` หรือ `BacktestNode` หลาย instance **พร้อมกัน** ใน process เดียวกันไม่ได้รับการรองรับ
@@ -669,7 +671,7 @@ codebase ของ Rust อาศัยการรับประกันข�
 หากต้องการรันแบบขนานหรือแยก workload ให้รันแต่ละ node ใน process แยกของตัวเอง
 :::
 
-### การจัดสรรหน่วยความจำ {#memory-allocation}
+### การจัดสรรหน่วยความจำ [#memory-allocation]
 
 แกนกลางแบบ event-driven จะจัดสรรและคืนหน่วยความจำของ object ระหว่างการ dispatch message, การจัดการ order event
 และการดูแล order book การเลือก allocator จึงมีผลต่อ throughput และหน่วยความจำที่ใช้จริง (resident memory)
@@ -684,7 +686,7 @@ Rust binary หนึ่งตัว link global allocator ได้เพีย
 NautilusTrader จึงเป็นกลางต่อ allocator เมื่อ build โดยใช้ crate โดยตรง ให้เลือกเปิดใช้จาก binary ของตัวเอง
 (ดู [คู่มือ Rust](rust.md#memory-allocator))
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Design principles](../developer_guide/design_principles.md): หลักการ นโยบาย และ trade-off
 - [Identifier storage](../developer_guide/rust.md#identifier-storage): lifetime ของ identifier และต้นทุนด้านหน่วยความจำ

@@ -1,4 +1,6 @@
-# การทดสอบ
+---
+title: "การทดสอบ"
+---
 
 test อัตโนมัติทำหน้าที่เป็นข้อกำหนดที่รันได้ (executable specification) ของแพลตฟอร์มเทรด ช่วยบันทึกพฤติกรรม
 ที่ตั้งใจไว้ ทำให้ refactor ได้อย่างมั่นใจ และจับ regression ได้ก่อนขึ้น production นอกจากนี้ test ยังเป็นตัวอย่าง
@@ -14,7 +16,7 @@ test อัตโนมัติทำหน้าที่เป็นข้อ
 - Fuzzing
 - Memory leak test
 
-## นโยบายการทดสอบ {#testing-policy}
+## นโยบายการทดสอบ [#testing-policy]
 
 test และ runtime contract เป็นระบบการออกแบบเดียวกัน ลำดับขั้นของ
 [Design by contract](rust.md#design-by-contract) พยายามผลัก invariant เข้าไปไว้ใน type system ให้มากที่สุด
@@ -23,7 +25,7 @@ test และ runtime contract เป็นระบบการออกแบ
 
 ไม่ใช่ทุก module ที่ต้องใช้ทุกเทคนิค ใช้หัวข้อนี้ตัดสินว่าชั้นใดเหมาะสมก่อนเพิ่ม test หรือ `debug_assert!`
 
-### ลำดับขั้นของกลไก {#mechanism-ladder}
+### ลำดับขั้นของกลไก [#mechanism-ladder]
 
 [คู่มือ Rust](rust.md#design-by-contract) อธิบายเรื่อง runtime contract ไว้ ลำดับความสำคัญคือ:
 
@@ -49,7 +51,7 @@ test และ runtime contract เป็นระบบการออกแบ
 ขั้น formal verification ยังเป็นเพียงเป้าหมาย: ยังไม่มี harness ของ Kani หรือ Prusti เข้ามาใน workspace
 แถวนี้บันทึกเงื่อนไขของการไล่ระดับไว้สำหรับเมื่อมีการนำ verifier มาใช้ ไม่ใช่ข้อผูกมัดในปัจจุบัน
 
-### กฎการเลือกชั้นตามรูปแบบ module {#projection-rule}
+### กฎการเลือกชั้นตามรูปแบบ module [#projection-rule]
 
 รูปแบบของ module เป็นตัวกำหนดว่าชั้นใดคุ้มค่า บาง module ไม่ต้องใช้ลำดับขั้นครบทั้งหมด ให้ใช้กฎนี้กับแต่ละ
 module ไม่ใช่แต่ละ crate เช่น crate ของ adapter มีทั้ง parser แบบ pure และ client loop ที่ผูกกับ I/O
@@ -63,7 +65,7 @@ module ไม่ใช่แต่ละ crate เช่น crate ของ adap
 | Stateful, async                     | Unit, integration, deterministic simulation   | Live engine, execution manager         |
 | ผูกกับ I/O, contract ของ venue        | Integration, spec acceptance, boundary fuzz   | Adapter client loop                    |
 
-### เมื่อไหร่ไม่ควรเพิ่ม coverage {#when-not-to-add-coverage}
+### เมื่อไหร่ไม่ควรเพิ่ม coverage [#when-not-to-add-coverage]
 
 - เพิ่ม `debug_assert!` เฉพาะจุดที่ test เข้าถึงได้ release build ตัดการตรวจสอบนี้ทิ้ง assertion ที่ไม่ถูก
   execute จึงไม่ให้สัญญาณใดๆ unit test ที่เจาะจงนับเป็น harness ได้ ส่วน proptest หรือ fuzz harness
@@ -75,7 +77,7 @@ module ไม่ใช่แต่ละ crate เช่น crate ของ adap
 - อย่าเพิ่ม coverage ด้วย test ที่ assert สิ่งที่ภาษาหรือ framework รับประกันอยู่แล้ว
   (`Option::is_some` หลัง `Some(..)`, `Vec::len` หลัง `push`)
 
-### ความพร้อมสำหรับ DST {#dst-readiness}
+### ความพร้อมสำหรับ DST [#dst-readiness]
 
 Deterministic simulation testing (DST) ต้องการ runtime ที่ปลอดจาก non-determinism แฝง ก่อนยก module
 ให้รันภายใต้ DST ให้ตรวจสอบสิ่งต่อไปนี้:
@@ -96,7 +98,7 @@ probe `surface` ใน `crates/common/src/live/dst.rs` ตรึงไว้แ�
 ใช้ seam จริงหรือไม่ การบังคับใช้ทำผ่านการ review ให้รันการ audit ทุกครั้งที่มี async module ใหม่เข้ามาใน
 workspace หรือ module เดิมมีการจัดตาราง control-plane ใหม่
 
-## Behavior-driven development {#behavior-driven-development}
+## Behavior-driven development [#behavior-driven-development]
 
 Behavior-driven development (BDD) ใช้ตัวอย่างที่เป็นรูปธรรมเพื่อตกลงพฤติกรรมที่ต้องการก่อน implement
 Gherkin แสดงตัวอย่างเหล่านั้นในรูปแบบที่อ่านง่ายและผูกเข้ากับโค้ด test **ใช้ Gherkin สำหรับนโยบายที่ครอบคลุม
@@ -110,7 +112,7 @@ cache และ portfolio จริงร่วมกับ execution client ท
 [นโยบายการทดสอบ](#testing-policy) และ response ของ venue ที่ script ไว้ไม่ถือเป็น
 [live adapter acceptance](spec_exec_testing.md)
 
-### การเลือกกฎและตัวอย่าง {#selecting-rules-and-examples}
+### การเลือกกฎและตัวอย่าง [#selecting-rules-and-examples]
 
 เริ่มจาก contract ที่มีเอกสาร, การเปลี่ยนพฤติกรรมที่ตกลงกันแล้ว หรือ defect ที่ยืนยันแล้ว ใช้โค้ดตรวจว่า
 พฤติกรรมถูก implement อย่างไร ถ้ากฎที่ตั้งใจไว้กับ implementation ไม่ตรงกัน ให้แก้ความขัดแย้งนั้นก่อนจะถือ
@@ -129,7 +131,7 @@ cache และ portfolio จริงร่วมกับ execution client ท
 การกู้คืนที่มีราคา, การล้มเหลวเพราะไม่มีราคา และการปิดการสร้าง report แสดงผลลัพธ์ที่แตกต่างกันภายใต้กฎนั้น
 ให้แยกความแตกต่างเหล่านั้นเป็น scenario ต่างหากเพื่อให้เห็นชัด
 
-### ความเป็นเจ้าของ test และความซ้ำซ้อน {#test-ownership-and-overlap}
+### ความเป็นเจ้าของ test และความซ้ำซ้อน [#test-ownership-and-overlap]
 
 **ให้ตัวอย่างที่เป็นรูปธรรมแต่ละตัวมี test หลักหนึ่งตัว** ใช้ Gherkin สำหรับ behavior contract ที่เป็นตัวแทน
 และใช้ Rust test แบบเจาะจงสำหรับ permutation ที่ละเอียดหรือการทำงานร่วมกันของ component ที่ไม่ต้องการ
@@ -147,7 +149,7 @@ cache และ portfolio จริงร่วมกับ execution client ท
 เช่น การคำนวณ reconciliation กับการที่ผลนั้นมองเห็นได้ใน callback ของ strategy ต้องใช้การสังเกตคนละแบบ
 ส่วน startup test เต็มรูปแบบตัวที่สองที่มี setup, action และ assertion เหมือนกันต้องมีจุดประสงค์ที่ต่างออกไป
 
-#### การแทนที่ test เดิม {#replacing-an-existing-test}
+#### การแทนที่ test เดิม [#replacing-an-existing-test]
 
 ก่อนแทนที่ test เดิมด้วย Gherkin scenario:
 
@@ -159,7 +161,7 @@ scenario ที่ขอ stop จาก start callback ของ strategy ไม
 ให้คง test ที่ตรวจ transition นั้นไว้ แชร์การสร้าง fixture และ client ที่ script ไว้ได้ แต่อย่าเรียก function
 ของ test เดิมจาก step definition หรือเขียน logic ของ reconciliation ซ้ำใน fixture
 
-### การเขียน Gherkin {#writing-gherkin}
+### การเขียน Gherkin [#writing-gherkin]
 
 จัดแต่ละ feature รอบความสามารถที่สอดคล้องกัน เช่น startup reconciliation โดยใช้โครงสร้างต่อไปนี้:
 
@@ -169,7 +171,7 @@ scenario ที่ขอ stop จาก start callback ของ strategy ไม
 - **`Scenario Outline`** เปลี่ยน input สำหรับพฤติกรรมเดียวกัน เช่น exposure ฝั่ง long และ short ให้แยก
   นโยบายที่ต่างกันเป็นคนละ scenario แทนการรวมไว้ใน matrix แบบมีเงื่อนไขเดียว
 
-#### บริบทและผลลัพธ์ {#context-and-outcomes}
+#### บริบทและผลลัพธ์ [#context-and-outcomes]
 
 เขียน step `Given` สำหรับเงื่อนไขเริ่มต้น `When` สำหรับ action และ `Then` สำหรับผลลัพธ์ที่สังเกตได้
 ใช้คำศัพท์เชิง domain เช่น position report, recovered exposure และ strategy startup ระบุชื่อ method หรือ
@@ -188,9 +190,9 @@ wiring ไว้ใน step definition
 
 ใช้ tag เพื่อเลือกนโยบาย เช่น `@recovery` การค้นหา test ตามปกติต้องรวมชุด test นี้ด้วยโดยไม่ต้องใช้ filter แบบ opt-in
 
-### Step และ fixture ใน Rust {#rust-steps-and-fixtures}
+### Step และ fixture ใน Rust [#rust-steps-and-fixtures]
 
-#### โครงสร้างและการนำกลับมาใช้ {#layout-and-reuse}
+#### โครงสร้างและการนำกลับมาใช้ [#layout-and-reuse]
 
 ใช้ development dependency `cucumber` ของ workspace สำหรับชุด Gherkin ใน Rust ทำตามโครงสร้างของ live crate
 คือ runner `tests/spec/main.rs` และ `tests/spec/features/<capability>.feature` ซึ่งเป็นการเลือกโครงสร้างของ
@@ -205,7 +207,7 @@ workflow ของมัน และแยก module ของ Rust เมื�
 - **World**: กำหนดขอบเขตให้ตรงกับ workflow ที่ทดสอบ อย่าขยาย `World` ที่ใช้ร่วมกันหรือสร้าง fixture framework
   ทั่วไปเผื่อ feature ในอนาคตที่ยังไม่มีจริง
 
-#### พฤติกรรมของ step {#step-behavior}
+#### พฤติกรรมของ step [#step-behavior]
 
 step definition แปลง input เชิง domain เป็นการเรียกโค้ด production และเปรียบเทียบสิ่งที่สังเกตได้กับความคาดหวัง
 ที่ระบุชัดเจน ใช้ domain type หรือ `Decimal` สำหรับค่าทางการเงิน และ assert ฟิลด์ที่กำหนด contract รวมถึง
@@ -213,7 +215,7 @@ step definition แปลง input เชิง domain เป็นการเ�
 **เก็บตัวควบคุมการทดสอบไว้ในโค้ด test**: อย่าเพิ่ม flag, configuration, hook หรือ accessor ใน production
 เพียงเพื่อขับ scenario
 
-#### การแยกส่วนและจังหวะเวลา {#isolation-and-timing}
+#### การแยกส่วนและจังหวะเวลา [#isolation-and-timing]
 
 Cucumber สร้าง `World` ใหม่สำหรับแต่ละ scenario แต่ scenario ในชุดเดียวกันใช้ process และ runtime ร่วมกัน
 การแยก process ต่อ test ของ nextest ไม่ได้แยก scenario เหล่านี้ออกจากกัน state ที่อยู่นอก `World`
@@ -227,7 +229,7 @@ Cucumber สร้าง `World` ใหม่สำหรับแต่ละ s
 - จำกัดเวลาของ action ด้วย timeout และทำตาม[ข้อตกลงการรอแบบ async](#waiting-for-asynchronous-effects)
   เมื่อรอผลลัพธ์ scenario ที่มี timeout ตามปกติไม่ถือเป็นความครอบคลุมแบบ deterministic simulation
 
-### การดูแล feature file {#maintaining-feature-files}
+### การดูแล feature file [#maintaining-feature-files]
 
 อัปเดตกฎ, ตัวอย่าง และ implementation ไปพร้อมกันเมื่อพฤติกรรมที่ต้องการเปลี่ยน อย่าเปลี่ยนผลลัพธ์ที่คาดหวัง
 ให้ตรงกับ defect ให้แก้ defect ในการเปลี่ยนแปลงเดียวกัน ถ้าทำไม่ได้ ให้บันทึกไว้ใน issue และเพิ่มตัวอย่าง
@@ -235,7 +237,7 @@ regression พร้อมกับการแก้ไข การ refactor �
 เพิ่มตัวอย่างเมื่อมันนำเสนอความแตกต่างที่มีความหมาย และใช้ parametrized test หรือ property test แบบเจาะจง
 สำหรับการผสมเพิ่มเติมที่แสดงกฎเดียวกัน
 
-#### ข้อกำหนดของ runner {#runner-requirements}
+#### ข้อกำหนดของ runner [#runner-requirements]
 
 รัน scenario ที่เปลี่ยนแปลงและ test เดิมที่ได้รับผลกระทบ ใช้ Rust test harness มาตรฐานที่มี
 `#[tokio::test]` หนึ่งตัวต่อชุด เพื่อให้ nextest ค้นพบได้ ทำตาม
@@ -255,7 +257,7 @@ Cucumber เพราะ nextest รายงานชุด Gherkin แต่�
 [คู่มือ example mapping ของ Cucumber](https://cucumber.io/docs/bdd/example-mapping/) อธิบายวิธีพัฒนากฎ
 และตัวอย่าง ส่วน [Gherkin reference](https://cucumber.io/docs/gherkin/reference/) กำหนด syntax ที่ใช้ในที่นี้
 
-## Property-based testing {#property-based-testing}
+## Property-based testing [#property-based-testing]
 
 property testing ตรวจสอบว่า logic เป็นจริงสำหรับ input ที่ถูกต้อง*ทั้งหมด* ไม่ใช่เฉพาะตัวอย่างที่เลือกมา
 โปรเจกต์ใช้ [`proptest`](https://altsysrq.github.io/proptest-book/intro.html) ใน Rust เพื่อบังคับ invariant
@@ -266,7 +268,7 @@ property testing ตรวจสอบว่า logic เป็นจริง�
   - Inverse operation: `(A + B) - B == A`
   - Transitivity: `If A < B and B < C, then A < C`
 
-## Fuzzing {#fuzzing}
+## Fuzzing [#fuzzing]
 
 fuzzing ป้อนข้อมูลที่ไม่มีโครงสร้างหรือข้อมูลที่เป็นอันตรายเข้าสู่ระบบ เพื่อตรวจว่าระบบล้มเหลวอย่างสง่างาม
 
@@ -289,7 +291,7 @@ oracle แบบ differential ของ Pornin ที่ pin ด้วย git �
 
 performance test ช่วยพัฒนา component ที่ประสิทธิภาพมีความสำคัญ
 
-## การรัน test {#running-tests}
+## การรัน test [#running-tests]
 
 CI รัน `scripts/ci/check_test_network.py` ผ่าน `make test-scripts` เพื่อตรวจหาการเรียก network โดยตรงไปยัง
 address ที่เป็น literal ที่ไม่ใช่ local, switch ที่เปิด live test อย่างชัดเจน และ option ของ fork-RPC โดยตรวจ
@@ -308,7 +310,7 @@ make cargo-ci-benches
 ดู [คู่มือ Benchmarking](benchmarking.md) สำหรับคำสั่ง Criterion และ iai แบบเจาะจง, การ profile และนโยบาย
 การวัดผล รัน benchmark แยกจาก unit test เพื่อไม่ให้รบกวนกัน
 
-### Rust test {#rust-tests}
+### Rust test [#rust-tests]
 
 ก่อนรันชุด test ทั้งหมด ให้[เตรียม test fixture ขนาดใหญ่](test_datasets.md#dataset-categories)
 
@@ -328,7 +330,7 @@ state ของ test แบบ deterministic
 ทำงานได้กับ runner ของ libtest
 :::
 
-#### Gherkin startup reconciliation scenario {#gherkin-startup-reconciliation-scenarios}
+#### Gherkin startup reconciliation scenario [#gherkin-startup-reconciliation-scenarios]
 
 [feature file](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/tests/spec/features/startup_reconciliation.feature) ของ live node
 อธิบาย startup reconciliation ด้วย step แบบ Given/When/Then
@@ -364,7 +366,7 @@ step ของ startup return หรือ unwind หลัง panic scenario �
 step binding ที่หายไปหรือกำกวม และ assertion ที่ล้มเหลวจะทำให้ชุด test ล้มเหลว filter ที่ไม่เลือก scenario
 ใดเลยก็ล้มเหลวเช่นกัน ชุดนี้ใช้ runtime ปกติ จึงไม่ถือเป็นความครอบคลุมแบบ deterministic simulation
 
-#### Rust doctest {#rust-doctests}
+#### Rust doctest [#rust-doctests]
 
 `cargo nextest` execute doctest ไม่ได้ จึงต้องรันผ่าน target แยก:
 
@@ -377,7 +379,7 @@ cargo test --doc --workspace --features "$(bash scripts/cargo-features.bash)" --
 ตัวอย่างในเอกสารถือเป็นส่วนของ test ที่ต้องดูแล workflow `nightly-tests` ที่ตั้งเวลาไว้จะรัน target นี้
 ดู[คู่มือ Rust](rust.md#doc-examples) สำหรับวิธี annotate code fence ให้ compile ได้
 
-#### การทดสอบกับ optional feature {#testing-with-optional-features}
+#### การทดสอบกับ optional feature [#testing-with-optional-features]
 
 ใช้ `EXTRA_FEATURES` เพื่อรวม optional feature เช่น `sbe` หรือ `hypersync`:
 
@@ -395,9 +397,9 @@ make cargo-test HYPERSYNC=true
 make cargo-test-crate-nautilus-serialization FEATURES="sbe"
 ```
 
-## รูปแบบการเขียน test {#test-style}
+## รูปแบบการเขียน test [#test-style]
 
-### ทั่วไป {#general}
+### ทั่วไป [#general]
 
 - ตั้งชื่อ function ของ test ตามสิ่งที่ทดสอบ ไม่จำเป็นต้องใส่ assertion ที่คาดหวังลงในชื่อ
 - เพิ่มคำอธิบาย (doc comment) เมื่อช่วยให้ setup, scenario หรือความคาดหวังชัดเจนขึ้น
@@ -411,12 +413,12 @@ make cargo-test-crate-nautilus-serialization FEATURES="sbe"
   ให้จับ log แบบ serialize และ join task ที่ปล่อย log ก่อนปล่อยการจับ assert เฉพาะ record ที่เกี่ยวข้องและ
   การไม่มี secret หลีกเลี่ยงการ assert ทั้ง transcript
 
-### Rust {#rust}
+### Rust [#rust]
 
 สำหรับข้อตกลงการเขียน test เฉพาะของ Rust (โครงสร้าง module, `#[rstest]`, การทำ parameterization)
 ดู[คู่มือ Rust](rust.md#testing-conventions)
 
-## การรอผลแบบ asynchronous {#waiting-for-asynchronous-effects}
+## การรอผลแบบ asynchronous [#waiting-for-asynchronous-effects]
 
 ใน Rust test ให้ใช้ notification channel หรือ event อื่นที่ test เป็นเจ้าของ แทนการประเมินเงื่อนไขซ้ำๆ:
 
@@ -426,12 +428,12 @@ make cargo-test-crate-nautilus-serialization FEATURES="sbe"
 เมื่อไม่มีสัญญาณที่เหมาะสม ให้ใช้ `wait_until_async(...)` จาก `nautilus_common::testing` ซึ่งหยุดทันทีที่เงื่อนไข
 สำเร็จและมี timeout จำกัด ใช้ sleep แบบคงที่เฉพาะเมื่อช่วงเวลานั้นเองคือสิ่งที่ทดสอบ
 
-## Mock {#mocks}
+## Mock [#mocks]
 
 เลือกใช้ stub ที่เขียนเองซึ่งคืนค่าคงที่มากกว่า mocking framework ใช้ mock เฉพาะเพื่อ assert จำนวนครั้งที่เรียก
 หรือ argument หรือเพื่อจำลองการเปลี่ยน state ที่ซับซ้อน หลีกเลี่ยงการ mock object ที่กำลังทดสอบ
 
-## Code coverage {#code-coverage}
+## Code coverage [#code-coverage]
 
 ตั้งเป้า coverage สูงโดยไม่ลดทอนการจัดการ error หรือเปลี่ยนสถาปัตยกรรมเพียงเพื่อ test บาง branch ยังทดสอบไม่ได้
 หากไม่แก้พฤติกรรมของ production เช่น เงื่อนไขสุดท้ายในบล็อก if-else แบบป้องกันอาจถูกเรียกเฉพาะกับค่าที่ไม่คาดคิด
@@ -439,7 +441,7 @@ make cargo-test-crate-nautilus-serialization FEATURES="sbe"
 
 ข้อยกเว้นที่ออกแบบไว้ตั้งแต่แรกก็อาจทดสอบได้ยากในทางปฏิบัติ เป้าหมายจึงไม่ใช่ coverage 100%
 
-## การ debug Rust test {#debugging-rust-tests}
+## การ debug Rust test [#debugging-rust-tests]
 
 ใช้ test configuration ค่าเริ่มต้นเพื่อ debug Rust test
 
@@ -450,12 +452,12 @@ make cargo-test-crate-nautilus-serialization FEATURES="sbe"
 
 ใน VS Code สามารถเลือก test case ที่ต้องการ debug ได้โดยตรง
 
-## การทดสอบ data type {#data-type-testing}
+## การทดสอบ data type [#data-type-testing]
 
 data type แต่ละตัวไหลผ่านหลายชั้นของแพลตฟอร์ม ตารางด้านล่างแสดงว่า type ที่มีอยู่ถูกทดสอบที่ใดบ้าง เพื่อให้
 type ใหม่ทำตามรูปแบบเดียวกันได้
 
-### Matrix ของชั้น test {#test-layer-matrix}
+### Matrix ของชั้น test [#test-layer-matrix]
 
 | ชั้น                    | ตำแหน่ง                                       | สิ่งที่ครอบคลุม                                                 |
 | ---------------------- | ------------------------------------------- | ------------------------------------------------------------ |
@@ -465,7 +467,7 @@ type ใหม่ทำตามรูปแบบเดียวกันได
 | DataActor unsubscribe  | `crates/common/src/actor/tests.rs`          | actor หยุดรับข้อมูลหลัง unsubscribe                              |
 | Adapter live tests     | `docs/developer_guide/spec_data_testing.md` | live data acceptance test (DataTester)                        |
 
-### ความครอบคลุมต่อ data type {#coverage-per-data-type}
+### ความครอบคลุมต่อ data type [#coverage-per-data-type]
 
 ตารางต่อไปนี้แสดงว่าแต่ละ data type มี test ครอบคลุมในชั้นใดบ้าง ใช้เป็น checklist เมื่อเพิ่ม type ใหม่
 
@@ -489,7 +491,7 @@ type ใหม่ทำตามรูปแบบเดียวกันได
 `OptionChainSlice` ถูกประกอบโดย `OptionChainManager` ของ DataEngine จาก subscription ของ greeks และ quote
 ราย instrument จึงไม่มีคำสั่ง subscribe ของ engine เป็นของตัวเอง
 
-### การเพิ่ม data type ใหม่ {#adding-a-new-data-type}
+### การเพิ่ม data type ใหม่ [#adding-a-new-data-type]
 
 เมื่อเพิ่ม data type ใหม่ ให้เพิ่ม test ในแต่ละชั้น:
 

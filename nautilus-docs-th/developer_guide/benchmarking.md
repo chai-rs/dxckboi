@@ -1,4 +1,6 @@
-# Benchmarking
+---
+title: "Benchmarking"
+---
 
 คู่มือนี้อธิบายการเขียน รัน และ profile benchmark ของ NautilusTrader ครอบคลุมโครงสร้างของ benchmark,
 ตัวอย่าง, คำสั่งที่ใช้ในเครื่อง และขั้นตอนการวัดผลสำหรับผลลัพธ์ที่จะเผยแพร่
@@ -8,7 +10,7 @@
 
 ---
 
-## ภาพรวมของเครื่องมือ {#tooling-overview}
+## ภาพรวมของเครื่องมือ [#tooling-overview]
 
 เลือกเครื่องมือตามงานและผลลัพธ์ที่ต้องการ:
 
@@ -25,7 +27,7 @@ Criterion รายงานเวลาที่ผู้ใช้มองเ�
 
 ---
 
-## โครงสร้างไดเรกทอรี {#directory-layout}
+## โครงสร้างไดเรกทอรี [#directory-layout]
 
 แต่ละ crate เก็บ benchmark ไว้ในโฟลเดอร์ `benches/` ของตัวเอง:
 
@@ -58,7 +60,7 @@ crate นั้น ให้เพิ่ม crate ใน `Makefile` ของ wo
 
 ---
 
-## การเขียน benchmark ด้วย Criterion {#writing-criterion-benchmarks}
+## การเขียน benchmark ด้วย Criterion [#writing-criterion-benchmarks]
 
 - **Setup**: วางงานทั้งหมดที่ไม่เปลี่ยนระหว่างแต่ละรอบไว้ในโค้ดรอบนอก หรือใน setup closure ของ
   `iter_batched_ref` ให้อยู่นอก body ที่ส่งให้ `iter`
@@ -100,7 +102,7 @@ criterion_main!(benches);
 
 ---
 
-## การเขียน benchmark ด้วย iai {#writing-iai-benchmarks}
+## การเขียน benchmark ด้วย iai [#writing-iai-benchmarks]
 
 `iai` ต้องการฟังก์ชันที่ไม่รับพารามิเตอร์ ใช้กับ operation ขนาดเล็กที่เป็น pure เพื่อให้จำนวน instruction
 ที่วัดได้เน้นเฉพาะงานที่ตั้งใจวัด
@@ -122,7 +124,7 @@ iai::main!(bench_add);
 
 ---
 
-## การรัน benchmark ในเครื่อง {#running-benches-locally}
+## การรัน benchmark ในเครื่อง [#running-benches-locally]
 
 | เป้าหมาย                              | คำสั่ง                                                                 |
 | ---------------------------------- | --------------------------------------------------------------------- |
@@ -143,7 +145,7 @@ Criterion เขียนรายงาน HTML ไว้ที่ `target/crit
 benchmark target ที่เลือกไว้ build และลงทะเบียนได้ แต่จะไม่อัปโหลดผลการวัด job `codspeed-benchmarks` ใน
 `.github/workflows/performance.yml` เป็นผู้วัดและอัปโหลดผลลัพธ์
 
-### Workload มาตรฐานของ backtest {#canonical-backtest-workloads}
+### Workload มาตรฐานของ backtest [#canonical-backtest-workloads]
 
 กรณี backtest มาตรฐานใช้ 10,000 แถวแรกของไฟล์ `test_data/btc-perp-20211231-20220201_1m.csv` ที่ check-in
 ไว้ใน repository โดยมี fixture ร่วมที่ขับเคลื่อนสถานการณ์แบบ replay อย่างเดียว, market order ตามตารางเวลา,
@@ -177,7 +179,7 @@ backtest ข้ามเวอร์ชัน
 
 ---
 
-## การวัดผลด้วย Criterion เพื่อเผยแพร่ {#measure-criterion-for-publication}
+## การวัดผลด้วย Criterion เพื่อเผยแพร่ [#measure-criterion-for-publication]
 
 ใช้ profile `bench-lto` สำหรับผลของ Criterion ที่จะรายงานหรือเผยแพร่ profile นี้สืบทอดจาก `release`,
 เก็บ debug symbol ไว้ครบ, เปิด fat LTO และใช้ code generation unit เดียว ส่วน profile `bench` ปกติจะเก็บ
@@ -214,7 +216,7 @@ iai ทำงานภายใต้โมเดล CPU เสมือนข�
 
 ---
 
-## การสร้าง flamegraph {#generating-a-flamegraph}
+## การสร้าง flamegraph [#generating-a-flamegraph]
 
 `cargo-flamegraph` สร้าง profile ของ call stack แบบ sampling สำหรับ bench หนึ่งตัว ใช้เมื่อ benchmark
 เกิด regression และยังไม่ชัดว่าการเรียกภายในตัวไหนเป็นต้นเหตุ
@@ -233,7 +235,7 @@ iai ทำงานภายใต้โมเดล CPU เสมือนข�
 
 3. เปิด `flamegraph.svg` ในเบราว์เซอร์แล้วซูมเข้าไปดู hot path
 
-### Linux {#linux}
+### Linux [#linux]
 
 ต้องมี `perf` บน Debian/Ubuntu:
 
@@ -249,7 +251,7 @@ sudo sh -c 'echo 1 > /proc/sys/kernel/perf_event_paranoid'
 
 ค่า `1` มักจะเพียงพอ ตั้งกลับเป็น `2` (ค่าเริ่มต้น) หลังใช้งานเสร็จ หรือกำหนดให้ถาวรผ่าน `/etc/sysctl.conf`
 
-### macOS {#macos}
+### macOS [#macos]
 
 `DTrace` ต้องใช้สิทธิ์ root ดังนั้นต้องรัน `cargo flamegraph` ด้วย `sudo`
 
@@ -271,7 +273,7 @@ production บวม (binary เหล่านั้นยังคงใช้
 
 ---
 
-## Template {#templates}
+## Template [#templates]
 
 ไฟล์ตั้งต้นอยู่ใน [`docs/dev_templates/`](../dev_templates/):
 

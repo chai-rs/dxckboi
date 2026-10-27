@@ -1,10 +1,12 @@
-# Callback Dispatch Contract
+---
+title: "Callback Dispatch Contract"
+---
 
 หน้านี้กำหนดข้อกำหนดด้าน ownership, ลำดับ และความคืบหน้า (progress) ของ callback ของ actor และ strategy
 แบบเข้าคิว (queued) ส่วน [design principles](design_principles.md#queued-callback-dispatch-requirements)
 อธิบายนโยบายเบื้องหลัง
 
-:::info การส่งแบบเข้าคิวยังไม่เปิดใช้งาน
+:::info[การส่งแบบเข้าคิวยังไม่เปิดใช้งาน]
 ข้อกำหนดเหล่านี้เป็นข้อจำกัดด้านการออกแบบสำหรับการส่ง callback ของ actor และ strategy แบบเข้าคิว ไม่ใช่สิ่งที่
 รับประกันในเส้นทาง dispatch แบบ synchronous ที่มีอยู่ตอนนี้
 การรองรับ reentry แบบ synchronous ของ message bus ไม่ได้เปิดใช้งาน callback แบบเข้าคิวของ actor หรือ strategy
@@ -22,7 +24,7 @@
 
 ข้อความ error และวิธีแก้ไข ดูได้ที่ [reentrancy และ dispatch diagnostics](#reentrancy-and-dispatch-diagnostics)
 
-## ตัวอย่างลำดับ callback {#worked-callback-sequence}
+## ตัวอย่างลำดับ callback [#worked-callback-sequence]
 
 ตัวอย่างนี้แสดงสัญญาแบบเข้าคิว callback แบบ canonical ใน production ยังคงเป็น synchronous สมมติว่า event A
 มีผู้รับที่มีสิทธิ์สองตัว คือ strategy S1 และ S2 และ event B มีผู้รับคือ S3 ไม่มีงานอื่นที่ไม่เกี่ยวข้องค้างอยู่ และทุก
@@ -68,7 +70,7 @@ publication B ที่ซ้อนอยู่จะรอต่อจากผ
 ระหว่างรอบของ callback R ยังมีชีวิตอยู่ตราบที่ C หรืองานลูกหลานอื่นที่ถูก retain ไว้ยังเป็นเจ้าของ การ yield ไม่ได้
 reset budget ของมัน การส่งจาก thread อื่นหรือจาก task ที่ไม่เกี่ยวข้องจะไม่สืบทอด R โดยอัตโนมัติ
 
-## คำศัพท์ {#terminology}
+## คำศัพท์ [#terminology]
 
 | คำ            | ความหมาย                                                                                      |
 | ------------- | --------------------------------------------------------------------------------------------- |
@@ -81,7 +83,7 @@ reset budget ของมัน การส่งจาก thread อื่น�
 | Drain         | การไล่ callback slot ตามลำดับหนึ่งรอบแบบมีขอบเขต                                              |
 | Safe boundary | จุดที่ runtime เป็นเจ้าของ ซึ่ง borrow ที่ครอบอยู่สิ้นสุดแล้ว และอนุญาตให้เรียก callback ได้   |
 
-## ข้อจำกัดของ implementation {#implementation-limits}
+## ข้อจำกัดของ implementation [#implementation-limits]
 
 | ด้าน                                                  | สิ่งที่ implement แล้ว                                        | ข้อจำกัด                                                                |
 | ----------------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------- |
@@ -94,9 +96,9 @@ reset budget ของมัน การส่งจาก thread อื่น�
 | [การเข้าถึงและ backend](#backend-compatibility)       | checked-access guard ภายใน                                    | unchecked access และความเท่าเทียมระหว่าง native/dynamic อยู่นอกการรับประกัน |
 | [Observable state](#maintenance-and-observable-state) | ผลแบบ synchronous ต่อ cache และ facade                        | เป็น state ปัจจุบันของ cache ไม่ใช่ snapshot ณ เวลาที่เกิด event         |
 
-## ลำดับและ reentrancy {#ordering-and-reentrancy}
+## ลำดับและ reentrancy [#ordering-and-reentrancy]
 
-:::tip reentrancy คืออะไร
+:::tip[reentrancy คืออะไร]
 reentrancy เกิดขึ้นเมื่อโค้ดถูกเรียกเข้าซ้ำก่อนที่การเรียกก่อนหน้าจะ return ตัวอย่างเช่น subscriber ของ message bus
 publish ข้อความอื่น ทำให้เกิดการส่งซ้อนกันก่อนที่ publication เดิมจะเสร็จ สิ่งนี้เกิดได้บน thread เดียว ไม่จำเป็นต้อง
 มีการทำงานแบบขนาน
@@ -110,7 +112,7 @@ publish ข้อความอื่น ทำให้เกิดการ�
 callback ต้องการ **การเข้าถึงแบบ exclusive** ต่อ component ของมัน และต้องการ delivery boundary ที่ mutable
 runtime borrow ที่ครอบอยู่สิ้นสุดแล้ว component ทุกตัวต้องปฏิบัติตามสัญญาด้านลำดับเดียวกัน
 
-## Maintenance และ observable state {#maintenance-and-observable-state}
+## Maintenance และ observable state [#maintenance-and-observable-state]
 
 maintenance ของ component ทำงานพร้อมกับ event ที่เข้าคิวแต่ละตัว **ก่อน author callback ของ event นั้น**
 ซึ่งรวมถึง:
@@ -122,7 +124,7 @@ maintenance ของ component ทำงานพร้อมกับ event �
 maintenance ยังคงใช้กฎ lifecycle ที่เกี่ยวข้องเมื่อ author callback ถูกระงับ event ที่ maintenance ส่งออกมาจะ
 เข้าสู่กลไก dispatch แบบเรียงลำดับเดียวกัน
 
-### Cache state และสิทธิ์ในการรับ {#cache-state-and-eligibility}
+### Cache state และสิทธิ์ในการรับ [#cache-state-and-eligibility]
 
 การเปลี่ยนแปลง [cache](../concepts/architecture.md#cache) ของ engine และผลโดยตรงของ facade ยังคงเป็น
 synchronous callback จะเห็น **state ปัจจุบันของ cache** การส่งแบบเรียงลำดับไม่ได้ให้ snapshot ของ cache ณ เวลา
@@ -136,7 +138,7 @@ payload สำหรับข้อเท็จจริงเกี่ยวก
 author callback ต้องมีสิทธิ์รับทั้ง **ตอนที่ event มาถึงและตอนส่ง** การ stop, reset หรือการปลดออก (retirement)
 ต้องไม่พา callback เก่าเข้าไปยังการลงทะเบียนใหม่หรือ [lifecycle](../concepts/actors.md#lifecycle) generation ใหม่
 
-## Bounded progress {#bounded-progress}
+## Bounded progress [#bounded-progress]
 
 **drain** ประมวลผล callback ที่เข้าคิวตามลำดับ โดยพยายามส่งเมื่อได้รับอนุญาต callback ที่ค้างอยู่เป็นส่วนหนึ่งของ
 เงื่อนไขการ drain ของ runtime การทำงานแบบ live ใช้ drain batch แบบมีขอบเขตและ yield ระหว่าง batch ส่วน backtest
@@ -146,7 +148,7 @@ chain ของ callback ที่ควบคุมไม่ได้จะท�
 queue overflow จะบันทึก fatal error และหยุดการทำงานที่ safe boundary ต้องไม่ทิ้ง callback แบบเงียบ ๆ และต้องไม่
 ขัดจังหวะการดำเนินการระหว่างที่ผลแบบ synchronous ยังทำไม่เสร็จ callback dispatch ไม่ rollback ผลที่เกิดขึ้นแล้ว
 
-## การออกแบบ drain boundary {#drain-boundary-design}
+## การออกแบบ drain boundary [#drain-boundary-design]
 
 การ integrate กับ runtime ต้องรวมการ drain callback ไว้ที่ ownership boundary ที่ชัดเจนจำนวนน้อย **runtime เป็น
 เจ้าของการจัดตาราง drain** method ของ dispatch และ flush แต่ละตัวต้องไม่มีนโยบาย drain ของตัวเอง วิธีนี้ทำให้การปล่อย
@@ -168,7 +170,7 @@ retain ไว้ตามลำดับที่สัญญาการเก�
 ต่อเนื่องข้าม drain pass แบบมีขอบเขต จำนวนจุด drain ที่น้อยลงอย่างเดียวไม่ได้พิสูจน์ความถูกต้อง ใน synchronous core
 และ backtest ลำดับ callback ที่ deterministic ยังคงเป็นเกณฑ์ที่ต้องผ่านก่อนเปิดใช้งาน
 
-### boundary ของการจัดตารางและ ownership {#scheduling-and-ownership-boundaries}
+### boundary ของการจัดตารางและ ownership [#scheduling-and-ownership-boundaries]
 
 ให้ `actor::drain_callbacks(budget)` เป็นการดำเนินการร่วม: ประมวลผล batch แบบมีขอบเขต และ return ว่ายังมี
 callback เหลืออยู่หรือ dispatch ล้มเหลว settlement ของ backtest และการจัดตารางของ live เป็นเจ้าของการวนซ้ำรอบ
@@ -195,16 +197,16 @@ ownership ของ live ถูก implement โดย [execution-client facade]
 [lifecycle ของ report task](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/src/node/reconciliation.rs) และ
 [lifecycle ของ node](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/src/node/mod.rs)
 
-### boundary ของ backtest {#backtest-boundaries}
+### boundary ของ backtest [#backtest-boundaries]
 
 settlement ของ backtest เป็นแบบอย่างของการจัดตารางแบบรวมศูนย์ ไม่ใช่การ drain ครั้งเดียวตอนจบ timestamp timer
 handler จะ settle งานของตัวเองก่อน handler ถัดไป แม้จะอยู่ที่ timestamp เดียวกัน การประมวลผลของ venue จะปล่อย
 borrow ก่อน settlement การย้าย drain ทั้งหมดไปที่ loop ชั้นนอกสุดจะเปลี่ยน boundary เหล่านี้ pass ของ data command
 และ callback ตอน startup ก็ใช้ settlement แบบไม่จำกัดไม่ได้ โดยไม่เปลี่ยนเวลาที่ trading command ทำงาน
 
-### Live startup และ lifecycle แบบ standalone {#live-startup-and-standalone-lifecycle}
+### Live startup และ lifecycle แบบ standalone [#live-startup-and-standalone-lifecycle]
 
-#### ลำดับตอน startup {#startup-ordering}
+#### ลำดับตอน startup [#startup-ordering]
 
 รักษาลำดับตอน startup: instrument event ต้องถึง cache ก่อนที่ execution client จะเชื่อมต่อ และก่อนจัดการ
 subscription command
@@ -217,7 +219,7 @@ future ของการเชื่อมต่อถือ mutable engine bor
 startup reconciliation การที่สิ่งเหล่านี้เสร็จอย่างเดียวไม่ใช่เหตุผลพอที่จะเพิ่มจุด drain ความล้มเหลวของ replay และ
 startup ใช้ทางออกแยกกัน และต้องมีการพิสูจน์ ownership ของตัวเอง
 
-#### ข้อจำกัดของ lifecycle แบบ standalone {#standalone-lifecycle-restrictions}
+#### ข้อจำกัดของ lifecycle แบบ standalone [#standalone-lifecycle-restrictions]
 
 การเรียก `LiveNode::start` และ `stop` แบบ standalone ไม่ได้รัน event loop ต่อเนื่อง `start` จะ return โดยยังถือ
 runner ไว้ ส่วน stop หรือ abort จะประมวลผลข้อความที่ค้างอยู่ของ runner เส้นทางนี้ยังรองรับในฐานะส่วนประกอบสำหรับ
@@ -233,7 +235,7 @@ callback การเปิดใช้งานต้องปฏิเสธ�
 การส่งแบบเข้าคิวให้ actor และการปฏิเสธนี้ยังไม่ได้ implement การบังคับใช้ข้อจำกัดของ lifecycle เป็นข้อกำหนดก่อน
 เปิดใช้งาน และไม่เปลี่ยน API แบบ standalone ที่มีอยู่
 
-#### การยกเลิกและการทิ้ง hosted run {#hosted-run-cancellation-and-abandonment}
+#### การยกเลิกและการทิ้ง hosted run [#hosted-run-cancellation-and-abandonment]
 
 การยกเลิก hosted run แบบ await จะขับให้เกิดการปิดระบบอย่างเรียบร้อย การทิ้ง run นั้นขณะที่ host loop ยังทำงานอยู่
 อาจ drop future ของมันก่อนการปิดระบบจะเสร็จ ในเส้นทางนั้นไม่รับประกันการส่ง callback การทดสอบก่อนเปิดใช้งานต้อง
@@ -242,14 +244,14 @@ callback การเปิดใช้งานต้องปฏิเสธ�
 เมื่อ run future ถูก drop จะปล่อย report borrow แต่ไม่ได้รันการเก็บกวาดการยกเลิก report task เอง ไม่ flush การอัปเดต
 instrument ที่เลื่อนไว้ และไม่ลบ marker ของ targeted query
 
-### Live stop และการเก็บกวาดขั้นสุดท้าย {#live-stop-and-terminal-cleanup}
+### Live stop และการเก็บกวาดขั้นสุดท้าย [#live-stop-and-terminal-cleanup]
 
 `LiveNode::finalize_stop` ไม่สามารถเป็นเจ้าของการ teardown ของ callback เพียงลำพังได้: ผู้เรียกยังถือ channel
 receiver และการปิดระบบปกติจะประมวลผล event ที่ buffer ไว้หลังจากนั้น เส้นทาง `start`/`stop` ยังถือ runner ไว้
 ส่วน `run_with_mode` เป็นเจ้าของ receiver ภายในตัวเอง เจ้าของการเก็บกวาดขั้นสุดท้ายคือ `LiveNode::dispose`
 ไม่ใช่การ stop ปกติหรือการจบของ running loop
 
-:::info การเก็บกวาด ownership ขั้นสุดท้าย
+:::info[การเก็บกวาด ownership ขั้นสุดท้าย]
 `LiveNode::dispose` เก็บกวาด callback ตามลำดับนี้:
 
 1. dispose kernel ตรวจให้แน่ใจว่าไม่มี engine หรือ component borrow เหลืออยู่ก่อนปล่อย runner
@@ -269,9 +271,9 @@ disposal ใหม่ได้หลังปล่อย ownership ที่ข
 - fatal latch ของ running loop ถูกล้างตอน disposal เมื่อ ownership อนุญาต
 - ownership จากภายนอกยังคงขวางการล้าง
 
-### การตรวจสอบ boundary ที่ต้องทำ {#required-boundary-verification}
+### การตรวจสอบ boundary ที่ต้องทำ [#required-boundary-verification]
 
-#### ข้อกำหนดด้านลำดับ {#sequence-requirements}
+#### ข้อกำหนดด้านลำดับ [#sequence-requirements]
 
 การเปลี่ยน boundary ต้องมี assertion ของลำดับที่แม่นยำสำหรับ:
 
@@ -287,14 +289,14 @@ disposal ใหม่ได้หลังปล่อย ownership ที่ข
 เส้นทางที่เปิดใช้งานผ่าน component จริง test ของ dispatcher ภายในเพียงอย่างเดียวไม่ได้พิสูจน์ว่า runtime borrow
 สิ้นสุดที่ boundary ที่เลือก
 
-#### การบังคับใช้สิทธิ์การเข้าถึง {#access-enforcement}
+#### การบังคับใช้สิทธิ์การเข้าถึง [#access-enforcement]
 
 สำหรับแต่ละเส้นทางที่เปิดใช้งาน ให้จองผ่านกลไก admission ที่มีอยู่ และขอ checked component access สำหรับการเรียก
 ระบุ engine, client และ cache access ทุกตัวที่ callback อาจเข้าถึงได้: allocation guard ของ actor ไม่ได้ป้องกัน
 borrow ที่แยกต่างหากเหล่านั้นหรือ unchecked handle implementation ต้องสร้างการเข้าถึงที่เข้ากันได้ก่อนเรียก callback
 การได้ actor guard สำเร็จเพียงอย่างเดียวยังไม่พอ
 
-#### Test สำหรับ report ที่ค้างอยู่ {#pending-report-tests}
+#### Test สำหรับ report ที่ค้างอยู่ [#pending-report-tests]
 
 ใช้ synchronization point สำหรับ test อย่างชัดเจนเพื่อพัก report request ไว้ ทดสอบผ่านเส้นทาง callback จริง
 assert ลำดับของ event และ command อย่างแม่นยำทั้งก่อนและหลังปล่อย report ครอบคลุมทั้งการเสร็จสำเร็จ, timeout,
@@ -309,14 +311,14 @@ busy head ที่ safe drain boundary ที่ประกาศไว้ใ�
 การอัปเดต instrument ที่เลื่อนไว้ และการเก็บกวาดเมื่อ timeout และปิดระบบ แต่ไม่ได้ทดสอบการส่งแบบเข้าคิวให้ actor
 ใน production และใช้แทน test ก่อนเปิดใช้งานเฉพาะเส้นทางเหล่านี้ไม่ได้
 
-## การ integrate กับ runtime {#runtime-integration}
+## การ integrate กับ runtime [#runtime-integration]
 
 [test ของการส่งต่อ root](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/actor/dispatch.rs) ครอบคลุม continuation ที่ retain ไว้ รวมถึง
 data command และ trading command ใน runtime แบบ synchronous และ live รวมถึง trading child ที่เลื่อนไว้ event
 channel ของ data และ execution ใน live ก็รักษา root ผ่านการข้าม channel หลายแบบผสมกันและ
 [startup buffering](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/src/node/mod.rs)
 
-### Backtest {#backtests}
+### Backtest [#backtests]
 
 backtest เรียก boundary drain หลัง data command batch ตอน startup, หลัง settlement ของ command และ execution
 event และหลัง timer handler pass ของ callback แต่ละครั้งประมวลผล slot จำนวนจำกัด settlement จะทำต่อไปตราบที่ยังมี
@@ -328,7 +330,7 @@ dispatch error จะ propagate ออกจากการทำงานขอ
 ปล่อย synchronous command batch ก่อนล้าง callback capture งานที่ถูก retain จากภายนอกยังอาจขวางการเก็บกวาด callback
 ได้ การจบแบบปกติ (`end_impl`) จะ drain งานที่เหลือก่อนล้าง dispatcher
 
-### Running loop ของ live {#live-running-loops}
+### Running loop ของ live [#live-running-loops]
 
 running loop ของ live จะ drain callback batch แบบมีขอบเขตหนึ่ง batch ก่อนเลือก event ถัดไป และ yield เมื่อยังมี
 callback ค้างอยู่ callback ที่ค้างจะทำงานต่อโดยไม่ต้องรอข้อความจาก channel อีก สัญญาณ stop ยังมีสิทธิ์ระหว่าง batch
@@ -350,7 +352,7 @@ report future ของ live อาจถือ shared client borrow คร่�
 พิสูจน์ความปลอดภัยสำหรับ callback ที่ต้องการ mutable client access การเปิดใช้งาน queued callback ต้องคำนึงถึง
 borrow ที่ถูกถือไว้เหล่านั้น
 
-### ข้อกำหนดก่อนเปิดใช้งาน {#activation-requirements}
+### ข้อกำหนดก่อนเปิดใช้งาน [#activation-requirements]
 
 boundary เหล่านี้ไม่ได้เปิดใช้งานการส่งแบบเข้าคิวให้ actor ก่อนเปิดใช้งาน การ integrate กับ runtime ต้อง:
 
@@ -368,7 +370,7 @@ trading message สาธารณะและเส้นทาง `dispatch()`
 เป็นเจ้าของ context ของมันเป็นการภายใน command channel ของ live ใช้ envelope ที่อธิบายด้านล่าง การ drain ของ
 runtime อย่างเดียวไม่ได้พิสูจน์การ integrate กับ lifecycle ของ live ที่สมบูรณ์หรือความเท่าเทียมของ backend
 
-## Dispatch primitive ภายใน {#private-dispatch-primitives}
+## Dispatch primitive ภายใน [#private-dispatch-primitives]
 
 actor module มี primitive ภายในสำหรับ access, admission, publication, invocation และ storage data command และ
 trading command รักษา [callback root](#callback-roots-and-budgets) ไว้ใน runtime แบบ synchronous และ live
@@ -380,7 +382,7 @@ trading command รักษา [callback root](#callback-roots-and-budgets) ไ
 อย่างเดียวไม่ได้พิสูจน์ความปลอดภัยของ ownership ใน runtime และไม่ได้พิสูจน์ความเท่าเทียมของ callback แบบ native,
 direct และ dynamic
 
-### Publication และ admission {#publication-and-admission}
+### Publication และ admission [#publication-and-admission]
 
 publication scope จะจอง **ordinal** (หมายเลขลำดับ) ก่อนที่ subscriber แบบ synchronous จะทำงาน การจอง callback
 เรียงตาม publication ordinal แล้วตามด้วย admission ordinal ดังนั้น publication ที่ซ้อนอยู่จะตามหลังผู้รับที่ค้างอยู่
@@ -404,7 +406,7 @@ admission จองจำนวน, storage ที่ทราบขนาด �
 - การจองของ actor เก็บ identity ของการลงทะเบียนไว้ ดังนั้นการแทนที่หรือการลงทะเบียนซ้ำของ allocation เดียวกันจะข้าม
   handler ที่ล้าสมัย การส่งที่ถูกข้ามยังนับเป็นการส่งที่เสร็จแล้วใน budget ของ root
 
-### การ drain และ progress {#draining-and-progress}
+### การ drain และ progress [#draining-and-progress]
 
 drain ประมวลผลได้มากที่สุดเท่ากับ **slot budget** ที่ให้มา รวมถึง slot ที่ถูกยกเลิก คิวจะมี **busy head** เมื่อ
 callback ตัวแรกไม่สามารถได้การเข้าถึงแบบ exclusive ต่อ component ของมัน ซึ่งจะขวางการส่งที่ตามมา
@@ -426,17 +428,17 @@ deferred entry ไม่ทำงานใด ๆ unfinished head reservation �
 คิวว่างไม่ได้หมายความว่า root ที่ retain ไว้ทั้งหมดถูกปล่อยแล้ว การนับ ownership อย่างเดียวไม่ใช่เหตุผลที่จะ drain ต่อ
 boundary drain จะเก็บ fatal error ตัวแรกไว้ และปล่อยให้ capture ในคิวยังถูก own อยู่จนกว่าจะ teardown อย่างชัดเจน
 
-:::warning ปล่อย borrow ที่ครอบอยู่ก่อน drain
+:::warning[ปล่อย borrow ที่ครอบอยู่ก่อน drain]
 การทำลาย guard เพียงปล่อยสิทธิ์การเข้าถึง ไม่ได้ drain callback ผู้เรียกต้องสิ้นสุด borrow ของ engine, cache และ
 borrow อื่นที่ไม่ได้ติดตามที่ครอบอยู่ก่อน drain ด้วย
 :::
 
-#### การ drain ระหว่าง unwind {#draining-during-unwind}
+#### การ drain ระหว่าง unwind [#draining-during-unwind]
 
 drain ที่สำเร็จตามปกติแต่ถูกเรียกเข้าระหว่าง panic unwinding จะ latch fatal delivery failure ตอนออก แม้คิวจะว่าง
 ผลลัพธ์ที่ return ยังเป็นสำเร็จ failure นั้นตรวจพบได้ผ่านการตรวจ callback failure และจะหยุด boundary drain ครั้งถัดไป
 
-### Callback root และ budget {#callback-roots-and-budgets}
+### Callback root และ budget [#callback-roots-and-budgets]
 
 **root** เป็นเจ้าของ delivery budget ของ publication หรือการจองที่เข้ามา และงาน callback ทั้งหมดที่มันก่อให้เกิด
 ลำดับของ publication ไม่ขึ้นกับว่า root ใดเป็นเจ้าของงาน
@@ -446,7 +448,7 @@ drain ที่สำเร็จตามปกติแต่ถูกเร�
   scope ที่ว่างจะไม่จอง root
 - นอก publication scope การ admit แต่ละครั้งจะเริ่ม root แยก เว้นแต่มี root ที่ active อยู่แล้ว
 
-#### Delivery budget เทียบกับ slot budget {#delivery-budget-versus-slot-budget}
+#### Delivery budget เทียบกับ slot budget [#delivery-budget-versus-slot-budget]
 
 การส่งที่เสร็จแต่ละครั้งนับหนึ่งครั้งใน budget ของ root ความพยายามที่ busy และ slot ที่ถูกยกเลิกไม่นับ แม้ slot ที่ถูก
 ยกเลิกยังใช้ slot budget ของ drain
@@ -454,27 +456,27 @@ drain ที่สำเร็จตามปกติแต่ถูกเร�
 เมื่อถึงขีดจำกัดของ chain dispatch จะ latch fatal runaway error ก่อนรัน callback ที่พร้อมตัวถัดไป callback ที่ถูกขวาง
 จะอยู่ในคิวรอ teardown อย่างชัดเจน **fatal error หยุด dispatcher ทั้งหมด** แม้ root แต่ละตัวจะมี budget แยกกัน
 
-### Retained work และการเก็บกวาด {#retained-work-and-cleanup}
+### Retained work และการเก็บกวาด [#retained-work-and-cleanup]
 
 queued slot, active scope และ invocation work ที่ retain ไว้ทำให้ root ยังมีชีวิตอยู่ **คิวว่างไม่ได้ reset budget
 ของ root ที่ยังอยู่** storage ที่ retain ไว้จะ capture root ที่ active หรือเริ่ม root ใหม่ถ้าไม่มี การขยาย storage นั้น
 ยังคงรักษา root เดิม
 
-#### การทำงานต่อและการใช้ storage ซ้ำ {#resumption-and-storage-reuse}
+#### การทำงานต่อและการใช้ storage ซ้ำ [#resumption-and-storage-reuse]
 
 การทำ retained work ต่อผ่าน `with_chain` ทำให้ root ของมัน active ระหว่างการเรียก การ return หรือ unwind จะคืน
 root ที่ครอบอยู่ invocation batch ใช้กลไกนี้กับค่าที่ retain ไว้แต่ละค่า การทำงานต่อไม่นับเป็นการส่งในตัวเอง
 invocation batch แต่ละตัวเป็นของการ preparation และ invocation หนึ่งครั้ง allocation ที่อยู่เบื้องหลังไม่ได้เลือก root
 ของค่าที่มาทีหลัง: ค่าแต่ละค่าจะ capture context ที่ active ตอน admission ของตัวเอง
 
-#### การ fire ของ timer ที่เป็นอิสระ {#independent-timer-firings}
+#### การ fire ของ timer ที่เป็นอิสระ [#independent-timer-firings]
 
 การลงทะเบียน callback และ causal ownership มีอายุแยกกัน การใช้ timer callback ที่ลงทะเบียนแล้วซ้ำไม่ได้ใช้ budget
 ของการ fire ครั้งก่อนซ้ำ time-event envelope ของ live ที่เป็นอิสระแต่ละตัวจะสร้าง scope ของตัวเองก่อนค้นหาและเรียก
 callback แม้การส่งจะเกิดภายใน scope อื่นที่ active อยู่ continuation ที่ retain ไว้ยังคงใช้ root เดิม การใช้ storage ซ้ำ
 อย่างเดียวไม่ได้ทำให้ event ที่ไม่เกี่ยวข้องกลายเป็น continuation
 
-#### การทำลายและการปล่อย {#destruction-and-release}
+#### การทำลายและการปล่อย [#destruction-and-release]
 
 destructor ของ capture ที่ส่งแล้วทำงานโดยมี root ของการส่งนั้น active รวมถึงระหว่าง unwind ค่าใน batch ที่ยังไม่ถูกเรียก
 ก็คืน root ของตัวเองเมื่อถูกทำลาย
@@ -482,7 +484,7 @@ destructor ของ capture ที่ส่งแล้วทำงานโด
 root และ storage charge ของมันจะถูกปล่อยเมื่อเจ้าของคนสุดท้าย drop การยกเลิก, batch ที่ล้มเหลว และ teardown ที่ชัดเจน
 ใช้การเก็บกวาด ownership แบบเดียวกับ storage อื่นที่ retain ไว้ retained work ขวาง teardown จนกว่าจะถูกปล่อย
 
-### การเก็บกวาดเมื่อ failure {#failure-cleanup}
+### การเก็บกวาดเมื่อ failure [#failure-cleanup]
 
 overflow จะ latch fatal failure ตัวแรกและปฏิเสธการจองต่อ ๆ ไปโดยไม่สร้าง capture ผลแบบ synchronous ของ facade
 อาจทำงานเสร็จก่อนที่ runtime จะรายงาน failure ที่ safe boundary queued slot ยังถูก own ไว้รอ teardown อย่างชัดเจน
@@ -498,16 +500,16 @@ invocation batch ที่ล้มเหลวจะปล่อย capture ห
 
 teardown ปฏิเสธ admission ที่เกิดจาก destructor ตลอดการล้าง
 
-#### ความปลอดภัยของ preparation และ destructor {#preparation-and-destructor-safety}
+#### ความปลอดภัยของ preparation และ destructor [#preparation-and-destructor-safety]
 
 invocation preparation เก็บเจ้าของ batch ไว้นอกการเรียกที่ขอ guard เมื่อถูกปฏิเสธหรือ unwind capture ที่โอนไปก่อนหน้า
 จะยังอยู่จนกว่า guard เหล่านั้นจะถูกปล่อย ผู้เรียกจะจองก่อนสร้าง capture แต่ละตัว และขอ preparation guard ภายใน
 การเรียกนั้น primitive ไม่สามารถควบคุมตัวแปร local ใด ๆ ที่โค้ดของผู้เขียนสร้างหรือทำลายเองขณะถือ borrow ได้
 destructor ต้องไม่ panic ระหว่าง unwind ที่กำลังเกิดขึ้น
 
-## Reentrancy และ dispatch diagnostics {#reentrancy-and-dispatch-diagnostics}
+## Reentrancy และ dispatch diagnostics [#reentrancy-and-dispatch-diagnostics]
 
-### ความขัดแย้งในการเข้าถึง component {#component-access-conflicts}
+### ความขัดแย้งในการเข้าถึง component [#component-access-conflicts]
 
 [ComponentAccessError](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/component.rs) อธิบาย resource และการดำเนินการที่พยายามทำ เมื่อ
 checked component-state access ล้มเหลว diagnostic เหล่านี้ใช้กับเส้นทาง synchronous อยู่แล้ว และไม่ได้หมายความว่า
@@ -547,7 +549,7 @@ operation ของ component lifecycle registry ปฏิเสธการเ�
 `Component '{id}' is already mutably borrowed` การตรวจตาม ID นี้แยกจากทั้ง resource borrow และ callback
 allocation guard ภายใน และไม่มีตัวใดพิสูจน์ความปลอดภัยสำหรับ unchecked access
 
-### ความล้มเหลวของ callback dispatcher {#callback-dispatcher-failures}
+### ความล้มเหลวของ callback dispatcher [#callback-dispatcher-failures]
 
 [CallbackDispatchError](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/actor/dispatch.rs) มี diagnostic ต่อไปนี้ `InvalidDestination`,
 `Stalled` และ `Runaway` อธิบายความล้มเหลวของการส่งแบบเข้าคิว เส้นทางใน production ปัจจุบันไม่ได้ admit callback
@@ -578,7 +580,7 @@ error ไม่มีจำนวนการส่ง
 `Failed to clear callback dispatch during disposal: ...` รายงานการปฏิเสธการเก็บกวาด ให้ปล่อยงานที่ถูก retain
 จากภายนอกก่อนลอง disposal ใหม่ อย่าบังคับล้าง ownership หรือถือว่าการเก็บกวาดเป็นการ rollback
 
-## Synchronous command {#synchronous-commands}
+## Synchronous command [#synchronous-commands]
 
 สายบรรพบุรุษของ command ขึ้นกับ context ตอนส่ง:
 
@@ -590,7 +592,7 @@ error ไม่มีจำนวนการส่ง
 command ใน drain batch เดียวกันไม่ได้ใช้ root ร่วมกันเพียงเพราะทำงานด้วยกัน การประมวลผลและการทำลายจะคืน root ที่
 ครอบอยู่เมื่อ return หรือ unwind
 
-### ลำดับของ batch และ child {#batch-and-child-ordering}
+### ลำดับของ batch และ child [#batch-and-child-ordering]
 
 command drain ประมวลผล batch ที่รวบรวมไว้ตอนเข้าตามลำดับ command ที่ handler เข้าคิวผ่าน synchronous sender
 จะอยู่ในคิวรอ drain ครั้งถัดไป trading handler ยัง capture child ที่เลื่อนไว้ได้: child เหล่านี้ทำงานแบบ depth-first
@@ -601,7 +603,7 @@ command drain ประมวลผล batch ที่รวบรวมไว�
 borrow ของคิวและ dispatch frame สิ้นสุดก่อนที่ handler จะทำงาน หรือก่อนทำลาย command ที่ถูกทิ้ง การประมวลผล command
 ไม่นับเป็นการส่ง callback และไม่ drain callback โดยอัตโนมัติ
 
-### Panic และ overflow {#panic-and-overflow}
+### Panic และ overflow [#panic-and-overflow]
 
 ถ้า handler panic panic จะ propagate ออกไป command ที่ยังไม่ประมวลผลใน batch ที่รวบรวมไว้และ child ที่เลื่อนไว้ที่ยัง
 ค้างอยู่จะถูกทำลายภายใต้ context ของตัวเอง command ที่เพิ่งเข้าคิวจะยังอยู่ในคิว root ที่ถูก capture ทำให้การนับ
@@ -612,18 +614,18 @@ callback ยังมีชีวิตอยู่ และขวาง teardo
 callback overflow ขณะที่ command ยังอยู่ในคิว command entry ไม่ได้ใช้ขีดจำกัด retained unit ของ callback และ
 payload ของ command กับความจุของคิวไม่ได้นับรวมใน callback storage ที่ทราบขนาด การจอง root แต่ละครั้งคิดค่าเพียงครั้งเดียว
 
-:::warning command transport ไม่ใช่การจัดสรร callback budget
+:::warning[command transport ไม่ใช่การจัดสรร callback budget]
 ขีดจำกัดเหล่านี้ไม่ได้จำกัด memory ของ command queue หรือ loop ที่สร้างแต่ command
 :::
 
-## Command และ event channel ของ live {#live-command-and-event-channels}
+## Command และ event channel ของ live [#live-command-and-event-channels]
 
 data command sender และ trading command sender ของ live จะ capture root เฉพาะบน thread ที่สร้าง sender เท่านั้น
 ให้สร้าง sender บน runtime thread การส่งจาก thread อื่นถือเป็น ingress ที่เป็นอิสระ แม้ runtime อื่นจะมี root ที่ active
 อยู่บน thread นั้น dispatch envelope พา token ที่ปลอดภัยต่อการส่ง callback root และการนับยังคงเป็น thread-local
 การประมวลผล envelope ที่มี root บน thread อื่นจะ panic ก่อน dispatch
 
-### Dispatch และ buffering {#dispatch-and-buffering}
+### Dispatch และ buffering [#dispatch-and-buffering]
 
 envelope รักษาสายบรรพบุรุษผ่าน startup buffer, การ poll ของ runner และการ drain ตอนปิดระบบ trading child
 capture root ที่ active ของตัวเองและรักษาลำดับแบบ depth-first บนเส้นทาง command ที่ node poll นั้น execution
@@ -636,7 +638,7 @@ startup buffering รักษา root ของแต่ละ event ไว้�
 execution observation ของ node และการบันทึก fill ทำงานภายใต้ context ของ event ที่ได้รับ event transport เองไม่ได้
 ใช้ callback delivery budget
 
-### ประเภทของ sender และ ingress {#sender-types-and-ingress}
+### ประเภทของ sender และ ingress [#sender-types-and-ingress]
 
 event sender ของ data, execution และ system ใน live ใช้ `EventSender<T>` ซึ่งเป็น alias ของ `DispatchSender<T>`
 ด้วย envelope `DispatchMessage<T>` เดียวกับ command system command และ time event ก็ใช้ sender นี้ การ bind
@@ -644,7 +646,7 @@ event sender ของ data, execution และ system ใน live ใช้ `E
 การส่งจาก thread อื่นและการส่งที่ไม่มี scope ที่ active ยังคงเป็นอิสระ context ไม่ได้ส่งต่อข้าม task ที่ spawn ใด ๆ
 หรือข้ามจุด await
 
-### System event และ time event {#system-and-time-events}
+### System event และ time event [#system-and-time-events]
 
 system event และ command รักษา envelope ไว้ผ่าน startup buffering, การ poll และการปิดระบบ การส่ง time event
 จะคืน context ของ envelope ก่อน resolve และเรียก callback การลงทะเบียน timer ไม่ได้ capture root: การ fire ตาม
@@ -652,13 +654,13 @@ system event และ command รักษา envelope ไว้ผ่าน st
 synchronous จาก callback scope ที่ active จะสืบทอด scope นั้นแทน callback lease, การยกเลิก และการเก็บกวาดยังคงมี
 พฤติกรรมเดิม callback transport เองไม่ได้ใช้ delivery budget
 
-### Standalone sender {#standalone-senders}
+### Standalone sender [#standalone-senders]
 
 client แบบ standalone สามารถแปลง Tokio sender ธรรมดาเป็น `EventSender<T>` เพื่อคง receiver ของ domain event
 โดยตรงไว้ได้ โหมดนั้นไม่พา callback context และไม่ได้ใช้ใน channel binding ของ live runner
 payload ของ event และความจุของ channel อยู่นอกการนับ callback storage เช่นเดียวกับ payload ของ command และคิว
 
-### การทำลายข้าม thread {#destruction-across-threads}
+### การทำลายข้าม thread [#destruction-across-threads]
 
 | Thread ที่ทำลาย    | Context ของ payload                                   | การปล่อย root                                                               |
 | ------------------ | ----------------------------------------------------- | --------------------------------------------------------------------------- |
@@ -669,7 +671,7 @@ payload ของ event และความจุของ channel อยู�
 quiescence หรือเมื่อล้าง dispatcher thread teardown ก็ปล่อยสิ่งเหล่านี้เช่นกัน dispatch envelope, ความจุของ
 thread-local context registry และ storage ของ cleanup queue อยู่นอกขีดจำกัดของ callback storage
 
-## ขีดจำกัดของ storage {#storage-limits}
+## ขีดจำกัดของ storage [#storage-limits]
 
 ขีดจำกัดภายในมีดังนี้:
 
@@ -682,7 +684,7 @@ thread-local context registry และ storage ของ cleanup queue อย�
 หรือ callback chain ที่ยาวเกินไป ไม่ได้บอกอัตรา event ที่รองรับได้อย่างยั่งยืนหรืองบ memory ของ process ที่ปลอดภัย
 ขีดจำกัดเหล่านี้เป็นค่าภายในและผู้ใช้ตั้งค่าไม่ได้
 
-### Storage ที่นับรวม {#included-storage}
+### Storage ที่นับรวม [#included-storage]
 
 storage ที่ทราบขนาดประกอบด้วย:
 
@@ -698,7 +700,7 @@ storage ของ payload ที่ใช้ร่วมกันอาจถู
 slice ดังนั้นการนับจะครอบคลุมความยาว แต่ไม่รวมความจุส่วนเกินที่เข้าถึงไม่ได้ การนับจะถูกถือไว้ระหว่างที่การส่งยังดำเนินอยู่
 และระหว่างที่ batch ยัง retain capture
 
-:::warning ไม่ใช่เพดาน memory ของทั้ง process
+:::warning[ไม่ใช่เพดาน memory ของทั้ง process]
 การนับนี้ไม่ได้จำกัด memory ของทั้ง process และไม่รวม:
 
 - bookkeeping ของ allocator
@@ -711,7 +713,7 @@ slice ดังนั้นการนับจะครอบคลุมค�
 ผู้เรียกต้องระบุ heap charge ที่ทราบขนาดสำหรับ type ของ capture ของตัวเอง การจองแบบ generic ไม่สามารถตรวจฟิลด์
 ที่ถูก own ใด ๆ ได้
 
-## ความเข้ากันได้ของ backend {#backend-compatibility}
+## ความเข้ากันได้ของ backend [#backend-compatibility]
 
 allocation guard ภายในปฏิเสธ checked access ที่ทับซ้อนกัน **unchecked access และ engine/cache borrow ที่ครอบอยู่
 ยังอยู่นอก guard เหล่านั้น** ความเท่าเทียมระหว่าง native และ dynamic backend ยังไม่ได้รับการพิสูจน์

@@ -1,4 +1,6 @@
-# OrderReleased
+---
+title: "OrderReleased"
+---
 
 `OrderReleased` บันทึกว่า `OrderEmulator` ได้ release order หลังจากเงื่อนไข trigger เป็นจริงแล้ว
 emulator จะ apply event นี้กับ order อัปเดต `Cache` และ publish ลงบน `MessageBus` ก่อนจะส่ง order
@@ -6,7 +8,7 @@ emulator จะ apply event นี้กับ order อัปเดต `Cache` 
 
 transition ที่พบบ่อย: `EMULATED` -> `RELEASED` handler: `on_order_released`
 
-## ฟิลด์ {#fields}
+## ฟิลด์ [#fields]
 
 นอกจาก[ฟิลด์ทั่วไปของ order event](index.md#common-python-order-event-fields) แล้ว
 `OrderReleased` ยังมี:
@@ -17,7 +19,7 @@ transition ที่พบบ่อย: `EMULATED` -> `RELEASED` handler: `on_or
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Events](index.md) - หมวดหมู่ของ event, การ dispatch และฟิลด์ทั่วไปของ order event
 - [Emulated orders](../orders/emulated.md) - lifecycle ของการ emulate order ในเครื่อง

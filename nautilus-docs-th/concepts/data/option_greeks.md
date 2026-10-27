@@ -1,10 +1,12 @@
-# OptionGreeks
+---
+title: "OptionGreeks"
+---
 
 `OptionGreeks` แทนค่า sensitivity ของ option และ implied volatility ที่ venue ให้มาสำหรับ option
 instrument หนึ่งตัว เนื่องจากเป็น variant ของ enum `Data` แบบ native จึงบันทึก, replay และ query
 ผ่าน catalog ได้
 
-## ฟิลด์ {#fields}
+## ฟิลด์ [#fields]
 
 | ฟิลด์               | Rust type           | จำเป็น/ค่าเริ่มต้น  | หมายเหตุ                                      |
 | ------------------ | ------------------- | ---------------- | ------------------------------------------ |
@@ -19,13 +21,13 @@ instrument หนึ่งตัว เนื่องจากเป็น vari
 | `ts_event`         | `UnixNanos`         | Required         | timestamp ของ event หน่วยนาโนวินาที           |
 | `ts_init`          | `UnixNanos`         | Required         | timestamp ตอนสร้าง หน่วยนาโนวินาที             |
 
-## พฤติกรรม {#behavior}
+## พฤติกรรม [#behavior]
 
 - ใน Rust, `OptionGreeks` dereference ไปเป็น `OptionGreekValues` ซึ่งเป็นแกนหลักของมัน
 - การ subscribe option chain ใช้ `underlying_price` และค่า delta เพื่อหาช่วง strike แบบ ATM และแบบอิง
   delta
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -55,7 +57,7 @@ let greeks = OptionGreeks {
 };
 ```
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Greeks](../greeks.md) อธิบาย greeks ที่ venue ให้มาและที่คำนวณเองในเครื่อง
 - [Options](../options.md#optiongreeks-data-type) อธิบายการ subscribe option chain

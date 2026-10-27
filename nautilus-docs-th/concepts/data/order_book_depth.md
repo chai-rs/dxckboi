@@ -1,9 +1,11 @@
-# OrderBookDepth
+---
+title: "OrderBookDepth"
+---
 
 `OrderBookDepth` แทน snapshot ที่มีจำนวนระดับราคา bid และ ask แปรผันได้
 ใช้เมื่อ venue ส่ง depth snapshot ที่สมบูรณ์ในตัวเอง แทนที่จะเป็น delta แบบ incremental
 
-## Fields {#fields}
+## Fields [#fields]
 
 | Field           | Rust type                   | Required/default | หมายเหตุ                                      |
 | --------------- | --------------------------- | ---------------- | --------------------------------------------- |
@@ -17,7 +19,7 @@
 | `ts_event`      | `UnixNanos`                 | Required         | timestamp ของ event หน่วยนาโนวินาที            |
 | `ts_init`       | `UnixNanos`                 | Required         | timestamp ตอน initialize หน่วยนาโนวินาที        |
 
-## พฤติกรรม {#behavior}
+## พฤติกรรม [#behavior]
 
 - constructor ใน Rust รับ side ที่มีความยาวแปรผันได้ แต่ละ side ต้องมี count หนึ่งค่าต่อหนึ่ง order
   และฝั่ง bid กับ ask มีความยาวต่างกันได้
@@ -30,7 +32,7 @@
   ยังคง migrate ได้ และไฟล์ Arrow ที่เก็บ type นั้นไว้ใน schema metadata ยังคง transcode ได้
 - legacy C FFI และการเข้ารหัส SBE แบบ fixed-depth ต้องมีระดับราคาครบสิบระดับพอดีในแต่ละ side
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -57,7 +59,7 @@ let depth = OrderBookDepth::new(
 );
 ```
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [QuoteTick](quote_tick.md) อธิบายข้อมูล top-of-book ที่ได้จาก depth
 - [Order books](index.md#order-books) อธิบายสถานะของ order book

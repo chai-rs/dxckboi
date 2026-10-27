@@ -1,11 +1,13 @@
-# Crypto Future
+---
+title: "Crypto Future"
+---
 
 `CryptoFuture` แทนสัญญา crypto futures ที่มีวันครบกำหนด โดยอ้างอิง underlying ที่เป็น crypto,
 quote ราคาด้วย quote currency, settle ด้วย settlement currency และหมดอายุ ณ timestamp ที่กำหนดไว้
 
 ตัวอย่างเช่น futures ของ BTC หรือ ETH แบบมีวันครบกำหนดบน venue ซื้อขาย crypto derivatives
 
-## Fields {#fields}
+## Fields [#fields]
 
 | Field | Rust type | Required/default | หมายเหตุ |
 | --- | --- | --- | --- |
@@ -38,7 +40,7 @@ quote ราคาด้วย quote currency, settle ด้วย settlement cu
 
 **หมายเหตุ**: builder ใช้ชื่อ `instrument_id` แต่ Rust เก็บค่าเดียวกันนี้ไว้ใน field `id`
 
-## พฤติกรรม {#behavior}
+## พฤติกรรม [#behavior]
 
 - `CryptoFuture` มี asset class เป็น `Cryptocurrency` และ instrument class เป็น `Future`
 - ราคาเป็นศูนย์หรือติดลบได้ ยกเว้น inverse futures
@@ -50,7 +52,7 @@ quote ราคาด้วย quote currency, settle ด้วย settlement cu
 - **Inverse**: ตั้ง `is_inverse=True` และโดยทั่วไป settle ด้วยสกุลเงินของ underlying
 - **Quanto**: settle ด้วยสกุลเงินที่สามซึ่งต่างจากทั้ง underlying และ quote
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 ```rust tab="Rust"
 use jiff::Timestamp;
@@ -88,7 +90,7 @@ let btcusdt_future = CryptoFuture::builder()
     .unwrap();
 ```
 
-## Adapters {#adapters}
+## Adapters [#adapters]
 
 **adapter ที่สร้างหรือใช้งาน instrument แบบ `CryptoFuture` ได้แก่**:
 
@@ -97,7 +99,7 @@ let btcusdt_future = CryptoFuture::builder()
 - [OKX](../../integrations/okx.md) สำหรับ crypto futures แบบมีวันครบกำหนด
 - [Tardis](../../integrations/tardis.md) สำหรับ metadata ของ crypto futures
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Crypto Perpetual](crypto_perpetual.md) อธิบาย crypto perpetual futures
 - [Futures Contract](futures_contract.md) อธิบายสัญญา futures ที่ไม่ใช่ crypto

@@ -1,4 +1,6 @@
-# การ execute ด้วย trade (Trade-Based Execution)
+---
+title: "การ execute ด้วย trade (Trade-Based Execution)"
+---
 
 โดยค่าเริ่มต้น trade tick จะกระตุ้นการ matching เมื่อ venue ตั้งค่า `trade_execution=True` เพราะ trade
 เป็นหลักฐานว่ามีสภาพคล่องเกิดการซื้อขายจริงที่ราคานั้น จึงใช้ fill order ที่รออยู่ฝั่ง passive ได้
@@ -17,7 +19,7 @@
   ที่มีอยู่ใน book ได้ แต่ tick นั้นจะไม่ match กับ limit order ที่รออยู่ และไม่ trigger stop order ที่ใช้
   trigger type อื่น นอกจากนี้ยังรันการตรวจ GTD expiry และการหมดอายุของ instrument ที่เปิดใช้อยู่ด้วย
 
-## การ matching ที่ขับเคลื่อนด้วย trade {#trade-driven-matching}
+## การ matching ที่ขับเคลื่อนด้วย trade [#trade-driven-matching]
 
 engine จะย้ายราคาอ้างอิงสำหรับ matching ไปที่ราคาของ trade ชั่วคราว:
 
@@ -28,7 +30,7 @@ engine จะย้ายราคาอ้างอิงสำหรับ mat
 trade ใน L1 จะอัปเดตระดับ top-of-book จำลองทั้งสองฝั่งเป็นราคาและขนาดของ trade ส่วน depth book ใน
 L2 และ L3 จะไม่เปลี่ยน มีเพียงราคา bid, ask และ last ชั่วคราวของ matching core เท่านั้นที่ขยับในรอบนั้น
 
-### การกำหนด fill {#fill-determination}
+### การกำหนด fill [#fill-determination]
 
 เมื่อ trade กระตุ้นให้ limit order ถูก fill:
 
@@ -52,7 +54,7 @@ L2 และ L3 จะไม่เปลี่ยน มีเพียงรา
 ตัวอย่างเช่น กับข้อมูล L2 หรือ L3 trade ฝั่ง `SELL` ที่ 100.00 สามารถ fill BUY LIMIT ที่ 100.05 ได้
 หากไม่มีระดับราคาใน book ที่รองรับ fill นั้น engine จะใช้ 100.05 แทนที่จะให้ราคา trade ที่ดีกว่า
 
-### การคืนสถานะ matching {#matching-state-restoration}
+### การคืนสถานะ matching [#matching-state-restoration]
 
 หลังจบรอบ engine จะคืนราคาอ้างอิงสำหรับ matching จาก baseline ของตลาดที่มีอยู่:
 
@@ -64,7 +66,7 @@ L2 และ L3 จะไม่เปลี่ยน มีเพียงรา
 ความแตกต่างนี้สำคัญเมื่อตีความสตรีมของ trade ที่ไม่มี quote trade ซ้ำๆ สามารถขยับสถานะ L1 จำลองได้
 แต่การ matching ใน L1 ที่มี quote รองรับจะไม่ค่อยๆ ทิ้งฝั่งที่ไม่ใช่ aggressor ของ quote ล่าสุด
 
-## ฝั่ง aggressor {#aggressor-sides}
+## ฝั่ง aggressor [#aggressor-sides]
 
 **aggressor** คือผู้เข้าร่วมตลาดที่ cross spread:
 
@@ -74,7 +76,7 @@ L2 และ L3 จะไม่เปลี่ยน มีเพียงรา
 
 ฝั่ง aggressor ที่รู้แน่นอนไม่ได้เป็นหลักฐานสำหรับ passive order ที่อยู่ฝั่งเดียวกัน
 
-## การใช้ข้อมูล book ร่วมกับ trade {#combining-book-and-trade-data}
+## การใช้ข้อมูล book ร่วมกับ trade [#combining-book-and-trade-data]
 
 การอัปเดต book กำหนด spread และ depth ที่มองเห็น ส่วน trade tick ให้หลักฐานการ execute ระหว่างการ
 อัปเดตเหล่านั้น ซึ่งมีประโยชน์เมื่อ depth snapshot ถูก throttle และมี trade เกิดขึ้นที่ราคาซึ่ง snapshot
@@ -88,12 +90,12 @@ L2 และ L3 จะไม่เปลี่ยน มีเพียงรา
 - เมื่อเปิดการบริโภคสภาพคล่อง engine จะนับ volume ของ trade ที่ถูกตัดออกจาก book L2 หรือ L3 แล้ว
   ก่อนที่ order ที่ถูก trigger จะใช้ depth ที่เหลือ
 
-## การติดตามตำแหน่งในคิว {#queue-position-tracking}
+## การติดตามตำแหน่งในคิว [#queue-position-tracking]
 
 ตั้ง `queue_position=True` ร่วมกับ `trade_execution=True` เพื่อติดตามปริมาณที่แสดงอยู่ข้างหน้าของ
 LIMIT order แต่ละตัว
 
-### การตั้งค่า sandbox {#sandbox-configuration}
+### การตั้งค่า sandbox [#sandbox-configuration]
 
 paper trading แบบ sandbox ใช้ flag ของ matching engine ชุดเดียวกัน โดยส่งผ่าน
 `SandboxExecutionClientConfig` (ค่าเริ่มต้นปิดไว้ ตรงกับพฤติกรรมของ sandbox ในปัจจุบัน)
@@ -101,7 +103,7 @@ paper trading แบบ sandbox ใช้ flag ของ matching engine ชุ�
 `venue` ของ sandbox ต้องตรงกับ venue ของ instrument ใน data client และ strategy ต้อง subscribe trade
 (และ delta ของ L2/L3 เมื่อใช้ depth)
 
-### วงจรชีวิตของคิว {#queue-lifecycle}
+### วงจรชีวิตของคิว [#queue-lifecycle]
 
 1. เมื่อถูก accept, LIMIT order จะเก็บ snapshot ขนาดที่แสดงอยู่ฝั่งเดียวกันที่ราคาของมัน
 1. trade ฝั่งที่ถูกต้องที่ราคานั้นจะลดปริมาณที่อยู่ข้างหน้า
@@ -116,7 +118,7 @@ paper trading แบบ sandbox ใช้ flag ของ matching engine ชุ�
 1. trade ฝั่ง `SELL` ขนาด 30 หน่วยเคลียร์คิวและเหลือ 10 หน่วยให้ fill ได้
 1. trade ฝั่งที่ถูกต้องครั้งถัดไปสามารถ fill ปริมาณที่เหลือของ order ได้
 
-### การเปลี่ยนแปลงของ book {#book-changes}
+### การเปลี่ยนแปลงของ book [#book-changes]
 
 สำหรับ book แบบ L2 และการอัปเดต L3 แบบรวมระดับ:
 
@@ -140,7 +142,7 @@ paper trading แบบ sandbox ใช้ flag ของ matching engine ชุ�
 การเปลี่ยนราคาของ order จำลองจะรีเซ็ตตำแหน่งในคิวที่ระดับราคาใหม่ ส่วนการเปลี่ยนแค่ปริมาณจะคง
 ความคืบหน้าที่ทำได้แล้วไว้
 
-### การติดตามคิวใน L1 {#l1-queue-tracking}
+### การติดตามคิวใน L1 [#l1-queue-tracking]
 
 เมื่อใช้ `BookType.L1_MBP`, trade tick จะลดปริมาณข้างหน้า ส่วน quote ให้หลักฐานเรื่องการขยับของราคา
 และขนาดที่แสดง:
@@ -152,7 +154,7 @@ paper trading แบบ sandbox ใช้ flag ของ matching engine ชุ�
 - ขนาดที่แสดงเพิ่มขึ้นจะคงความคืบหน้าในคิวไว้
 - order ที่อยู่หลัง BBO จะยังรออยู่จนกว่า quote จะมาถึงราคาของมัน หรือมี trade cross ผ่าน
 
-### ข้อจำกัด {#limitations}
+### ข้อจำกัด [#limitations]
 
 - การติดตามคิวใช้กับ `LIMIT` order เท่านั้น
 - order จำลองแต่ละตัวมีการประมาณคิวที่เป็นอิสระต่อกัน

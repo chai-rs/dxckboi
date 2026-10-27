@@ -1,4 +1,6 @@
-# OrderFillVoided
+---
+title: "OrderFillVoided"
+---
 
 `OrderFillVoided` บันทึกว่า fill ที่เคยรายงานไปแล้วทั้งหมดหรือบางส่วนไม่มีผลทางเศรษฐกิจอีกต่อไป
 `ExecutionEngine` จะนำ correction แต่ละรายการที่สำเร็จไปใช้กับ order
@@ -16,7 +18,7 @@ correction ที่สำเร็จแต่มีผลกับ order เ�
 
 Handler: `on_order_fill_voided`
 
-## ข้อกำหนด {#contract}
+## ข้อกำหนด [#contract]
 
 `voided_qty` และ `commission_voided` เป็นค่าสะสมของ `trade_id` ที่อ้างถึง correction ด้าน quantity
 จะลดลงไม่ได้ สำหรับ fill ที่นำไปใช้ใน local แล้ว correction ด้านค่าธรรมเนียมก็ลดลงไม่ได้เช่นกัน
@@ -44,7 +46,7 @@ correction แบบไม่ reopen ที่ไม่ได้นำไปใ�
 - event ต้องไม่ void commission ที่ไม่เป็นศูนย์
 - Nautilus จะไม่ย้อน exposure ของ position หรือ account เมื่อไม่มี fill ใน local
 
-### ข้อกำหนดสำหรับ adapter {#adapter-requirements}
+### ข้อกำหนดสำหรับ adapter [#adapter-requirements]
 
 - publish และ persist `OrderFilled` ที่อ้างถึงก่อน correction แบบ reopen หรือ correction บางส่วนใดๆ
   ที่ควรทำให้ order ยัง execute ได้ การ replay บังคับลำดับเดียวกับการประมวลผลแบบ live
@@ -57,7 +59,7 @@ correction แบบไม่ reopen ที่ไม่ได้นำไปใ�
   ให้อยู่แล้ว adapter ที่หักออกจาก `quantity` อีกจะเป็นการหักซ้ำสองครั้ง ข้อยกเว้นคือ update จาก
   reconciliation ที่ปิด order เป็น `FILLED` ซึ่ง `quantity` คือ `filled_qty` ที่มีผลจริง
 
-### พฤติกรรมของสถานะเมื่อมี fill ใน local {#status-behavior-with-a-local-fill}
+### พฤติกรรมของสถานะเมื่อมี fill ใน local [#status-behavior-with-a-local-fill]
 
 โดยค่าเริ่มต้น quantity ที่แก้ไขจะไม่กลับมา execute ได้:
 
@@ -79,7 +81,7 @@ schema จะเพิ่ม event และสถานะนี้ต่อท
 จึงต้องอัปเกรดฝั่งผู้อ่านข้อมูล (consumer) ก่อนที่จะอ่าน stream หรือข้อมูลใน catalog ที่ผ่าน correction
 :::
 
-## ฟิลด์ {#fields}
+## ฟิลด์ [#fields]
 
 นอกเหนือจาก[ฟิลด์ร่วมของ order event](index.md#common-python-order-event-fields)
 `OrderFillVoided` ยังมีฟิลด์ต่อไปนี้:
@@ -103,7 +105,7 @@ schema จะเพิ่ม event และสถานะนี้ต่อท
 | `is_reopened`       | `False`          | venue ยืนยันได้หรือไม่ว่า order กลับมา execute ได้อีก             |
 | `reconciliation`    | Required         | ถูกสร้างขึ้นระหว่าง reconciliation หรือไม่                     |
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Execution](../execution/) - การนำ correction ไปใช้และลำดับการ publish
 - [OrderFilled](order_filled.md) - event ของ fill เดิม

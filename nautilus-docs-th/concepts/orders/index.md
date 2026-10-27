@@ -1,9 +1,11 @@
-# Orders
+---
+title: "Orders"
+---
 
 NautilusTrader มี model กลางสำหรับประเภท order, execution instruction และความสัมพันธ์แบบ contingency
 ที่ใช้ร่วมกันได้กับทุก trading venue
 
-## ภาพรวม {#overview}
+## ภาพรวม [#overview]
 
 order ทุกประเภทต่อยอดมาจากพื้นฐานสองแบบ คือ order แบบ *Market* และ *Limit* โดย order แบบ *Market* ต้องการ
 execute ทันทีที่ราคาดีที่สุดที่มีอยู่ ส่วน order แบบ *Limit* ที่ไม่ marketable จะค้างอยู่ใน order
@@ -18,7 +20,7 @@ adapter อาจปฏิเสธคำขอที่ไม่รองรั
 ความสามารถของ integration เป้าหมายก่อนจะพึ่งพา option ใด ๆ
 :::
 
-### คำศัพท์ {#terminology}
+### คำศัพท์ [#terminology]
 
 - **Aggressive**: order ที่มี type เป็น `MARKET` หรือ order ที่ execute แบบ marketable และ
   ดึง liquidity
@@ -59,7 +61,7 @@ code ที่ถือว่า "ไม่ open" คือเสร็จแล
 กรณีที่รอ venue ตอบกลับ
 :::
 
-### ลำดับสถานะของ order {#order-state-flow}
+### ลำดับสถานะของ order [#order-state-flow]
 
 **Transition หลัก**: แผนภาพแสดงวงจรชีวิตของ order และ state transition หลัก
 แต่ละสถานะปรากฏเพียงครั้งเดียว ดังนั้น `PENDING_UPDATE` และ `PENDING_CANCEL` จึงวาดไว้ใต้ In-Flight
@@ -141,7 +143,7 @@ flowchart TB
 ประวัติของ order และ execution engine จะ publish ไปยัง handler ของ strategy ส่วน expiry event ครั้งต่อ ๆ ไป
 จะถูกปฏิเสธจนกว่าจะมี fill ใหม่เข้ามา
 
-### นิยามสถานะของ order {#order-status-definitions}
+### นิยามสถานะของ order [#order-status-definitions]
 
 | Status             | Description                                                                                         |
 | ------------------ | --------------------------------------------------------------------------------------------------- |
@@ -161,12 +163,12 @@ flowchart TB
 | `FILLED`           | order ถูก fill ครบทั้งหมดแล้ว (terminal)                                                               |
 | `VOIDED`           | order สิ้นสุดหลังจากมีการแก้ไข fill ที่เชื่อถือได้ (authoritative fill correction)                       |
 
-## Execution instructions {#execution-instructions}
+## Execution instructions [#execution-instructions]
 
 execution instruction ระบุเงื่อนไขและข้อจำกัดว่า venue จะประมวลผล order อย่างไร
 การรองรับแตกต่างกันไปตาม venue และ adapter
 
-### Time in force {#time-in-force}
+### Time in force [#time-in-force]
 
 time in force ระบุว่า order จะ active อยู่นานเท่าใดก่อนที่ปริมาณที่ยังไม่ fill จะถูก cancel
 
@@ -179,18 +181,18 @@ time in force ระบุว่า order จะ active อยู่นานเ
 - **`AT_THE_OPEN` (OPG)**: order active เฉพาะช่วงเปิดของ trading session
 - **`AT_THE_CLOSE`**: order active เฉพาะช่วงปิดของ trading session
 
-### เวลาหมดอายุ {#expire-time}
+### เวลาหมดอายุ [#expire-time]
 
 ใช้ `expire_time` คู่กับ `GTD` เพื่อระบุว่า order จะหมดอายุและออกจาก order book หรือ
 ระบบจัดการ order ของ venue เมื่อใด
 
-### Post-only {#post-only}
+### Post-only [#post-only]
 
 order ที่ระบุ `post_only` สามารถให้ liquidity ได้แต่ต้องไม่ดึง liquidity โดยปกติ venue จะ reject หรือ
 cancel order หากมันจะถูก execute ทันที market maker สามารถใช้ instruction นี้เพื่อให้ได้
 ค่าธรรมเนียมแบบ maker
 
-### Reduce-only {#reduce-only}
+### Reduce-only [#reduce-only]
 
 order ที่ระบุ `reduce_only` สามารถลด position ที่มีอยู่ได้ แต่ต้องไม่เพิ่ม exposure หรือเปิด
 position ใหม่เมื่อไม่มี position (flat) พฤติกรรมที่แน่นอนแตกต่างกันไปตาม venue
@@ -200,13 +202,13 @@ position ใหม่เมื่อไม่มี position (flat) พฤติ
 - cancel order เมื่อ position ที่เกี่ยวข้องกลายเป็น flat
 - ลดปริมาณของ order ลงเมื่อ position ที่เกี่ยวข้องเล็กลง
 
-### Display quantity {#display-quantity}
+### Display quantity [#display-quantity]
 
 `display_qty` ระบุว่าจะให้ order มองเห็นได้บน limit order book มากน้อยเพียงใด order ที่มี
 ปริมาณที่แสดงน้อยกว่าปริมาณทั้งหมดมักเรียกว่า iceberg order ส่วน display
 quantity เป็นศูนย์จะทำให้ order ถูกซ่อน หาก venue รองรับพฤติกรรมนั้น
 
-### Trigger type {#trigger-type}
+### Trigger type [#trigger-type]
 
 trigger type หรือที่เรียกว่า
 [trigger method](https://www.interactivebrokers.com/en/software/tws/usersguidebook/configuretws/Modify%20the%20Stop%20Trigger%20Method.htm)
@@ -224,7 +226,7 @@ trigger type หรือที่เรียกว่า
 - **`MARK_PRICE`**: ใช้ mark price ของ venue สำหรับ instrument นั้น
 - **`INDEX_PRICE`**: ใช้ index price ของ venue สำหรับ instrument นั้น
 
-### Trailing offset type {#trailing-offset-type}
+### Trailing offset type [#trailing-offset-type]
 
 trailing offset type ระบุว่า trailing order คำนวณ offset ของ trigger จาก
 ราคาตลาดที่เกี่ยวข้องอย่างไร
@@ -236,13 +238,13 @@ trailing offset type ระบุว่า trailing order คำนวณ offset
 - **`TICKS`**: ใช้จำนวน tick
 - **`PRICE_TIER`**: ใช้ price tier เฉพาะของ venue
 
-### Contingent orders {#contingent-orders}
+### Contingent orders [#contingent-orders]
 
 ความสัมพันธ์แบบ contingency สามารถพัก child order ไว้จนกว่า parent จะ activate หรือ fill, cancel
 order ที่เชื่อมกัน หรือลดปริมาณของ order เหล่านั้นได้ ดู [Advanced orders](advanced.md) สำหรับ model ที่มีให้และ
 ข้อจำกัดของแต่ละแบบ
 
-## Order factory {#order-factory}
+## Order factory [#order-factory]
 
 ใช้ `OrderFactory` ที่มีมาในตัวเพื่อสร้าง order โดย strategy API ฝั่ง Rust เปิดให้ใช้ผ่าน `self.order()`
 
@@ -253,7 +255,7 @@ factory จะกำหนด trader ID และ strategy ID ให้ แล�
 
 ดูรายละเอียดเพิ่มเติมได้ที่ [Rust API reference](https://nautilustrader.io/docs/core-latest/)
 
-## ประเภท order {#order-types}
+## ประเภท order [#order-types]
 
 NautilusTrader รองรับ order ประเภทต่อไปนี้ แต่ละประเภทมีลิงก์ไปยังคู่มือเฉพาะพร้อมตัวอย่าง code
 parameter ที่เป็น optional จะมี comment ระบุค่าเริ่มต้นไว้
@@ -270,7 +272,7 @@ parameter ที่เป็น optional จะมี comment ระบุค่
 | [`TRAILING_STOP_MARKET`](trailing_stop_market.md) | Conditional trailing | ให้ trigger ตามราคาด้วย offset แล้ววาง order แบบ *Market*                      |
 | [`TRAILING_STOP_LIMIT`](trailing_stop_limit.md)   | Conditional trailing | ให้ trigger ตามราคาด้วย offset แล้ววาง order แบบ *Limit*                       |
 
-### การ map กับ FIX OrdType {#fix-ordtype-mapping}
+### การ map กับ FIX OrdType [#fix-ordtype-mapping]
 
 **การ map กับ FIX**: แต่ละประเภท map กับค่า FIX 5.0 SP2
 [`OrdType <40>`](https://www.onixs.biz/fix-dictionary/5.0.sp2/tagnum_40.html) ที่ใกล้เคียงที่สุด ในกรณีที่โปรโตคอล
@@ -292,20 +294,20 @@ parameter ที่เป็น optional จะมี comment ระบุค่
 trigger ฝั่งที่เป็นประโยชน์ trailing stop ก็เช่นกัน ไม่มีค่าเฉพาะ และ model เป็น `3`/`4` บวกกับฟิลด์
 trailing peg
 
-## Advanced orders {#advanced-orders}
+## Advanced orders [#advanced-orders]
 
 order สามารถจัดกลุ่มเป็น list และเชื่อมกันด้วยความสัมพันธ์แบบ contingency (OTO, OCO, OUO) ได้ และ
 bracket order จะผูก child แบบ take-profit และ stop-loss เข้ากับ order เข้า (entry) ดูคู่มือ
 [Advanced orders](advanced.md) สำหรับ order list, ประเภท contingency, กฎการ validate และ
 bracket
 
-## Emulated orders {#emulated-orders}
+## Emulated orders [#emulated-orders]
 
 NautilusTrader สามารถ emulate ประเภท order ที่ venue ไม่รองรับในตัวได้ที่ฝั่ง local โดยใช้เพียง order แบบ
 `MARKET` และ `LIMIT` ในการ execute จริง ดูคู่มือ [Emulated orders](emulated.md) สำหรับ
 วงจรการ emulate, ประเภทที่รองรับ, การ query และแนวปฏิบัติที่ดี
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Events](../events/) - order event, position event และการ dispatch ไปยัง handler
 - [Execution](../execution/) - การ execute order และการจัดการ fill

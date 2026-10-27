@@ -1,4 +1,6 @@
-# Trailing-Stop-Limit
+---
+title: "Trailing-Stop-Limit"
+---
 
 `FIX OrdType <40>=4` (Stop Limit) + trailing peg
 
@@ -6,13 +8,13 @@ order แบบ *Trailing-Stop-Limit* จะรักษาจุด trigger ข
 ขณะที่ตลาดเคลื่อนไปในทิศที่เป็นประโยชน์ เมื่อถูก trigger จะปล่อย order แบบ *Limit* ออกไป และก่อนหน้านั้น
 ราคา limit ก็จะปรับตามตลาดไปด้วย
 
-## กรณีการใช้งาน {#use-cases}
+## กรณีการใช้งาน [#use-cases]
 
 ใช้ order แบบ *Trailing-Stop-Limit* เมื่อต้องการการป้องกันแบบ trailing ที่ปรับตามตลาด พร้อมกำหนดราคา fill
 ที่แย่ที่สุดที่ยอมรับได้ เช่นเดียวกับ *Stop-Limit* order แบบ *Limit* ที่ถูกปล่อยออกไปอาจไม่ได้ fill
 หากตลาดกลับตัวเร็ว และอาจทำให้ position ยังเปิดค้างอยู่
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 **ตัวอย่าง**: สร้าง order แบบ *Trailing-Stop-Limit* บน Currenex FX ECN เพื่อ BUY 1,250,000 AUD โดยใช้ USD
 เริ่มที่ราคา limit 0.71000 USD และ activate ที่ 0.72000 USD จากนั้น trail ด้วย stop offset 0.00100 USD
@@ -60,7 +62,7 @@ let order = self.order().trailing_stop_limit(
 
 ดูรายละเอียดเพิ่มเติมได้ที่ [Rust API reference](https://nautilustrader.io/docs/core-latest/)
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Orders](index.md#trailing-offset-type) - ประเภทของ trigger และ trailing offset
 - [Emulated orders](emulated.md) - การ emulate trailing stop บน venue ที่ไม่รองรับโดยตรง

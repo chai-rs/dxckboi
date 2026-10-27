@@ -1,4 +1,6 @@
-# AX Exchange
+---
+title: "AX Exchange"
+---
 
 [AX Exchange](https://architect.exchange) เป็น derivatives exchange แบบรวมศูนย์ที่อยู่ภายใต้การกำกับดูแล
 สำหรับ asset class อ้างอิงแบบดั้งเดิม Architect Bermuda Ltd. ดำเนินการ AX ภายใต้ใบอนุญาตจาก
@@ -7,7 +9,7 @@
 
 integration นี้รองรับการรับ market data แบบ live และการส่ง order ไปยัง AX Exchange
 
-## ภาพรวม {#overview}
+## ภาพรวม [#overview]
 
 adapter นี้ implement ด้วย Rust และไม่ต้องใช้ client library ภายนอกของ AX
 
@@ -27,17 +29,17 @@ adapter ของ AX Exchange ประกอบด้วยหลาย compone
 เหล่านี้โดยตรง
 :::
 
-## ตัวอย่าง {#examples}
+## ตัวอย่าง [#examples]
 
 - [ตัวอย่าง Rust](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/architect_ax/examples/)
 
-## เอกสารของ AX Exchange {#ax-exchange-documentation}
+## เอกสารของ AX Exchange [#ax-exchange-documentation]
 
 AX Exchange มีเอกสารสำหรับผู้ใช้อยู่ที่
 [เว็บไซต์เอกสารของ Architect](https://docs.architect.exchange/)
 ให้อ่านเอกสารของ AX Exchange ควบคู่กับคู่มือ integration ของ NautilusTrader นี้
 
-## ผลิตภัณฑ์ {#products}
+## ผลิตภัณฑ์ [#products]
 
 catalog ของ production มีสัญญา perpetual และ futures แบบมีวันหมดอายุในหมวดหมู่ของ venue ต่อไปนี้:
 
@@ -56,7 +58,7 @@ catalog ของ sandbox แตกต่างออกไป โดยมี�
 adapter จะ map หมวดหมู่ venue `crypto` ไปยัง asset class `CRYPTOCURRENCY` และหมวดหมู่ใดที่ไม่รู้จัก
 ไปยัง `ALTERNATIVE`
 
-### สัญญา perpetual {#perpetual-contracts}
+### สัญญา perpetual [#perpetual-contracts]
 
 สัญญา perpetual (perpetual swap) เป็น derivative ที่ติดตามราคาของ asset อ้างอิงโดยไม่มีวันหมดอายุ
 ต่างจาก futures ทั่วไปตรงที่ไม่มีวัน settlement ซึ่งช่วยตัดต้นทุนการ rollover และทำให้การจัดการ position
@@ -76,7 +78,7 @@ adapter แทน instrument ของ AX ที่ไม่มีวันห�
 วันหมดอายุด้วย `FuturesContract` หมวดหมู่ของ venue เป็นตัวกำหนด asset class ของ Nautilus
 adapter ใช้ account type แบบ `MARGIN` และการจัดการ order แบบ `NETTING`
 
-## Symbology {#symbology}
+## Symbology [#symbology]
 
 adapter คง symbol ของ AX ไว้ตามเดิมและต่อท้ายด้วย venue identifier ของ Nautilus คือ `.AX`
 symbol ของ perpetual ใช้ suffix `-PERP` ส่วน symbol แบบมีวันหมดอายุจะมีปีและเดือนของสัญญา
@@ -89,7 +91,7 @@ symbol ของ perpetual ใช้ suffix `-PERP` ส่วน symbol แบ�
 
 venue identifier คือ `AX` ดังนั้น `InstrumentId` ของ Nautilus จะอยู่ในรูป `EURUSD-PERP.AX`
 
-## Environment {#environments}
+## Environment [#environments]
 
 AX Exchange มี trading environment สองแบบ ตั้งค่า environment ที่ต้องการด้วย parameter
 `environment` ใน config ของ client
@@ -99,36 +101,36 @@ AX Exchange มี trading environment สองแบบ ตั้งค่า 
 | **Sandbox**    | `environment=AxEnvironment.SANDBOX`    | environment สำหรับทดสอบด้วยเงินจำลอง        |
 | **Production** | `environment=AxEnvironment.PRODUCTION` | live trading ด้วยเงินจริง                  |
 
-### Sandbox {#sandbox}
+### Sandbox [#sandbox]
 
 environment เริ่มต้นสำหรับการพัฒนาและทดสอบด้วยเงินจำลอง
 endpoint ทั้งหมดของ sandbox จะถูก resolve อัตโนมัติเมื่อ `environment=AxEnvironment.SANDBOX`
 
-#### 1. สร้าง sandbox account {#1-create-a-sandbox-account}
+#### 1. สร้าง sandbox account [#1-create-a-sandbox-account]
 
 ทำตาม [เอกสารของ Architect](https://docs.architect.exchange/) เพื่อสร้าง sandbox account
 ต้องใช้ invite code ระหว่างการลงทะเบียน
 
-#### 2. สร้าง API key และเติมเงินเข้า account {#2-create-api-keys-and-fund-the-account}
+#### 2. สร้าง API key และเติมเงินเข้า account [#2-create-api-keys-and-fund-the-account]
 
 ใช้ UI ของ AX sandbox เพื่อสร้าง API key และฝากเงินจำลองเข้า account
 เก็บ `api_key` และ `api_secret` ไว้อย่างปลอดภัย
 
-#### 3. ตั้งค่า environment variable {#3-set-environment-variables}
+#### 3. ตั้งค่า environment variable [#3-set-environment-variables]
 
 ```bash
 export AX_API_KEY="your-sandbox-api-key"
 export AX_API_SECRET="your-sandbox-api-secret"
 ```
 
-#### 4. ตั้งค่า live node {#4-configure-the-live-node}
+#### 4. ตั้งค่า live node [#4-configure-the-live-node]
 
 ตั้ง `environment=AxEnvironment.SANDBOX` ใน config ของ data client และ execution client ดูการตั้งค่า
 `LiveNode` แบบสมบูรณ์ได้ที่
 [ตัวอย่าง Rust](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/architect_ax/examples/)
 และ [รัน live trading ด้วย Rust](../how_to/run_rust_live_trading.md)
 
-### Production {#production}
+### Production [#production]
 
 สำหรับ live trading ด้วยเงินจริง ต้องมี account ของ AX Exchange ที่ผ่านการยืนยันตัวตนแล้ว
 ให้ตั้ง `environment` ใน config ของ execution client เป็น `PRODUCTION`
@@ -138,12 +140,12 @@ export AX_API_SECRET="your-sandbox-api-secret"
 ค่าเริ่มต้นคือ sandbox เพื่อป้องกันการเทรดจริงโดยไม่ตั้งใจ
 :::
 
-## Market data {#market-data}
+## Market data [#market-data]
 
 adapter ให้ market data แบบ real-time ผ่าน WebSocket subscription และมี HTTP endpoint สำหรับ
 backfill ข้อมูลย้อนหลัง
 
-### ประเภทข้อมูล {#data-types}
+### ประเภทข้อมูล [#data-types]
 
 | ข้อมูลของ AX       | Nautilus Data Type  | หมายเหตุ                                                         |
 | ----------------- | ------------------- | ---------------------------------------------------------------- |
@@ -188,7 +190,7 @@ timestamp, ราคา, ขนาด และ aggressor side ของ trade R
 เรื่องนี้กระทบเฉพาะผู้ใช้ที่ตัดข้อมูลซ้ำของ market data ด้วย `trade_id` เพราะ fill ใช้ trade ID ของ venue เอง
 :::
 
-### พฤติกรรมของ WebSocket subscription {#websocket-subscription-behavior}
+### พฤติกรรมของ WebSocket subscription [#websocket-subscription-behavior]
 
 WebSocket subscription ของ market data บน AX ใช้ stream ที่ active หนึ่งตัวต่อ symbol adapter จะเลือก
 stream ที่เล็กที่สุดที่ครอบคลุม subscription ของ Nautilus ที่ active อยู่:
@@ -213,7 +215,7 @@ WebSocket model ของ ticker จะเก็บ metadata ของ funding �
 ที่ settle แล้วผ่าน HTTP polling adapter ไม่ได้ emit data type แยกสำหรับ funding โดยประมาณ หรือ request
 ค่าประมาณแยกต่างหาก
 
-### การกู้คืน order book {#order-book-recovery}
+### การกู้คืน order book [#order-book-recovery]
 
 data client ติดตาม order book delta subscription แต่ละตัวด้วย
 [กลไกกู้คืน book ที่ใช้ร่วมกัน](../developer_guide/adapters.md#order-book-recovery-ownership) message
@@ -263,7 +265,7 @@ snapshot มาจะรอจนกว่าจะเกิดเหตุก�
 - การกู้คืนถูกยกเลิก
 - budget เริ่มต้น 180 วินาทีหมดลง
 
-### การตรวจสอบการกู้คืนแบบ live {#live-recovery-validation}
+### การตรวจสอบการกู้คืนแบบ live [#live-recovery-validation]
 
 harness `ax-book-stress` เป็น tool สำหรับการพัฒนาที่ใช้กับการเปลี่ยนแปลงด้าน book synchronization และ
 การกู้คืน มันใช้ market data จาก AX sandbox และไม่ส่ง order ใด ๆ โดยจะตรวจ book ของ perpetual ห้าตัว
@@ -307,7 +309,7 @@ harness ต้องใช้ market data WebSocket และ REST API ของ
 [Stress harnesses](../developer_guide/spec_data_testing.md#stress-harnesses) สำหรับ flag ที่ใช้ร่วมกัน
 และรูปแบบ output
 
-### พฤติกรรมของ HTTP API {#http-api-behavior}
+### พฤติกรรมของ HTTP API [#http-api-behavior]
 
 - `GET /tickers` คืน metadata ของหน้าแบบ limit/offset และรองรับ query parameter `limit`, `offset`
   และ `sort`
@@ -329,7 +331,7 @@ harness ต้องใช้ market data WebSocket และ REST API ของ
 - เมื่อไม่ได้ระบุตัวเลือก account AX จะใช้ primary account execution client ระดับสูงเป็นเจ้าของ
   primary account หนึ่งตัว ส่วน request model ระดับล่างเปิดให้ใช้ตัวเลือก account ตามที่ระบุไว้ในเอกสาร
 
-### Bar interval {#bar-intervals}
+### Bar interval [#bar-intervals]
 
 | Interval | คำอธิบาย  |
 | -------- | -------- |
@@ -341,7 +343,7 @@ harness ต้องใช้ market data WebSocket และ REST API ของ
 | `1h`     | 1 ชั่วโมง |
 | `1d`     | 1 วัน     |
 
-## ความสามารถด้าน order {#orders-capability}
+## ความสามารถด้าน order [#orders-capability]
 
 API สำหรับส่ง order ของ AX ไม่มีตัวเลือก order type รูปแบบ order ดั้งเดิมเพียงแบบเดียวของมันต้องระบุราคา
 ซึ่ง adapter map ไปเป็น order `LIMIT` ของ Nautilus adapter จำลอง order `MARKET` ของ Nautilus
@@ -357,7 +359,7 @@ schema ของ request ใน [REST place-order](https://docs.architect.exchan
 Nautilus ยังคง emulate stop-limit order ภายในเครื่องได้ order emulator ทั่วไปจะรอ trigger ที่ตั้งค่าไว้
 จากนั้นจึงส่ง limit order ธรรมดาไปยัง adapter นี้
 
-### Order type {#order-types}
+### Order type [#order-types]
 
 | Order Type             | รองรับ | หมายเหตุ                                           |
 | ---------------------- | ------ | -------------------------------------------------- |
@@ -369,7 +371,7 @@ Nautilus ยังคง emulate stop-limit order ภายในเครื่
 | `MARKET_IF_TOUCHED`    | -      | *AX Exchange ไม่รองรับ*                            |
 | `TRAILING_STOP_MARKET` | -      | *AX Exchange ไม่รองรับ*                            |
 
-### Execution instruction {#execution-instructions}
+### Execution instruction [#execution-instructions]
 
 | Instruction      | รองรับ | หมายเหตุ                                                          |
 | ---------------- | ------ | ----------------------------------------------------------------- |
@@ -402,7 +404,7 @@ adapter ยังปฏิเสธ instruction quote-quantity และ display
 encode ความหมายเหล่านั้นไม่ได้ นี่เป็นขอบเขตของ adapter ไม่ได้หมายความว่า AX Exchange ปฏิเสธ
 ฟีเจอร์ native ของ venue ที่เทียบเท่ากัน
 
-### Time in force {#time-in-force}
+### Time in force [#time-in-force]
 
 | Time in Force  | รองรับ | หมายเหตุ                          |
 | -------------- | ------ | --------------------------------- |
@@ -416,7 +418,7 @@ encode ความหมายเหล่านั้นไม่ได้ น
 
 venue ประกาศเลิกใช้ `DAY` (deprecated) และแนะนำให้ใช้ `GTC` แทน
 
-### ฟีเจอร์ order ขั้นสูง {#advanced-order-features}
+### ฟีเจอร์ order ขั้นสูง [#advanced-order-features]
 
 | ฟีเจอร์              | รองรับ | หมายเหตุ                                                              |
 | ------------------ | ------ | --------------------------------------------------------------------- |
@@ -443,7 +445,7 @@ error นั้นไว้และไม่แปลงเป็น `OrderCanc
 request ที่กรองตาม side จะเลือกจาก open order เท่านั้น ดังนั้น order ที่อยู่ระหว่างดำเนินการ (`SUBMITTED`)
 ซึ่ง AX ยังไม่ได้ acknowledge จะรอดจาก request นี้
 
-### การจัดการ position {#position-management}
+### การจัดการ position [#position-management]
 
 | ฟีเจอร์           | รองรับ | หมายเหตุ                                  |
 | --------------- | ------ | ----------------------------------------- |
@@ -451,7 +453,7 @@ request ที่กรองตาม side จะเลือกจาก open 
 | Position mode   | -      | netting mode เท่านั้น                     |
 | Cross margin    | ✓      | cross-margin ข้ามทุก instrument           |
 
-### การ query order {#order-querying}
+### การ query order [#order-querying]
 
 | ฟีเจอร์                | รองรับ | หมายเหตุ                                                      |
 | -------------------- | ------ | ------------------------------------------------------------- |
@@ -543,7 +545,7 @@ reconciliation อาจต้องใช้การแก้ไขแบบ�
 ให้ตรวจ order ที่ถูก replace เทียบกับ AX ก่อนกลับมาเทรดต่อ
 :::
 
-### Account state {#account-state}
+### Account state [#account-state]
 
 endpoint `/balances` ไม่มีข้อมูล margin ดังนั้น account state จึง request `/risk-snapshot` ด้วย
 ค่า `initial_margin_required_total` ที่เป็น USD จะถูกใช้เป็นเงินที่ถูก lock ของ balance USD โดยไม่เกิน
@@ -551,7 +553,7 @@ balance USD รายการ `MarginBalance` ของ USD จะจับค�
 `/risk-snapshot` ล้มเหลว account state จะถอยกลับไปใช้ balance อย่างเดียวโดย margin ที่ถูก lock เป็นศูนย์
 และ log warning
 
-## การยืนยันตัวตน {#authentication}
+## การยืนยันตัวตน [#authentication]
 
 AX Exchange ใช้การยืนยันตัวตนด้วย bearer token:
 
@@ -561,9 +563,9 @@ AX Exchange ใช้การยืนยันตัวตนด้วย bear
 4. การ refresh จะอัปเดตการยืนยันตัวตนของ REST และ token ที่ใช้ในการ reconnect WebSocket ครั้งถัดไป
    โดยไม่ขัดจังหวะ connection ที่ active อยู่
 
-## Configuration {#configuration}
+## Configuration [#configuration]
 
-### Environment และ endpoint {#environments-and-endpoints}
+### Environment และ endpoint [#environments-and-endpoints]
 
 | Environment | HTTP API                                         | HTTP API (orders)                                   | Market Data WS                                   | Orders WS                                            |
 | ----------- | ------------------------------------------------ | --------------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------- |
@@ -577,7 +579,7 @@ historical orders และ initial margin requirement) ใช้ base URL ข�
 adapter จะ resolve ทั้งสองจาก environment ที่ตั้งค่าไว้
 :::
 
-### Option ของ data client {#data-client-configuration-options}
+### Option ของ data client [#data-client-configuration-options]
 
 | Option                             | ค่าเริ่มต้น | คำอธิบาย                                                                         |
 | ---------------------------------- | --------- | -------------------------------------------------------------------------------- |
@@ -599,7 +601,7 @@ adapter จะ resolve ทั้งสองจาก environment ที่ต�
 | `book_snapshot_timeout_secs`       | `10`      | เวลารอ book snapshot ตอนเริ่ม, reconnect และกู้คืน `0` คือปิด                      |
 | `transport_backend`                | `Sockudo` | backend ของ WebSocket transport                                                  |
 
-### Option ของ execution client {#execution-client-configuration-options}
+### Option ของ execution client [#execution-client-configuration-options]
 
 | Option                    | ค่าเริ่มต้น | คำอธิบาย                                                                         |
 | ------------------------- | --------- | -------------------------------------------------------------------------------- |
@@ -627,7 +629,7 @@ adapter จะ resolve ทั้งสองจาก environment ที่ต�
 `AxExecutionClientFactory` [ตัวอย่าง Rust](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/architect_ax/examples/)
 แสดงการตั้งค่า live node สำหรับ data client และ execution client
 
-### API credential {#api-credentials}
+### API credential [#api-credentials]
 
 มีสองวิธีในการส่ง credential ให้ client ของ AX Exchange
 คือส่งค่า `api_key` และ `api_secret` ใน config object หรือตั้ง environment variable ต่อไปนี้:
@@ -641,7 +643,7 @@ adapter จะ resolve ทั้งสองจาก environment ที่ต�
 
 เมื่อเริ่ม trading node จะได้รับการยืนยันทันทีว่า credential ถูกต้องและมีสิทธิ์เทรดหรือไม่
 
-## หมายเหตุด้าน implementation {#implementation-notes}
+## หมายเหตุด้าน implementation [#implementation-notes]
 
 - **เฉพาะจำนวนสัญญาเต็มเท่านั้น**: AX ใช้ quantity ของสัญญาเป็นจำนวนเต็ม adapter กำหนด size increment
   และ lot size เป็นหนึ่งสัญญา ขณะเดียวกันก็บังคับใช้ `minimum_order_size` แยกของแต่ละ instrument
@@ -711,7 +713,7 @@ adapter จะ resolve ทั้งสองจาก environment ที่ต�
   `cargo run --bin ax-flatten -p nautilus-architect-ax` (`AX_IS_SANDBOX` มีค่าเริ่มต้นเป็น true)
   binary นั้นจะ cancel open order ทั้งหมดของ account จากนั้นปิดทุก position
 
-## การมีส่วนร่วม {#contributing}
+## การมีส่วนร่วม [#contributing]
 
 :::info
 สำหรับฟีเจอร์เพิ่มเติมหรือการมีส่วนร่วมพัฒนา adapter ของ AX Exchange โปรดดู

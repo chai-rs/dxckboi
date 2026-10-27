@@ -1,10 +1,12 @@
-# มาตรฐานการเขียนโค้ด
+---
+title: "มาตรฐานการเขียนโค้ด"
+---
 
-## รูปแบบโค้ด {#code-style}
+## รูปแบบโค้ด [#code-style]
 
 ใช้ codebase เป็นแนวทางสำหรับข้อตกลงด้านการจัดรูปแบบ โดยเสริมด้วยกฎด้านล่าง
 
-### กฎการจัดรูปแบบที่ใช้กับทุกไฟล์ {#universal-formatting-rules}
+### กฎการจัดรูปแบบที่ใช้กับทุกไฟล์ [#universal-formatting-rules]
 
 กฎต่อไปนี้ใช้กับไฟล์ source **ทุกไฟล์** (Rust, shell ฯลฯ):
 
@@ -14,13 +16,13 @@
   ภายนอกไว้ด้วยการยกเว้นเป็นราย identifier แบบตรงตัว และไม่รวมข้อมูลที่คัดลอกมาตรงตัวและไฟล์ที่ generate ขึ้น รัน
   `prek run typos --all-files` เพื่อตรวจทั้ง repository
 
-### Shell script {#shell-scripts}
+### Shell script [#shell-scripts]
 
 Bash เป็น shell เริ่มต้นสำหรับ script ใน repository ใช้ POSIX `sh` เฉพาะเมื่อผู้เรียกไม่สามารถคาดหวังได้ว่ามี Bash
 ติดตั้งอยู่ ดู [Shell](shell.md) สำหรับข้อกำหนดด้านการเลือก script, นามสกุลไฟล์, portability, โครงสร้าง, การทดสอบ,
 การจัดรูปแบบ และ linting
 
-### ข้อตกลงด้าน comment {#comment-conventions}
+### ข้อตกลงด้าน comment [#comment-conventions]
 
 1. โดยทั่วไปให้เว้น **หนึ่งบรรทัดว่างด้านบน** ของทุก comment block หรือ docstring เพื่อแยกออกจากโค้ดให้เห็นชัด
 2. ใช้ *sentence case* - ขึ้นต้นด้วยตัวพิมพ์ใหญ่ ที่เหลือเป็นตัวพิมพ์เล็ก ยกเว้นคำนามเฉพาะหรือตัวย่อ
@@ -31,12 +33,12 @@ Bash เป็น shell เริ่มต้นสำหรับ script ใน
 6. เขียน comment ให้กระชับ เน้นความชัดเจน และอธิบายเฉพาะสิ่งที่ไม่ชัดเจนในตัว - *less is more*
 7. หลีกเลี่ยงการใช้ emoji ในข้อความ
 
-### รูปประโยคของ doc comment {#doc-comment-mood}
+### รูปประโยคของ doc comment [#doc-comment-mood]
 
 เขียน Rust doc comment ใน **indicative mood** เช่น *"Returns a cached client."* ซึ่งตรงกับสไตล์ที่แพร่หลายใน ecosystem
 ของ Rust และทำให้เอกสารที่ generate ออกมาอ่านเป็นธรรมชาติสำหรับผู้ใช้
 
-### คำศัพท์และการใช้ถ้อยคำ {#terminology-and-phrasing}
+### คำศัพท์และการใช้ถ้อยคำ [#terminology-and-phrasing]
 
 1. **Error message**: หลีกเลี่ยงการใช้ ", got" ใน error message ให้ใช้คำที่สื่อความหมายมากกว่า เช่น ", was", ", received"
    หรือ ", found" ตามบริบท
@@ -48,7 +50,7 @@ Bash เป็น shell เริ่มต้นสำหรับ script ใน
 3. **การตั้งชื่อตัวแปร error**: ใช้ตัวอักษรเดียว `e` สำหรับ error ที่จับได้:
    - Rust: ใช้ `Err(e)` ไม่ใช่ `Err(err)` หรือ `Err(error)` และใช้ `|e|` ไม่ใช่ `|err|` ใน closure
 
-### ข้อตกลงด้านการตั้งชื่อ {#naming-conventions}
+### ข้อตกลงด้านการตั้งชื่อ [#naming-conventions]
 
 1. **Field ภายใน**: ใช้ตัวย่อได้สำหรับ field แบบ private/internal (เช่น `_price_prec`, `_size_prec`) เพื่อให้โค้ดใน hot path กระชับ
 
@@ -75,7 +77,7 @@ Bash เป็น shell เริ่มต้นสำหรับ script ใน
    `<Venue>ExecutionClientConfig` factory ใช้ client config เหล่านี้โดยตรงแทนที่จะมี factory config ห่อแยกอีกชั้น
    `LiveNodeConfig` เป็นเจ้าของ `trader_id` ส่วนค่า `account_id` เฉพาะ venue ให้อยู่ใน execution client config
 
-#### API สำหรับโหลดข้อมูล {#data-loading-apis}
+#### API สำหรับโหลดข้อมูล [#data-loading-apis]
 
 ใช้ free function สำหรับการนำเข้าข้อมูลแบบ stateless ใช้ class เฉพาะเมื่อ instance ต้องเก็บ configuration ที่นำกลับมาใช้ได้,
 cache, worker, สถานะการ iterate หรือ resource ที่เปิดค้างไว้ข้ามการเรียกหลายครั้ง อย่าใช้ class ที่ไม่มีสถานะเพียงเพื่อจัดกลุ่ม
@@ -94,7 +96,7 @@ static method หรือ class method
 (optional) ใส่รูปแบบการแทนข้อมูลเฉพาะเมื่อมี format พี่น้องอยู่จริง เช่น `load_binance_order_book_deltas` ดีกว่า class แบบ
 stateless อย่าง `BinanceOrderBookDeltaDataLoader.load` หรือฟังก์ชันแบบกว้าง ๆ อย่าง `load_binance_data`
 
-### การจัดรูปแบบ {#formatting}
+### การจัดรูปแบบ [#formatting]
 
 1. สำหรับบรรทัดโค้ดที่ยาวและการเรียกที่มี argument มากกว่าสองสามตัว layout ที่แนะนำคือใช้ indent ตรรกะระดับถัดไป
    ขึ้นบรรทัดใหม่ที่ indent นั้น แทนการจัดแนวแบบ hanging 'vanity' ตามวงเล็บเปิด วิธีนี้ช่วยประหยัดพื้นที่ทางขวาและทำให้
@@ -104,12 +106,12 @@ stateless อย่าง `BinanceOrderBookDeltaDataLoader.load` หรือฟ
 
 3. พารามิเตอร์หรือ argument แบบ hanging หลายตัวควรลงท้ายด้วย trailing comma
 
-## Commit message {#commit-messages}
+## Commit message [#commit-messages]
 
 Commit message ใช้ subject ที่ขึ้นต้นด้วยตัวพิมพ์ใหญ่ในรูปคำสั่ง (imperative) ที่ระบุส่วนที่ได้รับผลกระทบ และอาจตามด้วย body
 ที่อธิบายการเปลี่ยนแปลง
 
-### บรรทัด subject {#subject-line}
+### บรรทัด subject [#subject-line]
 
 - ขึ้นต้นด้วยกริยารูปคำสั่งที่ขึ้นต้นด้วยตัวพิมพ์ใหญ่ เพื่อให้ subject บอกว่า commit ทำอะไรเมื่อถูก apply
   `Add`, `Fix`, `Improve`, `Refine`, `Update`, `Remove`, `Refactor` และ `Standardize` ครอบคลุมประวัติส่วนใหญ่
@@ -139,14 +141,14 @@ Fix the post-only flag (#4544)             # pull request number added by hand
 Fix PR #4544 review feedback               # issue or pull request number in the subject
 ```
 
-### Conventional Commits {#conventional-commits}
+### Conventional Commits [#conventional-commits]
 
 ห้ามใช้ syntax ของ [Conventional Commits](https://www.conventionalcommits.org/) สำหรับ commit message หรือชื่อ
 pull request editor และ AI assistant หลายตัวสร้างรูปแบบนี้เป็นค่าเริ่มต้น แต่ไม่มี commit ใดในประวัติของ repository นี้ใช้เลย
 type และ scope เป็นการซ้ำข้อมูลที่ subject บอกไว้แล้ว ชื่อ pull request ก็สำคัญเช่นกัน เพราะ squash merge จะเปลี่ยนชื่อ PR
 เป็น subject ของ commit
 
-### Body {#body}
+### Body [#body]
 
 Body เป็น optional แต่การเปลี่ยนแปลงใดที่มากกว่าเรื่องเล็กน้อยควรอธิบายว่าทำไมจึงเปลี่ยน แทนที่จะเล่าซ้ำสิ่งที่อยู่ใน diff
 
@@ -155,7 +157,7 @@ Body เป็น optional แต่การเปลี่ยนแปลง�
 - ใช้ย่อหน้าหรือ bullet point ตามที่เหมาะกับการเปลี่ยนแปลง bullet อาจใช้รูปคำสั่งแบบเดียวกับ subject และไม่จำเป็นต้องลงท้ายด้วยจุด
 - ใส่ hyperlink ที่ให้ข้อมูลเมื่อช่วยผู้อ่านในอนาคตได้
 
-### การอ้างอิง issue {#issue-references}
+### การอ้างอิง issue [#issue-references]
 
 - อ้างอิง issue ใน body โดยทั่วไปที่บรรทัดสุดท้าย: `Resolves #4534` เมื่อ commit ปิด issue นั้น หรือ `Related to #4547`
   เมื่อเป็นงานเพียงบางส่วน

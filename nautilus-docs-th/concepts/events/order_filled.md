@@ -1,4 +1,6 @@
-# OrderFilled
+---
+title: "OrderFilled"
+---
 
 `OrderFilled` บันทึกการ execute บางส่วนหรือทั้งหมดของ order `ExecutionEngine` จะนำ event นี้ไปใช้กับ order
 อัปเดต `Cache` และ publish ลงบน `MessageBus` fill ที่มาจาก live execution, reconciliation และ simulated
@@ -13,7 +15,7 @@ portfolio
 handler ที่สะสม `last_qty` ข้ามหลาย fill event ต้องข้าม restatement เหล่านี้ไป ตรวจจับได้โดยดูใน `order.events`
 ว่ามี `OrderFilled` ก่อนหน้าที่มี `trade_id` เดียวกันแต่ `event_id` ต่างกันหรือไม่
 
-## ฟิลด์ {#fields}
+## ฟิลด์ [#fields]
 
 นอกเหนือจาก[ฟิลด์ทั่วไปของ order event](index.md#common-python-order-event-fields) แล้ว
 `OrderFilled` ยังมีฟิลด์ต่อไปนี้:
@@ -36,7 +38,7 @@ handler ที่สะสม `last_qty` ข้ามหลาย fill event ต
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Events](index.md) - ประเภทของ event, การ dispatch และฟิลด์ทั่วไปของ order event
 - [Positions](../positions.md) - position ที่ถูกสร้างและแก้ไขจาก fill

@@ -1,4 +1,6 @@
-# Synthetics
+---
+title: "Synthetics"
+---
 
 **Synthetic instrument** คือ instrument ที่กำหนดขึ้นที่ฝั่ง local โดยราคาได้มาจาก instrument อื่น
 สามารถรวม component จาก venue เดียวหรือหลาย venue แล้วนำผลลัพธ์มาแสดงเป็น
@@ -16,13 +18,13 @@ synthetic instrument ซื้อขายโดยตรงไม่ได้ �
 พฤติกรรมของ synthetic instrument
 :::
 
-## ภาษาของ formula {#formula-language}
+## ภาษาของ formula [#formula-language]
 
 synthetic instrument แต่ละตัวกำหนด formula สำหรับคำนวณราคา Nautilus จะประเมิน formula นี้ด้วย
 expression engine เชิงตัวเลขที่มีมาในตัว แล้วแปลงผลลัพธ์ตัวเลขสุดท้ายเป็น `Price`
 ของ synthetic
 
-### Syntax ที่รองรับ {#supported-syntax}
+### Syntax ที่รองรับ [#supported-syntax]
 
 formula สามารถอ้างอิงค่า `InstrumentId` ของ component ได้โดยตรง รวมถึง ID ที่มี `/`
 และ `-`
@@ -45,7 +47,7 @@ formula ใหม่ควรใช้ค่า `InstrumentId` ดิบ เพ�
 `_` ใน component ID ยังคงใช้ได้
 :::
 
-### ลำดับความสำคัญของ operator {#operator-precedence}
+### ลำดับความสำคัญของ operator [#operator-precedence]
 
 expression engine ประเมิน operator ตามลำดับต่อไปนี้ จากลำดับความสำคัญสูงสุดไป
 ต่ำสุด:
@@ -63,7 +65,7 @@ expression engine ประเมิน operator ตามลำดับต่�
 assignment ไม่ใช่ expression operator ให้คั่น statement ด้วย `;` และให้ statement สุดท้าย
 เป็นค่าที่ต้องการให้ synthetic สร้างออกมา
 
-### ฟังก์ชันในตัว {#built-in-functions}
+### ฟังก์ชันในตัว [#built-in-functions]
 
 | Function | Signature                              | Notes                                                                                                 |
 | -------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------- |
@@ -75,7 +77,7 @@ assignment ไม่ใช่ expression operator ให้คั่น statemen
 | `max`    | `max(x1, x2, ...)`                     | รับ argument ตัวเลขตั้งแต่หนึ่งตัวขึ้นไป                                                                  |
 | `if`     | `if(condition, when_true, when_false)` | condition ต้องเป็น boolean ทั้งสอง branch ต้องเป็น type เดียวกัน และจะประเมินเฉพาะ branch ที่ถูกเลือก        |
 
-### กฎของ type {#type-rules}
+### กฎของ type [#type-rules]
 
 - input จาก component เป็นตัวเลข
 - arithmetic operator ต้องการ operand เป็นตัวเลขและคืนผลเป็นตัวเลข
@@ -90,7 +92,7 @@ assignment ไม่ใช่ expression operator ให้คั่น statemen
 - ผลลัพธ์สุดท้ายของ formula ต้องเป็นตัวเลข formula ที่จบด้วย assignment หรือให้ผลเป็น
   boolean ใช้กับ synthetic instrument ไม่ได้
 
-### ข้อจำกัด {#limits}
+### ข้อจำกัด [#limits]
 
 expression engine บังคับใช้ข้อจำกัดตอน compile ต่อไปนี้ formula ที่เกินข้อจำกัดจะ
 เกิด error ที่ชัดเจนตอนสร้าง
@@ -105,14 +107,14 @@ weighted sum ของ 8 component ใช้ stack depth สูงสุด 3 �
 N component จะสร้าง tree ที่ลึก N + 1 ดังนั้นข้อจำกัด nesting depth จึงจำกัด weighted sum ไว้ที่
 127 component
 
-### ตัวอย่าง {#examples}
+### ตัวอย่าง [#examples]
 
 - spread แบบง่าย: `BTCUSDT.BINANCE - ETHUSDT.BINANCE`
 - ค่าเฉลี่ยของคู่ FX สองคู่: `(AUD/USD.SIM + NZD/USD.SIM) / 2`
 - นำค่าระหว่างกลางมาใช้ซ้ำ: `spread = BTCUSDT.BINANCE - ETHUSDT.BINANCE; spread / 2`
 - output แบบมีเงื่อนไข: `if(BTCUSDT.BINANCE > ETHUSDT.BINANCE, BTCUSDT.BINANCE, ETHUSDT.BINANCE)`
 
-## การสร้าง synthetic instrument {#creating-a-synthetic-instrument}
+## การสร้าง synthetic instrument [#creating-a-synthetic-instrument]
 
 ก่อนสร้าง synthetic instrument ต้องแน่ใจว่า instrument ที่เป็น component ทั้งหมดมีอยู่ใน cache แล้ว ให้ subscribe
 feed ของ quote หรือ trade ของแต่ละ component รวมถึงของ synthetic ด้วย quote สังเคราะห์ได้มาจาก quote
@@ -129,13 +131,13 @@ feed ของ quote หรือ trade ของแต่ละ component ร�
 `BTC-ETH:BINANCE.SYNTH`
 :::
 
-## การอัปเดต formula {#updating-formulas}
+## การอัปเดต formula [#updating-formulas]
 
 สามารถอัปเดต formula ของ synthetic ได้ทุกเมื่อ
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-## Trigger instrument ID {#trigger-instrument-ids}
+## Trigger instrument ID [#trigger-instrument-ids]
 
 สามารถ trigger emulated order จากราคาสังเคราะห์ได้ โดย synthetic
 instrument จะปล่อย emulated order ออกไปเมื่อราคาสังเคราะห์ถึงเงื่อนไข trigger (กำหนดผ่าน
@@ -143,7 +145,7 @@ instrument จะปล่อย emulated order ออกไปเมื่อ�
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-## ประสิทธิภาพ {#performance}
+## ประสิทธิภาพ [#performance]
 
 formula ถูก compile ครั้งเดียวตอนสร้าง และถูกประเมินทุกครั้งที่ tick ราคาของ component เข้ามา expression
 engine ใช้ stack ของ `f64` ที่ไม่มีการ allocate หน่วยความจำ (zero-allocation) ในการประเมิน จึงเพิ่ม overhead น้อยมากต่อเส้นทาง
@@ -151,7 +153,7 @@ engine ใช้ stack ของ `f64` ที่ไม่มีการ allocat
 
 วัดบน Apple M4 Pro, rustc 1.94.1, release profile (opt-level 3):
 
-### การประเมิน (hot path) {#evaluation-hot-path}
+### การประเมิน (hot path) [#evaluation-hot-path]
 
 | Formula pattern                         | Time  |
 | --------------------------------------- | ----- |
@@ -161,7 +163,7 @@ engine ใช้ stack ของ `f64` ที่ไม่มีการ allocat
 | `spread = A - B; mid = ...; mid + ...`  | 19 ns |
 | `max(min(A, B * 20), abs(A - B))`       | 15 ns |
 
-### การ scale ของการประเมิน (weighted sum) {#evaluation-scaling-weighted-sum}
+### การ scale ของการประเมิน (weighted sum) [#evaluation-scaling-weighted-sum]
 
 | Components | Time  |
 | ---------- | ----- |
@@ -169,7 +171,7 @@ engine ใช้ stack ของ `f64` ที่ไม่มีการ allocat
 | 4          | 18 ns |
 | 8          | 28 ns |
 
-### การ compile (cold path) {#compilation-cold-path}
+### การ compile (cold path) [#compilation-cold-path]
 
 | Formula pattern  | Time   |
 | ---------------- | ------ |
@@ -179,7 +181,7 @@ engine ใช้ stack ของ `f64` ที่ไม่มีการ allocat
 | With locals      | 1.3 us |
 | Hyphenated IDs   | 755 ns |
 
-## การจัดการ error {#error-handling}
+## การจัดการ error [#error-handling]
 
 Nautilus validate synthetic instrument ในทุกขอบเขต การ compile formula จะปฏิเสธ symbol ที่ไม่รู้จัก, error
 ด้าน type และการใช้ capacity เกิน ส่วนการประเมินจะปฏิเสธจำนวน input ที่ไม่ถูกต้องและราคาที่ไม่ใช่ค่าจำกัด (NaN, Infinity)
@@ -187,7 +189,7 @@ Nautilus validate synthetic instrument ในทุกขอบเขต กา�
 
 ดูข้อกำหนดของ input และ error ได้ที่ [Rust API reference](https://nautilustrader.io/docs/core-latest/)
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Instruments](instruments/) - นิยามของ instrument และ instrument type เฉพาะของแต่ละ venue
 - [Data](data/) - market data type ที่อ้างอิงถึง instrument

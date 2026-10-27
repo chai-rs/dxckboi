@@ -1,10 +1,12 @@
-# Fill model
+---
+title: "Fill model"
+---
 
 ข้อมูลย้อนหลังไม่สามารถบอกได้ว่า order จำลองจะมีปฏิสัมพันธ์กับผู้เล่นอื่นในตลาดอย่างไร **fill model**
 จึงเป็นตัวควบคุมสมมติฐานที่ NautilusTrader ใช้ในเรื่องสิทธิ์การ fill ของ limit order, slippage หนึ่ง tick
 และสภาพคล่องสังเคราะห์ (ถ้าเปิดใช้)
 
-## พฤติกรรมตามประเภทของ book {#behavior-by-book-type}
+## พฤติกรรมตามประเภทของ book [#behavior-by-book-type]
 
 เมื่อใช้ข้อมูล L2 หรือ L3, book ที่บันทึกไว้จะเป็นตัวให้ระดับราคาและขนาด matching engine จะไล่ไปตามระดับเหล่านั้น
 และ `prob_fill_on_limit` ใช้จำลองได้ว่า limit order ที่ราคาถูกแตะจะ fill หรือไม่ ส่วน `prob_slippage` ไม่มีผล
@@ -35,7 +37,7 @@
 [order book immutability](fill-prices-and-matching.md#order-book-immutability)
 :::
 
-## Model ที่มีให้ใช้ {#available-models}
+## Model ที่มีให้ใช้ [#available-models]
 
 | Model                        | พฤติกรรมด้าน liquidity                                      |
 | ---------------------------- | --------------------------------------------------------- |
@@ -62,16 +64,16 @@ Book สังเคราะห์จะไม่รวมระดับใด
 `CompetitionAwareFillModel` รับค่า `liquidity_factor` ในช่วง `[0.0, 1.0]` ค่าเริ่มต้นคือ `0.3`
 และจะ clamp ขนาดที่คำนวณได้ให้มีอย่างน้อยหนึ่งหน่วยปริมาณของ instrument
 
-## Configuration {#configuration}
+## Configuration [#configuration]
 
 กำหนด fill model ให้ venue ผ่าน option `fill_model` ของ config ของ backtest venue โดย model แบบ synthetic book
 ใช้พารามิเตอร์ constructor ชุดเดียวกัน (`prob_fill_on_limit`, `prob_slippage`, `random_seed`)
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-## พารามิเตอร์เชิงความน่าจะเป็น {#probabilistic-parameters}
+## พารามิเตอร์เชิงความน่าจะเป็น [#probabilistic-parameters]
 
-### `prob_fill_on_limit` (ค่าเริ่มต้น: `1.0`) {#prob_fill_on_limit-default-10}
+### `prob_fill_on_limit` (ค่าเริ่มต้น: `1.0`) [#prob_fill_on_limit-default-10]
 
 ค่านี้ควบคุมว่า limit order จะ fill หรือไม่เมื่อตลาดแตะแต่ไม่ข้ามราคาของมัน:
 
@@ -82,7 +84,7 @@ Book สังเคราะห์จะไม่รวมระดับใด
 การที่ราคาข้าม limit price เป็นเงื่อนไข matching อีกข้อหนึ่งที่แยกต่างหาก หากต้องการติดตาม volume ในคิวอย่างชัดเจน
 ดู [queue position tracking](trade-execution.md#queue-position-tracking)
 
-### `prob_slippage` (ค่าเริ่มต้น: `0.0`) {#prob_slippage-default-00}
+### `prob_slippage` (ค่าเริ่มต้น: `0.0`) [#prob_slippage-default-00]
 
 สำหรับ book แบบ L1 ค่านี้ควบคุมการขยับราคาไปในทางเสียเปรียบหนึ่ง tick ในแต่ละ fill:
 
@@ -94,7 +96,7 @@ Book สังเคราะห์จะไม่รวมระดับใด
 `min_price` หรือ `max_price` ของ instrument จะคงราคา fill เดิมไว้ และจะคงราคาเดิมไว้เช่นกันหากจะทำให้ราคาเป็นศูนย์
 หรือติดลบซึ่ง instrument ไม่อนุญาต
 
-## Order book สังเคราะห์ {#synthetic-order-books}
+## Order book สังเคราะห์ [#synthetic-order-books]
 
 ก่อนตัดสินผลการ fill, matching engine จะขอ order book สังเคราะห์ (ถ้ามี) จาก model หาก model คืน book มา
 engine จะ fill กับระดับราคาใน book นั้น หากคืน `None` engine จะใช้ book ที่บันทึกไว้

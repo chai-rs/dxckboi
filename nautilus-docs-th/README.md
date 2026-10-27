@@ -14,7 +14,7 @@
 - ตัดโค้ดตัวอย่าง Python, คำสั่ง `pip`/`uv` และหัวข้อที่ใช้ได้เฉพาะ Python ออก
 - ไม่รวมหน้าเหล่านี้: `api_reference/` (Python API), `concepts/python.md`, `developer_guide/python.md`,
   `developer_guide/python_adapters.md` และ tutorial/notebook ที่เป็นไฟล์ `.py`
-- หัวข้อแปลเป็นภาษาไทยและมี anchor ภาษาอังกฤษเดิมกำกับ (`{#original-slug}`) เพื่อให้ลิงก์ข้ามหน้ายังใช้ได้
+- หัวข้อแปลเป็นภาษาไทยและมี anchor ภาษาอังกฤษเดิมกำกับ (`[#original-slug]`) เพื่อให้ลิงก์ข้ามหน้ายังใช้ได้
 
 ## สารบัญ
 

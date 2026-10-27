@@ -1,4 +1,6 @@
-# คู่มือนักพัฒนา (Developer Guide)
+---
+title: "คู่มือนักพัฒนา (Developer Guide)"
+---
 
 แนวทางสำหรับการพัฒนาและต่อยอด NautilusTrader หรือการมีส่วนร่วมกลับไปยังโปรเจกต์
 
@@ -8,7 +10,7 @@ NautilusTrader มี **core เขียนด้วย Rust**:
 
 แนวทางนี้ให้ทั้งประสิทธิภาพและความปลอดภัยของหน่วยความจำ (memory safety) ตามแบบของ Rust
 
-## เนื้อหา {#contents}
+## เนื้อหา [#contents]
 
 - [การตั้งค่าสภาพแวดล้อม](environment_setup.md)
 - [หลักการออกแบบ](design_principles.md)

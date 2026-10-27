@@ -1,4 +1,6 @@
-# Emulated orders
+---
+title: "Emulated orders"
+---
 
 Emulation ช่วยให้ใช้ order type บางประเภทได้ แม้ว่า trading venue จะไม่รองรับ order type นั้นโดยตรง
 
@@ -7,7 +9,7 @@ Emulation ช่วยให้ใช้ order type บางประเภท�
 execution algorithm ที่ตั้งค่าไว้หรือ risk engine ตัวอย่างเช่น `STOP_LIMIT` ที่ถูก emulate จะกลายเป็น
 order `LIMIT` หลังจากที่ราคา stop ถูก trigger
 
-## การ submit order เพื่อ emulate {#submitting-an-order-for-emulation}
+## การ submit order เพื่อ emulate [#submitting-an-order-for-emulation]
 
 **Trigger ที่รองรับ**: กำหนด `emulation_trigger` ใน constructor ของ order หรือ method ของ `OrderFactory`
 emulator ภายในเครื่องรับค่าต่อไปนี้
@@ -44,7 +46,7 @@ trigger type ที่ไม่รองรับเป็น error
 order ที่มีสิทธิ์และตรงกับข้อมูลนี้จะถูก release ทันทีตอน submit **โดยไม่มี event `OrderEmulated`**
 หากแหล่งข้อมูลที่เลือกยังไม่มีข้อมูลใน cache order จะยังคงถูก emulate จนกว่าจะมี market data ที่ตรงกันเข้ามา
 
-## รายละเอียดทางเทคนิค {#technical-details}
+## รายละเอียดทางเทคนิค [#technical-details]
 
 component `OrderEmulator` ตัวเดียวกันจัดการ order type ที่รองรับการ emulate ในทุก
 [environment context](../architecture.md#environment-contexts)
@@ -54,7 +56,7 @@ NautilusTrader ไม่ได้กำหนดจำนวนสูงสุ�
 การประมวลผล market data เป็นตัวจำกัดในทางปฏิบัติ
 :::
 
-## Lifecycle {#lifecycle}
+## Lifecycle [#lifecycle]
 
 **Lifecycle**: emulated order จะผ่านขั้นตอนต่อไปนี้
 
@@ -89,7 +91,7 @@ strategy สามารถแก้ไขหรือ cancel emulated order ไ
 emulated order จะคง client order ID เดิมไว้เมื่อถูกแปลง ดังนั้น query ใน cache จึงใช้ ID เดิมต่อไปได้
 :::
 
-### Emulated order ที่ถูกถือไว้ {#held-emulated-orders}
+### Emulated order ที่ถูกถือไว้ [#held-emulated-orders]
 
 **ระหว่างถือไว้**: `OrderEmulator` จะทำสิ่งต่อไปนี้ขณะที่ถือ order ไว้
 
@@ -98,7 +100,7 @@ emulated order จะคง client order ID เดิมไว้เมื่อ
 - subscribe quote หรือ trade ที่จำเป็น หากยังไม่มี subscription ที่ตรงกัน
 - รับการแก้ไขจาก strategy และการอัปเดตที่ขับเคลื่อนด้วยตลาดจนกว่าจะ release หรือ cancel
 
-### Emulated order ที่ release แล้ว {#released-emulated-orders}
+### Emulated order ที่ release แล้ว [#released-emulated-orders]
 
 **ลำดับการ release**: เมื่อ market data ตรงกับ emulated order การ release จะทำสิ่งต่อไปนี้ตามลำดับ
 
@@ -110,7 +112,7 @@ emulated order จะคง client order ID เดิมไว้เมื่อ
    การ submit ที่ผ่านการตรวจความเสี่ยงจะไปถึง `ExecutionEngine` ซึ่งจะ route order ที่มีสิทธิ์ไปยัง
    `ExecutionClient`
 
-## Order type ที่ emulate ได้ {#order-types-that-can-be-emulated}
+## Order type ที่ emulate ได้ [#order-types-that-can-be-emulated]
 
 **Type หลัง release**: type ของ order หลัง release ขึ้นอยู่กับ type ของ emulated order ต้นฉบับ
 
@@ -139,11 +141,11 @@ emulate เมื่อ market update ทำให้การคำนวณไ
 (เช่น จาก trade subscription ของ strategy)
 :::
 
-## การ query {#querying}
+## การ query [#querying]
 
 ใช้ cache หรือตัว order object เพื่อ query สถานะการ emulate
 
-### ผ่าน cache {#through-the-cache}
+### ผ่าน cache [#through-the-cache]
 
 **Method ของ cache**: `Cache` มี method ต่อไปนี้
 
@@ -153,7 +155,7 @@ emulate เมื่อ market update ทำให้การคำนวณไ
 
 ดูรายละเอียดเพิ่มเติมได้ที่ [Rust API reference](https://nautilustrader.io/docs/core-latest/)
 
-### Query จาก order โดยตรง {#direct-order-queries}
+### Query จาก order โดยตรง [#direct-order-queries]
 
 ใช้ `is_emulated` ของ order object เพื่อ query โดยตรง ค่า false หมายความว่า order ถูก release แล้ว
 หรือไม่เคยถูก emulate เลย
@@ -163,12 +165,12 @@ emulate เมื่อ market update ทำให้การคำนวณไ
 ถูก *release* ให้ใช้ `Cache` แทน
 :::
 
-## Persistence และการกู้คืน {#persistence-and-recovery}
+## Persistence และการกู้คืน [#persistence-and-recovery]
 
 ตอน startup `OrderEmulator` จะเปิดใช้งาน emulated order ที่ cache database ที่ตั้งค่าไว้กู้คืนเข้ามาใน
 cache อีกครั้ง ทำให้ state ของ order เหล่านี้คงอยู่ข้ามการ restart
 
-## แนวปฏิบัติที่ดี {#best-practices}
+## แนวปฏิบัติที่ดี [#best-practices]
 
 **แนวปฏิบัติที่ดี**: เมื่อทำงานกับ emulated order ให้ทำตามกฎต่อไปนี้
 
@@ -176,7 +178,7 @@ cache อีกครั้ง ทำให้ state ของ order เหล�
 - เผื่อกรณีที่ order type เปลี่ยนไปตอน release
 - จัดการ denial และ rejection จากเส้นทาง execution ของ order ที่ release แล้ว
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Orders](index.md) - แนวคิดของ order, execution instruction และ order factory
 - [Advanced orders](advanced.md) - order list, ประเภท contingency และ bracket order

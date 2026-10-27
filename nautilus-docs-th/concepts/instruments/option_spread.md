@@ -1,4 +1,6 @@
-# Option Spread
+---
+title: "Option Spread"
+---
 
 `OptionSpread` แทน options strategy ที่ตลาดกำหนดขึ้นและมีมากกว่าหนึ่ง leg
 venue จะ publish strategy นั้นเป็น instrument เดียวที่มี symbol, tick size,
@@ -6,7 +8,7 @@ venue จะ publish strategy นั้นเป็น instrument เดีย�
 
 ตัวอย่างเช่น vertical spread, calendar spread ที่จดทะเบียนในตลาด และ option strategy อื่น ๆ
 
-## ฟิลด์ {#fields}
+## ฟิลด์ [#fields]
 
 | Field             | Rust type          | Required/default | หมายเหตุ                                    |
 | ----------------- | ------------------ | ---------------- | ------------------------------------------ |
@@ -38,7 +40,7 @@ venue จะ publish strategy นั้นเป็น instrument เดีย�
 
 **หมายเหตุ**: builder ใช้ชื่อ `instrument_id` แต่ Rust เก็บค่าเดียวกันไว้ในชื่อ `id`
 
-## พฤติกรรม {#behavior}
+## พฤติกรรม [#behavior]
 
 - `OptionSpread` มี instrument class เป็น `OptionSpread`
 - venue publish spread เป็น instrument เดียวที่ซื้อขายได้
@@ -47,7 +49,7 @@ venue จะ publish strategy นั้นเป็น instrument เดีย�
   instrument class นี้
 - เก็บรายละเอียดของ leg ที่เฉพาะกับ venue ไว้ใน `info` เมื่อ adapter มีข้อมูลนี้ให้
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 ```rust tab="Rust"
 use jiff::Timestamp;
@@ -83,14 +85,14 @@ let sr3_spread = OptionSpread::builder()
     .unwrap();
 ```
 
-## Adapter {#adapters}
+## Adapter [#adapters]
 
 **adapter ที่สร้างหรือใช้ instrument แบบ `OptionSpread` ได้แก่**:
 
 - [Databento](../../integrations/databento.md) สำหรับตลาด option spread ที่จดทะเบียน
 - [Interactive Brokers](../../integrations/interactive_brokers.md) สำหรับ option strategy ที่ตลาดกำหนด
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Option Contract](option_contract.md) อธิบาย option contract แบบ leg เดียว
 - [Options](../options.md) อธิบายข้อมูล option, Greeks และการ subscribe option chain

@@ -1,6 +1,8 @@
-# Blockchain
+---
+title: "Blockchain"
+---
 
-## ภาพรวม {#overview}
+## ภาพรวม [#overview]
 
 adapter สำหรับ blockchain รับข้อมูล DeFi จาก EVM chain และเปิดให้ใช้ผ่าน data model ของ NautilusTrader
 นอกจากนี้ยังมี execution client สำหรับ market swap บน Uniswap V3 ที่ sign ในเครื่อง ซึ่ง execution client นี้
@@ -11,7 +13,7 @@ adapter สำหรับ blockchain รับข้อมูล DeFi จาก
 - HTTP RPC: การเรียก contract, การอ่านผ่าน Multicall และการเติมสถานะสุดท้ายบน chain (hydration)
 - Postgres: (optional) สถานะ cache แบบถาวร, metadata ของ pool, event ที่ decode แล้ว และ snapshot
 
-## สถานะของความสามารถ {#capability-status}
+## สถานะของความสามารถ [#capability-status]
 
 | Capability                | ขอบเขต                                                                       | ความพร้อม                                                       |
 | ------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------- |
@@ -25,7 +27,7 @@ adapter สำหรับ blockchain รับข้อมูล DeFi จาก
 มี WSS RPC client โดยตรงสำหรับ Ethereum, Polygon, Base, Arbitrum และ BSC ค่า chain อื่นที่ตั้งค่าไว้
 ใช้ประวัติ block จาก HyperSync ได้เมื่อเข้าถึง endpoint ได้ แต่ไม่รองรับโหมด live ผ่าน WSS
 
-### คำสั่งที่รองรับตาม chain และ DEX {#chain-and-dex-command-support}
+### คำสั่งที่รองรับตาม chain และ DEX [#chain-and-dex-command-support]
 
 การรองรับคำสั่งได้มาจาก parser ที่ลงทะเบียนไว้สำหรับแต่ละ chain และ DEX คำสั่ง help ของ CLI สำหรับ
 `sync-dex` และ `analyze-pool(s)` จะแสดงขอบเขตความสามารถแบบเดียวกัน
@@ -50,7 +52,7 @@ Aerodrome Slipstream ไม่มี parser สำหรับการสร้
 replay ของมันไม่สามารถตรวจสอบกับสถานะบน chain ได้ DEX แบบ registered-only จะไม่แสดงใน help ของคำสั่ง
 และจะไม่ผ่านการตรวจสอบความสามารถที่เกี่ยวข้อง
 
-### ช่องทางที่ใช้งานได้ {#interface-availability}
+### ช่องทางที่ใช้งานได้ [#interface-availability]
 
 | Surface                               | Rust                                      | CLI                                      |
 | ------------------------------------- | ----------------------------------------- | ---------------------------------------- |
@@ -62,7 +64,7 @@ replay ของมันไม่สามารถตรวจสอบกั�
 | Execution factory and order routing   | factory และ client แบบ public              | -                                        |
 | Preflight, wrap, approve, and storage | เรียก `BlockchainExecutionClient` โดยตรง     | -                                        |
 
-### ตัวอย่าง {#examples}
+### ตัวอย่าง [#examples]
 
 มีตัวอย่าง data client ที่รันได้:
 
@@ -71,11 +73,11 @@ replay ของมันไม่สามารถตรวจสอบกั�
 repository ไม่มีตัวอย่างการตั้งค่า execution ที่รันได้และได้รับการดูแล ให้สร้าง integration ด้าน execution ด้วย Rust
 และปฏิบัติตามข้อจำกัดใน [Execution](#execution)
 
-## Primitive หลัก {#core-primitives}
+## Primitive หลัก [#core-primitives]
 
 domain model ของ DeFi อยู่ใน `nautilus_model::defi`
 
-### Chain {#chain}
+### Chain [#chain]
 
 `Chain` กำหนด blockchain เป้าหมายและ service endpoint เริ่มต้นของมัน
 
@@ -96,7 +98,7 @@ domain model ของ DeFi อยู่ใน `nautilus_model::defi`
 | Avalanche        | AVAX | Avalanche    | 18       |
 | BSC              | BNB  | Binance Coin | 18       |
 
-### DEX และ pool {#dex-and-pools}
+### DEX และ pool [#dex-and-pools]
 
 integration ของ DEX จะลงทะเบียน:
 
@@ -120,7 +122,7 @@ pool ของ Uniswap V3 และ pool แบบ concentrated-liquidity ที
 - event `Swap` สำหรับการเคลื่อนไหวของราคา pool แบบ live
 - การอ่านสถานะสุดท้ายผ่าน HTTP RPC สำหรับ `slot0`, liquidity, tick ที่ active และข้อมูล position
 
-## Configuration ของ data client {#data-client-configuration}
+## Configuration ของ data client [#data-client-configuration]
 
 | Option                            | Default                       | คำอธิบาย                                                |
 | --------------------------------- | ----------------------------- | ------------------------------------------------------ |
@@ -142,7 +144,7 @@ pool ของ Uniswap V3 และ pool แบบ concentrated-liquidity ที
 แต่การ bootstrap ของ pool profiler ล่าสุดจะอ่านสถานะ snapshot และ event ผ่านเส้นทางฐานข้อมูลของ cache
 :::
 
-## Environment {#environment}
+## Environment [#environment]
 
 ตั้งค่า credential ไว้นอก repository:
 
@@ -175,7 +177,7 @@ execution ต้องใช้ตัวแปรเพิ่มเติม (�
 ดูรายละเอียดการตั้งค่า token และ quota ได้ที่
 [เอกสาร HyperSync API token](https://docs.envio.dev/docs/HyperSync/api-tokens) ของ Envio
 
-### ข้อกำหนดของผู้ให้บริการ RPC {#rpc-provider-requirements}
+### ข้อกำหนดของผู้ให้บริการ RPC [#rpc-provider-requirements]
 
 `RPC_HTTP_URL` หรือ `--rpc-url` ต้องชี้ไปยัง EVM JSON-RPC endpoint ของ chain เป้าหมาย data client ใช้สำหรับ
 การอ่าน contract และการ sync pool ครั้งแรกจะอ่านสถานะบน chain ผ่าน endpoint นี้ client อ่าน HyperSync endpoint
@@ -195,7 +197,7 @@ execution ต้องใช้ตัวแปรเพิ่มเติม (�
 - สำหรับการ sync ครั้งแรกบน node ที่ไม่ใช่ archive ให้ใช้ `--to-block` ที่เป็น block ล่าสุด เพราะ bootstrap
   จะอ่านสถานะบน chain ที่ block เป้าหมาย และ node ที่ไม่ใช่ archive ให้บริการเฉพาะสถานะล่าสุดเท่านั้น
 
-## Service ในเครื่อง {#local-services}
+## Service ในเครื่อง [#local-services]
 
 ไฟล์ Docker Compose สำหรับการพัฒนาจะเริ่ม Postgres, Redis และ pgAdmin หากต้องการสร้าง container,
 รอ Postgres และ initialize schema ของฐานข้อมูล ให้รัน:
@@ -228,9 +230,9 @@ pool discovery และการสร้าง snapshot จะเขียน�
 `pool_position` และ `pool_tick` ให้ใช้ฐานข้อมูลเฉพาะหรือ Docker volume ที่ reset ได้สำหรับงานข้อมูล
 ที่ต้องทำซ้ำได้หรือมีการลบข้อมูล
 
-## การไหลของข้อมูล {#data-flow}
+## การไหลของข้อมูล [#data-flow]
 
-### สถาปัตยกรรม {#architecture}
+### สถาปัตยกรรม [#architecture]
 
 `sync-dex` ค้นหาและเก็บ pool และ token จากนั้น `analyze-pool(s)` จะสร้างแถวใน `pool_snapshot`
 แผนภาพแสดงเส้นทาง replay เริ่มต้นและเส้นทาง `--snapshot-from-rpc`
@@ -286,7 +288,7 @@ flowchart TD
 `analyze-pools` รันหนึ่ง task ต่อหนึ่ง pool โดยจำกัดด้วย `--concurrency` แต่ละ task มี data client ของตัวเอง
 snapshot ใช้เป็นจุดเริ่มต้นของ replay ได้ เว้นแต่ `validation_state` ของมันเป็น `invalid`
 
-### Data client ที่ใช้งานได้ {#data-client-surface}
+### Data client ที่ใช้งานได้ [#data-client-surface]
 
 data client แบบ public รองรับ subscription และ request ด้าน DeFi ต่อไปนี้:
 
@@ -316,7 +318,7 @@ handler แบบ `subscribe_any` จะไม่ได้รับ message เ�
 `subscribe_account_state` หรือ subscription API ของ actor ที่ตรงกัน
 :::
 
-### Pool discovery {#pool-discovery}
+### Pool discovery [#pool-discovery]
 
 pool discovery จะ:
 
@@ -325,14 +327,14 @@ pool discovery จะ:
 - เก็บ token และ pool ที่ถูกต้องลงใน cache
 - ข้าม metadata ของ token ที่ไม่ถูกต้อง และ `DexPoolFilters` ยังสามารถตัด metadata ของ token ที่ว่างออกได้
 
-### Live data {#live-data}
+### Live data [#live-data]
 
 - `use_hypersync_for_live_data = true`: subscribe block ผ่าน HyperSync เพื่อใช้ timestamp แบบ live
   และเปิด stream ของ DEX event จาก HyperSync แบบไม่มีจุดสิ้นสุดค้างไว้หนึ่งตัวต่อ DEX filter ที่ subscribe
 - `use_hypersync_for_live_data = false`: ใช้ subscription ของ block และ pool log ผ่าน WSS RPC สำหรับ swap,
   liquidity update, fee collection, flash event และ fee-protocol event แบบ live
 
-### Snapshot bootstrap {#snapshot-bootstrap}
+### Snapshot bootstrap [#snapshot-bootstrap]
 
 สำหรับ snapshot ที่เข้ากันได้กับ Uniswap V3 การ bootstrap เริ่มต้นจะ replay event ของ pool ที่เก็บไว้เพื่อสร้าง
 ราคา, liquidity, tick, position, ค่าธรรมเนียม และตัวนับขึ้นใหม่ จากนั้นการตรวจสอบจะอ่านสถานะบน chain
@@ -351,7 +353,7 @@ pool discovery จะ:
 ในโหมด `--snapshot-from-rpc` การเติมสถานะสุดท้ายจาก RPC คือแหล่งที่มาของสถานะ checkpoint หากล้มเหลว
 คำสั่งจะล้มเหลวแทนที่จะส่ง snapshot ที่ได้จากการ replay ซึ่งมีสถานะราคาที่ล้าสมัยออกมา
 
-### การตรวจสอบ snapshot {#snapshot-validation}
+### การตรวจสอบ snapshot [#snapshot-validation]
 
 สำหรับ snapshot ที่ได้จากการ replay การ bootstrap จะเปรียบเทียบ profiler กับสถานะบน chain ก่อนทำเครื่องหมายว่าถูกต้อง
 
@@ -368,7 +370,7 @@ pool discovery จะ:
 
 การยอมรับ field เหล่านี้สอดคล้องกับพฤติกรรมของ backtest replay
 
-### Guard ของ snapshot bootstrap {#snapshot-bootstrap-guard}
+### Guard ของ snapshot bootstrap [#snapshot-bootstrap-guard]
 
 ใช้ `--require-existing-snapshot` เมื่อต้องการให้การวิเคราะห์รันจาก snapshot cache ในเครื่องเท่านั้น:
 
@@ -377,7 +379,7 @@ pool discovery จะ:
 - ถือว่า snapshot ว่างที่ block ตอนสร้างซึ่งไม่มี position หรือ tick เป็นสิ่งที่ใช้ไม่ได้
 - ข้ามการ bootstrap ตั้งแต่ตอนสร้างจนถึงเป้าหมายสำหรับ pool นั้น
 
-#### ผลลัพธ์ของการวิเคราะห์ {#analysis-output}
+#### ผลลัพธ์ของการวิเคราะห์ [#analysis-output]
 
 `analyze-pool(s)` จะแสดง:
 
@@ -418,7 +420,7 @@ pool ที่ต้อง bootstrap ครั้งแรกจะมีรู�
 }
 ```
 
-### Checkpoint และ concurrency {#checkpoints-and-concurrency}
+### Checkpoint และ concurrency [#checkpoints-and-concurrency]
 
 - `--checkpoint-blocks b1,b2,...`: สร้าง snapshot ในการ bootstrap รอบเดียว block จะถูกเรียงลำดับ,
   ตัดตัวซ้ำ และจำกัดไม่ให้เกิน `--to-block`
@@ -433,7 +435,7 @@ key ของ snapshot:
 - `--snapshot-from-rpc`: ใช้ key เป็น checkpoint block ที่ร้องขอ พร้อม sentinel transaction/log index
   ระดับ block
 
-### Backtest replay {#backtest-replay}
+### Backtest replay [#backtest-replay]
 
 backtest replay ต้องมี snapshot อยู่ในข้อมูล input adapter จะไม่ให้บริการ request ของ snapshot แบบ live
 ระหว่าง backtest
@@ -456,7 +458,7 @@ timestamp ของ block ที่ cache ไว้จะโหลดเข้�
 ที่เขียนด้วย timestamp ของ block ความละเอียดระดับวินาทีจะถูก normalize เป็นนาโนวินาทีเมื่อโหลด snapshot และ
 pool event ส่วนแถวที่เป็นนาโนวินาทีจะคง precision ที่เก็บไว้
 
-### ข้อจำกัดของการวิเคราะห์ pool {#pool-analysis-constraints}
+### ข้อจำกัดของการวิเคราะห์ pool [#pool-analysis-constraints]
 
 `analyze-pool(s)` ตรวจสอบสิ่งที่ต้องมีก่อน และรายงานผลแต่ละ pool แยกกัน ขอบเขตเหล่านี้ใช้เช่นกันเมื่อเรียก
 service การวิเคราะห์เบื้องหลังจาก Rust
@@ -476,15 +478,15 @@ service การวิเคราะห์เบื้องหลังจา
 การเติมสถานะสุดท้ายจาก RPC ในโหมด `--snapshot-from-rpc` เป็นแหล่งอ้างอิงหลักของสถานะ checkpoint
 หากการเติมสถานะล้มเหลว การวิเคราะห์จะถูกยกเลิกแทนที่จะเก็บ snapshot ที่มีสถานะราคาล้าสมัย
 
-## การดำเนินการวิเคราะห์ pool {#pool-analysis-operations}
+## การดำเนินการวิเคราะห์ pool [#pool-analysis-operations]
 
-### ค้นหา pool ก่อนวิเคราะห์ {#discover-pools-before-analysis}
+### ค้นหา pool ก่อนวิเคราะห์ [#discover-pools-before-analysis]
 
 `analyze-pool(s)` อ่าน metadata ของ pool จาก Postgres cache และล้มเหลวด้วย
 `Pool <address> is not registered` เมื่อ pool ยังไม่ถูกค้นพบ ให้รัน `sync-dex` สำหรับ chain และ DEX นั้น
 ก่อนวิเคราะห์ เพื่อเติมข้อมูลในตาราง `pool` และ `token`
 
-### ตรวจสอบคำสั่งที่รองรับ {#check-command-support}
+### ตรวจสอบคำสั่งที่รองรับ [#check-command-support]
 
 ดู [คำสั่งที่รองรับตาม chain และ DEX](#chain-and-dex-command-support) หรือ help ของคำสั่งก่อนเริ่ม sync
 `sync-dex` และ `analyze-pool(s)` จะปฏิเสธชุด chain และ DEX ที่ไม่รองรับก่อน query event แทนที่จะคืนผลลัพธ์ว่าง
@@ -494,64 +496,64 @@ service การวิเคราะห์เบื้องหลังจา
 ./target/debug/nautilus blockchain analyze-pools --help
 ```
 
-### ใช้ address ของ pool แบบ checksum {#use-checksummed-pool-addresses}
+### ใช้ address ของ pool แบบ checksum [#use-checksummed-pool-addresses]
 
 address ของ pool ต้องใช้ checksum แบบ EIP-55 address ตัวพิมพ์เล็กจะล้มเหลวด้วย
 `Blockchain address '<address>' has incorrect checksum` ให้แปลง address ที่ค้นพบเป็นรูปแบบ checksum
 ก่อนส่งผ่าน `--address` หรือเพิ่มลงในไฟล์ address
 
-### ลดขนาด request ของ Multicall {#reduce-the-multicall-request-size}
+### ลดขนาด request ของ Multicall [#reduce-the-multicall-request-size]
 
 ผู้ให้บริการ RPC อาจปฏิเสธ Multicall ขนาดใหญ่สำหรับสถานะสุดท้ายด้วย error แบบ out-of-gas, payload หรือ timeout
 ให้ลด `--multicall-calls-per-rpc-request` จากค่าเริ่มต้น `200` เพื่อให้แต่ละ request อยู่ภายในขีดจำกัดของผู้ให้บริการ
 
-### เลือก block เป้าหมายที่ผู้ให้บริการ RPC ให้บริการได้ {#choose-a-target-block-the-rpc-provider-can-serve}
+### เลือก block เป้าหมายที่ผู้ให้บริการ RPC ให้บริการได้ [#choose-a-target-block-the-rpc-provider-can-serve]
 
 การ sync ครั้งแรกจะอ่านสถานะบน chain ที่ `--to-block` หากใช้ผู้ให้บริการ RPC ที่ไม่ใช่ archive ให้ใช้เป้าหมายล่าสุด
 หรือใช้ผู้ให้บริการที่ให้สถานะ contract ที่ block ในอดีตที่ร้องขอได้ ดู
 [ข้อกำหนดของผู้ให้บริการ RPC](#rpc-provider-requirements)
 
-### ควบคุมปริมาณ request ของ HyperSync {#control-hypersync-request-volume}
+### ควบคุมปริมาณ request ของ HyperSync [#control-hypersync-request-volume]
 
 การ sync เต็มครั้งแรกของ pool ขนาดใหญ่หรือเก่าอาจต้องใช้หลายพัน request ให้ลด `--concurrency` เมื่อ token
 ที่ตั้งค่าไว้มี quota จำกัด ใช้ `--snapshot-from-rpc` เมื่อ snapshot ที่ checkpoint ตรงพอดีก็เพียงพอและไม่ต้องการ
 ประวัติ swap ที่เก็บไว้
 
-### เริ่ม replay ครั้งแรกตั้งแต่ตอนสร้าง pool {#start-an-initial-replay-at-pool-creation}
+### เริ่ม replay ครั้งแรกตั้งแต่ตอนสร้าง pool [#start-an-initial-replay-at-pool-creation]
 
 การเริ่ม `--from-block` กลางประวัติของ pool อาจข้าม event `Initialize` ไป หากไม่มีราคาเริ่มต้น การ bootstrap
 snapshot จะล้มเหลวด้วย
 `Pool is not initialized and it doesn't contain initial price, cannot bootstrap profiler`
 ให้ sync ตั้งแต่ตอนสร้าง pool เมื่อสร้าง snapshot ครั้งแรก
 
-### การตีความความล้มเหลวของ pool {#interpret-pool-failures}
+### การตีความความล้มเหลวของ pool [#interpret-pool-failures]
 
 pool ที่ไม่มี event Mint หรือ Burn ที่ประมวลผลแล้ว ณ หรือก่อน block เป้าหมายอาจขาดสถานะที่จำเป็นสำหรับ snapshot
 `analyze-pool` จะคืน error ส่วน `analyze-pools` จะส่ง JSON line ที่มี `"status": "failure"` ทำ pool อื่นต่อ
 และจบด้วย exit code ที่ไม่ใช่ศูนย์หลังจากมีความล้มเหลวราย pool ใดก็ตาม ใช้ exit code ของ process สำหรับผลรวม
 และ status ใน JSON แต่ละรายการสำหรับผลแต่ละรายการ
 
-## Runbook: ตรวจสอบการ sync pool แบบ live {#runbook-validate-a-live-pool-sync}
+## Runbook: ตรวจสอบการ sync pool แบบ live [#runbook-validate-a-live-pool-sync]
 
 ใช้ขั้นตอนนี้เพื่อตรวจสอบ pool discovery, การ parse event และการสร้าง snapshot สำหรับ DEX หนึ่งตัวบน chain หนึ่ง
 ตัวอย่างใช้ PancakeSwap V3 บน Arbitrum โดยทำเฉพาะ query แบบอ่านอย่างเดียวบน chain และเขียนเฉพาะลงใน
 Postgres cache ที่ตั้งค่าไว้
 
-### สิ่งที่ต้องมีก่อน {#prerequisites}
+### สิ่งที่ต้องมีก่อน [#prerequisites]
 
 - มี Docker สำหรับ service Postgres ในเครื่อง
 - `ENVIO_API_TOKEN` มี HyperSync token ที่ถูกต้อง
 - `RPC_HTTP_URL` ชี้ไปยังผู้ให้บริการ RPC ของ Arbitrum ที่ให้บริการ block เป้าหมายได้
 - `POOL_ADDRESS` มี address ของ pool PancakeSwap V3 แบบ checksum ตาม EIP-55
 
-### เริ่ม service ในเครื่องและ build CLI {#start-the-local-services-and-build-the-cli}
+### เริ่ม service ในเครื่องและ build CLI [#start-the-local-services-and-build-the-cli]
 
 ```bash
 make init-services
 cargo build -p nautilus-cli --features defi --bin nautilus
 ```
 
-### ค้นหา pool {#discover-pools}
+### ค้นหา pool [#discover-pools]
 
 รัน discovery ทันทีก่อนการวิเคราะห์เมื่อฐานข้อมูลในเครื่องถูก reset:
 
@@ -567,7 +569,7 @@ cargo build -p nautilus-cli --features defi --bin nautilus
     --database nautilus
 ```
 
-### วิเคราะห์ pool {#analyze-the-pool}
+### วิเคราะห์ pool [#analyze-the-pool]
 
 คง concurrency ไว้ที่หนึ่งสำหรับการตรวจสอบรอบนี้:
 
@@ -585,7 +587,7 @@ cargo build -p nautilus-cli --features defi --bin nautilus
     --concurrency 1
 ```
 
-### ตรวจสอบข้อมูลที่เก็บไว้ {#check-the-stored-data}
+### ตรวจสอบข้อมูลที่เก็บไว้ [#check-the-stored-data]
 
 นับจำนวนแถวที่เขียนสำหรับ pool ใน:
 
@@ -604,9 +606,9 @@ cargo build -p nautilus-cli --features defi --bin nautilus
 [การดำเนินการวิเคราะห์ pool](#pool-analysis-operations) สำหรับความล้มเหลวด้าน address, ผู้ให้บริการ,
 ช่วงของ replay และปริมาณ request
 
-## Contracts {#contracts}
+## Contracts [#contracts]
 
-### Base contract และ Multicall3 {#base-contract-and-multicall3}
+### Base contract และ Multicall3 [#base-contract-and-multicall3]
 
 `BaseContract` รวมการเรียก contract เป็น batch ผ่าน Multicall3
 (`0xcA11bde05977b3631167028862bE2a173976CA11`):
@@ -616,12 +618,12 @@ cargo build -p nautilus-cli --features defi --bin nautilus
 - การอ่านทำงานภายใต้บริบทของ block เดียว
 - ความล้มเหลวของ transport และผู้ให้บริการจะแสดงเป็น RPC error
 
-### Metadata ของ ERC-20 {#erc-20-metadata}
+### Metadata ของ ERC-20 [#erc-20-metadata]
 
 `Erc20Contract` อ่าน `name`, `symbol` และ `decimals` ผ่าน Multicall adapter สามารถข้าม pool
 ที่ metadata ของ token ผิดรูปแบบ เป็น raw bytes หรือว่างได้
 
-### Pool ของ Uniswap V3 {#uniswap-v3-pools}
+### Pool ของ Uniswap V3 [#uniswap-v3-pools]
 
 `UniswapV3PoolContract` อ่านสถานะระดับ global ของ pool, tick ที่ active และ position
 
@@ -638,7 +640,7 @@ PancakeSwap V3 ใช้ read contract ของ Uniswap V3 ซ้ำ เพร�
 - snapshot ของ PancakeSwap V3 เก็บ `fee_protocol0_basis_points` และ `fee_protocol1_basis_points`
   และ replay คำนวณค่าธรรมเนียมของ protocol เป็น `fee * basis_points / 10000`
 
-## Execution {#execution}
+## Execution [#execution]
 
 :::warning
 execution client ยังไม่พร้อมสำหรับ production `BlockchainExecutionClient` implement preflight,
@@ -658,12 +660,12 @@ section นี้ใช้คำศัพท์ต่อไปนี้:
 | Signer ownership    | การควบคุมแต่เพียงผู้เดียวเหนือ signer ของ wallet และหลังจากกำหนดแล้วรวมถึง nonce ที่ active ของมัน                       |
 | Finalized boundary  | จุดที่ทุกแหล่งเห็นตรงกันเรื่อง finalized ancestry จนถึง block ที่ transaction ถูกรวมเข้าไป                              |
 
-### การเชื่อมต่อและสถานะ account {#connection-and-account-state}
+### การเชื่อมต่อและสถานะ account [#connection-and-account-state]
 
 การสร้าง client ต้องมี RPC endpoint หลักหนึ่งตัวและผู้ให้บริการตรวจสอบแบบอ่านอย่างเดียวสองตัวพอดี แต่ละแหล่งต้องมี
 endpoint, provider ID, operator ID ที่ต่างกัน และชุด failure-domain ID ที่ไม่ซ้อนกันเป็นคู่ ๆ
 
-#### เงื่อนไขการทำงานที่บังคับใช้ {#enforced-operating-conditions}
+#### เงื่อนไขการทำงานที่บังคับใช้ [#enforced-operating-conditions]
 
 - endpoint หลักของ execution และ endpoint ของ verifier ทั้งสองต้องใช้ HTTPS ยอมรับ HTTP แบบ cleartext
   เฉพาะ IPv4 loopback แบบ canonical ใน `127.0.0.0/8` หรือ `[::1]` เท่านั้น hostname, IPv6 ที่ map จาก IPv4,
@@ -678,7 +680,7 @@ endpoint, provider ID, operator ID ที่ต่างกัน และช�
 - ฐานข้อมูล Postgres ที่เชื่อมไว้จะไม่ได้รับการป้องกันได้เฉพาะขณะที่ client disconnect อยู่เพื่อทำงานตรวจสอบ, ป้องกัน
   หรือ rollback การ rewrap ต้องใช้ protected storage ฐานข้อมูลที่ไม่ได้รับการป้องกันไม่สามารถให้ความสามารถด้าน execution ได้
 
-#### สมมติฐานที่ผู้ดูแลระบบต้องรับผิดชอบ {#operator-assumptions}
+#### สมมติฐานที่ผู้ดูแลระบบต้องรับผิดชอบ [#operator-assumptions]
 
 failure domain หมายถึง upstream, reseller, gateway, proxy, account, เส้นทาง network หรือ control plane ของ hosting
 ใดก็ตามที่ใช้ร่วมกัน URL ที่ต่างกันและ identity ที่ตั้งค่าไว้ต่างกันไม่ได้พิสูจน์ว่าเป็นอิสระต่อกันในการทำงานจริง
@@ -735,7 +737,7 @@ free และ locked balance ที่มีผลจริง ตามที�
 การ disconnect จะลบ signer และยกเลิก task การส่งที่กำลังทำงานอยู่ การทำงานกับ transaction จะปฏิเสธ client
 ที่ disconnect อยู่ก่อนเรียก execution RPC ใด ๆ
 
-### ขอบเขต order ที่รองรับ {#supported-order-slice}
+### ขอบเขต order ที่รองรับ [#supported-order-slice]
 
 client รับ market order ได้เพียงรูปแบบเดียว:
 
@@ -797,7 +799,7 @@ order จะ map เป็นการเรียก `exactInputSingle` คร�
 | `amountOutMinimum`  | คำนวณจาก quote ที่ตรวจสอบแล้วที่ decision height (ดูด้านล่าง)                                    |
 | `sqrtPriceLimitX96` | `0` (slippage ถูกจำกัดด้วย `amountOutMinimum`)                                             |
 
-### ขีดจำกัดการใช้ quote ของ BUY {#buy-quote-spend-limits}
+### ขีดจำกัดการใช้ quote ของ BUY [#buy-quote-spend-limits]
 
 BUY ทุกตัวต้องมี entry ใน `quote_spend_limits` หนึ่งรายการสำหรับคู่ quote-to-base ที่มีทิศทางของมัน entry จะระบุ
 address และ decimals ของ quote token ซ้ำไว้ข้าง `max_amount` ซึ่งเป็น string ฐานสิบในหน่วย raw ของ token
@@ -815,7 +817,7 @@ client จะเปรียบเทียบ `amountIn` ของ exact-output
 quote ที่สูงกว่าขีดจำกัดหนึ่งหน่วย raw จะถูกปฏิเสธ `max_order_amount` ยังคงเป็นเพดานแยกต่างหากสำหรับ base quantity
 ที่ส่ง และ SELL order ไม่ใช้ `quote_spend_limits`
 
-### การป้องกัน slippage {#slippage-protection}
+### การป้องกัน slippage [#slippage-protection]
 
 `amountOutMinimum` ถูกคำนวณเสมอ ไม่เคยรับจากผู้เรียก:
 
@@ -849,7 +851,7 @@ field `slippage_bps` ใน configuration กำหนด slippage entry `slippa
 แถวเหล่านั้นไม่สามารถอนุญาตการ execute ได้ ให้ refresh pool ที่เทรดผ่าน live data subscription ตามปกติ
 หรือ resync event และสร้าง snapshot ใหม่ก่อนส่ง order
 
-### Preflight, การ wrap และการ approve {#preflight-wrapping-and-approval}
+### Preflight, การ wrap และการ approve [#preflight-wrapping-and-approval]
 
 preflight, การ wrap WETH และการ approve router เป็นการทำงานแบบระบุชัดเจนบน client แยกจาก `submit_order`:
 
@@ -906,9 +908,9 @@ input token คือ base token สำหรับ SELL และ quote token �
 
 การส่ง order ไม่เคย wrap หรือ approve ให้ allowance หรือ balance ที่ไม่พอจะส่ง `OrderDenied`
 
-### การ sign และ broadcast transaction {#transaction-signing-and-broadcast}
+### การ sign และ broadcast transaction [#transaction-signing-and-broadcast]
 
-#### การ sign ในเครื่อง {#local-signing}
+#### การ sign ในเครื่อง [#local-signing]
 
 client สร้างและ sign typed transaction แบบ EIP-1559 ในเครื่องด้วย Alloy:
 
@@ -922,7 +924,7 @@ private key มาจาก environment variable ที่ระบุชื่�
 หรือเก็บไว้ใน configuration buffer แบบ zeroizing จะเก็บข้อความ key ชั่วคราวและ byte ที่ decode แล้วระหว่างสร้าง signer
 client รองรับ signer เพียงตัวเดียว ซึ่ง address ที่ derive ได้ต้องตรงกับ `wallet_address` ตอน connect
 
-#### ความเป็นเจ้าของ signer และ nonce {#signer-and-nonce-ownership}
+#### ความเป็นเจ้าของ signer และ nonce [#signer-and-nonce-ownership]
 
 มี transaction ที่กำลังดำเนินการได้ไม่เกินหนึ่งตัวในทุก wrap, approval และ swap รวมกัน:
 
@@ -943,7 +945,7 @@ client รองรับ signer เพียงตัวเดียว ซึ�
 - ทั้งสามแหล่งประมาณ gas ของ unsigned transaction ที่ตรงพอดีที่ decision height client เลือกค่าประมาณสูงสุด
   ใช้ `gas_buffer_bps` และปฏิเสธผลที่สูงกว่า `gas_limit` โดยไม่ clamp ค่าประมาณ
 
-#### Persist ก่อน broadcast {#persist-before-broadcast}
+#### Persist ก่อน broadcast [#persist-before-broadcast]
 
 client จะจอง intent แบบถาวรก่อนกำหนด nonce หรือ sign จากนั้นเก็บ nonce, signed-payload envelope ที่ authenticate แล้ว
 และ hash ในเครื่องก่อน broadcast transaction จะไม่สามารถส่งได้หากไม่มีที่เก็บข้อมูลถาวรที่ได้รับการป้องกันและพร้อมใช้งาน
@@ -973,7 +975,7 @@ intent ที่มีสถานะ `broadcast` แบบถาวรอาจ
   chain, ancestry, deployment, canonical และ pending nonce, การไม่มี receipt และการจำลองที่ height ระบุชัด
   ตามจุดประสงค์ มีเพียงแหล่งหลักเท่านั้นที่ได้รับ byte
 
-### ขอบเขตของความเสี่ยงและการตรวจสอบ {#risk-and-validation-boundaries}
+### ขอบเขตของความเสี่ยงและการตรวจสอบ [#risk-and-validation-boundaries]
 
 ความเสี่ยงก่อนเทรดแบบทั่วไปยังอยู่ใน engine ส่วนด่านเฉพาะของ venue อยู่ใน adapter ในรูปของ limiter ที่ขับเคลื่อนด้วย configuration:
 
@@ -992,7 +994,7 @@ intent ที่มีสถานะ `broadcast` แบบถาวรอาจ
 
 การปฏิเสธจาก limiter ทุกครั้งจะปฏิเสธ order ก่อน sign และรายงานเหตุผลแบบมีโครงสร้าง
 
-### Order events {#order-events}
+### Order events [#order-events]
 
 การส่ง order จะส่งเฉพาะ event ที่มีเหตุผลรองรับจากสถานะ transaction ที่ทราบเท่านั้น:
 
@@ -1007,9 +1009,9 @@ intent ที่มีสถานะ `broadcast` แบบถาวรอาจ
 
 receipt ที่สำเร็จตอนถูกรวมครั้งแรกจะไม่ส่ง fill client จะรอ finalized boundary ที่เสถียรตามที่อธิบายด้านล่าง
 
-### Persistence และ reconciliation {#persistence-and-reconciliation}
+### Persistence และ reconciliation [#persistence-and-reconciliation]
 
-#### โมเดล record แบบถาวร {#durable-record-model}
+#### โมเดล record แบบถาวร [#durable-record-model]
 
 execution schema เวอร์ชัน 2 แยกการทำงานเชิงตรรกะของ wallet ออกจาก hash ของ transaction ทางกายภาพ ส่วน
 verification schema เวอร์ชัน 2 เพิ่ม ledger ของ canonical nonce, finalized header, หลักฐานการตัดสินใจ
@@ -1049,7 +1051,7 @@ partial unique index บังคับให้มี intent ที่ active �
 และหนึ่ง intent ต่อ client order intent ยังเก็บ marker ของ acknowledgement, fill และ terminal event แยกกัน
 intent ที่ finalize หรือ revert แล้วจะยังคง active จนกว่า marker ของ fill หรือ terminal จะถูกเก็บแบบถาวร
 
-#### สถานะ {#states}
+#### สถานะ [#states]
 
 | State         | การตรวจพบหรือการเปลี่ยนสถานะ                                             | ผลต่อความเป็นเจ้าของและ event                                       |
 | ------------- | ------------------------------------------------------------------- | --------------------------------------------------------------- |
@@ -1064,7 +1066,7 @@ intent ที่ finalize หรือ revert แล้วจะยังคง 
 | `reverted`    | receipt ที่ล้มเหลวถึง finalized boundary ที่เสถียร                        | terminal marker ปล่อยความเป็นเจ้าของ swap จะส่ง `OrderRejected`     |
 | `recoverable` | การเตรียมล้มเหลว หรือการ restart พบ intent แบบ `prepared` ที่ยังไม่ sign     | กลายเป็นไม่ active เพราะไม่มี signature                              |
 
-#### การ restart และ replacement {#restart-and-replacement}
+#### การ restart และ replacement [#restart-and-replacement]
 
 เมื่อ connect client จะโหลด signer intent ที่ active กลับมาก่อนเปิดให้ sign ใหม่:
 
@@ -1097,7 +1099,7 @@ transaction ที่ใช้ nonce เดียวกันจะเชื่�
 จะไม่ส่ง terminal event และยังคง active
 :::
 
-#### Finality และ fill {#finality-and-fills}
+#### Finality และ fill [#finality-and-fills]
 
 finality ใช้ block tag `finalized` ของแต่ละแหล่งผ่าน `eth_getBlockByNumber` ไม่ได้ใช้จำนวน confirmation client จะ:
 
@@ -1139,7 +1141,7 @@ fill ประกอบด้วย:
 จากนั้น publish order event ที่มี ID คงที่และ account state ของ wallet, เก็บ marker ของ fill และปล่อยความเป็นเจ้าของ
 signer การ refresh wallet หรือการ dispatch event ที่ล้มเหลวจะคง intent ที่ finalize แล้วไว้ให้ active สำหรับ reconciliation
 
-#### การส่ง event ข้ามการ restart {#event-delivery-across-restarts}
+#### การส่ง event ข้ามการ restart [#event-delivery-across-restarts]
 
 reconciliation จะตรวจสอบ marker ของ event ที่ persist ไว้และสถานะ order ที่กู้คืนมาก่อนส่ง order event ซ้ำ
 terminal event ID เป็นแบบ deterministic จาก transaction hash และประเภท event ส่วน trade ID เป็นแบบ deterministic
@@ -1150,7 +1152,7 @@ terminal event ID เป็นแบบ deterministic จาก transaction hash
 ถูกส่งซ้ำหลัง restart ผู้รับต้องจัดการ order event แบบ idempotent adapter นี้ไม่ได้รับประกันการส่งแบบ exactly-once
 แบบ atomic
 
-### ที่เก็บ signed transaction {#signed-transaction-storage}
+### ที่เก็บ signed transaction [#signed-transaction-storage]
 
 execution ที่ใช้ Postgres ต้องใช้ที่เก็บ signed transaction แบบมีการป้องกัน การป้องกันจะ seal signed transaction
 แบบ EIP-2718 ทุกตัวด้วย AES-256-GCM และล้าง column แบบ plaintext ที่ใช้งานอยู่ authenticated context
@@ -1213,7 +1215,7 @@ byte ของ signed transaction ยังคงเป็นสิทธิ์�
 และอย่าให้สองสำเนาที่มี deployment ID เดียวกันชี้ไปที่ signer เดียวกัน
 :::
 
-### Configuration ของ execution {#execution-configuration}
+### Configuration ของ execution [#execution-configuration]
 
 `BlockchainExecutionClientConfig` ใช้ pattern เดียวกับ `BlockchainDataClientConfig` และมี field ต่อไปนี้:
 
@@ -1298,7 +1300,7 @@ entry ต่อไปนี้ใน `quote_spend_limits` อนุญาต BUY
 
 > หมายเหตุ: ต้นฉบับแสดง entry นี้เป็นโค้ด Python จึงแปลงเป็นตารางของค่า field
 
-### ขอบเขตของการทดสอบ {#validation-coverage}
+### ขอบเขตของการทดสอบ [#validation-coverage]
 
 การทดสอบ execution มีสองชั้น:
 
@@ -1341,7 +1343,7 @@ fixture ของ JSON-RPC อยู่ใน `crates/adapters/blockchain/test_d
 การทดสอบ execution บน network สาธารณะต้องเป็นแบบอ่านอย่างเดียว ต้องไม่โหลด signer หรือเรียก
 `eth_sendRawTransaction` การทดสอบที่เปลี่ยนสถานะต้องใช้ environment ในเครื่องที่แยกออกมา
 
-## ข้อจำกัด {#limitations}
+## ข้อจำกัด [#limitations]
 
 - การส่ง order รองรับ market order แบบ BUY และ SELL ผ่าน deployment ของ Uniswap V3 ที่ลงทะเบียนไว้บน chain
   ของ client order list จะถูกปฏิเสธ (denied) และการ modify และ cancel จะถูก reject การ probe report ของ venue

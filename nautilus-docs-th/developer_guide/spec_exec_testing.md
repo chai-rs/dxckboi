@@ -1,4 +1,6 @@
-# Execution Testing Spec
+---
+title: "Execution Testing Spec"
+---
 
 ใช้ test matrix นี้เพื่อ validate ความสามารถด้าน execution ของ adapter ด้วย strategy `ExecTester` ของ Rust
 โค้ด Rust import มันจาก `nautilus_testkit::testers` แต่ละ case ใช้ ID ที่มี prefix (เช่น TC-E01) และจัดกลุ่มตามฟังก์ชัน
@@ -13,7 +15,7 @@ test ไล่จากง่าย (market order เดียว) ไปซั�
 adapter นั้นเอง ไม่ใช่ที่นี่ คู่มือของแต่ละ adapter ควรมี capability matrix ที่แสดงว่ารองรับ order type, ตัวเลือก
 time-in-force, action และ flag ใดบ้าง
 
-## สิ่งที่ต้องมีก่อน {#prerequisites}
+## สิ่งที่ต้องมีก่อน [#prerequisites]
 
 ก่อนรัน execution test:
 
@@ -46,7 +48,7 @@ node.add_strategy(tester)?;
 node.run().await?;
 ```
 
-## สเกลของ timestamp {#timestamp-scale}
+## สเกลของ timestamp [#timestamp-scale]
 
 Nautilus เก็บ `ts_event` และ `ts_init` เป็น Unix nanoseconds (`UnixNanos`) ทุก execution message ต้องใช้สเกลนี้:
 order event, fill, account state และ reconciliation report (`OrderStatusReport`, `FillReport`,
@@ -65,7 +67,7 @@ order event, fill, account state และ reconciliation report (`OrderStatusRe
 ของ report ให้ตรวจจากตัว report เอง ให้ถือว่า warning เรื่องสเกล หรือมีหน่วยวินาที มิลลิวินาที หรือไมโครวินาทีหลงเหลือใน
 execution message ใด ๆ เป็นการไม่ผ่าน
 
-## Smoke test พื้นฐาน {#basic-smoke-test}
+## Smoke test พื้นฐาน [#basic-smoke-test]
 
 การตรวจสอบเบื้องต้นแบบเร็วที่รันได้ทุกเมื่อ เช่น หลังแก้ adapter หรือระหว่างรอบการพัฒนา tester จะเปิด position ด้วย
 market order ตอนเริ่ม วาง limit order แบบ post-only ทั้งฝั่ง buy และ sell รอ 30 วินาที แล้วหยุด (cancel order ที่เปิดอยู่และ
@@ -105,7 +107,7 @@ ExecTesterConfig::builder()
 
 ---
 
-## กลุ่ม 1: Market order {#group-1-market-orders}
+## กลุ่ม 1: Market order [#group-1-market-orders]
 
 ทดสอบการ submit และการ fill ของ market order market order ควร execute ทันที
 
@@ -118,7 +120,7 @@ ExecTesterConfig::builder()
 | TC-E05 | Market order แบบ quote qty | market order ที่ใช้ quantity เป็น quote currency | ไม่มี quote quantity |
 | TC-E06 | ปิด position ด้วย market | ปิด position ที่เปิดอยู่ด้วย market order ตอนหยุด | ไม่มี market order |
 
-### TC-E01: Market BUY - submit และ fill {#tc-e01-market-buy---submit-and-fill}
+### TC-E01: Market BUY - submit และ fill [#tc-e01-market-buy---submit-and-fill]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -152,7 +154,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E02: Market SELL - submit และ fill {#tc-e02-market-sell---submit-and-fill}
+### TC-E02: Market SELL - submit และ fill [#tc-e02-market-sell---submit-and-fill]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -179,7 +181,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E03: Market order แบบ IOC TIF {#tc-e03-market-order-with-ioc-tif}
+### TC-E03: Market order แบบ IOC TIF [#tc-e03-market-order-with-ioc-tif]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -212,7 +214,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E04: Market order แบบ FOK TIF {#tc-e04-market-order-with-fok-tif}
+### TC-E04: Market order แบบ FOK TIF [#tc-e04-market-order-with-fok-tif]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -245,7 +247,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E05: Market order แบบ quote quantity {#tc-e05-market-order-with-quote-quantity}
+### TC-E05: Market order แบบ quote quantity [#tc-e05-market-order-with-quote-quantity]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -273,7 +275,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E06: ปิด position ด้วย market order ตอนหยุด {#tc-e06-close-position-via-market-order-on-stop}
+### TC-E06: ปิด position ด้วย market order ตอนหยุด [#tc-e06-close-position-via-market-order-on-stop]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -311,7 +313,7 @@ ExecTesterConfig::builder()
 
 ---
 
-## กลุ่ม 2: Limit order {#group-2-limit-orders}
+## กลุ่ม 2: Limit order [#group-2-limit-orders]
 
 ทดสอบการ submit, การ accept และพฤติกรรมของ limit order ภายใต้ตัวเลือก time-in-force ต่าง ๆ
 
@@ -328,7 +330,7 @@ ExecTesterConfig::builder()
 | TC-E18 | Limit GTD expiry | ตรวจ terminal event ตอนหมดอายุตามที่ระบุไว้ | ไม่มี GTD |
 | TC-E19 | Limit DAY | limit แบบ DAY TIF ตรวจว่าถูก accept | ไม่มี DAY |
 
-### TC-E10: Limit BUY GTC - submit และ accept {#tc-e10-limit-buy-gtc---submit-and-accept}
+### TC-E10: Limit BUY GTC - submit และ accept [#tc-e10-limit-buy-gtc---submit-and-accept]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -360,7 +362,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E11: Limit SELL GTC - submit และ accept {#tc-e11-limit-sell-gtc---submit-and-accept}
+### TC-E11: Limit SELL GTC - submit และ accept [#tc-e11-limit-sell-gtc---submit-and-accept]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -386,7 +388,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E12: คู่ Limit BUY และ SELL {#tc-e12-limit-buy-and-sell-pair}
+### TC-E12: คู่ Limit BUY และ SELL [#tc-e12-limit-buy-and-sell-pair]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -412,7 +414,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E13: Limit IOC aggressive fill {#tc-e13-limit-ioc-aggressive-fill}
+### TC-E13: Limit IOC aggressive fill [#tc-e13-limit-ioc-aggressive-fill]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -428,7 +430,7 @@ ExecTesterConfig::builder()
   GTC TIF
 - venue จะ cancel IOC order ที่ fill ไม่ได้ทันที
 
-### TC-E14: Limit IOC passive - no fill {#tc-e14-limit-ioc-passive---no-fill}
+### TC-E14: Limit IOC passive - no fill [#tc-e14-limit-ioc-passive---no-fill]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -445,7 +447,7 @@ ExecTesterConfig::builder()
   เหตุผลการ reject อื่นและ `OrderExpired` ไม่ผ่าน case นี้
   ให้คง rejection ที่ venue ส่งมาอย่างชัดเจนไว้ แทนที่จะสังเคราะห์เป็นการ accept หรือ cancel
 
-### TC-E15: Limit FOK fill {#tc-e15-limit-fok-fill}
+### TC-E15: Limit FOK fill [#tc-e15-limit-fok-fill]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -459,7 +461,7 @@ ExecTesterConfig::builder()
 
 - FOK ต้อง fill ได้ทั้ง quantity ใช้ quantity ขนาดเล็กเพื่อให้ความลึกของ book เพียงพอ
 
-### TC-E16: Limit FOK no fill {#tc-e16-limit-fok-no-fill}
+### TC-E16: Limit FOK no fill [#tc-e16-limit-fok-no-fill]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -473,7 +475,7 @@ ExecTesterConfig::builder()
 
 - ใช้การตรวจกรณีไม่มี liquidity เฉพาะของ adapter แบบเดียวกับ [TC-E14](#tc-e14-limit-ioc-passive---no-fill)
 
-### TC-E17: Limit GTD - submit และ accept {#tc-e17-limit-gtd---submit-and-accept}
+### TC-E17: Limit GTD - submit และ accept [#tc-e17-limit-gtd---submit-and-accept]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -500,7 +502,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E18: Limit GTD expiry {#tc-e18-limit-gtd-expiry}
+### TC-E18: Limit GTD expiry [#tc-e18-limit-gtd-expiry]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -516,7 +518,7 @@ ExecTesterConfig::builder()
 - บาง venue รายงานการหมดอายุของ GTD เป็น cancel ให้คงและตรวจการ map ของ adapter ตามที่ระบุไว้ แทนที่จะ normalize
   ทุก venue ให้เป็น `OrderExpired`
 
-### TC-E19: Limit DAY - submit และ accept {#tc-e19-limit-day---submit-and-accept}
+### TC-E19: Limit DAY - submit และ accept [#tc-e19-limit-day---submit-and-accept]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -533,7 +535,7 @@ ExecTesterConfig::builder()
 
 ---
 
-## กลุ่ม 3: Stop order และ conditional order {#group-3-stop-and-conditional-orders}
+## กลุ่ม 3: Stop order และ conditional order [#group-3-stop-and-conditional-orders]
 
 ทดสอบ order ประเภท stop และ conditional order เหล่านี้วางรออยู่บน venue จนกว่าเงื่อนไข trigger จะเป็นจริง adapter ที่
 รองรับ conditional order แบบ native ของ venue ควรตรวจด้วยว่า trigger order ที่เปิดอยู่ปรากฏใน reconciliation ตอน restart
@@ -550,7 +552,7 @@ ExecTesterConfig::builder()
 | TC-E26 | LimitIfTouched BUY | LIT buy ที่มี trigger + limit price | ไม่มี `LIT` |
 | TC-E27 | LimitIfTouched SELL | LIT sell ที่มี trigger + limit price | ไม่มี `LIT` |
 
-### TC-E20: StopMarket BUY {#tc-e20-stopmarket-buy}
+### TC-E20: StopMarket BUY [#tc-e20-stopmarket-buy]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -589,7 +591,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E21: StopMarket SELL {#tc-e21-stopmarket-sell}
+### TC-E21: StopMarket SELL [#tc-e21-stopmarket-sell]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -618,7 +620,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E22: StopLimit BUY {#tc-e22-stoplimit-buy}
+### TC-E22: StopLimit BUY [#tc-e22-stoplimit-buy]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -652,7 +654,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E23: StopLimit SELL {#tc-e23-stoplimit-sell}
+### TC-E23: StopLimit SELL [#tc-e23-stoplimit-sell]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -682,7 +684,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E24: MarketIfTouched BUY {#tc-e24-marketiftouched-buy}
+### TC-E24: MarketIfTouched BUY [#tc-e24-marketiftouched-buy]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -692,7 +694,7 @@ ExecTesterConfig::builder()
 | **เกณฑ์ผ่าน** | MIT order ถูก accept บน venue ด้วย trigger price ที่ถูกต้อง |
 | **ข้ามเมื่อ** | adapter ไม่รองรับ order แบบ `MarketIfTouched` |
 
-### TC-E25: MarketIfTouched SELL {#tc-e25-marketiftouched-sell}
+### TC-E25: MarketIfTouched SELL [#tc-e25-marketiftouched-sell]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -702,7 +704,7 @@ ExecTesterConfig::builder()
 | **เกณฑ์ผ่าน** | MIT order ถูก accept บน venue ด้วย trigger price ที่ถูกต้อง |
 | **ข้ามเมื่อ** | adapter ไม่รองรับ order แบบ `MarketIfTouched` |
 
-### TC-E26: LimitIfTouched BUY {#tc-e26-limitiftouched-buy}
+### TC-E26: LimitIfTouched BUY [#tc-e26-limitiftouched-buy]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -712,7 +714,7 @@ ExecTesterConfig::builder()
 | **เกณฑ์ผ่าน** | LIT order ถูก accept ด้วย trigger price และ limit price ที่ถูกต้อง |
 | **ข้ามเมื่อ** | adapter ไม่รองรับ order แบบ `LimitIfTouched` |
 
-### TC-E27: LimitIfTouched SELL {#tc-e27-limitiftouched-sell}
+### TC-E27: LimitIfTouched SELL [#tc-e27-limitiftouched-sell]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -724,7 +726,7 @@ ExecTesterConfig::builder()
 
 ---
 
-## กลุ่ม 4: การแก้ไข order {#group-4-order-modification}
+## กลุ่ม 4: การแก้ไข order [#group-4-order-modification]
 
 ทดสอบการแก้ไข order (amend) และ workflow แบบ cancel-replace
 
@@ -742,7 +744,7 @@ ExecTesterConfig::builder()
 พอดี และต้องเปิดฝั่ง limit อย่างน้อยหนึ่งฝั่ง ใช้ร่วมกับ bracket entry, `test_modify_rejected` และการ submit limit แบบ
 batch สองฝั่งไม่ได้ การ validate config จะปฏิเสธการผสมเหล่านี้
 
-### TC-E30: แก้ราคา limit BUY {#tc-e30-modify-limit-buy-price}
+### TC-E30: แก้ราคา limit BUY [#tc-e30-modify-limit-buy-price]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -781,7 +783,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E31: แก้ราคา limit SELL {#tc-e31-modify-limit-sell-price}
+### TC-E31: แก้ราคา limit SELL [#tc-e31-modify-limit-sell-price]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -813,7 +815,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E32: Cancel-replace limit BUY {#tc-e32-cancel-replace-limit-buy}
+### TC-E32: Cancel-replace limit BUY [#tc-e32-cancel-replace-limit-buy]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -849,7 +851,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E33: Cancel-replace limit SELL {#tc-e33-cancel-replace-limit-sell}
+### TC-E33: Cancel-replace limit SELL [#tc-e33-cancel-replace-limit-sell]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -881,7 +883,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E34: แก้ trigger price ของ stop {#tc-e34-modify-stop-trigger-price}
+### TC-E34: แก้ trigger price ของ stop [#tc-e34-modify-stop-trigger-price]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -912,7 +914,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E35: Cancel-replace stop order {#tc-e35-cancel-replace-stop-order}
+### TC-E35: Cancel-replace stop order [#tc-e35-cancel-replace-stop-order]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -943,7 +945,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E36: Modify ถูกปฏิเสธ {#tc-e36-modify-rejected}
+### TC-E36: Modify ถูกปฏิเสธ [#tc-e36-modify-rejected]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -960,7 +962,7 @@ ExecTesterConfig::builder()
 
 ---
 
-## กลุ่ม 5: การ cancel order {#group-5-order-cancellation}
+## กลุ่ม 5: การ cancel order [#group-5-order-cancellation]
 
 ทดสอบ workflow การ cancel order
 
@@ -972,7 +974,7 @@ ExecTesterConfig::builder()
 | TC-E43 | Batch cancel ตอนหยุด | cancel order ผ่าน batch API ตอนหยุด | ไม่มี batch cancel |
 | TC-E44 | Cancel order ที่ถูก cancel แล้ว | ตรวจ rejection ตามที่ระบุไว้ หรือผลแบบ idempotent | ไม่ข้าม |
 
-### TC-E40: Cancel limit order ตัวเดียว {#tc-e40-cancel-single-limit-order}
+### TC-E40: Cancel limit order ตัวเดียว [#tc-e40-cancel-single-limit-order]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1004,7 +1006,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E41: Cancel ทั้งหมดตอนหยุด {#tc-e41-cancel-all-on-stop}
+### TC-E41: Cancel ทั้งหมดตอนหยุด [#tc-e41-cancel-all-on-stop]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1037,7 +1039,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E42: Cancel ทีละตัวตอนหยุด {#tc-e42-individual-cancels-on-stop}
+### TC-E42: Cancel ทีละตัวตอนหยุด [#tc-e42-individual-cancels-on-stop]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1064,7 +1066,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E43: Batch cancel ตอนหยุด {#tc-e43-batch-cancel-on-stop}
+### TC-E43: Batch cancel ตอนหยุด [#tc-e43-batch-cancel-on-stop]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1091,7 +1093,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E44: Cancel order ที่ถูก cancel แล้ว {#tc-e44-cancel-already-canceled-order}
+### TC-E44: Cancel order ที่ถูก cancel แล้ว [#tc-e44-cancel-already-canceled-order]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1112,7 +1114,7 @@ ExecTesterConfig::builder()
 
 ---
 
-## กลุ่ม 6: Bracket order {#group-6-bracket-orders}
+## กลุ่ม 6: Bracket order [#group-6-bracket-orders]
 
 ทดสอบการ submit bracket order (entry + take-profit + stop-loss)
 
@@ -1123,7 +1125,7 @@ ExecTesterConfig::builder()
 | TC-E52 | Entry fill แล้ว bracket ทำงาน | ตรวจว่า TP/SL active หลัง entry ถูก fill | ไม่รองรับ bracket |
 | TC-E53 | Bracket ที่ entry เป็น post-only | entry order ใช้ flag post-only | ไม่มี bracket หรือ PO |
 
-### TC-E50: Bracket BUY {#tc-e50-bracket-buy}
+### TC-E50: Bracket BUY [#tc-e50-bracket-buy]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1152,7 +1154,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E51: Bracket SELL {#tc-e51-bracket-sell}
+### TC-E51: Bracket SELL [#tc-e51-bracket-sell]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1162,7 +1164,7 @@ ExecTesterConfig::builder()
 | **เกณฑ์ผ่าน** | order สามตัวถูกสร้างและ accept บนฝั่ง sell |
 | **ข้ามเมื่อ** | adapter ไม่รองรับ bracket order |
 
-### TC-E52: Entry fill แล้ว TP/SL ทำงาน {#tc-e52-bracket-entry-fill-activates-tpsl}
+### TC-E52: Entry fill แล้ว TP/SL ทำงาน [#tc-e52-bracket-entry-fill-activates-tpsl]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1177,7 +1179,7 @@ ExecTesterConfig::builder()
 - ต้องให้ entry order ถูก fill จริง ซึ่งอาจต้องใช้ราคาแบบ aggressive
 - กลไกการทำให้ TP/SL active แตกต่างกันตาม venue (บางที่ active ทันที บางที่เป็นกลุ่ม OCA)
 
-### TC-E53: Bracket ที่ entry เป็น post-only {#tc-e53-bracket-with-post-only-entry}
+### TC-E53: Bracket ที่ entry เป็น post-only [#tc-e53-bracket-with-post-only-entry]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1189,7 +1191,7 @@ ExecTesterConfig::builder()
 
 ---
 
-## กลุ่ม 7: Order flag {#group-7-order-flags}
+## กลุ่ม 7: Order flag [#group-7-order-flags]
 
 ทดสอบ flag ระดับ order และพารามิเตอร์พิเศษ
 
@@ -1200,7 +1202,7 @@ ExecTesterConfig::builder()
 | TC-E62 | Display quantity | iceberg order ที่ quantity ที่มองเห็น < ทั้งหมด | ไม่มี display quantity |
 | TC-E63 | Custom order params | พารามิเตอร์เฉพาะของ adapter ผ่าน `order_params` | ไม่เกี่ยวข้อง |
 
-### TC-E60: PostOnly ถูก accept {#tc-e60-postonly-accepted}
+### TC-E60: PostOnly ถูก accept [#tc-e60-postonly-accepted]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1227,7 +1229,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E61: ReduceOnly ตอนปิด {#tc-e61-reduceonly-on-close}
+### TC-E61: ReduceOnly ตอนปิด [#tc-e61-reduceonly-on-close]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1256,7 +1258,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E62: Display quantity (iceberg) {#tc-e62-display-quantity-iceberg}
+### TC-E62: Display quantity (iceberg) [#tc-e62-display-quantity-iceberg]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1283,7 +1285,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E63: Custom order params {#tc-e63-custom-order-params}
+### TC-E63: Custom order params [#tc-e63-custom-order-params]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1300,7 +1302,7 @@ ExecTesterConfig::builder()
 
 ---
 
-## กลุ่ม 8: การจัดการ rejection {#group-8-rejection-handling}
+## กลุ่ม 8: การจัดการ rejection [#group-8-rejection-handling]
 
 ทดสอบว่า adapter จัดการและรายงาน order rejection ได้ถูกต้อง
 
@@ -1318,7 +1320,7 @@ ExecTesterConfig::builder()
 
 TC-E74 ถึง TC-E78 ระบุรวมกันด้านล่าง เพราะปกติต้องใช้ mock ที่ขอบเขต HTTP หรือ WebSocket แทน venue จริง
 
-### ความล้มเหลวที่ผลลัพธ์กำกวม {#ambiguous-outcome-failures}
+### ความล้มเหลวที่ผลลัพธ์กำกวม [#ambiguous-outcome-failures]
 
 case เหล่านี้พิสูจน์ว่าความล้มเหลวของ request จาก adapter จะไม่กลายเป็น terminal rejection event เมื่อไม่ทราบผลลัพธ์
 ที่ venue เกณฑ์ผ่านยังกำหนดข้อยกเว้นสำหรับความล้มเหลวตอนเตรียม request ในเครื่อง: ต้องทราบแน่ชัดว่า command ยังไม่ได้
@@ -1342,7 +1344,7 @@ case เหล่านี้พิสูจน์ว่าความล้ม
 
 order จะยังคงอยู่ในสถานะ in-flight ที่เหมาะสม จนกว่า update จาก venue, ผล query หรือรอบ reconciliation จะ resolve มัน
 
-### TC-E70: PostOnly rejection {#tc-e70-postonly-rejection}
+### TC-E70: PostOnly rejection [#tc-e70-postonly-rejection]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1377,7 +1379,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E71: ReduceOnly rejection {#tc-e71-reduceonly-rejection}
+### TC-E71: ReduceOnly rejection [#tc-e71-reduceonly-rejection]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1410,7 +1412,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E72: Order type ที่ไม่รองรับ {#tc-e72-unsupported-order-type}
+### TC-E72: Order type ที่ไม่รองรับ [#tc-e72-unsupported-order-type]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1428,7 +1430,7 @@ ExecTesterConfig::builder()
   provenance](../concepts/execution/policies.md#terminal-reconciliation-provenance)
 - ทดสอบโดยตั้งค่า stop order type ที่ adapter ไม่รองรับ
 
-### TC-E73: TIF ที่ไม่รองรับ {#tc-e73-unsupported-tif}
+### TC-E73: TIF ที่ไม่รองรับ [#tc-e73-unsupported-tif]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1445,7 +1447,7 @@ ExecTesterConfig::builder()
 
 ---
 
-## กลุ่ม 9: Lifecycle และ reconciliation {#group-9-lifecycle-and-reconciliation}
+## กลุ่ม 9: Lifecycle และ reconciliation [#group-9-lifecycle-and-reconciliation]
 
 ทดสอบพฤติกรรม lifecycle ของ strategy และการกู้คืน execution state ตอนเริ่ม ตอนหยุด และเมื่อ report ล้มเหลว
 
@@ -1465,7 +1467,7 @@ TC-E88 และ TC-E89 รันแบบ offline เป็น unit test หร
 | TC-E88 | Commission ล้มเหลวตอน reconciliation | แทนค่า commission ของ fill ที่จำเป็นไม่ได้ | ไม่มี logic ของ fill commission |
 | TC-E89 | Commission ล้มเหลวทาง WebSocket | แทนค่า commission ของ private fill ไม่ได้ | ไม่มี private fill stream หรือ logic ของ commission |
 
-### TC-E80: เปิด position ตอนเริ่ม {#tc-e80-open-position-on-start}
+### TC-E80: เปิด position ตอนเริ่ม [#tc-e80-open-position-on-start]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1490,7 +1492,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E81: Cancel order ตอนหยุด {#tc-e81-cancel-orders-on-stop}
+### TC-E81: Cancel order ตอนหยุด [#tc-e81-cancel-orders-on-stop]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1500,7 +1502,7 @@ ExecTesterConfig::builder()
 | **เกณฑ์ผ่าน** | open order ทั้งหมดที่ strategy เป็นเจ้าของถูก cancel ตอนหยุด |
 | **ข้ามเมื่อ** | ไม่ข้าม |
 
-### TC-E82: ปิด position ตอนหยุด {#tc-e82-close-positions-on-stop}
+### TC-E82: ปิด position ตอนหยุด [#tc-e82-close-positions-on-stop]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1510,7 +1512,7 @@ ExecTesterConfig::builder()
 | **เกณฑ์ผ่าน** | position ถูกปิด หรือเหลือเพียงเศษที่ต่ำกว่า precision พอดี และไม่มี order เปิดค้างอยู่ |
 | **ข้ามเมื่อ** | adapter ไม่รองรับ market order |
 
-### TC-E83: Unsubscribe ตอนหยุด {#tc-e83-unsubscribe-on-stop}
+### TC-E83: Unsubscribe ตอนหยุด [#tc-e83-unsubscribe-on-stop]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1535,7 +1537,7 @@ ExecTesterConfig::builder()
     .build()?
 ```
 
-### TC-E84: Reconcile open order {#tc-e84-reconcile-open-orders}
+### TC-E84: Reconcile open order [#tc-e84-reconcile-open-orders]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1555,7 +1557,7 @@ ExecTesterConfig::builder()
   กับ endpoint open order ของ venue ไม่ใช่ความยาวทั้งหมดของ mass-status
 - ค่า `ts_event` ของ report ต้องเป็น Unix nanoseconds แม้ venue จะมีความละเอียดแค่ระดับวินาที
 
-### TC-E85: Reconcile filled order {#tc-e85-reconcile-filled-orders}
+### TC-E85: Reconcile filled order [#tc-e85-reconcile-filled-orders]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1574,7 +1576,7 @@ ExecTesterConfig::builder()
   เมื่อ stream ไม่ส่งค่าธรรมเนียมมาและ reconciliation เป็นผู้เติมให้
 - ค่า `ts_event` ของ report ต้องเป็น Unix nanoseconds แม้ venue จะมีความละเอียดแค่ระดับวินาที
 
-### TC-E86: Reconcile open long position {#tc-e86-reconcile-open-long-position}
+### TC-E86: Reconcile open long position [#tc-e86-reconcile-open-long-position]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1590,7 +1592,7 @@ ExecTesterConfig::builder()
 - ตรวจว่า quantity และราคาเข้าเฉลี่ยของ position ที่ reconcile ตรงกับ venue
 - หลัง reconciliation strategy ควรจัดการหรือปิด position นี้ได้
 
-### TC-E87: Reconcile open short position {#tc-e87-reconcile-open-short-position}
+### TC-E87: Reconcile open short position [#tc-e87-reconcile-open-short-position]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1606,7 +1608,7 @@ ExecTesterConfig::builder()
 - ตรวจว่า quantity และราคาเข้าเฉลี่ยของ position ที่ reconcile ตรงกับ venue
 - หลัง reconciliation strategy ควรจัดการหรือปิด position นี้ได้
 
-### TC-E88: Commission ล้มเหลวตอน reconciliation {#tc-e88-reconciliation-commission-failure}
+### TC-E88: Commission ล้มเหลวตอน reconciliation [#tc-e88-reconciliation-commission-failure]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1626,7 +1628,7 @@ ExecTesterConfig::builder()
 - fill ที่ระบุชัดเจนและถูกต้องอาจ apply ได้ แต่ quantity ที่เหลือและ terminal transition ที่ขึ้นกับมันยังคง pending
 - การแก้ไขแบบสังเคราะห์เฉพาะ position ที่ไม่มีหลักฐานการ trade ไม่ถือเป็นความล้มเหลวในการคำนวณ commission
 
-### TC-E89: Commission ล้มเหลวทาง WebSocket {#tc-e89-websocket-commission-failure}
+### TC-E89: Commission ล้มเหลวทาง WebSocket [#tc-e89-websocket-commission-failure]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1645,7 +1647,7 @@ ExecTesterConfig::builder()
 
 ---
 
-## กลุ่ม 10: การเทรด option {#group-10-options-trading}
+## กลุ่ม 10: การเทรด option [#group-10-options-trading]
 
 ทดสอบพฤติกรรม execution เฉพาะของ option instrument ประเภท option มักมีข้อจำกัดต่างจาก linear derivative: venue
 อาจจำกัด order type, รองรับโหมดการตั้งราคาแบบอื่น หรือไม่อนุญาต conditional order ข้อจำกัดที่แน่ชัดแตกต่างกันตาม venue
@@ -1664,7 +1666,7 @@ test เหล่านี้ต้องใช้ instrument แบบ `CryptoO
 | TC-E100 | Cancel option order | cancel limit order ที่เปิดอยู่บน option instrument | ไม่รองรับ option |
 | TC-E101 | Reconcile option position | reconcile option position ที่เปิดอยู่จาก session ก่อนหน้า | ไม่รองรับ option |
 
-### TC-E90: Limit BUY option {#tc-e90-limit-buy-option}
+### TC-E90: Limit BUY option [#tc-e90-limit-buy-option]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1674,7 +1676,7 @@ test เหล่านี้ต้องใช้ instrument แบบ `CryptoO
 | **เกณฑ์ผ่าน** | venue accept order ด้วย instrument, side, price และ quantity ที่ถูกต้อง |
 | **ข้ามเมื่อ** | adapter ไม่รองรับการเทรด option |
 
-### TC-E91: Limit SELL option {#tc-e91-limit-sell-option}
+### TC-E91: Limit SELL option [#tc-e91-limit-sell-option]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1684,7 +1686,7 @@ test เหล่านี้ต้องใช้ instrument แบบ `CryptoO
 | **เกณฑ์ผ่าน** | venue accept order ด้วย instrument, side, price และ quantity ที่ถูกต้อง |
 | **ข้ามเมื่อ** | adapter ไม่รองรับการเทรด option |
 
-### TC-E92: Limit แบบตั้งราคาทางเลือก {#tc-e92-limit-with-alternative-pricing}
+### TC-E92: Limit แบบตั้งราคาทางเลือก [#tc-e92-limit-with-alternative-pricing]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1701,7 +1703,7 @@ test เหล่านี้ต้องใช้ instrument แบบ `CryptoO
 - ตัวอย่าง: OKX รองรับ `px_usd` (ราคาเป็น USD) และ `px_vol` (implied volatility)
 - ตรวจใน response ของ venue ว่าโหมดการตั้งราคาสะท้อนออกมาถูกต้อง
 
-### TC-E94: Order type ที่ไม่รองรับถูก deny สำหรับ option {#tc-e94-unsupported-order-type-denied-for-options}
+### TC-E94: Order type ที่ไม่รองรับถูก deny สำหรับ option [#tc-e94-unsupported-order-type-denied-for-options]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1718,7 +1720,7 @@ test เหล่านี้ต้องใช้ instrument แบบ `CryptoO
   (เช่น `MarketToLimit`) ต้อง submit ด้วยมือหรือผ่านโค้ด
 - ทดสอบทุก type ที่ไม่รองรับตามที่ adapter ระบุไว้
 
-### TC-E96: Conditional order ถูก reject สำหรับ option {#tc-e96-conditional-order-rejected-for-options}
+### TC-E96: Conditional order ถูก reject สำหรับ option [#tc-e96-conditional-order-rejected-for-options]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1735,7 +1737,7 @@ test เหล่านี้ต้องใช้ instrument แบบ `CryptoO
 - ExecTester trigger conditional order ได้ผ่าน `enable_stop_buys`/`enable_stop_sells` ร่วมกับ `stop_order_type` บน
   option instrument
 
-### TC-E99: FOK limit option {#tc-e99-fok-limit-option}
+### TC-E99: FOK limit option [#tc-e99-fok-limit-option]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1751,7 +1753,7 @@ test เหล่านี้ต้องใช้ instrument แบบ `CryptoO
   ทำอะไรเพิ่ม
 - ใช้ quantity เล็กและราคา aggressive เพื่อให้ได้ fill ในกรณีบวก
 
-### TC-E100: Cancel option order {#tc-e100-cancel-option-order}
+### TC-E100: Cancel option order [#tc-e100-cancel-option-order]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1761,7 +1763,7 @@ test เหล่านี้ต้องใช้ instrument แบบ `CryptoO
 | **เกณฑ์ผ่าน** | order ถูก cancel และไม่ปรากฏใน open order บน venue อีก |
 | **ข้ามเมื่อ** | adapter ไม่รองรับ option |
 
-### TC-E101: Reconcile option position {#tc-e101-reconcile-option-position}
+### TC-E101: Reconcile option position [#tc-e101-reconcile-option-position]
 
 | ฟิลด์ | ค่า |
 | --- | --- |
@@ -1778,7 +1780,7 @@ test เหล่านี้ต้องใช้ instrument แบบ `CryptoO
 
 ---
 
-## Reference ของ config ExecTester {#exectester-configuration-reference}
+## Reference ของ config ExecTester [#exectester-configuration-reference]
 
 reference แบบย่อของแต่ละพารามิเตอร์ของ `ExecTesterConfig` ค่า default คือค่าที่ resolve แล้วหลังการสร้าง builder ของ Rust
 ใช้ default ที่เทียบเท่ากัน

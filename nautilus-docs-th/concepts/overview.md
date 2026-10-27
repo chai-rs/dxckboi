@@ -1,6 +1,8 @@
-# ภาพรวม
+---
+title: "ภาพรวม"
+---
 
-## บทนำ {#introduction}
+## บทนำ [#introduction]
 
 NautilusTrader เป็น engine แบบ open-source ระดับ production ที่เขียนด้วย Rust เป็นหลัก (Rust-native)
 สำหรับระบบเทรดหลายประเภทสินทรัพย์และหลาย venue
@@ -17,7 +19,7 @@ NautilusTrader ไม่ผูกกับประเภทสินทรั�
 integrate ผ่าน adapter แบบ modular ได้ integration ที่มีครอบคลุมทั้ง crypto exchange แบบรวมศูนย์และกระจายศูนย์
 (CEX และ DEX), ตลาดแลกเปลี่ยนเงินตรา (FX), หุ้น, futures, options และ betting exchange
 
-## คุณสมบัติ {#features}
+## คุณสมบัติ [#features]
 
 - **เร็ว**: แกนหลักเป็น Rust พร้อม networking แบบ asynchronous ด้วย [tokio](https://crates.io/crates/tokio)
 - **เชื่อถือได้**: Rust ให้ทั้ง type safety และ thread safety และรองรับการเก็บ state แบบ persistence
@@ -37,7 +39,7 @@ integrate ผ่าน adapter แบบ modular ได้ integration ที่
 - **AI training**: การจำลองที่มี throughput สูงรองรับงานอย่างการฝึก AI trading agent ด้วย
   reinforcement learning (RL) หรือ evolutionary strategies (ES)
 
-## ทำไมต้อง NautilusTrader? {#why-nautilustrader}
+## ทำไมต้อง NautilusTrader? [#why-nautilustrader]
 
 โดยทั่วไปงานวิจัย strategy การเทรดมักทำด้วย Python แบบ vectorized ขณะที่ระบบเทรดใน production
 ถูกสร้างแยกต่างหากด้วยสถาปัตยกรรมแบบ event-driven ในภาษาที่ compile
@@ -48,7 +50,7 @@ NautilusTrader ขจัดการแยกส่วนนี้
 execution สถาปัตยกรรม ความหมายของการ execute และโมเดลเวลาชุดเดียวกันทำงานในทั้งสองสภาพแวดล้อม
 ทำให้ย้าย strategy จากงานวิจัยไปสู่ production ได้โดยไม่ต้องเขียนใหม่
 
-## กรณีการใช้งาน {#use-cases}
+## กรณีการใช้งาน [#use-cases]
 
 NautilusTrader รองรับกรณีการใช้งานหลักสามแบบ:
 
@@ -67,7 +69,7 @@ NautilusTrader มี implementation ของ node สำหรับ backtest 
 
 :::
 
-## ระบบแบบกระจาย {#distributed}
+## ระบบแบบกระจาย [#distributed]
 
 แพลตฟอร์มนี้ integrate เข้ากับระบบแบบกระจาย (distributed system) ที่ใหญ่กว่าได้:
 
@@ -78,19 +80,19 @@ NautilusTrader มี implementation ของ node สำหรับ backtest 
 
 รูปแบบที่รองรับขึ้นกับประเภทของ payload
 
-## แกนหลักร่วม {#common-core}
+## แกนหลักร่วม [#common-core]
 
 แกนหลักของระบบชุดเดียวกันถูกใช้โดย node ใน[บริบทสภาพแวดล้อม](architecture.md#environment-contexts)
 ทุกแบบ ได้แก่ `backtest`, `sandbox` และ `live` actor, strategy และ execution algorithm ที่ผู้ใช้สร้างเองจะใช้
 lifecycle เดียวกันในทุกบริบทเหล่านี้
 
-## Backtesting {#backtesting}
+## Backtesting [#backtesting]
 
 ป้อนข้อมูลให้ `BacktestEngine` โดยตรง หรือผ่าน `BacktestNode` และ `ParquetDataCatalog` ที่เป็นระดับสูงกว่า
 แล้วรันข้อมูลผ่านระบบที่ความละเอียดระดับ nanosecond ดู [Backtesting](backtesting/) สำหรับ API และ
 โมเดลการ execute
 
-## Live trading {#live-trading}
+## Live trading [#live-trading]
 
 `LiveNode` รับข้อมูลและ event จาก data client และ execution client หลายตัว รองรับทั้ง account แบบ demo,
 paper และ account จริง node แบบ Rust-native รัน event loop ของ kernel บน thread ที่เรียกใช้ ส่วน I/O
@@ -99,12 +101,12 @@ paper และ account จริง node แบบ Rust-native รัน event 
 ดู [Live trading](live.md) สำหรับ lifecycle ของ node และข้อพิจารณาด้านความเสี่ยง และ
 [Execution reconciliation](execution/reconciliation.md) สำหรับการกู้คืน state
 
-## Domain model {#domain-model}
+## Domain model [#domain-model]
 
 domain model ด้านการเทรดประกอบด้วย [value type](value_types.md) เช่น `Price` และ `Quantity`
 รวมถึง [order](orders/) และ [position](positions.md) ที่รวบรวม event เพื่อกำหนด state
 
-## Timestamp {#timestamps}
+## Timestamp [#timestamps]
 
 NautilusTrader แทน timestamp ของระบบเป็น **UNIX nanoseconds** formatter มาตรฐานแบบ ISO 8601
 (RFC 3339) ใช้ UTC และเก็บทศนิยมครบทั้งเก้าหลัก ส่วน formatter แบบ millisecond เก็บทศนิยมสามหลัก
@@ -122,7 +124,7 @@ string ของ timestamp ประกอบด้วย:
 ดูข้อกำหนดฉบับเต็มได้ที่
 [RFC 3339: Date and Time on the Internet](https://datatracker.ietf.org/doc/html/rfc3339)
 
-## UUID {#uuids}
+## UUID [#uuids]
 
 value type `UUID4` ให้ค่า Universally Unique Identifier (UUID) เวอร์ชัน 4 แบบสุ่ม สำหรับ event, command,
 report และ message ภายในอื่นๆ โดยใช้ crate `uuid` ตรวจสอบบิตของ version และ variant ตอน parse string
@@ -139,7 +141,7 @@ UUID v4 ที่ถูกต้องตาม RFC 9562 ประกอบด�
 ดูข้อกำหนดฉบับเต็มได้ที่
 [RFC 9562: Universally Unique Identifiers (UUIDs)](https://www.rfc-editor.org/rfc/rfc9562.html)
 
-## ประเภทข้อมูล {#data-types}
+## ประเภทข้อมูล [#data-types]
 
 NautilusTrader กำหนดประเภทข้อมูลตลาดและข้อมูลอ้างอิงในตัวไว้ดังนี้ การรองรับ request ข้อมูลย้อนหลัง
 และ subscription แบบ live ขึ้นกับผู้ให้บริการข้อมูลและ adapter ดู [Data](data/index.md) สำหรับฟิลด์และพฤติกรรม
@@ -170,7 +172,7 @@ NautilusTrader กำหนดประเภทข้อมูลตลาด�
 `BID`, `ASK` และ `MID` ใช้ข้อมูล `QuoteTick` ส่วน `LAST` ใช้ข้อมูล `TradeTick`
 ส่วน bar type แบบ composite จะรวมจาก bar ที่เล็กกว่าแทน
 
-## Bar aggregation {#bar-aggregations}
+## Bar aggregation [#bar-aggregations]
 
 method `BarAggregation` ที่มีให้ใช้:
 
@@ -200,7 +202,7 @@ aggregation แบบ information-driven ต้องใช้ข้อมูล
 fixed-subunit มีข้อจำกัดเรื่องการหารลงตัว ดู [Bar types](data/index.md#bar-types) สำหรับกฎการตรวจสอบ
 internal aggregation รันระหว่าง live trading ได้เมื่อมีข้อมูล input ที่ต้องการ
 
-## ประเภทของ account {#account-types}
+## ประเภทของ account [#account-types]
 
 [accounting engine](accounting.md#account-types) รองรับการตั้งค่าต่อไปนี้ทั้งในสภาพแวดล้อม live และ backtest:
 
@@ -211,7 +213,7 @@ internal aggregation รันระหว่าง live trading ได้เม
 - `Betting` สกุลเงินเดียว
 - `Wallet` หลายสกุลเงิน (blockchain wallet โดย execution client ยังอยู่ระหว่างพัฒนา)
 
-## ประเภทของ order {#order-types}
+## ประเภทของ order [#order-types]
 
 [order model](orders/) รองรับประเภทต่อไปนี้ ขึ้นกับการรองรับของ venue adapter:
 
@@ -225,7 +227,7 @@ internal aggregation รันระหว่าง live trading ได้เม
 - `TRAILING_STOP_MARKET`
 - `TRAILING_STOP_LIMIT`
 
-## Value type {#value-types}
+## Value type [#value-types]
 
 value type แบบ fixed-point ต่อไปนี้ใช้ integer ดิบขนาด 128 บิตหรือ 64 บิต ขึ้นกับ
 [precision mode](../getting_started/installation.md#precision-mode) ที่ใช้ตอน compile
@@ -236,7 +238,7 @@ value type แบบ fixed-point ต่อไปนี้ใช้ integer ด�
 
 build แบบ Rust ล้วนใช้ standard precision เป็นค่าเริ่มต้น เว้นแต่จะเปิด feature `high-precision`
 
-### High-precision mode (128 บิต) {#high-precision-mode-128-bit}
+### High-precision mode (128 บิต) [#high-precision-mode-128-bit]
 
 เมื่อ**เปิด** feature flag `high-precision` ค่าต่างๆ จะใช้ข้อกำหนดดังนี้:
 
@@ -246,7 +248,7 @@ build แบบ Rust ล้วนใช้ standard precision เป็นค่
 | `Money`    | `i128`      | 16            | -17,014,118,346,046 | 17,014,118,346,046 |
 | `Quantity` | `u128`      | 16            | 0                   | 34,028,236,692,093 |
 
-### Standard-precision mode (64 บิต) {#standard-precision-mode-64-bit}
+### Standard-precision mode (64 บิต) [#standard-precision-mode-64-bit]
 
 เมื่อ**ปิด** feature flag `high-precision` ค่าต่างๆ จะใช้ข้อกำหนดดังนี้:
 

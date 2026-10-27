@@ -1,4 +1,6 @@
-# Shell Scripts
+---
+title: "Shell Scripts"
+---
 
 หน้านี้กำหนดว่าเมื่อใดควรสร้าง shell script และควรตั้งชื่อ, เขียน, เรียกใช้ และทดสอบอย่างไร
 ค่าเริ่มต้นคือ Bash ใช้ POSIX `sh` เฉพาะเมื่อ caller ที่รองรับไม่สามารถพึ่งพาว่ามี Bash ติดตั้งอยู่
@@ -6,7 +8,7 @@
 policy นี้ใช้กับไฟล์ shell ทั่วทั้ง repository รวมถึง `scripts/`, `scripts/ci/`,
 `.pre-commit-hooks/` และ directory ของ component ต่าง ๆ
 
-## เมื่อใดควรเขียน script {#when-to-write-a-script}
+## เมื่อใดควรเขียน script [#when-to-write-a-script]
 
 ก่อนเพิ่ม script ให้ค้นหาก่อนว่ามี script, Make target หรือ tool ที่ติดตั้งไว้ซึ่งทำงานนั้นได้อยู่แล้วหรือไม่
 เพิ่ม script เมื่อมันทำให้ logic เชิงขั้นตอนมีแหล่งความจริงเดียวที่ทดสอบได้และผ่าน lint
@@ -33,7 +35,7 @@ policy นี้ใช้กับไฟล์ shell ทั่วทั้ง re
 การเลือก secret และการเลือก runner ไว้ใน workflow ส่งค่าทั่วไปให้ script ผ่าน argument หรือ
 environment variable และ exit status ของ script ต้องเป็น exit status ของ step นั้น
 
-## เลือก shell และนามสกุลไฟล์ {#choose-the-shell-and-extension}
+## เลือก shell และนามสกุลไฟล์ [#choose-the-shell-and-extension]
 
 นามสกุลไฟล์บอกภาษา shell ไม่ได้บอกว่าไฟล์นั้น execute ได้หรือ source ได้
 
@@ -58,7 +60,7 @@ script เล็ก ๆ สำหรับ bootstrap หรือ wrapper อา
 ของไฟล์เหล่านั้นเป็นแหล่งความจริง อย่าเปลี่ยนชื่อ script ที่มีอยู่เพียงเพื่อเปลี่ยนนามสกุล ให้ใช้ policy นี้กับ
 ไฟล์ใหม่ และกับการเปลี่ยนชื่อในขอบเขตที่ได้อัปเดตทุกจุดที่เรียกใช้และทุกเอกสารแล้ว
 
-## กำหนดเป้าหมายด้าน portability {#define-the-portability-target}
+## กำหนดเป้าหมายด้าน portability [#define-the-portability-target]
 
 script ต้องรองรับทุก platform ที่ caller ของมันรันอยู่ หากจุดประสงค์ของ script ไม่ได้ระบุเป้าหมายที่แคบกว่า
 ให้เขียนสำหรับ Linux, macOS และ Windows ผ่าน Git Bash, MSYS2 หรือ WSL
@@ -76,7 +78,7 @@ script ที่ใช้เฉพาะใน CI อาจใช้ Bash เว
 รับประกัน environment นั้น ให้บันทึกข้อจำกัดไว้ใกล้กับโค้ดที่พึ่งพามัน path ภายใต้ `scripts/ci/` ไม่ได้ทำให้
 script เป็น Linux-only โดยอัตโนมัติ เพราะ CI ก็ใช้ runner ที่เป็น macOS และ Windows ด้วย
 
-### System utility {#system-utilities}
+### System utility [#system-utilities]
 
 ควรใช้ option ที่รองรับทั้ง utility ของ GNU และ BSD เมื่อไม่มีรูปแบบที่ใช้ร่วมกันได้ ให้ตรวจจับความสามารถ
 หรือระบบปฏิบัติการ แล้ว implement ทั้งสองรูปแบบ
@@ -98,7 +100,7 @@ quote path และ expansion เพื่อไม่ให้ช่องว�
 ที่เป็นตัวเลือกเสริม ให้ตรวจสอบด้วย `command -v` และแจ้งวิธีติดตั้งหรือทางเลือกทดแทน repository เก็บไฟล์
 text ด้วย line ending แบบ LF ผ่าน `.gitattributes` อย่าเพิ่ม line ending เฉพาะ platform
 
-## ตำแหน่งและการตั้งชื่อ script {#place-and-name-scripts}
+## ตำแหน่งและการตั้งชื่อ script [#place-and-name-scripts]
 
 - วางคำสั่งสำหรับ development และ maintenance ทั่วไปไว้ใต้ `scripts/`
 - วางคำสั่ง build, test, publication และ verification ที่เฉพาะกับ workflow ไว้ใต้ `scripts/ci/`
@@ -113,7 +115,7 @@ text ด้วย line ending แบบ LF ผ่าน `.gitattributes` อย�
 
 ให้แต่ละ script เน้นงานเดียว และขยาย script ที่มีอยู่เมื่อ logic ใหม่มีหน้าที่เดียวกัน
 
-## จัดโครงสร้าง script ให้รันได้อย่างเชื่อถือได้ {#structure-scripts-for-reliable-execution}
+## จัดโครงสร้าง script ให้รันได้อย่างเชื่อถือได้ [#structure-scripts-for-reliable-execution]
 
 Bash script แบบ standalone ควรเริ่มต้นด้วย:
 
@@ -159,7 +161,7 @@ function หรือ shell state ร่วมกัน
 
 วิธีนี้ทำให้เห็นงานหลักอยู่ด้านบน ในขณะที่ยังรับประกันว่าทุก function มีอยู่ก่อนเริ่มรัน
 
-## การทำงานร่วมกับ Make และ GitHub Actions {#integrate-with-make-and-github-actions}
+## การทำงานร่วมกับ Make และ GitHub Actions [#integrate-with-make-and-github-actions]
 
 Make target ควรเป็นคำสั่งที่เสถียรและค้นหาได้ง่ายสำหรับนักพัฒนา ให้คง dependency ของ target,
 ตัวแปรของ build และขีดจำกัดของ concurrency ไว้ใน Makefile แล้วเรียก script ด้วย interpreter ที่ระบุชัดเจน
@@ -173,7 +175,7 @@ GitHub Actions ควรส่ง context ของ workflow ผ่าน enviro
 เช่น `$GITHUB_OUTPUT` และ `$GITHUB_ENV` script ที่ทำขึ้นเฉพาะสำหรับ GitHub Actions อาจเขียนไฟล์เหล่านี้ได้
 เมื่อการเชื่อมต่อนั้นเป็นจุดประสงค์ที่ระบุไว้ของมัน
 
-## Format และ lint {#format-and-lint}
+## Format และ lint [#format-and-lint]
 
 การตั้งค่า pre-commit จะ format ไฟล์ shell ด้วย `shfmt` โดยใช้การย่อหน้าสองช่องว่าง, ย่อหน้า branch
 ของ case, ระยะห่างของ redirect ที่สม่ำเสมอ และ parser ของ Bash จากนั้น ShellCheck จะตรวจการ quote,
@@ -197,7 +199,7 @@ parser ของ Bash ร่วมกันก็ตาม
 repository ยังปฏิเสธไฟล์ที่ execute ได้แต่ไม่มี shebang, line ending ที่ปนกัน, ช่องว่างท้ายบรรทัด และ
 merge marker ที่ยังไม่ได้ resolve การตรวจเหล่านี้เสริม ShellCheck แต่ไม่ได้แทนการทดสอบขณะรันจริง
 
-## ทดสอบพฤติกรรม {#test-behavior}
+## ทดสอบพฤติกรรม [#test-behavior]
 
 รันการทดสอบที่เล็กที่สุดที่ครอบคลุม branch และเส้นทางความล้มเหลวที่เปลี่ยนแปลง เพิ่ม shell test คู่กัน
 สำหรับ logic ที่อาจ regress ได้โดยไม่ขึ้นกับ workflow ซึ่งรวมถึงการ parse, การตัดสินใจหลาย branch,
@@ -219,7 +221,7 @@ test คู่กันแต่ละตัว:
 ที่เกี่ยวข้องของ caller แต่ละตัว การทดสอบบน Linux บวกกับผล ShellCheck ที่สะอาดไม่ได้พิสูจน์พฤติกรรม
 บน macOS หรือ Windows
 
-## Checklist สำหรับ review {#review-checklist}
+## Checklist สำหรับ review [#review-checklist]
 
 - พฤติกรรมนั้นยังไม่มีให้ใช้จาก script, Make target, tool ที่ติดตั้งไว้ หรือฟีเจอร์ native ง่าย ๆ ของ workflow
 - GitHub Actions, Make และ script รับผิดชอบส่วนที่ถูกต้องของ workflow

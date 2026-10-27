@@ -1,4 +1,6 @@
-# Accounting
+---
+title: "Accounting"
+---
 
 ระบบย่อย accounting ทำหน้าที่ติดตาม balance, margin และ PnL ของแต่ละ account คู่มือนี้อธิบาย data model,
 query API ที่ strategy ใช้ และข้อตกลงที่ผู้เขียน adapter ต้องปฏิบัติตามเพื่อให้ทำงานสอดคล้องกันในทุก venue
@@ -6,7 +8,7 @@ query API ที่ strategy ใช้ และข้อตกลงที่�
 เนื้อหานี้ใช้ได้ทั้งกับ backtest และ live trading สำหรับ config เฉพาะของ backtest (starting balance, การเลือก
 margin model ต่อ venue) ดู [Backtesting](backtesting/)
 
-## ประเภทของ account {#account-types}
+## ประเภทของ account [#account-types]
 
 เมื่อกำหนด config ของ venue สำหรับ live trading หรือ backtest ให้ใช้ `account_type` เพื่อเลือก Cash, Margin หรือ Betting
 
@@ -20,12 +22,12 @@ Wallet ใช้จำลองสถานะของ wallet บน on-chain �
 | Betting      | Sports betting, bookmaking                      | Stake ที่ venue กำหนด ไม่มี leverage                                         |
 | Wallet       | Blockchain wallet (DeFi)                        | จำนวนที่จองไว้แบบ local สำหรับ order ที่ค้างอยู่ ไม่มี leverage และไม่มีการกู้ยืม     |
 
-### Cash account {#cash-accounts}
+### Cash account [#cash-accounts]
 
 Cash account **settle trade เต็มจำนวน** ไม่มี leverage จึงไม่มีแนวคิดเรื่อง margin ยอด locked balance สะท้อนมูลค่าที่จองไว้
 สำหรับ order ที่ค้างอยู่ ได้แก่ มูลค่า notional ของ buy order แต่ละตัว และปริมาณที่ sell order แต่ละตัวจะต้องส่งมอบ
 
-#### Precision และการปัดเศษ {#precision-and-rounding}
+#### Precision และการปัดเศษ [#precision-and-rounding]
 
 กระแสเงินสดและการจองใช้การคำนวณแบบ checked domain หรือ `Decimal` แล้วแปลงเป็น precision ดั้งเดิมของ `Money`
 ด้วยการปัดแบบ midpoint-to-even การอัปเดต balance จะบวกและลบจำนวน `Money` โดยไม่ปัดเป็น display precision ของสกุลเงิน
@@ -33,7 +35,7 @@ Cash account **settle trade เต็มจำนวน** ไม่มี levera
 
 ดูเหตุผลเชิงบัญชีและตัวอย่างการคำนวณได้ที่ [Precision และ settlement](#precision-and-settlement)
 
-#### การจองสำหรับ sell {#sell-reservations}
+#### การจองสำหรับ sell [#sell-reservations]
 
 การ sell คือการส่งมอบ base asset ของ instrument ดังนั้นการจองจึงควรเป็นสกุลของ asset นั้น instrument ที่
 `base_currency()` เป็น `None` เช่น binary option และหุ้น ไม่ได้จำลอง asset ดังกล่าว sell order ที่ค้างอยู่บน
@@ -48,7 +50,7 @@ sell หลายตัวพร้อมกัน venue เป็นผู้�
 เพราะการทำซ้ำการตรวจสอบ inventory ของ venue แบบ local ต้องใช้ balance ราย asset ซึ่ง adapter ไม่ได้รับมา ส่วนการจอง
 สำหรับ buy และการตรวจสอบ sell ของ instrument ที่มีการจำลอง base asset ยังคงเหมือนเดิม
 
-#### การตรวจสอบ short-selling ในการจำลอง {#simulated-short-selling-checks}
+#### การตรวจสอบ short-selling ในการจำลอง [#simulated-short-selling-checks]
 
 Backtest และ sandbox จะตรวจสอบ sell ของหุ้นหรือ binary option แต่ละตัวบน cash account ตอน submit ปริมาณคงเหลือ
 ของ order ต้องไม่เกิน inventory ฝั่ง long ใน position ที่เลือก ซึ่งรวมถึง fill ที่ execute แล้วแต่ยังรอการอัปเดต position
@@ -64,7 +66,7 @@ position ถูกเลื่อนออกไปด้วย
 
 การตรวจสอบตอน submit นี้ไม่ได้จอง inventory ไว้ให้ sell ตัวอื่นที่กำลังทำงานอยู่ และไม่ตรวจซ้ำเมื่อปริมาณเปลี่ยนในภายหลัง
 
-### Margin account {#margin-accounts}
+### Margin account [#margin-accounts]
 
 Margin account รองรับ instrument ที่ต้องใช้หลักประกัน เช่น futures หรือ crypto perp ที่มี leverage โดยติดตาม balance
 ของ account, จอง margin สำหรับ order และ position ที่เปิดอยู่ และใช้ leverage ที่กำหนดได้ต่อ instrument margin balance
@@ -83,12 +85,12 @@ Reduce-only order ลด exposure ได้อย่างเดียว จึ
 แม้ order จะเป็นการลด position ก็ตาม
 :::
 
-### Betting account {#betting-accounts}
+### Betting account [#betting-accounts]
 
 Betting account ออกแบบมาเฉพาะสำหรับ venue ที่วางเงินเดิมพัน (stake) เพื่อได้หรือเสียตามจำนวน payout ที่กำหนดไว้
 (prediction market, sports book) โดยจะ lock เฉพาะ stake ที่ venue กำหนดเท่านั้น leverage และ margin ไม่มีผล
 
-### Wallet account {#wallet-accounts}
+### Wallet account [#wallet-accounts]
 
 Wallet account แทน blockchain wallet: การถือครองหลายสกุลเงินแบบไม่มี leverage ทั้ง native และ ERC-20 token
 โดยไม่มี margin และไม่มีการกู้ยืม
@@ -109,7 +111,7 @@ event ไม่ได้มีเงื่อนไขที่ร้องข�
 Balance ที่มี total ติดลบจะถูกปฏิเสธแทนที่จะถูกนำไปใช้ ERC-20 allowance เป็นการอนุญาตให้ spender ใช้เงิน
 และจะไม่ถูกแสดงเป็น balance หรือเงินที่ lock ไว้
 
-## Balance model {#balance-model}
+## Balance model [#balance-model]
 
 `AccountBalance` เก็บค่าสามค่าในสกุลเงินเดียวกัน:
 
@@ -119,7 +121,7 @@ Balance ที่มี total ติดลบจะถูกปฏิเสธ�
 
 **Balance invariant** `total == locked + free` ต้องเป็นจริงเสมออย่างแม่นยำในรูปแบบ Money ที่จัดเก็บ
 
-### การสร้าง balance {#constructing-balances}
+### การสร้าง balance [#constructing-balances]
 
 โค้ด adapter ที่เขียนด้วย Rust มี derived constructor ที่บังคับ invariant ไว้จากศูนย์กลาง ควรใช้ constructor เหล่านี้
 แทน `AccountBalance::new` เมื่อ venue รายงานค่ามาเพียงสองในสามค่า:
@@ -134,7 +136,7 @@ Balance ที่มี total ติดลบจะถูกปฏิเสธ�
 Derived constructor แต่ละตัวจะ clamp ค่า locked หรือ free ที่ส่งเข้ามาให้อยู่ในช่วง `[0, total]` เมื่อ `total >= 0`
 เพื่อไม่ให้ค่าที่เกินมาชั่วคราวจากการปัดเศษของ venue ทำให้ account อยู่ในสถานะที่เสียหาย
 
-## ข้อกำหนดด้านสกุลเงินและการประเมินมูลค่า {#currency-and-valuation-contracts}
+## ข้อกำหนดด้านสกุลเงินและการประเมินมูลค่า [#currency-and-valuation-contracts]
 
 ค่าทางบัญชีจะคงสกุลเงินต้นทางไว้จนกว่าการแปลงสกุลเงินแบบ explicit จะสำเร็จ เพื่อป้องกันไม่ให้ตัวเลขที่ถูกต้องถูกติด
 ป้ายสกุลเงินผิด หรือค่าที่ไม่มีอยู่ถูกตีความว่าเป็นศูนย์
@@ -161,12 +163,12 @@ query realized PnL ของ instrument เดียวจะคืนค่า 
 ดู [Portfolio](portfolio.md#equity-and-mark-to-market) สำหรับสูตร equity, การเลือกราคาและ xrate, metadata ของ snapshot
 และขอบเขตของ query กรณีไม่มีราคา
 
-## Precision และ settlement {#precision-and-settlement}
+## Precision และ settlement [#precision-and-settlement]
 
 PnL ของ position และ balance ของ account ที่คำนวณได้จะเก็บจำนวนที่ละเอียดกว่า display precision ของสกุลเงินไว้
 เพื่อให้กำไรและค่าธรรมเนียมเล็ก ๆ ยังคงใช้ในการคำนวณครั้งต่อไปได้
 
-### Cost basis และเศษคงเหลือ {#cost-basis-and-residuals}
+### Cost basis และเศษคงเหลือ [#cost-basis-and-residuals]
 
 การคำนวณทางการเงินใช้ checked domain type และ `Decimal`:
 
@@ -183,11 +185,11 @@ Decimal มี coefficient ขนาด 96 bit และสเกลสูงส
 หาก Decimal เก็บไว้ไม่ได้ แต่ operand ที่หายไปซึ่งมีขนาดอย่างน้อยหนึ่งหน่วยดั้งเดิมยังคงทำให้ล้มเหลว ดู
 [ข้อกำหนดการคำนวณฉบับเต็ม](positions.md#numerical-precision)
 
-### ตัวอย่างการคำนวณ {#worked-examples}
+### ตัวอย่างการคำนวณ [#worked-examples]
 
 ทั้งสองตัวอย่างใช้ instrument แบบ linear ที่มี multiplier เท่ากับหนึ่ง, ราคาเป็น USD และไม่มีค่าธรรมเนียม
 
-#### กำไรที่น้อยกว่าหนึ่งเซนต์ {#profit-below-a-cent}
+#### กำไรที่น้อยกว่าหนึ่งเซนต์ [#profit-below-a-cent]
 
 ซื้อ `0.01` หน่วยที่ `0.1234 USD` แล้วขายที่ `0.1235 USD`:
 
@@ -198,7 +200,7 @@ Decimal มี coefficient ขนาด 96 bit และสเกลสูงส
 การแสดงผลทศนิยมสองตำแหน่งจะเห็นเป็น `0.00 USD` แต่กำไรที่จัดเก็บไว้ยังคงใช้ในการคำนวณครั้งต่อไปได้
 หากปัดกระแสเงินสดแต่ละรายการเป็นเซนต์ กำไรนี้จะหายไป
 
-#### การปิดบางส่วนเมื่อราคาเฉลี่ยเป็นทศนิยมซ้ำ {#partial-closes-with-a-repeating-average}
+#### การปิดบางส่วนเมื่อราคาเฉลี่ยเป็นทศนิยมซ้ำ [#partial-closes-with-a-repeating-average]
 
 ซื้อสามหน่วยที่ `0.10 USD` และสี่หน่วยที่ `0.20 USD` ต้นทุนเปิดคือ `1.10 USD` ราคาเฉลี่ย `1.10 / 7` เป็นทศนิยมซ้ำ
 ปิดที่ `0.30 USD` ด้วยสอง fill ที่ precision ดั้งเดิมแบบมาตรฐาน:
@@ -213,7 +215,7 @@ Decimal มี coefficient ขนาด 96 bit และสเกลสูงส
 การปิดครั้งสุดท้ายใช้เศษทั้งสองส่วนนี้: PnL รวมคือ `2.10 - 1.10 = 1.00 USD` การทิ้ง PnL ส่วนที่เป็นเศษ หรือการนำ
 ราคาเฉลี่ยที่ปัดแล้วมาใช้ซ้ำ อาจทำให้เกิดการคลาดเคลื่อนสะสม (drift)
 
-### การ settle เงินสดของ venue {#venue-cash-settlement}
+### การ settle เงินสดของ venue [#venue-cash-settlement]
 
 กฎการ settle ของ venue กำหนดว่าจะปัดเงินสดที่บันทึกที่ใดและอย่างไร ซึ่งอาจต่างจาก PnL ภายใน เมื่อ
 `calculate_account_state=False` cash และ margin account จะข้ามการคำนวณ balance จาก fill และใช้ balance ที่ venue
@@ -228,12 +230,12 @@ Decimal มี coefficient ขนาด 96 bit และสเกลสูงส
 จากการปัดรายสัญญาเป็นการปัดราย transaction หรือราย position ตามความต้องการของลูกค้า การทำให้ตรงกับ clearing statement
 ต้องใช้กฎ settlement ของผลิตภัณฑ์นั้น PnL ที่ precision ดั้งเดิมเพียงอย่างเดียวไม่สามารถจำลองทุกข้อตกลงได้
 
-## Margin scope {#margin-scopes}
+## Margin scope [#margin-scopes]
 
 `MarginBalance` มีสี่ field ได้แก่ `initial`, `maintenance`, `currency` และ `InstrumentId` แบบ optional ซึ่งใช้เลือก
 หนึ่งในสอง scope
 
-### Scope ราย instrument {#per-instrument-scope}
+### Scope ราย instrument [#per-instrument-scope]
 
 `MarginBalance.instrument_id` ถูกตั้งเป็น instrument ที่ระบุ ใช้สำหรับ:
 
@@ -241,7 +243,7 @@ Decimal มี coefficient ขนาด 96 bit และสเกลสูงส
 - Margin ใน backtest หรือที่คำนวณขึ้น ซึ่ง `AccountsManager` คำนวณ margin แบบ local จาก order และ position
   ที่เปิดอยู่ราย instrument
 
-### Scope ระดับทั้ง account {#account-wide-scope}
+### Scope ระดับทั้ง account [#account-wide-scope]
 
 `MarginBalance.instrument_id` เป็น `None` รายการนี้ใช้ `currency` (สกุลเงินของหลักประกัน) เป็น key ใช้สำหรับ venue
 แบบ cross-margin ที่รายงานค่ารวมค่าเดียวต่อสกุลเงินหลักประกัน venue อาจส่งรายการระดับทั้ง account มาเพียงรายการเดียว
@@ -260,7 +262,7 @@ Adapter ที่ส่ง snapshot แบบบางส่วนต้อง�
 Balance ที่ event มีมาด้วยจะแทนที่รายการที่จัดเก็บไว้ของสกุลเงินนั้น ส่วนสกุลเงินที่ event ไม่ได้ระบุจะถูกคงไว้
 :::
 
-## Query API สำหรับ strategy {#strategy-query-api}
+## Query API สำหรับ strategy [#strategy-query-api]
 
 ใช้ query ที่ตรงกับรูปแบบการรายงานของ venue หาก venue รายงาน margin ราย instrument ให้ query ด้วย `InstrumentId`
 หากรายงาน margin ระดับทั้ง account ให้ query ด้วย `Currency`
@@ -274,7 +276,7 @@ Balance ที่ event มีมาด้วยจะแทนที่รา�
 Query แบบจุด (point query) จะไม่คืนค่า (none) เมื่อไม่มีรายการนั้น ส่วน query แบบผลรวมจะคืน `Money` เสมอ
 (เป็นศูนย์ในสกุลเงินนั้นหากไม่มีรายการที่ตรง)
 
-### Query ราย instrument (`MarginAccount`) {#per-instrument-queries-marginaccount}
+### Query ราย instrument (`MarginAccount`) [#per-instrument-queries-marginaccount]
 
 - `margin(instrument_id)`: คืน `MarginBalance` หรือไม่มีค่า
 - `initial_margin(instrument_id)`: คืน `Money` หรือไม่มีค่า
@@ -286,7 +288,7 @@ Query แบบจุด (point query) จะไม่คืนค่า (none) 
 Method เหล่านี้เห็นเฉพาะ store ราย instrument บน venue แบบ cross-margin จะคืน map ว่างหรือไม่มีค่า
 ให้ใช้ query ระดับทั้ง account ด้านล่างแทน
 
-### Query ระดับทั้ง account (`MarginAccount`) {#account-wide-queries-marginaccount}
+### Query ระดับทั้ง account (`MarginAccount`) [#account-wide-queries-marginaccount]
 
 - `account_margin(currency)`: คืน `MarginBalance` หรือไม่มีค่า
 - `account_initial_margin(currency)`: คืน `Money` หรือไม่มีค่า
@@ -295,7 +297,7 @@ Method เหล่านี้เห็นเฉพาะ store ราย instr
 - `account_initial_margins()`: map จาก `Currency` ไป `Money`
 - `account_maintenance_margins()`: map จาก `Currency` ไป `Money`
 
-### ผลรวม (`MarginAccount`) {#totals-marginaccount}
+### ผลรวม (`MarginAccount`) [#totals-marginaccount]
 
 Method เหล่านี้รวมค่าจากทั้งรายการราย instrument และรายการระดับทั้ง account สำหรับสกุลเงินที่ระบุ:
 
@@ -304,9 +306,9 @@ Method เหล่านี้รวมค่าจากทั้งราย�
 
 มีประโยชน์เมื่อ strategy เทรดบน venue ที่อาจมีทั้งสอง scope (เช่น isolated position ควบคู่กับหลักประกันแบบ cross-margin)
 
-### Query ระดับ portfolio {#portfolio-level-queries}
+### Query ระดับ portfolio [#portfolio-level-queries]
 
-#### Query ด้าน margin {#margin-queries}
+#### Query ด้าน margin [#margin-queries]
 
 - `portfolio.instrument_initial_margins` (รับ `venue` และ `account_id`): คืน map จาก `InstrumentId` ไป `Money` หรือไม่มีค่า
 - `portfolio.instrument_maintenance_margins` (รับ `venue` และ `account_id`): คืน map จาก `InstrumentId` ไป `Money` หรือไม่มีค่า
@@ -321,7 +323,7 @@ account เดียว ดังนั้นให้ส่ง `account_id` เ
 `portfolio.account(venue=venue).account_initial_margin(ccy)` account ที่ได้คืนมาเป็น **snapshot ที่แยกออกมา**
 และไม่สามารถแก้ไขสถานะของ Portfolio ได้
 
-#### Query ด้าน PnL และการประเมินมูลค่า {#pnl-and-valuation-queries}
+#### Query ด้าน PnL และการประเมินมูลค่า [#pnl-and-valuation-queries]
 
 Query ด้าน PnL, exposure, mark-to-market และ equity ทั้งหมดรับ `venue` และ `account_id` แบบ optional เพื่อจำกัดขอบเขต
 สำหรับ venue ที่มีหลาย account:
@@ -341,13 +343,13 @@ Query ด้าน PnL, exposure, mark-to-market และ equity ทั้ง�
 ดู [คู่มือ Portfolio](portfolio.md#equity-and-mark-to-market) สำหรับสูตร equity, ลำดับการ fallback ของราคา, พฤติกรรมการ
 แปลงเป็น base currency และตัวติดตามกรณีไม่มีราคาที่แจ้งเตือนเพียงครั้งเดียว
 
-## Margin model {#margin-models}
+## Margin model [#margin-models]
 
 NautilusTrader มี margin model ที่ยืดหยุ่นสำหรับเส้นทางแบบคำนวณ (backtest และ live strategy ที่รันด้วย
 `calculate_account_state=True` เพื่อ reconciliation) margin ที่ venue รายงานมาจะเข้าสู่ store `margins` หรือ
 `account_margins` ของ account โดยตรงโดยไม่ผ่าน model
 
-### ภาพรวม {#overview}
+### ภาพรวม [#overview]
 
 แต่ละ venue จัดการ leverage ต่างกัน:
 
@@ -358,7 +360,7 @@ Model ที่มีมาให้ทั้งสองตัวคำนว�
 ของ instrument ต่างกันเพียงว่า leverage ช่วยลดยอดจองหรือไม่ สำหรับ venue ที่ใช้ margin คงที่รายสัญญาจริง
 (CME / ICE) ให้ตั้ง `instrument.margin_init` และ `margin_maint` ให้เปอร์เซ็นต์ได้จำนวนเงินดอลลาร์ที่ต้องการ
 
-### การ netting ในโหมด HEDGING {#hedging-mode-netting}
+### การ netting ในโหมด HEDGING [#hedging-mode-netting]
 
 ภายใต้ `OmsType.HEDGING` fill แรกของ position ID ใหม่จะเปิด `Position` และ fill ต่อ ๆ มาจะอัปเดต position นั้นได้
 account จึงสามารถถือ sub-position ที่เปิดอยู่จำนวนมากของ instrument เดียวกันได้ accounts manager จะ net sub-position
@@ -377,9 +379,9 @@ iterate ของ cache
 เมื่อใช้ margin model และ leverage เดียวกัน maintenance margin ของ HEDGING และ NETTING จะตรงกันหากปริมาณสุทธิ
 และราคาเปิดเฉลี่ยที่รวมได้ตรงกัน margin ที่ต้องใช้จึงแปรผันตาม **exposure ทางเศรษฐกิจสุทธิ**
 
-### Model ที่มีให้ใช้ {#available-models}
+### Model ที่มีให้ใช้ [#available-models]
 
-#### `StandardMarginModel` {#standardmarginmodel}
+#### `StandardMarginModel` [#standardmarginmodel]
 
 ใช้ **เปอร์เซ็นต์คงที่โดยไม่หารด้วย leverage** ตรงกับพฤติกรรมของ broker แบบดั้งเดิม
 
@@ -388,7 +390,7 @@ iterate ของ cache
 
 **กรณีใช้งาน**: broker แบบดั้งเดิม (Interactive Brokers), forex broker ที่มี margin requirement คงที่
 
-#### `LeveragedMarginModel` {#leveragedmarginmodel}
+#### `LeveragedMarginModel` [#leveragedmarginmodel]
 
 หาร margin requirement **ด้วย leverage**
 
@@ -397,12 +399,12 @@ iterate ของ cache
 
 **กรณีใช้งาน**: crypto exchange ที่ลด margin ตาม leverage และ venue ที่ leverage มีผลต่อ margin requirement
 
-### พฤติกรรมเริ่มต้น {#default-behavior}
+### พฤติกรรมเริ่มต้น [#default-behavior]
 
 `MarginAccount` ใช้ `LeveragedMarginModel` เป็นค่าเริ่มต้น backtest เลือกใช้ `StandardMarginModel` ได้โดยส่ง model นี้
 ให้ `BacktestVenueConfig.margin_model` โดยตรง ดู [Backtesting](backtesting/accounts-and-margin.md#margin-models)
 
-### ตัวอย่างการคำนวณ: EUR/USD {#worked-example-eurusd}
+### ตัวอย่างการคำนวณ: EUR/USD [#worked-example-eurusd]
 
 - **Instrument**: EUR/USD
 - **ปริมาณ**: 100,000 EUR
@@ -418,18 +420,18 @@ iterate ของ cache
 
 บน account ขนาด $1,000: standard model จะบล็อก trade นี้ ส่วน leveraged model จะอนุญาต
 
-## ข้อตกลงสำหรับ adapter {#adapter-convention}
+## ข้อตกลงสำหรับ adapter [#adapter-convention]
 
 Live adapter แปลง response ของ venue เป็น instance ของ `AccountBalance` และ `MarginBalance` ข้อตกลงที่ผู้เขียน adapter
 ต้องปฏิบัติตาม:
 
-### การสร้าง `AccountBalance` {#building-accountbalance}
+### การสร้าง `AccountBalance` [#building-accountbalance]
 
 ควรใช้ derived constructor เพื่อให้การ clamp และ invariant `total == locked + free` ถูกบังคับใช้จากศูนย์กลาง การคำนวณ
 สาม field ด้วยตนเองแล้วส่งให้ `AccountBalance::new` เหมาะเฉพาะกับเส้นทางแบบ pass-through ที่ค่าทั้งสามเชื่อถือได้อยู่แล้ว
 (เช่น test)
 
-### การสร้าง `MarginBalance` {#building-marginbalance}
+### การสร้าง `MarginBalance` [#building-marginbalance]
 
 เลือก scope ให้ตรงกับสิ่งที่ venue รายงาน:
 
@@ -444,7 +446,7 @@ Live adapter แปลง response ของ venue เป็น instance ขอ�
 รายการระดับทั้ง account จะมี `instrument_id=None` และใช้ `currency` เป็น key
 :::
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Backtesting](backtesting/): starting balance, margin model และการตั้งค่า account เฉพาะของ backtest
 - [Portfolio](portfolio.md): PnL ระดับ portfolio, exposure และการแปลงสกุลเงิน

@@ -1,4 +1,6 @@
-# การ execute ด้วย bar (Bar-Based Execution)
+---
+title: "การ execute ด้วย bar (Bar-Based Execution)"
+---
 
 ข้อมูล bar บันทึกราคา open, high, low, close และ volume ของช่วงเวลาหนึ่ง แต่ไม่ได้บันทึกว่าแต่ละราคาเกิดขึ้นเมื่อใดภายในช่วงนั้น
 หรือ high เกิดก่อน low หรือไม่ ดังนั้นการ execute ด้วย bar จึงเป็นการจำลองเส้นทางราคาภายใน bar ที่สมเหตุสมผล
@@ -7,7 +9,7 @@
 NautilusTrader แปลง execution bar แต่ละอันให้เป็น market update สังเคราะห์สำหรับ order book ระดับ L1
 order ที่ค้างอยู่ (resting) จะถูก match ไปตามลำดับ update เหล่านั้นภายใน bar
 
-## ข้อกำหนดเรื่อง timestamp ของ bar {#bar-timestamp-convention}
+## ข้อกำหนดเรื่อง timestamp ของ bar [#bar-timestamp-convention]
 
 :::warning
 สำหรับการจำลอง execution ค่า timestamp ตอน initialize (`ts_init`) ของแต่ละ bar ต้องแทน
@@ -27,7 +29,7 @@ timestamp ของ event (`ts_event`) อาจแทนเวลาเปิ�
 record batch, เขียนลง catalog หรือเรียก `add_data()` และควรตรวจผลลัพธ์กับตัวอย่างเล็ก ๆ
 ก่อนรัน backtest
 
-## การประมวลผลข้อมูล bar {#processing-bar-data}
+## การประมวลผลข้อมูล bar [#processing-bar-data]
 
 การ execute ด้วย bar จะทำงานเฉพาะเมื่อ:
 
@@ -49,7 +51,7 @@ bar ที่ aggregate ภายใน และ bar ที่ส่งไป�
 ดังนั้น order ที่ค้างอยู่ตั้งแต่ต้น bar จึงสามารถ fill ที่จุด OHLC ระหว่างทางได้ ส่วน order ที่ submit
 จาก `on_bar` จะมาถึงหลังจากประมวลผลครบทั้งสี่จุดของ bar นั้นแล้วเท่านั้น
 
-## การจำลองราคา OHLC {#ohlc-price-simulation}
+## การจำลองราคา OHLC [#ohlc-price-simulation]
 
 engine แบ่ง volume ของ bar เท่า ๆ กันให้กับราคาทั้งสี่จุด เศษที่เหลือจะยกให้จุด close เพื่อให้ update สังเคราะห์
 รวมกันได้ volume ทั้งหมดเท่าเดิม หาก volume หนึ่งในสี่ต่ำกว่า `size_increment` ขั้นต่ำของ instrument
@@ -74,7 +76,7 @@ option `bar_adaptive_high_low_ordering` ของ venue ควบคุมเส
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-## จังหวะเวลาการ submit order {#order-submission-timing}
+## จังหวะเวลาการ submit order [#order-submission-timing]
 
 ลำดับ OHLC ของ bar N ทำงานก่อน `on_bar(N)` หากไม่มี latency model order ที่ submit จาก
 `on_bar` จะ settle ทันทีกับ book ที่เหลืออยู่ ณ close ของ bar N
@@ -100,7 +102,7 @@ strategy ใช้ open ของ bar ปัจจุบันจาก callback
 latency มักทำให้ settle กับสถานะ book ที่เกิดภายหลัง ไม่ใช่ open ถัดไป
 :::
 
-## จังหวะเวลาการ aggregate bar ภายใน {#internal-bar-aggregation-timing}
+## จังหวะเวลาการ aggregate bar ภายใน [#internal-bar-aggregation-timing]
 
 เมื่อ data engine aggregate time bar จาก tick จะมี timer ปิดแต่ละ bar ที่ขอบของช่วงเวลา
 ข้อมูลที่มี timestamp ตรงกันพอดีอาจถูกประมวลผลหลัง timer ปิด bar นั้น

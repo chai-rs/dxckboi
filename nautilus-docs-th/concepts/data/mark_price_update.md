@@ -1,9 +1,11 @@
-# MarkPriceUpdate
+---
+title: "MarkPriceUpdate"
+---
 
 `MarkPriceUpdate` แทน mark price ของ instrument โดย venue ประเภท derivatives มักใช้ mark price ในการคำนวณ
 margin, ตรวจสอบการ liquidation และคำนวณ unrealized PnL
 
-## Field {#fields}
+## Field [#fields]
 
 | Field           | Rust type      | Required/default | หมายเหตุ                                  |
 | --------------- | -------------- | ---------------- | ---------------------------------------- |
@@ -12,14 +14,14 @@ margin, ตรวจสอบการ liquidation และคำนวณ unre
 | `ts_event`      | `UnixNanos`    | Required         | Timestamp ของ event หน่วย nanosecond      |
 | `ts_init`       | `UnixNanos`    | Required         | Timestamp ตอน initialize หน่วย nanosecond |
 
-## พฤติกรรม {#behavior}
+## พฤติกรรม [#behavior]
 
 - Mark price จะถูก cache แยกตาม instrument เมื่อได้รับเข้ามา
 - Backtest สามารถป้อน mark price เข้าไปเพื่อให้พฤติกรรมของ margin และ PnL สอดคล้องกับ venue ที่ publish
   ราคาอ้างอิงแยกจาก trade
 - Catalog จัดเก็บ mark price พร้อม metadata ของ instrument ID และ price precision
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -37,7 +39,7 @@ let mark = MarkPriceUpdate::new(
 );
 ```
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [IndexPriceUpdate](index_price_update.md) อธิบายเรื่อง index reference price
 - [FundingRateUpdate](funding_rate_update.md) อธิบายเรื่อง metadata ของ funding สำหรับ perpetual

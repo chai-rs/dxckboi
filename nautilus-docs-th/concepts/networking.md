@@ -1,4 +1,6 @@
-# Networking
+---
+title: "Networking"
+---
 
 adapter ของ NautilusTrader ใช้ client กลางใน `nautilus-network` สำหรับ API แบบ request/response ผ่าน HTTP,
 สตรีม WebSocket และโปรโตคอล TCP ที่แบ่ง frame ด้วย suffix โดย client เหล่านี้เพิ่ม policy ระดับระบบเทรด
@@ -14,7 +16,7 @@ adapter ของ NautilusTrader ใช้ client กลางใน `nautilus-n
 คู่มือ [Adapters](adapters.md) อธิบายว่า client ของ venue แปลง transport เหล่านี้เป็นข้อความโดเมนของ
 Nautilus อย่างไร หน้านี้ครอบคลุมพฤติกรรมของ transport กลางที่อยู่ใต้ขอบเขตนั้น
 
-## HTTP client {#http-client}
+## HTTP client [#http-client]
 
 [`HttpClient`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/src/http/client.rs) ห่อ Hyper client ที่ใช้ซ้ำได้หนึ่งตัวและ rate limiter
 ที่ใช้ร่วมกันหนึ่งตัวขึ้นไป request จะรอ quota ทุกตัวที่เกี่ยวข้องก่อนที่ client ภายในจะสร้างและ execute request นั้น
@@ -44,7 +46,7 @@ client ชั้นนอกใช้ policy เรื่อง quota ส่ว�
 Rust API เปิดให้ใช้ `http::Method`, `http::StatusCode` และ `url::Url` request จะคืนค่า `HttpResponse` หรือ
 `HttpResponseStream` และเมื่อล้มเหลวจะคืน `HttpClientError`
 
-### Rate limiting และ request {#rate-limiting-and-requests}
+### Rate limiting และ request [#rate-limiting-and-requests]
 
 rate limiter ใช้ generic cell rate algorithm (GCRA) พร้อม quota ค่าเริ่มต้นและการ override ราย key ที่ไม่บังคับ
 request หนึ่งตัวสามารถมีหลาย key เช่น endpoint และขอบเขตของ order และจะรอทุก key พร้อมกัน การมีหลาย
@@ -55,7 +57,7 @@ client รองรับ header ค่าเริ่มต้นและร�
 `GET`, `POST`, `PUT`, `PATCH` และ `DELETE` timeout ระดับ client ใช้กับทุก request เว้นแต่ request นั้นจะระบุ
 timeout ของตัวเอง
 
-### การ route ผ่าน proxy {#proxy-routing}
+### การ route ผ่าน proxy [#proxy-routing]
 
 โดยค่าเริ่มต้น client จะใช้การตั้งค่า proxy จากสภาพแวดล้อม เมื่อ `use_system_proxy` อยู่ที่ค่าเริ่มต้น `true`
 และไม่ได้ระบุ `proxy_url` ไว้ request จะใช้ proxy ที่ระบุใน `HTTP_PROXY`, `HTTPS_PROXY` หรือ `ALL_PROXY`
@@ -78,7 +80,7 @@ HTTP traffic แบบ plaintext ทั้งหมดและ CONNECT tunnel �
 ลองใหม่ได้ด้วย [`RetryManager`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/src/retry.rs) แต่ adapter ต้องตัดสินใจเองว่า error ของ
 venue และงานใดบ้างที่ลองใหม่ได้อย่างปลอดภัย
 
-### การใช้การเชื่อมต่อซ้ำและขอบเขตของ response {#connection-reuse-and-response-bounds}
+### การใช้การเชื่อมต่อซ้ำและขอบเขตของ response [#connection-reuse-and-response-bounds]
 
 `HttpClient` สำหรับ production แต่ละตัวเปิด `TCP_NODELAY`, เก็บการเชื่อมต่อที่ว่างได้สูงสุด 32 ตัวต่อ host
 และเก็บการเชื่อมต่อที่ว่างไว้ได้นานสุด 60 วินาที การเชื่อมต่อ HTTP/2 จะส่ง keepalive probe ทุก 30 วินาทีแม้ขณะ
@@ -95,7 +97,7 @@ response stream โดยไม่รวม userinfo, path, query และ frag
 `HttpClient::builder().redact_url(true)` เพื่อละ origin ที่เพิ่มเข้ามา request และข้อความวินิจฉัยจากชั้นล่างจะไม่
 เปลี่ยน error ของใบรับรอง TLS และ log ของ dependency ยังอาจมีชื่อ host อยู่
 
-#### Response แบบ buffer {#buffered-responses}
+#### Response แบบ buffer [#buffered-responses]
 
 request แบบ buffer จะประกาศรองรับ gzip เว้นแต่ header ค่าเริ่มต้นหรือราย request จะตั้ง `Accept-Encoding` ไว้
 client จะถอดรหัส gzip และลบ `Content-Encoding` และ `Content-Length` ออกจาก header ที่เลือก encoding ที่ไม่
@@ -107,7 +109,7 @@ body ที่ได้รับและ body ที่ถอดรหัสแ
 คลายการบีบอัดด้วย ตั้ง limit ของข้อมูลที่ถอดรหัสแล้วด้วย `HttpClient::builder().max_decompressed_bytes(...)`
 โดย Tardis ตั้งไว้ที่ 1 GiB
 
-#### Response แบบสตรีม {#streaming-responses}
+#### Response แบบสตรีม [#streaming-responses]
 
 `HttpClient::get_stream` คืน status และ chunk ดิบโดยไม่ buffer หรือถอดรหัส body header ค่าเริ่มต้นยังใช้อยู่
 แต่จะไม่เพิ่ม `Accept-Encoding` หรือ limit ขนาด body รวม deadline สัมบูรณ์หนึ่งค่าครอบคลุมทั้ง header และ body
@@ -118,7 +120,7 @@ body ที่ได้รับและ body ที่ถอดรหัสแ
 สตรีมลงไฟล์ชั่วคราวก่อนเปลี่ยนชื่อ timeout ของ header และ timeout ต่อการอ่านแต่ละครั้งที่แยกกันทำให้การดาวน์โหลด
 ที่ยังคืบหน้าอยู่ใช้เวลารวมเกิน timeout ที่ตั้งไว้ได้
 
-### Benchmark ของ HTTP transport {#http-transport-benchmarks}
+### Benchmark ของ HTTP transport [#http-transport-benchmarks]
 
 [HTTP comparison](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/benches/BENCHMARKS.md#http-transport-comparison) ซึ่งวัดเมื่อ
 2026-09-09 บน AMD Ryzen Threadripper 9980X เปรียบเทียบ client Reqwest 0.13.4 ตัวเดิมกับ implementation ที่
@@ -148,7 +150,7 @@ benchmark นี้ทดสอบ request ที่สมบูรณ์แล�
 HTTP/1.1 บน loopback โดยไม่รวม TLS, HTTP/2, proxy, latency ของ WAN และการ parse ของ adapter ผลลัพธ์จึง
 ไม่ได้ยืนยันว่าเร็วขึ้นในระดับ production ทั้งหมด
 
-### Flow-control window {#flow-control-windows}
+### Flow-control window [#flow-control-windows]
 
 flow control ของ HTTP/2 จำกัดปริมาณข้อมูล response ที่ server ส่งได้ก่อนที่ client จะ acknowledge แต่ละ
 round trip ส่งได้มากสุดหนึ่ง window ดังนั้นบนเส้นทางที่ยาว window จะเป็นตัวกำหนดความเร็วดาวน์โหลดแทนลิงก์
@@ -201,7 +203,7 @@ window จะจำกัด throughput เฉพาะเมื่อเล็�
 [HTTP/2 flow-control benchmark](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/benches/BENCHMARKS.md#http2-flow-control-windows)
 มีตารางฉบับเต็ม, วิธีการ และผลการรันกับ Cloudflare
 
-## WebSocket client {#websocket-client}
+## WebSocket client [#websocket-client]
 
 [`WebSocketClient`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/src/websocket/client.rs) แยกวงจรชีวิตของการเชื่อมต่อออกจากการส่ง
 frame โดย controller เป็นเจ้าของการเปลี่ยนสถานะ reconnect และ shutdown, writer หนึ่งตัวจัดลำดับการเข้าถึง
@@ -244,7 +246,7 @@ flowchart LR
 task ของวงจรชีวิตใช้ interface ของ transport แบบกลางเพียงตัวเดียว adapter จึงไม่ต้องพึ่งไลบรารี WebSocket
 ตัวใดตัวหนึ่งโดยเฉพาะ
 
-### โหมดการเชื่อมต่อ {#connection-modes}
+### โหมดการเชื่อมต่อ [#connection-modes]
 
 | โหมด    | ผู้เป็นเจ้าของ reader     | Reconnect อัตโนมัติ                | พฤติกรรมด้าน liveness                               |
 | ------- | ---------------------- | ------------------------------ | ---------------------------------------------- |
@@ -254,7 +256,7 @@ task ของวงจรชีวิตใช้ interface ของ transport
 handler mode เป็นตัวเลือกปกติสำหรับการเชื่อมต่อของ adapter ที่อยู่ยาว ส่วน stream mode เหมาะกับ adapter ที่ต้องการ
 backpressure ของ stream โดยตรง หรือมีลำดับการ reconnect เฉพาะโปรโตคอลของตัวเอง
 
-### Transport backend {#transport-backends}
+### Transport backend [#transport-backends]
 
 abstraction `WsTransport` ทำให้ frame แบบ text, binary, Ping, Pong และ Close รวมถึง error ของ transport อยู่ใน
 รูปแบบเดียวกัน `WebSocketConfig.backend` ใช้เลือก backend ตอน runtime:
@@ -272,7 +274,7 @@ URL ของ SOCKS proxy ที่รู้จักจะ log คำเตื�
 WebSocket ส่วน URL ของ proxy ที่ผิดรูปแบบและ scheme อื่นที่ไม่รองรับจะคืนค่า error
 :::
 
-### ขีดจำกัดขนาดขาเข้า {#inbound-size-limits}
+### ขีดจำกัดขนาดขาเข้า [#inbound-size-limits]
 
 `WebSocketConfig.max_message_size_bytes` และ `WebSocketConfig.max_frame_size_bytes` จำกัดขนาด payload ของ
 message และ frame ขาเข้าสำหรับการเชื่อมต่อหนึ่งตัว หากไม่ตั้งไว้จะใช้ config ค่าเริ่มต้นปัจจุบันของแต่ละ backend:
@@ -289,7 +291,7 @@ backend:
 - **Sockudo**: frame ที่เกินเพดาน frame จะล้มเหลวก่อนด้วย `FrameTooLarge` รวมถึง frame เล็กที่ถูก buffer ไว้ครบ
 - **Tungstenite**: การเกินขีดจำกัดของ frame ทุกครั้งจะถูกรายงานเป็น `MessageTooLarge`
 
-### Liveness และการกู้คืน {#liveness-and-recovery}
+### Liveness และการกู้คืน [#liveness-and-recovery]
 
 heartbeat ที่ตั้งค่าไว้จะส่ง Ping ตาม RFC 6455 หรือข้อความ text เฉพาะของ venue ตามช่วงเวลาคงที่ การตั้ง
 heartbeat ยังเปิด deadline ของการตอบกลับด้วย: client คาดหวังว่า peer จะตอบ ดังนั้นหากไม่ได้ตั้ง
@@ -337,7 +339,7 @@ client จะทิ้ง buffer ที่เหลือ ส่วน `Subscrip
 subscribe และกำลังรอ unsubscribe สำหรับการ resubscribe ที่ adapter เป็นผู้ขับเคลื่อน โดยไม่ส่งข้อความโปรโตคอล
 เองเลย
 
-### การ throttle การ reconnect {#reconnect-throttling}
+### การ throttle การ reconnect [#reconnect-throttling]
 
 เมื่อมีการลอง reconnect ครบสามครั้งภายในหน้าต่างเลื่อนสองนาที การลองครั้งถัดๆ ไปแต่ละครั้งจะรออย่างน้อยหนึ่งวินาที
 ไม่ว่าจะตั้ง backoff ไว้อย่างไร หน้าต่างนี้อิงเวลาล้วนๆ การเชื่อมต่อตัวแทนที่อยู่ได้ผ่านเกณฑ์ความเสถียรยังคงรีเซ็ต
@@ -349,7 +351,7 @@ venue จำกัดอัตราการเชื่อมต่อให�
 กระทบทุก client หลัง address นั้น การลองสามครั้งแรกในหน้าต่างใดๆ จะไม่มี delay จากการ throttle เพิ่ม แต่ backoff
 ที่ตั้งไว้ยังมีผล การหลุดครั้งเดียวยังทำให้ reconnect ครั้งแรกทันทีได้
 
-### การรายงานสถานะและการ reconnect แบบระบุชัดเจน {#state-reporting-and-explicit-reconnect}
+### การรายงานสถานะและการ reconnect แบบระบุชัดเจน [#state-reporting-and-explicit-reconnect]
 
 client ที่ตั้งค่า `SocketStateSink` ไว้จะ publish edge ของความพร้อมใช้งาน `Connected` และ `Disconnected`
 ตามลำดับ:
@@ -371,7 +373,7 @@ callback ของ sink ทำงานแบบ synchronous และจัด�
 คำขอที่ได้รับการยอมรับจะทำให้สถานะการยืนยันตัวตนที่ลงทะเบียนไว้เป็นโมฆะ และ publish `Disconnected` ก่อนที่ตัว
 แทนที่จะเริ่มใช้งานได้ stream mode จะรายงาน `Unsupported` เพราะ reader เป็นของผู้เรียก
 
-### ความหมายของการส่ง {#send-semantics}
+### ความหมายของการส่ง [#send-semantics]
 
 การส่ง text และ binary ของแอปพลิเคชันจะรอ key ของ rate limit และรอให้มีการเชื่อมต่อที่ใช้งานอยู่ method การส่ง
 ปกติจะคืนค่าหลังนำ frame เข้าคิว ดังนั้น **การสำเร็จไม่ได้พิสูจน์ว่าส่งถึงแล้ว**
@@ -391,7 +393,7 @@ ownership เปลี่ยนไป และจะไม่ replay บนก�
 แบบไม่ไตร่ตรอง
 :::
 
-### ความจุของ writer {#writer-capacity}
+### ความจุของ writer [#writer-capacity]
 
 `WebSocketConfig::writer_capacity` จำกัดจำนวนข้อความปกติรวมกันทั้งในคิวของ writer, การเขียนที่กำลังดำเนินอยู่
 และ reconnect buffer โดยมีค่าเริ่มต้น 1,024 ข้อความ
@@ -400,7 +402,7 @@ ownership เปลี่ยนไป และจะไม่ replay บนก�
 ดำเนินต่อได้เมื่อการ replay ใช้โควตาปกติจนเต็ม โควตาที่เต็มจะปฏิเสธการส่งใหม่ด้วย `SendError::BufferFull` ก่อน
 เข้าคิว ขีดจำกัดเหล่านี้จำกัด **จำนวนข้อความ ไม่ใช่จำนวนไบต์ของ payload**
 
-### Benchmark ของ backend {#backend-benchmarks}
+### Benchmark ของ backend [#backend-benchmarks]
 
 [WebSocket benchmark](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/benches/BENCHMARKS.md) วัดเมื่อ 2026-07-29 ผลลัพธ์ขนาด 512 B
 ต่อไปนี้เป็นค่ามัธยฐานของการรันติดกันสามครั้งบน host AMD Ryzen Threadripper 9980X เครื่องเดียวกัน:
@@ -421,7 +423,7 @@ ownership เปลี่ยนไป และจะไม่ replay บนก�
 latency ภายนอก, traffic ของ keepalive และวงจรชีวิตของ client ที่ reconnect การวัด WebSocket เหล่านี้ไม่ครอบคลุม
 HTTP หรือ raw TCP client และค่าสัมบูรณ์ควรเปรียบเทียบบนเครื่องเดียวกันเท่านั้น
 
-## Raw TCP socket client {#raw-tcp-socket-client}
+## Raw TCP socket client [#raw-tcp-socket-client]
 
 [`SocketClient`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/src/socket/client.rs) รองรับสตรีมไบต์ทั้งแบบ plain และ TLS สำหรับโปรโตคอล
 ที่แบ่งขอบเขตข้อความด้วย suffix คงที่ controller ประสานการเชื่อมต่อ, reader หนึ่งตัวแยก frame ขาเข้า และ writer
@@ -458,7 +460,7 @@ flowchart LR
 
 writer เป็นเจ้าของ framing และลำดับการ replay ส่วน adapter จะได้รับข้อความที่สมบูรณ์โดยไม่มี suffix ที่ตั้งค่าไว้
 
-### Framing และ liveness {#framing-and-liveness}
+### Framing และ liveness [#framing-and-liveness]
 
 suffix ต้องมีอย่างน้อยหนึ่งไบต์และใช้ทั้งสองทิศทาง reader จะเก็บ frame ที่ยังไม่ครบไว้ข้ามการอ่านแต่ละครั้ง และตัด
 suffix ออกก่อนเรียก callback ระหว่างที่ session ยังใช้งานอยู่ reader จะ emit ข้อความที่สมบูรณ์ตามลำดับที่มาถึง
@@ -473,7 +475,7 @@ heartbeat เมื่อตั้ง heartbeat ไว้ มิฉะนั้�
 
 socket จะเปิด `TCP_NODELAY` เพื่อเลี่ยง delay จาก Nagle สำหรับข้อความโปรโตคอลขนาดเล็ก
 
-### Policy ด้านการเชื่อมต่อและ TLS {#connection-and-tls-policy}
+### Policy ด้านการเชื่อมต่อและ TLS [#connection-and-tls-policy]
 
 client รับ input แบบ `host:port` หรือ URL และรองรับโหมด plain หรือ TLS โดย TLS ใช้ web PKI root มาตรฐาน
 directory ของใบรับรองสามารถเพิ่ม root ที่เชื่อถือ และเมื่อมีใบรับรองกับ private key ที่ตรงกัน จะใช้เป็น identity
@@ -487,7 +489,7 @@ exponential backoff
 รีเซ็ตรอบการ reconnect และการ throttle การ reconnect แบบเดียวกันจะจำกัดอัตราการลองเมื่อ reconnect สลับไปมา
 state sink ที่ไม่บังคับจะรายงานการสูญเสียและการกู้คืนการเชื่อมต่อในเชิงความหมาย
 
-### การรายงานสถานะและการ reconnect แบบระบุชัดเจน {#state-reporting-and-explicit-reconnect-1}
+### การรายงานสถานะและการ reconnect แบบระบุชัดเจน [#state-reporting-and-explicit-reconnect-1]
 
 `SocketStateSink` ที่ไม่บังคับมีสัญญาเรื่องความพร้อมใช้งานเหมือนกับ WebSocket client โดยจะ publish `Connected`
 หลังการเชื่อมต่อครั้งแรกสำเร็จ, `Disconnected` เมื่อ transport ที่ใช้งานอยู่เข้าสู่การ reconnect และ `Connected`
@@ -500,7 +502,7 @@ state sink ที่ไม่บังคับจะรายงานการ
 คำขอที่ได้รับการยอมรับจะ publish `Disconnected` ก่อนปลุก controller จากนั้นการ replay และลำดับของ buffer ตาม
 ปกติของการ reconnect จะมีผลกับตัวแทนที่
 
-### ขอบเขตของการ replay และการส่ง {#replay-and-delivery-boundaries}
+### ขอบเขตของการ replay และการส่ง [#replay-and-delivery-boundaries]
 
 ระหว่าง reconnect writer จะ buffer ข้อความแอปพลิเคชันตามลำดับ FIFO การกู้คืนเป็นไปดังนี้:
 
@@ -548,14 +550,14 @@ sequenceDiagram
 การส่งแบบถาวรหรือ exactly-once ต้องบังคับการรับประกันเหล่านั้นในชั้นที่อยู่เหนือ socket client
 :::
 
-### ความจุของ writer {#writer-capacity-1}
+### ความจุของ writer [#writer-capacity-1]
 
 `SocketConfig::writer_capacity` จำกัดจำนวนรวมของข้อความที่อยู่ในคิว, กำลังส่ง และรอ replay โดยมีค่าเริ่มต้น
 1,024 เมื่อเต็มแล้ว writer จะปฏิเสธการส่งใหม่ด้วย `SendError::BufferFull` รวมถึงการส่งผ่าน
 `SocketClient::writer_tx` ข้อความที่ได้รับแล้วจะคง policy การ replay ของตัวเองไว้ ขีดจำกัดนี้จำกัดจำนวนข้อความ
 ไม่ใช่จำนวนไบต์ของ payload
 
-## TCP socket option {#tcp-socket-options}
+## TCP socket option [#tcp-socket-options]
 
 WebSocket และ raw TCP socket client ใช้ option ชุดเดียวกันกับการเชื่อมต่อขาออกทุกตัว รวมถึง hop ไปยัง HTTP
 `CONNECT` proxy ส่วน HTTP client ใช้ Hyper connector แยกต่างหากที่เปิด `TCP_NODELAY`
@@ -581,14 +583,14 @@ option เหล่านี้จับการเชื่อมต่อท�
 ไม่ต้องตั้งค่า และยังจำกัดการเชื่อมต่อที่ reader task หยุดคืบหน้าได้ socket ที่ปฏิเสธ option ใดยังใช้งานได้ ความ
 ล้มเหลวจึงถูก log ไว้และการเชื่อมต่อดำเนินต่อไป
 
-## การทดสอบ {#testing}
+## การทดสอบ [#testing]
 
 crate network แยกการตรวจอัลกอริทึมออกจาก I/O ของระบบปฏิบัติการและโทโพโลยีความล้มเหลวแบบจำลอง เพื่อให้
 ความล้มเหลวอยู่ในขอบเขตเฉพาะจุด invariant ของ state machine ควรล้มเหลวได้โดยไม่ต้องมี socket พฤติกรรมบน wire
 ควรล้มเหลวเมื่อทดสอบกับ peer ขนาดเล็กบน loopback และ race ของการ reconnect ควรล้มเหลวภายใต้ตารางเวลาเครือข่าย
 ที่ทำซ้ำได้
 
-### Unit test และ component test {#unit-and-component-tests}
+### Unit test และ component test [#unit-and-component-tests]
 
 test ที่อยู่ข้าง implementation ครอบคลุมการตรวจสอบ config, การเปลี่ยนสถานะ, rate limit, backoff, งบการลองใหม่,
 framing, การแปลง transport, การยืนยันตัวตน, สถานะ subscription และ policy ของ reconnect buffer logic ล้วนใช้
@@ -603,7 +605,7 @@ raw TCP ครอบคลุมการส่งพร้อมกัน, live
 แบบ mutual TLS ที่สมบูรณ์ ชุด integration test บน loopback แยกต่างหากทดสอบเส้นทาง HTTP `CONNECT` proxy ของ
 WebSocket สำหรับ upstream แบบ `ws://` ธรรมดา
 
-### Property test {#property-tests}
+### Property test [#property-tests]
 
 [`proptest`](https://github.com/proptest-rs/proptest) สร้างค่าและ trace ของการดำเนินการสำหรับ invariant ที่กรณี
 ตัวอย่างไล่ครอบคลุมไม่ได้ ชุด test เปรียบเทียบการตัดสินใจของ GCRA กับ reference model และตรวจขอบเขตของ backoff
@@ -611,7 +613,7 @@ WebSocket สำหรับ upstream แบบ `ws://` ธรรมดา
 การยืนยันตัวตน, subscription และ reconnect buffer ชุด test ที่เลือกไว้จะเก็บความล้มเหลวที่ย่อแล้วไว้ใน
 `crates/network/proptest-regressions` เพื่อให้กรณีที่ค้นพบกลายเป็น regression test ถาวร
 
-### การจำลองเครือข่ายแบบกำหนดผลได้ {#deterministic-network-simulation}
+### การจำลองเครือข่ายแบบกำหนดผลได้ [#deterministic-network-simulation]
 
 test ด้วย [`turmoil`](https://crates.io/crates/turmoil) จะ compile raw TCP และ WebSocket client ตัวที่ใช้ใน
 production เข้ากับ TCP type แบบจำลองผ่านรอยต่อ `net` ของ crate seed คงที่ทำให้ความล้มเหลวทำซ้ำได้ การรันแบบ

@@ -1,6 +1,8 @@
-# Adapters
+---
+title: "Adapters"
+---
 
-## บทนำ {#introduction}
+## บทนำ [#introduction]
 
 คู่มือนี้ใช้สำหรับสร้างหรือขยาย adapter แบบ Rust-native สำหรับ NautilusTrader โดย adapter เชื่อมต่อ
 แพลตฟอร์มเข้ากับ venue และผู้ให้บริการข้อมูล รักษา semantics ของ venue สร้าง domain event ของ Nautilus
@@ -28,14 +30,14 @@ execution client ของแพลตฟอร์มใน Rust
 - **ตัวอย่าง (examples)** แสดง implementation ที่ดีแบบหนึ่งโดยไม่บังคับ
 - **ข้อยกเว้น (exceptions)** ใช้ได้เมื่อ semantics ของ venue หรือขอบเขตของโปรโตคอลบังคับให้ต้องทำเช่นนั้น
 
-## Conformance {#conformance}
+## Conformance [#conformance]
 
 adapter ถือว่า conform เมื่อเป็นไปตามกฎแต่ละข้อด้านล่างที่เกี่ยวข้อง หรือมีการบันทึกข้อยกเว้นไว้ ให้ระบุ
 พฤติกรรมของ venue ที่ทำให้ต้องมีข้อยกเว้นนั้น เก็บข้อยกเว้นไว้ภายใน adapter และเพิ่ม test ที่จะ
 fail หาก venue ไม่ต้องการข้อยกเว้นนั้นอีกต่อไป [Phase 7](#phase-7-prove-conformance) เรียงลำดับงาน
 ที่ใช้พิสูจน์ conformance
 
-### พื้นฐานของ adapter {#adapter-foundations}
+### พื้นฐานของ adapter [#adapter-foundations]
 
 | กฎ                                                                                              | ใช้กับ                |
 | ----------------------------------------------------------------------------------------------- | -------------------- |
@@ -46,7 +48,7 @@ fail หาก venue ไม่ต้องการข้อยกเว้น�
 | [การ model payload ของ venue และ precision](#modeling-venue-payloads)                           | ทุก adapter           |
 | [Client trait และ factory](#client-traits-and-factories-datars-executionrs-factoriesrs)         | ทุก adapter           |
 
-### Runtime และวงจรชีวิตของ client {#runtime-and-client-lifecycle}
+### Runtime และวงจรชีวิตของ client [#runtime-and-client-lifecycle]
 
 | กฎ                                                      | ใช้กับ                         |
 | ------------------------------------------------------- | ----------------------------- |
@@ -56,7 +58,7 @@ fail หาก venue ไม่ต้องการข้อยกเว้น�
 | [การจัดการ task](#task-management)                      | ทุก adapter                    |
 | [Deterministic simulation](#deterministic-simulation)   | adapter ที่มีการดูแลรักษา       |
 
-### Execution และ reconciliation {#execution-and-reconciliation}
+### Execution และ reconciliation [#execution-and-reconciliation]
 
 | กฎ                                                                                                    | ใช้กับ             |
 | ----------------------------------------------------------------------------------------------------- | ----------------- |
@@ -71,7 +73,7 @@ fail หาก venue ไม่ต้องการข้อยกเว้น�
 | [การตั้งชื่อประเภทหลักฐาน](#naming-the-evidence-classes)                                                 | execution client  |
 | [Diagnostics และเหตุผลที่แสดงต่อ strategy](#separate-diagnostics-from-strategy-facing-reasons)           | execution client  |
 
-### Transport และ streaming {#transport-and-streaming}
+### Transport และ streaming [#transport-and-streaming]
 
 | กฎ                                                                                | ใช้กับ                                  |
 | --------------------------------------------------------------------------------- | -------------------------------------- |
@@ -89,7 +91,7 @@ fail หาก venue ไม่ต้องการข้อยกเว้น�
 [ข้อกำหนดการทดสอบ execution](spec_exec_testing.md) รวบรวม scenario ที่ใช้พิสูจน์
 contract เหล่านี้กับ venue จริง
 
-### Baseline ร่วม {#shared-baseline}
+### Baseline ร่วม [#shared-baseline]
 
 ให้ใช้ implementation ร่วมของแต่ละส่วนด้านล่าง จากนั้นจึงเลือกโครงสร้าง state ใดก็ได้ที่เป็นไปตาม contract ของมัน
 type ร่วมเป็นผู้ถือ contract และทำให้พฤติกรรมเทียบกันได้ข้าม venue ส่วนโครงสร้างที่สร้างขึ้นเองต้องพิสูจน์
@@ -130,7 +132,7 @@ venue อาจส่งค่าที่เป็นค่าไม่ต่�
 code ของ venue และ semantics ของ rate limit แตกต่างกัน แต่กลไกร่วมที่อยู่รอบ ๆ ไม่ใช่ ดู
 [การจัดการ error และ retry logic](#error-handling-and-retry-logic) สำหรับทั้งสองส่วน
 
-### Deterministic simulation {#deterministic-simulation}
+### Deterministic simulation [#deterministic-simulation]
 
 adapter ที่มีการดูแลรักษาทุกตัว ซึ่งคือ adapter ระดับ Official ตาม
 [ADAPTERS.md](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/ADAPTERS.md#adapter-tiers) ต้องเป็นไปตาม
@@ -162,7 +164,7 @@ adapter ใหม่พิสูจน์ contract ตั้งแต่ transpo
 
 อย่าสร้าง abstraction ร่วมจนกว่าจะมี adapter ตัวที่สองพิสูจน์ว่าต้องการขอบเขตเดียวกัน
 
-## โครงสร้างของ adapter {#structure-of-an-adapter}
+## โครงสร้างของ adapter [#structure-of-an-adapter]
 
 Rust crate เป็นแหล่งความจริง (source of truth) ของพฤติกรรมโปรโตคอล โดยทั่วไป adapter จะแยก
 ส่วนรับผิดชอบเหล่านี้ออกจากกัน:
@@ -227,7 +229,7 @@ adapter ต้องการ:
 ครอบคลุมหลาย endpoint ได้เมื่อ semantics ของ request และ state ยังเหมือนกัน ให้ยึดตามขอบเขตจริงของ
 venue และวางพฤติกรรมร่วมไว้เหนือการแยกเหล่านั้น
 
-### การเชื่อมต่อกับ repository {#repository-and-python-wiring}
+### การเชื่อมต่อกับ repository [#repository-and-python-wiring]
 
 adapter crate ใหม่ต้องถูกค้นพบได้โดย build surface แต่ละจุดที่เป็นเจ้าของมัน:
 
@@ -237,14 +239,14 @@ adapter crate ใหม่ต้องถูกค้นพบได้โดย
 | Workspace test inventory      | เพิ่ม crate ลงใน `ADAPTER_CRATES` ใน [`Makefile`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/Makefile)                                          | [workspace coverage check](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/scripts/ci/check-workspace-test-coverage.sh) กำหนดให้มี test inventory หนึ่งชุด |
 | User guide                    | เพิ่ม integration guide เฉพาะ capability ที่ adapter เปิดให้ใช้                                               | documentation check ครอบคลุม surface นี้                                                                     |
 
-## ลำดับการ implement adapter {#adapter-implementation-sequence}
+## ลำดับการ implement adapter [#adapter-implementation-sequence]
 
 ใช้ phase เหล่านี้เพื่อจัดระเบียบงาน phase อธิบายความสัมพันธ์ของการพึ่งพา ไม่ใช่ gate ของการ release
 adapter ที่มีเฉพาะ market data จะข้ามส่วน execution ไป และ adapter สามารถทำผลิตภัณฑ์หนึ่งให้เสร็จก่อนเริ่ม
 อีกผลิตภัณฑ์ได้ ให้ปรับ capability matrix ให้เป็นปัจจุบันตลอดการทำงาน แทนที่จะรอถึง phase
 เอกสารสุดท้าย ข้าม phase และขั้นตอนที่ไม่เกี่ยวกับ adapter ได้
 
-### Phase 0: กำหนดขอบเขต {#phase-0-define-scope}
+### Phase 0: กำหนดขอบเขต [#phase-0-define-scope]
 
 | Step | Component           | Work                                                                                                   |
 | ---- | ------------------- | ------------------------------------------------------------------------------------------------------ |
@@ -256,7 +258,7 @@ adapter ที่มีเฉพาะ market data จะข้ามส่ว�
 
 **Exit**: integration guide มี capability matrix เบื้องต้น, ช่องว่างที่ทราบ และแผนการทดสอบ
 
-### Phase 1: สร้างแกนของโปรโตคอล {#phase-1-build-the-protocol-core}
+### Phase 1: สร้างแกนของโปรโตคอล [#phase-1-build-the-protocol-core]
 
 | Step | Component             | Work                                                                                                                       |
 | ---- | --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
@@ -273,7 +275,7 @@ adapter ที่มีเฉพาะ market data จะข้ามส่ว�
 **Exit**: crate compile ผ่าน, fixture ของโปรโตคอล parse ได้, signing vector ที่เกี่ยวข้องผ่าน และ request แบบ mock หรือแบบ
 ควบคุมได้ทำ authentication ที่จำเป็นได้ครบและแลกเปลี่ยน message ดิบของ venue ได้
 
-### Phase 2: Implement instrument {#phase-2-implement-instruments}
+### Phase 2: Implement instrument [#phase-2-implement-instruments]
 
 | Step | Component          | Work                                                                                                  |
 | ---- | ------------------ | ----------------------------------------------------------------------------------------------------- |
@@ -285,7 +287,7 @@ adapter ที่มีเฉพาะ market data จะข้ามส่ว�
 **Exit**: fixture ที่แตกต่างกันครอบคลุมทุกกลุ่ม instrument ที่รองรับ, definition ที่ไม่ถูกต้อง fail
 อย่างชัดเจน และ data client emit หรือคืนค่า instrument ของ Nautilus ที่ครบถ้วน
 
-### Phase 3: Implement market data {#phase-3-implement-market-data}
+### Phase 3: Implement market data [#phase-3-implement-market-data]
 
 เริ่มจาก public stream หนึ่งตัวและ instrument หนึ่งตัว ก่อนจะขยายไปยังหลายผลิตภัณฑ์หรือหลาย endpoint
 
@@ -300,7 +302,7 @@ adapter ที่มีเฉพาะ market data จะข้ามส่ว�
 **Exit**: unit test และ mock transport test พิสูจน์ domain event ที่ครบถ้วนสำหรับ matrix ของ request และ
 subscription ที่รองรับ
 
-### Phase 4: Implement execution {#phase-4-implement-execution}
+### Phase 4: Implement execution [#phase-4-implement-execution]
 
 สร้าง account state และ reconciliation ให้เรียบร้อยก่อนเปิดให้ส่ง order
 
@@ -316,7 +318,7 @@ subscription ที่รองรับ
 **Exit**: mock transport test ครอบคลุมทุกคำสั่งที่รองรับ, การ reject ที่ชัดเจน, การส่งที่ไม่แน่นอน
 (uncertain transmission), update ที่ซ้ำหรือผิดลำดับ และ reconciliation ตอน startup
 
-### Phase 5: เพิ่ม capability เสริมของ venue {#phase-5-add-optional-venue-capabilities}
+### Phase 5: เพิ่ม capability เสริมของ venue [#phase-5-add-optional-venue-capabilities]
 
 เพิ่มส่วนเหล่านี้หลังจากวงจรชีวิตพื้นฐานเสถียรแล้วเท่านั้น
 
@@ -331,7 +333,7 @@ subscription ที่รองรับ
 **Exit**: capability เสริมแต่ละตัวทดสอบได้อย่างอิสระ และไม่ทำให้เส้นทางพื้นฐานที่มีอยู่
 อ่อนแอลง
 
-### Phase 6: ทำ factory และ projection ให้ครบ {#phase-6-complete-factories-and-projection}
+### Phase 6: ทำ factory และ projection ให้ครบ [#phase-6-complete-factories-and-projection]
 
 | Step | Component             | Work                                                                                                |
 | ---- | --------------------- | --------------------------------------------------------------------------------------------------- |
@@ -340,7 +342,7 @@ subscription ที่รองรับ
 
 **Exit**: Rust factory test ผ่าน
 
-### Phase 7: พิสูจน์ conformance {#phase-7-prove-conformance}
+### Phase 7: พิสูจน์ conformance [#phase-7-prove-conformance]
 
 | Step | Component              | Work                                                                                                  |
 | ---- | ---------------------- | ----------------------------------------------------------------------------------------------------- |
@@ -353,7 +355,7 @@ subscription ที่รองรับ
 **Exit**: ข้อกำหนดการทดสอบ data และ execution ที่เกี่ยวข้องผ่านทั้งหมด และทุก capability ที่ประกาศไว้
 มีหลักฐานทั้งแบบ deterministic และจาก venue
 
-### Phase 8: วัดประสิทธิภาพและความทนทาน {#phase-8-measure-performance-and-robustness}
+### Phase 8: วัดประสิทธิภาพและความทนทาน [#phase-8-measure-performance-and-robustness]
 
 | Step | Component            | Work                                                                                                   |
 | ---- | -------------------- | ------------------------------------------------------------------------------------------------------ |
@@ -365,7 +367,7 @@ subscription ที่รองรับ
 **Exit**: canonical benchmark และ fuzz suite รันได้ด้วย fixture ที่เป็นตัวแทนได้ มี invariant
 ที่บันทึกไว้ และไม่มีหมวดบังคับที่ adapter ไม่ได้ใช้
 
-### Phase 9: ทำเอกสารและการปฏิบัติการให้เสร็จ {#phase-9-finish-documentation-and-operations}
+### Phase 9: ทำเอกสารและการปฏิบัติการให้เสร็จ [#phase-9-finish-documentation-and-operations]
 
 | Step | Component           | Work                                                                                           |
 | ---- | ------------------- | ---------------------------------------------------------------------------------------------- |
@@ -377,14 +379,14 @@ subscription ที่รองรับ
 
 **Exit**: ผู้ใช้สามารถตั้งค่า, ทดสอบ, ใช้งาน และวินิจฉัย adapter ได้โดยไม่ต้องอ่าน source code
 
-## รูปแบบของ Rust adapter {#rust-adapter-patterns}
+## รูปแบบของ Rust adapter [#rust-adapter-patterns]
 
 นโยบายการ import ระดับ repository ใช้กับ code ของ adapter ด้วย: ให้ import type ของ Nautilus และใช้ชื่อสั้น
 แทนการเขียนชื่อเต็ม (fully qualified) ที่จุดเรียกใช้
 [Nautilus conventions hook](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/.pre-commit-hooks/check_nautilus_conventions.sh) บังคับใช้
 กฎนี้และอธิบาย marker สำหรับข้อยกเว้นเฉพาะจุดไว้
 
-### Configuration (`config.rs`) {#configurations-configrs}
+### Configuration (`config.rs`) [#configurations-configrs]
 
 ให้ทำตาม[คู่มือ configuration](../concepts/configuration.md) ร่วม โดยเฉพาะ config ของ Rust
 ต้องใช้ฟิลด์แบบ typed, การ decode ด้วย Serde แบบเข้มงวด, แหล่งความจริงเดียวสำหรับค่าเริ่มต้น และ `bon::Builder`
@@ -418,13 +420,13 @@ constructor ของ client โดย constructor จะไม่อ่าน�
 
 รักษาลำดับสัมพัทธ์เดียวกันระหว่างฟิลด์ของ struct และ accessor ของ `bon::Builder`
 
-### Credential และการจัดการ secret {#credentials-and-secret-handling}
+### Credential และการจัดการ secret [#credentials-and-secret-handling]
 
 เมื่อ HTTP client และ WebSocket client ใช้ key material เดียวกัน ให้รวมการจัดการ credential ไว้ใน type เดียว โดยทั่วไป
 อยู่ใต้ `common/credential.rs` ให้ config เป็นเพียง data transfer object และ resolve credential ตอนสร้าง
 credential, factory หรือ client อย่า resolve credential ใน method ของ request แต่ละตัว
 
-#### จัดประเภทค่าที่อ่อนไหว {#classify-sensitive-values}
+#### จัดประเภทค่าที่อ่อนไหว [#classify-sensitive-values]
 
 จัดประเภทค่าก่อนเลือก type และ output สำหรับ diagnostic ให้ใช้กฎที่เข้มงวดกว่า
 เมื่อ venue ให้ค่าเดียวมีมากกว่าหนึ่งบทบาท
@@ -444,7 +446,7 @@ API key, username หรือ URL อาจไม่เพียงพอที
 origin นั้น ให้ตัด user information, path, query และ fragment ออก หาก origin เองมี credential
 identity อยู่ อย่างที่ RPC URL บางตัวเป็น ให้ redact ทั้ง URL ด้วย `SecretString` หรือ `REDACTED`
 
-#### ใช้ secret type ร่วม {#use-the-common-secret-types}
+#### ใช้ secret type ร่วม [#use-the-common-secret-types]
 
 ใช้ `nautilus_core::string::secret`, `nautilus_network` และ `zeroize` แทนการกำหนดแนวทางการ
 redact หรือ zeroize เฉพาะใน adapter
@@ -462,7 +464,7 @@ redact หรือ zeroize เฉพาะใน adapter
 | `Zeroize` and `ZeroizeOnDrop`      | ล้างฟิลด์ที่มี secret ใน struct ที่ใช้ `SecretString` ไม่ได้ รวมถึง byte array และ type สำหรับการ sign                                        |
 | `zeroize_json_value`               | ล้าง string ที่ถือครองใน JSON value ที่แก้ไขได้ หลังจาก serialize ฟิลด์ที่มี secret                                                        |
 
-#### ใช้ `SecretString` อย่างปลอดภัย {#use-secretstring-safely}
+#### ใช้ `SecretString` อย่างปลอดภัย [#use-secretstring-safely]
 
 - ถือว่าการ serialize คือ plaintext เพราะ `SecretString` ใช้ string ข้างในเพื่อให้เข้ากันได้กับ wire
   format ดังนั้นห้าม serialize config, credential หรือ authentication model เพื่อใช้ทำ diagnostic
@@ -480,7 +482,7 @@ redact หรือ zeroize เฉพาะใน adapter
 - หลีกเลี่ยง `Display` สำหรับ type ที่มี secret เว้นแต่ผู้เรียกต้องการ และ implementation ใด ๆ ต้อง
   redact secret material
 
-#### Resolve และแชร์ credential {#resolve-and-share-credentials}
+#### Resolve และแชร์ credential [#resolve-and-share-credentials]
 
 - กำหนดชื่อ environment variable เพียงครั้งเดียว และเลือกจากค่า environment และผลิตภัณฑ์แบบ typed
 - บันทึกชื่อ environment variable ที่กำหนดไว้ใน integration guide ของ adapter
@@ -494,7 +496,7 @@ redact หรือ zeroize เฉพาะใน adapter
 - แชร์ที่เก็บ credential ข้าม transport เฉพาะเมื่อใช้ key material เดียวกัน ให้แยก method การ sign ของ HTTP,
   WebSocket และ transaction เมื่อ canonical payload ต่างกัน
 
-#### จำกัดอายุของ plaintext {#bound-plaintext-lifetime}
+#### จำกัดอายุของ plaintext [#bound-plaintext-lifetime]
 
 - zeroize การ allocate แบบ plaintext ที่ถือครองแต่ละตัวหลังใช้งานครั้งสุดท้าย ซึ่งรวมถึง key ที่ normalize และ decode แล้ว,
   signing payload ที่มี secret, authentication message ที่ serialize แล้ว, ค่าของ form ที่ encode แล้ว และ request model
@@ -505,7 +507,7 @@ redact หรือ zeroize เฉพาะใน adapter
   และระบบปฏิบัติการอาจทำสำเนาที่ adapter เข้าไม่ถึง
 - ทำให้อายุของ plaintext สั้น และอย่าสัญญาว่าจะลบข้อมูลได้ทั้ง process หรือทั้ง transport
 
-#### Redact diagnostic และ transport error {#redact-diagnostics-and-transport-errors}
+#### Redact diagnostic และ transport error [#redact-diagnostics-and-transport-errors]
 
 - ห้ามใส่ credential, signature, secret material หรือส่วนของ URL ที่มี secret ลงใน error
   หรือ log ไม่ว่าระดับใด แสดงได้อย่างมากแค่ origin ที่จัดประเภทเป็น public ตามกฎ location ด้านบน
@@ -534,7 +536,7 @@ policy ของ HTTP URL ควบคุม URL context ที่ `HttpClient` 
 ชั้นที่ต่ำกว่าจะไม่เปลี่ยนแปลง ตัวอย่างเช่น การตรวจสอบ TLS certificate อาจใส่ hostname
 ไว้ใน error และ log ของ dependency แม้จะตั้ง `redact_url(true)` แล้วก็ตาม
 
-:::warning ปิด redirect สำหรับ request ที่ authenticate
+:::warning[ปิด redirect สำหรับ request ที่ authenticate]
 
 client ที่ส่ง credential หรือ payload ที่ sign แล้วต้องตั้ง `HttpRedirectPolicy::Reject` สำหรับ
 HTTP transport อื่นให้ใช้ policy ที่ไม่ redirect ในลักษณะเดียวกัน เพื่อไม่ให้ redirect ส่งต่อ credential
@@ -542,7 +544,7 @@ HTTP transport อื่นให้ใช้ policy ที่ไม่ redirect
 
 :::
 
-#### ตรวจสอบการจัดการ credential {#verify-credential-handling}
+#### ตรวจสอบการจัดการ credential [#verify-credential-handling]
 
 ทดสอบ contract ของการจัดการ secret นอกเหนือจากการ authenticate สำเร็จ:
 
@@ -559,7 +561,7 @@ HTTP transport อื่นให้ใช้ policy ที่ไม่ redirect
 - เก็บ signature vector แบบ deterministic ไว้ เพื่อไม่ให้การเปลี่ยนแปลงด้าน redaction และ zeroization เปลี่ยน byte ของการ sign,
   ลำดับฟิลด์ หรือ encoding
 
-### Symbol และ identity ของ instrument {#symbols-and-instrument-identity}
+### Symbol และ identity ของ instrument [#symbols-and-instrument-identity]
 
 แยก venue symbol ออกจากค่า `InstrumentId` ของ Nautilus โดยทั่วไป symbol module จะรับผิดชอบ:
 
@@ -592,7 +594,7 @@ symbol, precision, currency และฟิลด์ของสัญญาท�
 ก่อนนำเข้า cache หรือ emit และทำให้ function การ parse เป็นแบบ deterministic และไม่ขึ้นกับ state ของ live client
 เท่าที่ทำได้
 
-### การ model payload ของ venue {#modeling-venue-payloads}
+### การ model payload ของ venue [#modeling-venue-payloads]
 
 ให้ model ตาม wire format จริง ไม่ใช่ subset ที่คิดว่าคงที่:
 
@@ -613,7 +615,7 @@ symbol, precision, currency และฟิลด์ของสัญญาท�
 หลีกเลี่ยง fallback แบบหละหลวมที่เปลี่ยนค่าใหม่จาก venue ให้กลายเป็นค่าทาง semantics ที่มีอยู่แล้วอย่างเงียบ ๆ
 การจัดการ error ที่คงที่เป็นส่วนหนึ่งของ contract ของ parser
 
-#### Numeric precision {#numeric-precision}
+#### Numeric precision [#numeric-precision]
 
 deserialize ราคา, ปริมาณ, เงิน, ค่าธรรมเนียม และค่าแบบ discrete อื่น ๆ เป็น `Decimal` แล้วสร้างค่า domain
 ด้วย `Price::from_decimal`, `Price::from_decimal_dp`, `Quantity::from_decimal`, `Quantity::from_decimal_dp`,
@@ -636,7 +638,7 @@ round-trip ระหว่าง reconciliation ให้ทำตาม
 [การ resolve instrument](#instrument-resolution-during-reconciliation) เมื่อ metadata ของ precision
 ขาดหายไป
 
-#### Fallback ของ enum ของ venue {#venue-enum-fallbacks}
+#### Fallback ของ enum ของ venue [#venue-enum-fallbacks]
 
 venue ขยาย enum บน wire โดยไม่แจ้งล่วงหน้า: สถานะ order ใหม่, order type ใหม่ และรหัสหมวดหมู่ใหม่ปรากฏใน
 production ก่อนที่ client จะอัปเดต ให้ enum ของ venue ที่ขยายได้แต่ละตัวมี variant สำหรับ fallback ที่รองรับอนาคต
@@ -658,7 +660,7 @@ fallback เปลี่ยนตำแหน่งที่ความเข�
   การสร้างสถานะขึ้นมาเอง reconciliation จะเติมช่องว่างเมื่อ order ไปถึงสถานะที่ map ได้ ค่าที่ map ไม่ได้
   จะ fail แบบเดียวกันบนเส้นทาง reconciliation ดังนั้นให้ถือว่า warning เป็นสัญญาณให้เพิ่มการ map
 
-#### แยก authority ออกจาก projection {#separate-authority-from-projections}
+#### แยก authority ออกจาก projection [#separate-authority-from-projections]
 
 endpoint อาจคืนทั้งหลักฐานด้าน authority และข้อมูลสำหรับการอ่านที่แคบกว่า โดยหลักฐานนั้นใช้ยืนยัน
 สิทธิ์หรืออนุญาตให้เปลี่ยน state สำหรับ endpoint แบบนี้ให้ใช้ response model แยกกัน
@@ -671,7 +673,7 @@ endpoint อาจคืนทั้งหลักฐานด้าน authori
 ใช้ projection เมื่อฟิลด์ authority ที่ผิดรูปแบบต้องไม่ขัดขวางการอ่านที่แคบกว่า และให้
 authoritative model เข้มงวดเสมอ
 
-### Client trait และ factory (`data.rs`, `execution.rs`, `factories.rs`) {#client-traits-and-factories-datars-executionrs-factoriesrs}
+### Client trait และ factory (`data.rs`, `execution.rs`, `factories.rs`) [#client-traits-and-factories-datars-executionrs-factoriesrs]
 
 trait ร่วม [`DataClient`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/clients/data.rs),
 [`ExecutionClient`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/clients/execution.rs) และ
@@ -683,7 +685,7 @@ client trait ใช้ `#[async_trait(?Send)]` object ของ client ไม่
 thread และอาจถือ state ที่ไม่เป็น `Send` ไว้ เมื่องาน asynchronous ต้องอยู่นานกว่าการเรียก trait แบบ synchronous
 ให้ move input ที่เป็นเจ้าของและเป็น `Send` เข้าไปใน runtime task ที่สร้างอย่างชัดเจน
 
-#### การตั้งชื่อและลงทะเบียน client {#client-naming-and-registration}
+#### การตั้งชื่อและลงทะเบียน client [#client-naming-and-registration]
 
 ตั้งชื่อแต่ละกลุ่มของ client ให้สมมาตรกัน:
 
@@ -707,7 +709,7 @@ implementation อาจคงชื่อ `Exec` ที่ใช้กันม
 `HyperliquidExchangeAction` ให้คงชื่อ public ที่ใช้กันมาแล้ว และใช้แนวทางนี้กับ
 API ใหม่
 
-#### Input ของ factory และความเป็นเจ้าของ cache {#factory-inputs-and-cache-ownership}
+#### Input ของ factory และความเป็นเจ้าของ cache [#factory-inputs-and-cache-ownership]
 
 factory ได้รับ `ClientConfig` ที่ downcast แล้ว และ
 [`CacheView`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/cache/mod.rs) แบบอ่านอย่างเดียว ส่วน data factory ได้รับ clock ร่วมด้วย
@@ -715,7 +717,7 @@ factory ได้รับ `ClientConfig` ที่ downcast แล้ว แล
 ให้ emit domain event และ report แทนการแก้ไข cache ของ engine จาก adapter ส่วน protocol cache
 แบบ private ใช้ได้เมื่อการ parse, การ replay subscription หรือการจับคู่ response ต้องใช้
 
-### State ที่ adapter เป็นเจ้าของ {#adapter-owned-state}
+### State ที่ adapter เป็นเจ้าของ [#adapter-owned-state]
 
 เลือก collection ตามความเป็นเจ้าของและพฤติกรรมการอัปเดต:
 
@@ -729,7 +731,7 @@ invariant ของมัน แทนการแชร์เพียงเพ
 เมื่อการ intern ช่วยลดต้นทุนการ allocate หรือการเปรียบเทียบ ส่วน request ID ที่ไม่ซ้ำและข้อความ payload อายุสั้นให้เก็บใน
 type ตามธรรมชาติของมัน
 
-### วงจรชีวิตของ connection (`connect`) {#connection-lifecycle-connect}
+### วงจรชีวิตของ connection (`connect`) [#connection-lifecycle-connect]
 
 ถือว่า method ของวงจรชีวิตแต่ละตัวเป็น contract:
 
@@ -754,7 +756,7 @@ type ตามธรรมชาติของมัน
 หากการเชื่อมต่อล้มเหลวหลังจาก resource บางส่วนเริ่มทำงานแล้ว ให้ cleanup resource เหล่านั้น และทิ้ง state ให้สอดคล้องสำหรับการ retry
 หรือการ dispose
 
-#### การตั้งค่า sender ของ execution event {#execution-event-sender-setup}
+#### การตั้งค่า sender ของ execution event [#execution-event-sender-setup]
 
 สำหรับ execution client ที่ใช้
 [`ExecutionEventEmitter`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/src/execution/emitter.rs) ให้ติดตั้ง sender ทั้งสองขั้นตอน:
@@ -782,7 +784,7 @@ constructor injection ใช้ได้โดยลำพังเฉพาะ�
 แทนการ lookup แบบไม่มีเงื่อนไข execution client ที่ใช้ emitter ทั้งหมดใน
 repository นี้ทำการ lookup ดังกล่าว
 
-#### ลำดับการ bootstrap {#bootstrap-ordering}
+#### ลำดับการ bootstrap [#bootstrap-ordering]
 
 code ของการเชื่อมต่อแตกต่างกันไป แต่ความสัมพันธ์ของการพึ่งพาไม่เปลี่ยน โดยทั่วไป data client จะ:
 
@@ -807,7 +809,7 @@ execution client โดยทั่วไปจะ:
 ขั้นตอนได้เมื่อ test พิสูจน์ postcondition เดียวกัน หากขั้นตอนใดล้มเหลวหลังจาก resource เริ่มทำงานแล้ว ให้ teardown
 resource เหล่านั้นก่อนคืน error
 
-### Data client {#data-client}
+### Data client [#data-client]
 
 subscription แสดงเจตนาที่ต่อเนื่อง ส่วน request คือการขอข้อมูลปัจจุบันหรือข้อมูลย้อนหลังจาก provider
 ให้แยก semantics ด้านความสดของทั้งสองอย่างออกจากกัน:
@@ -849,13 +851,13 @@ update เชิงตรรกะแต่ละครั้งจบด้ว�
 contract ของ venue โดย map การหายไปเป็น `NotAvailableForTrading` เฉพาะเมื่อการหายไปหมายความว่า instrument นั้น
 ใช้งานไม่ได้ ให้อัปเดต private cache ทั้งหมดแม้การ emit จะถูกกรองเหลือเฉพาะ subscription ที่ active
 
-### ความเป็นเจ้าของการกู้คืน order book {#order-book-recovery-ownership}
+### ความเป็นเจ้าของการกู้คืน order book [#order-book-recovery-ownership]
 
 [`nautilus_live::book`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/live/src/book/mod.rs) มีกลไกการกู้คืนร่วมให้ใช้ ให้เก็บ
 การ synchronize และการกู้คืน book เฉพาะของ venue ไว้ใน `src/book/` ของแต่ละ adapter โดยให้ stream handler
 เป็นผู้ dispatch คำสั่งและ frame
 
-#### การ sync ราย book {#per-book-sync}
+#### การ sync ราย book [#per-book-sync]
 
 `BookSync` เก็บ phase ของ book หนึ่งตัว (รอ snapshot แรก, sync แล้วที่ตำแหน่งหนึ่งของ venue หรือ
 กำลังกู้คืน), snapshot ที่ค้างอยู่ และ state ของการกู้คืน มันไม่ทำ I/O ใด ๆ ดังนั้น
@@ -873,7 +875,7 @@ book ที่ไม่ sync ต้องมีเจ้าของ: การ�
 - Betfair เก็บ `BookSync` หนึ่งตัวต่อหนึ่ง market เพราะมันสร้างภาพ (image) ของทั้ง market
 - Lighter เก็บ `BookRecoveryState` หนึ่งตัวต่อหนึ่ง book ไว้ใน tracker ที่ handler เป็นเจ้าของ
 
-#### การเริ่มการกู้คืน {#starting-recovery}
+#### การเริ่มการกู้คืน [#starting-recovery]
 
 การกู้คืนของ book ที่ใช้ `BookSync` ผ่านสี่ขั้นตอน และ book อาจหยุดระหว่างขั้นตอนใดก็ได้:
 
@@ -901,7 +903,7 @@ Binance ทำการ claim ในขั้นตอนเดียวกั�
 - อย่าเริ่มอะไรหลัง unsubscribe หรือ shutdown การลบ book จะ cancel episode ของมัน และ
   task scope ที่ปิดแล้วจะปฏิเสธ task ดังนั้น drop guard จะ cancel การ claim ที่มาช้า
 
-#### State ของการกู้คืนและงบการ retry {#recovery-state-and-retry-budgets}
+#### State ของการกู้คืนและงบการ retry [#recovery-state-and-retry-budgets]
 
 เก็บ `BookRecoveryState` หนึ่งตัวต่อหนึ่ง book ที่ subscribe ไว้ ภายใต้ state lock ที่มีอยู่ของ adapter หรือ task ที่เป็นเจ้าของ จะเก็บ
 โดยตรงหรือเก็บไว้ใน `BookSync` ร่วมราย book ก็ได้ มันยอมให้มีการกู้คืนที่ทำงานอยู่หนึ่งตัวและ cancel งาน
@@ -922,7 +924,7 @@ error classifier
 ความพยายามถัดไปใช้ connection ใหม่ทันที ส่วนการ reconnect ที่เกิดขึ้นระหว่างความพยายาม หรือก่อน
 งบจะหมด จะไปยุติการรอระหว่างความพยายามครั้งถัดไปหลังจากใช้งบหมดแทน
 
-#### การยอมรับ snapshot {#snapshot-acceptance}
+#### การยอมรับ snapshot [#snapshot-acceptance]
 
 การเขียนที่ได้รับการยืนยันเพียงอย่างเดียวไม่ได้ทำให้ได้ book ที่ใช้งานได้ ให้ประสานการแทนที่และการยอมรับตาม
 ลำดับนี้:
@@ -934,7 +936,7 @@ error classifier
 
 `PendingSnapshot` จะ cancel การรอเริ่มต้นเมื่อ snapshot ถูกยอมรับ หรือเมื่อเจ้าของที่ค้างอยู่ถูกลบออก
 
-#### กฎของ venue และการตัดสินใจร่วม {#venue-rules-and-shared-decisions}
+#### กฎของ venue และการตัดสินใจร่วม [#venue-rules-and-shared-decisions]
 
 adapter เป็นเจ้าของการจัดลำดับ (sequencing), การ route channel, คำสั่งบน wire, การจับคู่ acknowledgement และ
 การ parse snapshot ส่วน type ร่วมอธิบายผลลัพธ์ของการ validate และการ monitor:
@@ -965,13 +967,13 @@ adapter แบ่งออกเป็นสองกลุ่มตามกา
 - Pull (Binance): diff stream ยังคง subscribe อยู่ การแทนที่จะ fetch REST snapshot และ
   adapter จะยอมรับเฉพาะเมื่อ diff ที่ buffer ไว้ต่อเนื่องจาก `lastUpdateId` ของมันโดยไม่มี gap
 
-#### อายุของ task และการ cancel {#task-lifetime-and-cancellation}
+#### อายุของ task และการ cancel [#task-lifetime-and-cancellation]
 
 รันงาน asynchronous ภายใน task scope ของ client หรือ future ที่ handler เป็นเจ้าของ handler ต้อง
 ดึงคำสั่งและ frame ออกมาประมวลผลต่อไปขณะที่การเขียนรออยู่ เพื่อให้ unsubscribe, shutdown และ
 recovery deadline สามารถ cancel operation ที่ล้าสมัยได้
 
-#### การตั้งชื่อและการตั้งค่า {#naming-and-configuration}
+#### การตั้งชื่อและการตั้งค่า [#naming-and-configuration]
 
 adapter ที่ implement กลไกนี้ใช้ชื่อและการปรับจูนร่วมกัน เพื่อให้ผู้ดูแลระบบย้ายไปมาระหว่าง venue
 ได้โดยไม่ต้องเรียนรู้พฤติกรรมใหม่:
@@ -987,7 +989,7 @@ adapter ที่ implement กลไกนี้ใช้ชื่อและ�
   `<venue>-book-stress` โดยข้อกำหนด [order book sync conformance](spec_data_testing.md#order-book-sync-conformance)
   กำหนด contract ที่มันตรวจสอบและ fault ที่มันบังคับให้เกิด
 
-### Execution client {#execution-client}
+### Execution client [#execution-client]
 
 execution client แปลคำสั่ง, รักษา identity ของ order, publish account state และสร้าง
 report สำหรับ reconciliation โดยต้องรองรับขอบเขตเหล่านี้อย่างสม่ำเสมอ:
@@ -1007,7 +1009,7 @@ order list
 อย่าอนุมานการรองรับจาก API ของ venue เพียงอย่างเดียว ให้ implement และทดสอบ semantics ของคำสั่งและ event
 ของ Nautilus ก่อน แล้วจึงประกาศ capability นั้น
 
-#### Reconciliation report {#reconciliation-reports}
+#### Reconciliation report [#reconciliation-reports]
 
 reconciliation อ่าน state ของ venue ผ่าน method สำหรับ report ห้าตัวของ
 [`ExecutionClient`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/clients/execution.rs) โดย method เหล่านี้คืน
@@ -1029,7 +1031,7 @@ report เหล่านี้ รวมถึงขั้นตอนตอน
 venue จริง ส่วน case TC-E88 และ TC-E89 ใช้ fixture แบบ deterministic เพื่อทดสอบความล้มเหลวของ commission ทั้งจาก REST และ
 private stream
 
-##### Mass status ตอน startup {#startup-mass-status}
+##### Mass status ตอน startup [#startup-mass-status]
 
 `generate_mass_status` รันหนึ่งครั้งต่อ execution client ก่อนเริ่มซื้อขาย implementation
 ค่าเริ่มต้นของมัน:
@@ -1044,7 +1046,7 @@ client ประกาศขอบเขตของประวัติ ตา
 
 การคืน `Ok(None)` จะ log warning และปล่อยให้ client นั้นไม่ได้ reconcile ส่วน error จะทำให้ startup ล้มเหลว
 
-##### หลักฐานของ order ใน mass status {#mass-status-order-evidence}
+##### หลักฐานของ order ใน mass status [#mass-status-order-evidence]
 
 ให้ fill report แต่ละตัวมีหลักฐานของ order จากแหล่งใดแหล่งหนึ่งต่อไปนี้:
 
@@ -1062,7 +1064,7 @@ reconciliation จะทิ้งกลุ่ม fill ที่ไม่มี�
 venue ที่ไม่มีประวัติ order ที่ปิดแล้ว, fill จาก block trade และ fill จากการ settle แต่ให้ระงับ fill ไว้แทนเมื่อ
 การ apply จะทำให้ position ผิดเพี้ยน เช่น เมื่อ fill เหล่านั้นไม่ได้รวมการเปลี่ยนแปลง balance ที่เกิดขึ้นโดยไม่มี trade
 
-##### ราคาเข้าเฉลี่ยใน position report {#position-report-entry-averages}
+##### ราคาเข้าเฉลี่ยใน position report [#position-report-entry-averages]
 
 ส่งราคาเข้าเฉลี่ยของ venue ผ่านไปโดยไม่ปัดเศษเป็น `avg_px_open` และระบุว่า
 reconciliation ใช้ค่านี้ได้อย่างไร:
@@ -1079,7 +1081,7 @@ reconciliation ใช้ค่านี้ได้อย่างไร:
 [Reported entry averages](../concepts/execution/reconciliation.md#reported-entry-averages) อธิบาย
 ผลของแต่ละแบบ
 
-##### Contract ของ timestamp ใน mass status {#mass-status-timestamp-contract}
+##### Contract ของ timestamp ใน mass status [#mass-status-timestamp-contract]
 
 `ExecutionMassStatus.ts_init` ระบุจุดเริ่มต้นของการเก็บ snapshot สำหรับผู้สร้างทุกราย
 รวมถึง snapshot ตอน reconnect และ implementation ของ `generate_mass_status` ที่เขียนเอง:
@@ -1106,7 +1108,7 @@ timestamp ที่ไม่ถูกต้องจะเปลี่ยนพ�
 ดู [Snapshot freshness and fill corrections](../concepts/execution/reconciliation.md#snapshot-freshness-and-fill-corrections)
 สำหรับความแตกต่างตอน startup และข้อจำกัดเมื่อ state ของ venue เก่าอยู่แล้ว
 
-##### Filter ของ bulk report {#bulk-report-filters}
+##### Filter ของ bulk report [#bulk-report-filters]
 
 bulk method รับคำสั่ง filter ที่มี `instrument_id`, `start` และ `end` รวมถึง
 `open_only` สำหรับ order report และ `venue_order_id` สำหรับ fill report ให้ใช้ทุก filter ที่ endpoint ของ venue
@@ -1127,7 +1129,7 @@ status log ที่ระดับ info
 ว่าไม่มี order และ position ที่ client นั้นครอบคลุม ดังนั้นการคืน error จึงปลอดภัยกว่า
 การคืนชุดว่าง
 
-##### Probe สำหรับ order เดียว {#single-order-probes}
+##### Probe สำหรับ order เดียว [#single-order-probes]
 
 `generate_order_status_report` resolve order เดียว engine จะเรียกหลังจาก open-order
 check retry แล้วยังยืนยัน order ใน cache ไม่ได้ ซึ่งต้องให้การตรวจสอบนั้นรันในโหมด full-history
@@ -1147,7 +1149,7 @@ venue identifier ด้วย engine จะทิ้ง report ที่ identit
 ค่าเริ่มต้นของ trait คืน `Ok(None)` หลังจาก log ว่ายังไม่ได้ implement handler ดังนั้น
 ต้อง implement method นี้ก่อนที่ open-order check จะรันในโหมด full-history
 
-##### การเปลี่ยนแปลง reconciliation ร่วม {#shared-reconciliation-changes}
+##### การเปลี่ยนแปลง reconciliation ร่วม [#shared-reconciliation-changes]
 
 execution engine และ live `ExecutionManager` apply report ของทุก adapter ผ่าน code เดียวกัน ดังนั้น
 การเปลี่ยนแปลง logic ร่วมของ execution หรือ reconciliation จะเปลี่ยนพฤติกรรมของทุก venue พร้อมกัน ให้ประเมิน
@@ -1167,7 +1169,7 @@ execution engine และ live `ExecutionManager` apply report ของทุ�
 จัดประเภท adapter แต่ละตัวเป็นได้ประโยชน์, ไม่ได้รับผลกระทบ หรือมีความเสี่ยง โดยอ้างอิง code ที่ใช้ตัดสินการจัดประเภท
 และใส่ผลลัพธ์ไว้ในคำอธิบายของ pull request
 
-#### การจัดการเมื่อ commission ล้มเหลว {#commission-failure-handling}
+#### การจัดการเมื่อ commission ล้มเหลว [#commission-failure-handling]
 
 commission เป็นส่วนหนึ่งของบันทึกทางเศรษฐกิจของ fill ให้คำนวณด้วยเลขคณิตทศนิยมแบบแม่นยำ แล้ว
 สร้างค่า [`Money`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/model/src/types/money.rs) ในสกุลเงินของ venue โดย hook ร่วม
@@ -1182,7 +1184,7 @@ commission เป็นส่วนหนึ่งของบันทึกท
 ห้ามแทน `Err(error)` ด้วย commission เป็นศูนย์หรือสูตรทั่วไป เพราะการแทนที่นั้นจะบันทึก
 trade ที่ยืนยันแล้วด้วยข้อมูลทางเศรษฐกิจที่ venue ไม่ได้รายงาน
 
-##### การสร้าง report จาก REST {#rest-report-construction}
+##### การสร้าง report จาก REST [#rest-report-construction]
 
 การสร้าง commission เป็นส่วนหนึ่งของ REST report request หากการสร้าง commission ล้มเหลวสำหรับ fill
 ที่จำเป็น ให้คืน error จาก request ที่ได้รับผลกระทบ:
@@ -1198,7 +1200,7 @@ trade ที่ยืนยันแล้วด้วยข้อมูลท�
 ระหว่าง startup error นี้จะป้องกันไม่ให้ node เริ่มทำงาน และทิ้ง mass status ของ client นั้นไว้โดยไม่
 apply ส่วน reconciliation แบบเป็นรอบและแบบเฉพาะเจาะจงจะเลื่อนงานที่ได้รับผลกระทบไปยังรอบถัดไป
 
-##### Inferred fill {#inferred-fills}
+##### Inferred fill [#inferred-fills]
 
 เรียก hook นี้สำหรับทุก inferred fill ที่มาจาก adapter: order ภายนอกและ order ใน cache, continuous
 reconciliation และ targeted order recovery หากการคำนวณ commission ล้มเหลว engine อาจ apply
@@ -1217,7 +1219,7 @@ response แบบ `Ok(None)`
 นำค่ารวมหรือค่าทั่วไปมาแสดงเป็น commission ที่แน่นอนของ fill ที่ไม่รู้จักนั้น กรณีนี้แตกต่าง
 จากการคำนวณของ venue ที่ล้มเหลว
 
-##### การประมวลผล trade จาก WebSocket {#websocket-trade-processing}
+##### การประมวลผล trade จาก WebSocket [#websocket-trade-processing]
 
 ประมวลผล trade จาก WebSocket แต่ละตัวแบบ atomic ให้สร้าง fill report ของ maker และ taker ที่เป็นเจ้าของทั้งหมดก่อนการกระทำ
 ใด ๆ ต่อไปนี้:
@@ -1233,7 +1235,7 @@ response แบบ `Ok(None)`
 reconciliation ตามกำหนดเวลายังคงเป็นเส้นทางการกู้คืนที่เชื่อถือได้ และ WebSocket handler จะไม่เริ่ม REST
 request ทันที
 
-#### Mass-status report แบบมีขอบเขต {#bounded-mass-status-reports}
+#### Mass-status report แบบมีขอบเขต [#bounded-mass-status-reports]
 
 เมื่อ execution client ใช้ขอบเขตเวลาล่างกับ reconciliation report ย้อนหลัง ให้บันทึก
 contract ด้วย `ExecutionMassStatus::set_report_window(Some(lookback_start),
@@ -1290,7 +1292,7 @@ execution engine แยกแยะวงจรชีวิตที่สอด
 [Bounded history safety](../concepts/execution/reconciliation.md#bounded-history-safety) สำหรับกฎ
 การ apply ทางเศรษฐกิจของ engine
 
-#### การ resolve instrument ระหว่าง reconciliation {#instrument-resolution-during-reconciliation}
+#### การ resolve instrument ระหว่าง reconciliation [#instrument-resolution-during-reconciliation]
 
 การสร้าง report จะ resolve instrument ของแต่ละ record เพื่อ parse payload ของ venue ด้วย precision ของราคาและขนาด
 ที่ถูกต้อง ให้ resolve จาก instrument ที่ adapter load ไว้ตอน connect และจัดประเภทกรณีที่หาไม่พบตามว่า
@@ -1335,7 +1337,7 @@ query ย้อนหลังมักเลยขอบเขตของช�
 ป้องกันความล้มเหลวในการ resolve ภายใน adapter ไม่ได้ ให้กำหนดขอบเขตของ adapter ไว้ใน configuration ของ
 instrument provider
 
-#### Execution update ที่ติดตามอยู่และจากภายนอก {#tracked-and-external-execution-updates}
+#### Execution update ที่ติดตามอยู่และจากภายนอก [#tracked-and-external-execution-updates]
 
 route execution update ตามความเป็นเจ้าของ order โดยไม่ขึ้นกับการจัดวาง module ของการ dispatch:
 
@@ -1380,7 +1382,7 @@ metadata ของการติดตามที่หายไป, การ
 update นั้นมาจากภายนอก สถานะแบบ tracked ที่ไม่มี lifecycle event ของ Nautilus ที่ตรงกันถือเป็น tracked
 no-op หรือ update ที่เลื่อนไว้ เว้นแต่ adapter จะบันทึกและทดสอบข้อยกเว้นแบบ report ไว้
 
-##### Parent order และ child order ที่ถูก trigger {#triggered-parent-and-child-orders}
+##### Parent order และ child order ที่ถูก trigger [#triggered-parent-and-child-orders]
 
 venue บางแห่งแทนที่ parent venue order ที่ติดตามอยู่ด้วย child หลังจาก trigger ให้ถือว่า venue ID ทั้งสอง
 เป็น order context เดียวกัน:
@@ -1393,7 +1395,7 @@ venue บางแห่งแทนที่ parent venue order ที่ติ
 - เมื่อ child เป็นตัวที่เชื่อถือได้แล้ว ให้ระงับการยอมรับของ parent ที่เก่าแล้ว และ update ใด ๆ ของ parent ที่ถูกแทนที่ซึ่ง
   จะทำให้ความเชื่อถือของ child ถอยหลัง
 
-##### Update ที่ไม่สมบูรณ์และที่มาช้า {#incomplete-and-late-updates}
+##### Update ที่ไม่สมบูรณ์และที่มาช้า [#incomplete-and-late-updates]
 
 แยกกรณีเหล่านี้ออกจาก tracked event ปกติ:
 
@@ -1406,7 +1408,7 @@ venue บางแห่งแทนที่ parent venue order ที่ติ
 
 ระงับการ replay สถานะ terminal และ fill ที่ trade identity เคยถูกประมวลผลไปแล้ว
 
-#### ลำดับของ event และการตัดรายการซ้ำ {#event-ordering-and-deduplication}
+#### ลำดับของ event และการตัดรายการซ้ำ [#event-ordering-and-deduplication]
 
 venue อาจรายงาน transition เดียวกันผ่าน order response, private stream, query และ
 ผลของ reconciliation ให้ตัดรายการซ้ำด้วย identity ของ venue ที่คงที่ ไม่ใช่ด้วย transport ที่ส่ง
@@ -1455,7 +1457,7 @@ test ที่เจาะจงจะแยกแยะ update แบบ tracke
 รายการซ้ำจากแหล่งที่ซ้อนทับ, race ของการ submit หรือการผูก venue และ update ที่เก่าแล้วหลัง
 terminal ให้ทดสอบการคง context ที่ active แยกจากการ evict ของ replay แบบมีขอบเขต
 
-#### Policy ของผลลัพธ์คำสั่ง order {#order-command-outcome-policy}
+#### Policy ของผลลัพธ์คำสั่ง order [#order-command-outcome-policy]
 
 ใช้ [Execution policies](../concepts/execution/policies.md) เป็น contract ข้าม adapter สำหรับ
 การส่งคำสั่ง, การ apply event, การ persist และการกู้คืน
@@ -1505,7 +1507,7 @@ rate limit, acknowledgement ที่หายไป และการ parse �
 
 ให้ policy นี้ไม่ขึ้นกับว่าใช้เส้นทาง HTTP หรือ WebSocket ในการส่งคำสั่ง
 
-#### การตั้งชื่อประเภทหลักฐาน {#naming-the-evidence-classes}
+#### การตั้งชื่อประเภทหลักฐาน [#naming-the-evidence-classes]
 
 ใช้ชื่อที่สอดคล้องกัน เพื่อให้เปรียบเทียบการจัดประเภทความล้มเหลวของคำสั่งข้าม adapter ได้ และ
 สภาพบน wire แบบเดียวกันถูกจัดประเภทอย่างสม่ำเสมอ ให้จัดประเภทความล้มเหลวของคำสั่ง order ที่เปลี่ยน state ทุกตัวเป็น
@@ -1541,7 +1543,7 @@ cancel เหมือนกัน รวมถึงรูปแบบ batch �
   ปรากฏเป็น serialization error variant เดียวกัน ดังนั้นให้จัดประเภทตามว่าความล้มเหลวเกิดขึ้นฝั่งใดของ
   ขอบเขตการเขียน
 
-#### แยก diagnostic ออกจากเหตุผลที่แสดงต่อ strategy {#separate-diagnostics-from-strategy-facing-reasons}
+#### แยก diagnostic ออกจากเหตุผลที่แสดงต่อ strategy [#separate-diagnostics-from-strategy-facing-reasons]
 
 รักษา diagnostic error ที่มีโครงสร้างไว้ตลอดการจัดประเภทและการ log ให้สร้าง
 เหตุผลที่แสดงต่อ strategy เฉพาะที่ขอบเขตของ execution event หลังจากตัดสินใจเรื่องผลลัพธ์และการ retry แล้ว
@@ -1585,9 +1587,9 @@ format ข้อความ denial ฝั่ง local แบบมาตรฐ�
 ของ venue ทดสอบ case บวกที่ตรงทุกตัวอักษรและ message ที่ใกล้เคียงแต่ไม่ตรง อย่าสร้าง
 venue classifier ข้าม adapter
 
-## รูปแบบของ HTTP client {#http-client-patterns}
+## รูปแบบของ HTTP client [#http-client-patterns]
 
-### โครงสร้างของ client {#client-structure}
+### โครงสร้างของ client [#client-structure]
 
 การออกแบบที่พบบ่อยแยกความรับผิดชอบออกเป็นสามส่วน:
 
@@ -1614,7 +1616,7 @@ method สำหรับส่งต่อ ให้แยกตามผลิ
 `place_order` และตั้งชื่อ domain method ตาม semantics ของ Nautilus เช่น `request_instruments`,
 `submit_order` หรือ `cancel_order`
 
-#### ลำดับการทำงานของ request {#request-flow}
+#### ลำดับการทำงานของ request [#request-flow]
 
 ไม่ว่าจะมี client หนึ่งหรือสองตัวเป็นเจ้าของความรับผิดชอบเหล่านี้ ให้ขอบเขตชัดเจนเสมอ:
 
@@ -1639,7 +1641,7 @@ typed request builder และ query builder รักษาความแต�
 test ของ pagination ครอบคลุมทิศทางของ cursor, ขอบเขตแบบรวมปลาย (inclusive), record ซ้ำที่ขอบเขต และ
 cursor ที่ซ้ำหรือหน้าว่าง เพื่อให้ pagination ไม่วนไม่รู้จบ
 
-### การ sign request และ authentication {#request-signing-and-authentication}
+### การ sign request และ authentication [#request-signing-and-authentication]
 
 สำหรับแต่ละความพยายาม ให้สร้าง canonical byte ที่แน่นอนตามที่ venue ต้องการ แล้ว sign รูปแบบ
 นั้นเพียงครั้งเดียว ให้ทดสอบ:
@@ -1669,14 +1671,14 @@ serialize, จัดสรร หรือปฏิเสธ nonce ที่ข�
 ทดสอบ vector แบบ deterministic, การจัดสรรพร้อมกัน, ความเป็น monotonic หรือความไม่ซ้ำ และการกู้คืนหลัง
 sequence ถูกปฏิเสธ
 
-### การจัดการ error และ retry logic {#error-handling-and-retry-logic}
+### การจัดการ error และ retry logic [#error-handling-and-retry-logic]
 
 map ความล้มเหลวด้าน transport, HTTP status, venue error, การ parse และการ validate โดยไม่ลบแหล่งที่มาของมัน ให้ retry
 เฉพาะเมื่อความล้มเหลวถูกจัดประเภทเป็นแบบชั่วคราว (transient) และ operation นั้นทำซ้ำได้อย่างปลอดภัย ให้ประกอบการตัดสินใจทั้งสอง
 ที่ขอบเขตของ client predicate ที่ดูเฉพาะ error ไม่ใช่ retry policy ที่สมบูรณ์ contract นี้ใช้
 กับเส้นทาง request ทั้ง HTTP และ WebSocket
 
-#### จัดประเภทความล้มเหลวชั่วคราว {#classify-transient-failures}
+#### จัดประเภทความล้มเหลวชั่วคราว [#classify-transient-failures]
 
 ให้การจัดประเภทความล้มเหลวชั่วคราวเป็นของ adapter เพราะ status code, error code และ
 semantics ของ rate limit ของ venue แตกต่างกัน ให้ transport แต่ละตัวของ adapter มี entry point ของ classifier สำหรับ production เพียงหนึ่งจุด
@@ -1684,7 +1686,7 @@ semantics ของ rate limit ของ venue แตกต่างกัน �
 point เหล่านั้น ลบเส้นทาง classifier ที่ถูกแทนที่แล้วออก อย่าสร้าง venue classifier ข้าม adapter หรือ
 trait ร่วม
 
-#### กั้นการ retry ด้วยความปลอดภัยของ operation {#gate-retries-by-operation-safety}
+#### กั้นการ retry ด้วยความปลอดภัยของ operation [#gate-retries-by-operation-safety]
 
 ที่แต่ละจุดเรียก ให้ข้ามการ retry สำหรับ operation ที่ไม่ปลอดภัย หรือส่ง predicate `should_retry` ที่
 รวมการจัดประเภทความล้มเหลวชั่วคราวเข้ากับความปลอดภัยของ operation `POST` อาจ retry ได้อย่างปลอดภัย และ
@@ -1719,7 +1721,7 @@ Betfair กำหนดงบการ retry ของ order ไว้ 45 วิ
 เมื่อ test นั้นไม่เป็นจริง ให้ส่งคำสั่งเพียงครั้งเดียว และปล่อยผลลัพธ์ที่ไม่ทราบไว้ให้ stream update,
 query, การ poll หรือ reconciliation ดู [รักษา identity และความกำกวม](#preserve-identity-and-ambiguity)
 
-#### รักษา identity และความกำกวม {#preserve-identity-and-ambiguity}
+#### รักษา identity และความกำกวม [#preserve-identity-and-ambiguity]
 
 จัดสรร request identity เชิง semantics ไว้นอก retry closure และให้คงที่ตลอด
 ความพยายาม สร้าง timestamp ของ authentication, signature หรือฟิลด์ transport อื่นใหม่เฉพาะเมื่อ
@@ -1740,7 +1742,7 @@ response ของ venue ที่แจ้งว่า identity ซ้ำแส
 เมื่อ adapter พิสูจน์ได้ว่าเป็น identity เชิง semantics เดียวกัน หาก identity อาจชนกันหรือขอบเขตไม่แน่นอน
 ให้คงผลลัพธ์เป็นกำกวมและ reconcile กับ state ของ venue
 
-#### จัดการ backoff และการยุติ {#handle-backoff-and-termination}
+#### จัดการ backoff และการยุติ [#handle-backoff-and-termination]
 
 เคารพสัญญาณ backoff และ rate limit ของ venue และหยุด retry เมื่อถูก cancel ใช้
 [`RetryManager`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/src/retry.rs) ร่วมเมื่อ model การ cancel และ backoff ของมันเหมาะสม
@@ -1764,7 +1766,7 @@ map แต่ละเส้นทางการยุติเพราะง�
 หาก error กำหนด delay ขั้นต่ำและ retry delay ที่มีผลไม่สามารถอยู่ในงบที่เหลือได้
 `RetryManager` จะคืน error ดั้งเดิมของ operation โดยไม่สังเคราะห์ budget error ในกรณีนี้
 
-#### ทดสอบพฤติกรรมการ retry {#test-retry-behavior}
+#### ทดสอบพฤติกรรมการ retry [#test-retry-behavior]
 
 test ที่เจาะจงจะแยกแยะ:
 
@@ -1782,7 +1784,7 @@ test ที่เจาะจงจะแยกแยะ:
 - การ cancel, timeout ต่อความพยายาม และทุกเส้นทางการยุติเพราะงบเวลาหมด ทั้งก่อนและหลัง
   การส่งที่อาจเกิดขึ้น
 
-#### Conformance ของ retry gate {#retry-gate-conformance}
+#### Conformance ของ retry gate [#retry-gate-conformance]
 
 ตารางนี้ครอบคลุมเฉพาะ HTTP retry gate ไม่ใช่การสำรวจที่สมบูรณ์ และไม่ได้ประเมิน
 การ retry ของ WebSocket หรือ gRPC adapter ใหม่ต้องทำตาม safety test และอย่าคัดลอก gate ที่ไม่ปลอดภัย
@@ -1808,7 +1810,7 @@ test ที่เจาะจงจะแยกแยะ:
 | Lighter      | การเขียน order และ referral ส่งครั้งเดียว                          | ส่งครั้งเดียว                                                                                                              | Conforms       |                                                                                                                                       |
 | OKX          | เส้นทาง submit ได้รับการยกเว้น ส่วน `POST` request อื่น retry       | submit, modify และ cancel ปกติใช้ WebSocket ส่วน algo cancel, spread cancel และ spread cancel-all retry ผ่าน HTTP             | Unsafe         |                                                                                                                                       |
 
-### Rate limiting {#rate-limiting}
+### Rate limiting [#rate-limiting]
 
 [`HttpClient`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/src/http/client.rs) ร่วมรองรับ rate
 limiter ได้ตั้งแต่หนึ่งตัวขึ้นไป ให้กำหนดขอบเขต state ของ limiter ตาม quota ของ venue ไม่ใช่ตาม object ของ Rust ที่สะดวก:
@@ -1830,14 +1832,14 @@ send failure ทุกครั้ง และ reset gate เมื่อ recon
 อย่าคัดลอกชื่อ bucket หรือ quota ของ adapter หนึ่งไปใช้กับอีกตัว ให้บันทึกข้อจำกัดที่ผู้ใช้มองเห็นและ
 configuration ไว้ใน integration guide
 
-## รูปแบบของ WebSocket client {#websocket-client-patterns}
+## รูปแบบของ WebSocket client [#websocket-client-patterns]
 
 การ dispatch ของ WebSocket เป็นไปตาม contract ร่วมด้านความเป็นเจ้าของและการ route ขณะที่การจัดวาง module และ
 container ของ state ยังเป็นเรื่องเฉพาะของ adapter ให้ code ใหม่สอดคล้องกับ network abstraction ร่วม,
 cache primitive แบบมีขอบเขต และ protocol peer ที่ใกล้เคียงที่สุด อย่าถือว่า dispatch module ของ adapter
 ตัวใดตัวหนึ่ง หรือการรวม state ของหลาย venue เป็นสถาปัตยกรรมเป้าหมาย
 
-### โครงสร้างของ client {#client-structure-1}
+### โครงสร้างของ client [#client-structure-1]
 
 รูปแบบที่พบบ่อยแยก outer client ออกจาก handler task:
 
@@ -1885,7 +1887,7 @@ flowchart LR
 
 แผนภาพแสดงขอบเขตความเป็นเจ้าของที่พบบ่อย ไม่ใช่ชื่อ type หรือชื่อฟิลด์ที่บังคับ
 
-#### Handshake ตอน initialize handler (`SetClient`) {#handler-initialization-handshake-setclient}
+#### Handshake ตอน initialize handler (`SetClient`) [#handler-initialization-handshake-setclient]
 
 หลาย adapter ย้าย `WebSocketClient` ที่เชื่อมต่อแล้วเข้าไปใน handler ที่ทำงานอยู่แล้วผ่านคำสั่ง
 `SetClient` ส่วนตัวอื่นสร้างหรือ publish handler ด้วยวิธีอื่น ไม่ว่าจะออกแบบแบบใด ให้รักษา invariant นี้
@@ -1910,7 +1912,7 @@ client ที่สร้าง handler พร้อม transport หรือ p
 ต้องรักษา invariant เดียวกัน ให้ทดสอบคำสั่งที่ส่งตรงขอบเขตของ connection เพื่อไม่ให้ race
 ทิ้งคำสั่งนั้นไปอย่างเงียบ ๆ และทดสอบด้วยว่า client ยังคง inactive ขณะที่การ publish sender ถูก block
 
-### Authentication {#authentication}
+### Authentication [#authentication]
 
 ใช้ [`AuthTracker`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/src/websocket/auth.rs) เมื่อ state ของ authentication ต้อง
 แชร์ระหว่าง client, handler และเส้นทาง reconnect โดย adapter ยังคงเป็นเจ้าของรายละเอียดของโปรโตคอล:
@@ -1925,7 +1927,7 @@ token ที่รีเฟรชได้, session ของหลาย accoun
 state เฉพาะ adapter ให้เก็บ state นั้นไว้ใกล้กับเส้นทางของ credential และ subscription และครอบคลุม
 การหมุนเวียน (rotation) หรือการหมดอายุด้วย test ที่เจาะจง
 
-### การจัดการ subscription {#subscription-management}
+### การจัดการ subscription [#subscription-management]
 
 ใช้ [`SubscriptionState`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/network/src/websocket/subscription.rs) เมื่อ venue มี
 subscription ที่ต้องตอบรับหรือมีการ replay ตอน reconnect มันแยกเจตนาออกจากการยืนยัน และมี
@@ -1967,7 +1969,7 @@ reference count สำหรับ subscriber ที่ซ้ำกัน
 subscription ที่ลบไปแล้วกลับมา `SubscriptionState` จัดหา state transition เหล่านี้ ส่วน adapter จัดหาการจับคู่
 บน wire
 
-### การ route message {#message-routing}
+### การ route message [#message-routing]
 
 ให้ขอบเขตของการ route ตรวจสอบได้:
 
@@ -1993,7 +1995,7 @@ log ของ transport ร่วม
 เป็นเรื่องเฉพาะของ adapter ให้เลือกการออกแบบที่เล็กที่สุดที่ทำให้ความเป็นเจ้าของโปรโตคอลและ state transition ทดสอบได้
 แยก component ออกมาเพิ่มเฉพาะเมื่อหลาย adapter ใช้ semantics และความเป็น atomic ของมันร่วมกัน
 
-### Reconnection และ shutdown {#reconnection-and-shutdown}
+### Reconnection และ shutdown [#reconnection-and-shutdown]
 
 reconnection ต้องกู้คืน state ของโปรโตคอล ไม่ใช่แค่ socket:
 
@@ -2006,7 +2008,7 @@ reconnection ต้องกู้คืน state ของโปรโตคอ
 รองรับทั้ง WebSocket control frame และ text heartbeat ของ venue เมื่อเกี่ยวข้อง ปล่อยให้ client ร่วมจัดการ
 protocol control frame และเก็บ application heartbeat message ไว้ใน venue handler
 
-#### ความเป็นเจ้าของการ reconnect {#reconnect-ownership}
+#### ความเป็นเจ้าของการ reconnect [#reconnect-ownership]
 
 client แบบ handler mode ขอ reconnect ผ่าน client ร่วมแทน reconnect loop แบบ private
 `request_reconnect` ของมันคืน `true` เฉพาะเมื่อการเรียกนั้นย้าย client ที่ active ไปเป็นสถานะ reconnecting หาก adapter
@@ -2024,13 +2026,13 @@ execution reconciliation มักกู้ state ของ order และ fill
 ทุก message ที่พลาดไป
 :::
 
-#### Shutdown {#shutdown}
+#### Shutdown [#shutdown]
 
 shutdown ส่งสัญญาณให้ task, ขอให้ transport ปิด แล้ว join หรือ abort งานที่เป็นเจ้าของตาม
 policy แบบมีขอบเขต ทำให้ shutdown ซ้ำปลอดภัย และอย่าคิดว่า `JoinHandle` ของ handler มี
 เจ้าของเดียวเมื่อ object ของ client สามารถ clone ได้
 
-### Backpressure {#backpressure}
+### Backpressure [#backpressure]
 
 WebSocket transport ร่วมและเส้นทาง event ของ adapter ใช้ Tokio channel แบบ **unbounded** เพื่อให้ receive
 loop ไม่ต้องรอความจุของคิว ให้รักษาแนวทางนี้สำหรับเส้นทาง live event การเพิ่ม
@@ -2042,7 +2044,7 @@ bounded channel, การรวม (coalescing), การทิ้ง หร�
 market data สามารถใช้ snapshot และ resynchronization ได้เฉพาะเมื่อ contract ของโปรโตคอลกำหนด
 การกู้คืนนั้นไว้
 
-## การจัดการ task {#task-management}
+## การจัดการ task [#task-management]
 
 จัดประเภททุก task ใน production ตามเจ้าของก่อนเลือกที่เก็บและเส้นทาง shutdown ของมัน
 
@@ -2058,7 +2060,7 @@ market data สามารถใช้ snapshot และ resynchronization ไ
 disconnect ยุติ session ขณะที่คำสั่งที่รับแล้วอาจยังต้องการ reconciliation หรือ
 ผลลัพธ์แบบกำกวมที่ระบุชัด อย่าปล่อยให้ transport shutdown จัดประเภทผลลัพธ์ของคำสั่งนั้นใหม่อย่างเงียบ ๆ
 
-### การเก็บและการสังเกต task {#task-storage-and-observation}
+### การเก็บและการสังเกต task [#task-storage-and-observation]
 
 [`TaskHandles`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/live/task.rs) เก็บ unit task handle โดยไม่กำหนด
 policy ของ spawn, cancellation, generation หรือ join ให้ใช้ภายใน component ที่กำหนดกฎเหล่านั้น
@@ -2078,7 +2080,7 @@ function `finish_task` ใน task module เดียวกันใช้ poli
 `nautilus_common::live::get_runtime().spawn()` ตามที่อธิบายใน
 [Async code](rust.md#async-code) แล้วเก็บไว้หรือ await handle ที่ได้คืนมาในที่นั้น
 
-### Spawn ผ่าน task group {#spawn-through-a-task-group}
+### Spawn ผ่าน task group [#spawn-through-a-task-group]
 
 method ของ client trait แบบ synchronous ต้องไม่ block Tokio runtime ที่ active ให้ clone input ที่เป็นเจ้าของ, spawn
 operation แบบ asynchronous และคืนผลการ validate ฝั่ง local ลงทะเบียนงานที่ client เป็นเจ้าของ
@@ -2129,7 +2131,7 @@ generation ที่เก่ากว่าไม่สามารถลงท
 เก็บผลลัพธ์แบบ typed ของ task ไว้เฉพาะใน component ที่ await มัน อย่าลบ type ของ `JoinHandle<T>` เพื่อ
 ให้เข้ากับ group แบบ unit-output เมื่อ `T` มีหลักฐานของ order, transport หรือ startup
 
-### Shut down และเปิด task generation ใหม่ {#shut-down-and-reopen-task-generations}
+### Shut down และเปิด task generation ใหม่ [#shut-down-and-reopen-task-generations]
 
 task shutdown แบ่งเป็นช่วง synchronous และ asynchronous แยกกัน:
 
@@ -2152,7 +2154,7 @@ startup error ปิด transport ทั้งหมดที่สร้าง�
 ทำให้การเรียก `begin_shutdown` และ `finish_shutdown` ซ้ำปลอดภัย method ของวงจรชีวิตแบบ synchronous อาจ
 เริ่ม teardown มากกว่าหนึ่งครั้งก่อนที่ขอบเขต asynchronous จะทำให้เสร็จ
 
-### ห้ามใช้ `block_on` ใน trait method {#never-use-block_on-in-trait-methods}
+### ห้ามใช้ `block_on` ใน trait method [#never-use-block_on-in-trait-methods]
 
 live runner เรียก method ของ data และ execution แบบ synchronous จากภายใน Tokio การเรียก `block_on`
 ในจุดนั้นอาจ panic เพราะมี runtime ทำงานอยู่แล้ว
@@ -2167,7 +2169,7 @@ live runner เรียก method ของ data และ execution แบบ 
 อย่าใช้ข้อยกเว้นของระดับบนสุดและ test มาอ้างเพื่อ block ภายใน method ของ live client trait
 ให้ออกแบบขอบเขตที่กำกวมใหม่เป็น async
 
-### Graceful shutdown ด้วย `CancellationToken` {#graceful-shutdown-with-cancellationtoken}
+### Graceful shutdown ด้วย `CancellationToken` [#graceful-shutdown-with-cancellationtoken]
 
 ใช้ `CancellationToken` เมื่อหลาย task มีวงจรชีวิตร่วมกัน ให้ select การ cancel ควบคู่กับ
 stream, timer หรือ response channel สำหรับ task ใน group ให้ขอ child token จาก generation
@@ -2176,7 +2178,7 @@ group หรือ spawner และปล่อยให้ `begin_shutdown` ca
 token ที่ถูก cancel แล้วซ้ำจะทำให้ task ที่มาแทนออกทันที ขณะที่การแทนที่ก่อนระบายเสร็จจะปล่อยให้
 งานเก่าข้ามขอบเขตของการ reconnect
 
-## การทดสอบ {#testing}
+## การทดสอบ [#testing]
 
 test พิสูจน์ semantics ของ adapter ที่ขอบเขตที่กว้างขึ้นเป็นลำดับ ให้เก็บ fixture ที่ถูกต้องแบบ canonical ไว้ใต้
 `test_data/` และไม่ให้ unit test และ integration test ทั่วไปเข้าถึง network ให้ได้ payload ที่ถูกต้องมาจาก
@@ -2189,14 +2191,14 @@ test พิสูจน์ semantics ของ adapter ที่ขอบเข�
 | Public Rust client boundary | `tests/`                         | พฤติกรรมแบบ typed ของ HTTP และ WebSocket ผ่าน mock server, การ dispatch event, วงจรชีวิต และการ retry       |
 | Live venue acceptance       | ตัวอย่างของ adapter หรือ test node   | authentication, subscription, execution, report, การกู้คืน และข้อจำกัดที่ประกาศไว้                         |
 
-### การทดสอบ Rust {#rust-testing}
+### การทดสอบ Rust [#rust-testing]
 
 policy การทดสอบร่วมของ repository ใช้ `#[rstest]` สำหรับ test function ของ Rust, อนุญาต
 `#[tokio::test]` สำหรับ async test และไม่อนุญาต comment แบบ arrange/act/assert
 [testing conventions hook](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/.pre-commit-hooks/check_testing_conventions.sh) บังคับใช้กฎ
 ระดับ repository เหล่านี้
 
-#### Fixture และ assertion ของ parser {#fixtures-and-parser-assertions}
+#### Fixture และ assertion ของ parser [#fixtures-and-parser-assertions]
 
 ใช้ค่า fixture ที่แน่นอนและ assert ทุกฟิลด์ output ที่คงที่ input ที่แตกต่างกันควรทำให้เห็นการสลับ
 ฟิลด์, ค่าที่ตกหล่น, precision ที่ผิด และค่าเริ่มต้นที่เกิดขึ้นโดยไม่ตั้งใจ
@@ -2218,7 +2220,7 @@ payload จริงแยกกันสำหรับ state ที่ต่�
 module `common::testing` อย่าคัดลอก code test ร่วมนั้นไปไว้ใน production module รูปแบบนี้เป็นทางเลือก
 เมื่อไม่มี code test ที่ใช้ร่วมกัน
 
-#### การ synchronize ของ client {#client-synchronization}
+#### การ synchronize ของ client [#client-synchronization]
 
 ขับ method ของ public client ผ่าน mock HTTP server หรือ mock WebSocket server แล้ว assert event ที่ emit,
 request, สถานะ connection, สถานะ subscription, จำนวน retry และพฤติกรรม shutdown
@@ -2229,7 +2231,7 @@ request, สถานะ connection, สถานะ subscription, จำนว�
 [`wait_until_async`](https://github.com/nautechsystems/nautilus_trader/blob/04f766b4d434d67fc8672026fefa25135bdc01be/crates/common/src/testing.rs) การ sleep สั้น ๆ ใช้ได้เมื่อช่วงเวลา
 นั้นคือสิ่งที่กำลังทดสอบ แต่ไม่ควรใช้ปกปิดจุด synchronization ที่ขาดหายไป
 
-### การทดสอบเชิงฟังก์ชันและ integration {#functional-and-integration-testing}
+### การทดสอบเชิงฟังก์ชันและ integration [#functional-and-integration-testing]
 
 ทดสอบแต่ละขอบเขต public ด้วยหลักฐานของโปรโตคอลทั้งแบบสำเร็จและแบบมีปัญหา:
 
@@ -2281,7 +2283,7 @@ execution test ครอบคลุมทุกคำสั่งและ repo
 [ข้อกำหนดการทดสอบ execution](spec_exec_testing.md) กำหนด catalog ของ scenario ร่วมและ
 กฎการข้าม ให้ลิงก์ไปยังเอกสารเหล่านั้นแทนการคัดลอกรายการบางส่วนไปไว้ใน README ของ adapter
 
-### Acceptance testing {#acceptance-testing}
+### Acceptance testing [#acceptance-testing]
 
 รัน acceptance test หลังจาก deterministic test ผ่านแล้วเท่านั้น ใช้ testnet หรือ account ที่ควบคุมได้ และ
 บันทึก:
@@ -2305,12 +2307,12 @@ path เพียงเส้นเดียว
 `dry_run=False` อย่างชัดเจนใน `ExecTesterConfig` เพื่อให้เห็นว่ามี option dry-run อยู่ การควบคุมของ Rust tester แตกต่างกันไป
 ให้ตรวจสอบก่อนรัน
 
-## ประสิทธิภาพและความทนทาน {#performance-and-robustness}
+## ประสิทธิภาพและความทนทาน [#performance-and-robustness]
 
 เพิ่ม suite เหล่านี้ในช่วงท้าย หลังจากงาน functional, integration และ acceptance ยืนยันพฤติกรรมที่ถูกต้องแล้ว
 suite เหล่านี้เพิ่มความมั่นใจให้กับ hot path ที่ยืนยันแล้วและ input จาก venue ที่ไม่น่าเชื่อถือ แต่ไม่ได้แทนที่ conformance test
 
-### Canonical benchmark {#canonical-benchmarks}
+### Canonical benchmark [#canonical-benchmarks]
 
 ใช้ Criterion สำหรับการตรวจประสิทธิภาพเชิงลึกบนขอบเขตของ production ที่การวัดระบุว่า
 สำคัญ suite ของ Lighter และ Derive เป็นโครงสร้างอ้างอิง:
@@ -2341,7 +2343,7 @@ noise และการรายงานผล และใช้
 [Criterion practitioner guide](benchmarking.md#writing-criterion-benchmarks) สำหรับโครงสร้าง
 benchmark และคำสั่งที่รันบนเครื่อง local
 
-### Fuzz testing {#fuzz-testing}
+### Fuzz testing [#fuzz-testing]
 
 coverage-guided fuzzing เพิ่มความมั่นใจในจุดที่ byte หรือค่าใด ๆ จาก venue ข้ามขอบเขตความเชื่อถือ
 ให้จัดลำดับความสำคัญ:
@@ -2387,7 +2389,7 @@ feature ร่วม ให้ใช้ [Lighter fuzz README][lighter-fuzz] แ�
 [Derive fuzz README][derive-fuzz] ที่เจาะจงสำหรับคำสั่ง setup, corpus, artifact และ target แทนการ
 คัดลอกทุกคำสั่งมาไว้ที่นี่
 
-## เอกสาร {#documentation}
+## เอกสาร [#documentation]
 
 สร้างหรืออัปเดต `docs/integrations/<adapter>.md` ให้มี:
 
@@ -2405,7 +2407,7 @@ feature ร่วม ให้ใช้ [Lighter fuzz README][lighter-fuzz] แ�
 ทำตาม[คู่มือเอกสาร](docs.md) และ
 [คู่มือรูปแบบ Markdown](markdown_style.md) ของ repository ให้เปลี่ยน input ของ generator แล้ว generate output ใหม่
 
-## อ้างอิงข้อกำหนดการทดสอบ {#testing-spec-references}
+## อ้างอิงข้อกำหนดการทดสอบ [#testing-spec-references]
 
 ใช้ข้อกำหนดร่วมเหล่านี้เพื่อวางแผนและรายงาน conformance ของ adapter:
 

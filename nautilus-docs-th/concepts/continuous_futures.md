@@ -1,4 +1,6 @@
-# Continuous Futures
+---
+title: "Continuous Futures"
+---
 
 **continuous future** คือชุดข้อมูลอนุพันธ์ที่นำสัญญา futures ที่ต่อเนื่องกันมาต่อเป็น price stream เดียวที่ผ่าน
 การปรับราคาแล้ว เนื่องจากสัญญาอ้างอิงแต่ละตัวมีวันหมดอายุ ชุดข้อมูลแบบ continuous จึงต้อง roll ไปยังสัญญาถัดไป
@@ -9,7 +11,7 @@ Nautilus model continuous future ด้วย target `BarType` บวกกั�
 params ของ request หรือ subscription สำหรับแต่ละช่วงเวลา data engine จะเลือกสัญญาจริงและคำนวณค่าปรับราคาสะสม
 (cumulative price adjustment) จากนั้นป้อนข้อมูลต้นทางที่ปรับแล้วผ่านเส้นทาง bar aggregation ตามปกติ
 
-## โหมดการปรับราคา {#adjustment-modes}
+## โหมดการปรับราคา [#adjustment-modes]
 
 `ContinuousFutureAdjustmentType` รวมทิศทาง (backward หรือ forward) เข้ากับวิธีคำนวณ (spread หรือ ratio):
 
@@ -31,7 +33,7 @@ FORWARD_RATIO:   product over i in [0, k) of (pre_i / post_i)
 
 โหมด spread สะสม offset แบบบวก ส่วนโหมด ratio สะสมตัวคูณ และต้องการราคาที่เป็นบวกเท่านั้น
 
-## Input {#inputs}
+## Input [#inputs]
 
 request หรือ subscription แบบ continuous future คือ `RequestBars` หรือ `SubscribeBars` ใด ๆ ที่มี
 รายการ `continuous_future_transitions` อยู่ใน `params` โดยมีคีย์ดังนี้:
@@ -60,7 +62,7 @@ target ของ subscription ใช้ `params` ของ command ร่วม�
 target bar type แบบ continuous ต้องเป็นแบบ **internally aggregated** bar ที่ aggregate จากภายนอก
 (externally aggregated) ใช้เป็น continuous target ไม่ได้ แต่ใช้เป็นต้นทางของแต่ละ segment ได้
 
-### Chain แบบมีขอบเขต {#bounded-chains}
+### Chain แบบมีขอบเขต [#bounded-chains]
 
 ขอบเขตที่เป็นตัวเลือกทั้งสองตัวจำกัดว่า transition ใดบ้างที่นำมาคิดในค่าปรับสะสม แต่ไม่ได้ตัด segment ของสัญญา
 ออกจาก request หรือ subscription:
@@ -74,7 +76,7 @@ target bar type แบบ continuous ต้องเป็นแบบ **interna
 
 ขอบเขตเหล่านี้ทำให้ผู้เรียกส่งตาราง transition ที่กว้างกว่าได้ โดยยังเลือกช่วงที่จะปรับราคาเองได้
 
-## การตรวจสอบความถูกต้อง {#validation}
+## การตรวจสอบความถูกต้อง [#validation]
 
 ทั้งเส้นทาง request และ subscription ใช้กฎตรวจสอบ transition parameter ชุดเดียวกัน ก่อนจะสร้าง aggregator
 หรือ state ของ child segment:
@@ -96,7 +98,7 @@ target bar type แบบ continuous ต้องเป็นแบบ **interna
 ที่ผูกกับ request นั้น ส่วนความล้มเหลวระหว่าง dispatch segment ถัด ๆ ไป ยังคงจบ request ด้วย completion
 response และการเก็บกวาด aggregator ตามปกติ
 
-## การสร้าง target instrument อัตโนมัติ {#target-instrument-auto-synthesis}
+## การสร้าง target instrument อัตโนมัติ [#target-instrument-auto-synthesis]
 
 continuous root (เช่น `ES.XCME`) เป็น id สังเคราะห์ที่ไม่มี market data ของตัวเอง แต่ส่วนที่ทำงานต่อจากนั้น
 (aggregator, การค้นหาใน cache, serialization) ยังคาดหวังว่าจะมี `Instrument` อยู่ใน cache หลังผ่านการตรวจสอบ
@@ -111,7 +113,7 @@ continuous root (เช่น `ES.XCME`) เป็น id สังเครา�
 - ถ้า segment แรกยังไม่อยู่ใน cache หรือไม่ใช่ `FuturesContract` การ setup จะ log warning แล้ว return
   ผู้เรียกต้องลงทะเบียน continuous instrument เอง
 
-## ภาพรวมสถาปัตยกรรม {#architecture-overview}
+## ภาพรวมสถาปัตยกรรม [#architecture-overview]
 
 ```mermaid
 flowchart TD
@@ -139,7 +141,7 @@ bar จากเส้นทาง request จะถูกเก็บลง cac
 segment ตามลำดับ ส่วนเส้นทาง subscription จะเปิดใช้งาน source ไว้หนึ่งตัว และสลับเมื่อ time alert ของ
 transition ถัดไปทำงาน
 
-## Segment {#segments}
+## Segment [#segments]
 
 **segment** คือช่วงเวลาต่อเนื่องที่เป็นของสัญญาจริงหนึ่งสัญญา โดยมี transition เป็นตัวแบ่ง segment เมื่อมี
 `transitions[0..N)`:
@@ -152,7 +154,7 @@ transition ถัดไปทำงาน
 เส้นทาง request จะตัดแต่ละ segment ให้อยู่ในช่วงเวลาที่ request และ dispatch segment ตามลำดับ ส่วนเส้นทาง
 subscription ใช้ clock ของ engine เลือก segment ที่ active และตั้งเวลาสำหรับ transition ถัดไปที่เหลืออยู่
 
-## ลำดับการทำงานของ request {#request-flow}
+## ลำดับการทำงานของ request [#request-flow]
 
 เส้นทาง request จะ dispatch child request ทีละตัวผ่านการจัดการ request ปกติของ engine ดังนั้น data catalog
 ที่ลงทะเบียนไว้จะให้ข้อมูลของ segment ก่อน แล้ว client จึงเติมช่องว่างที่เหลือ เมื่อ child response มาถึง
@@ -183,14 +185,14 @@ bar ที่ปรับแล้วจะถูกเขียนลง cache 
 request เสร็จสิ้นแล้วและรายงานจำนวน record ต้นทาง โดยไม่ได้มี vector รวมของ bar ที่ปรับแล้ว
 :::
 
-### Chain aggregator {#chain-aggregators}
+### Chain aggregator [#chain-aggregators]
 
 ถ้า request ตั้ง `bar_types = (bar_type_1, bar_type_2)` สำหรับการ aggregate ภายในหลายระดับ engine จะสร้าง
 aggregator แยกที่ผูกกับ request สำหรับแต่ละระดับ response ต้นทางของ segment จะเข้าสู่ continuous target
 ตัวหลัก และ bar ที่ออกมาจะป้อนให้ aggregator ระดับถัดไปที่ตรงกัน มีเพียง builder ตัวหลักเท่านั้นที่ได้รับ
 ค่าปรับ ระดับที่สูงกว่าจะ aggregate ซ้ำจากข้อมูลที่ปรับแล้ว
 
-## ลำดับการทำงานของ subscription {#subscription-flow}
+## ลำดับการทำงานของ subscription [#subscription-flow]
 
 state machine ขนาดเล็กขับเคลื่อน subscription ที่ active แต่ละตัวผ่าน time alert ที่รออยู่เพียงตัวเดียว:
 
@@ -208,7 +210,7 @@ stateDiagram-v2
 1. subscribe source ใหม่
 1. ตั้ง timer สำหรับ transition ถัดไป
 
-## การหา source {#source-resolution}
+## การหา source [#source-resolution]
 
 สำหรับ target `BarType` แบบ continuous future ใด ๆ ข้อมูลดิบที่ป้อนให้ aggregator ตัวหลักจะมาจาก
 **สัญญาของ segment** ไม่ใช่ continuous id รูปแบบของ target เป็นตัวกำหนดประเภทของ source:
@@ -229,7 +231,7 @@ flowchart TD
 สำหรับ source ที่ aggregate ภายใน `LAST` ใช้ trade ส่วน `BID`, `ASK` และ `MID` ใช้ quote
 price type อื่นไม่รองรับใน quote aggregation
 
-## การปรับราคาใน BarBuilder {#barbuilder-adjustment}
+## การปรับราคาใน BarBuilder [#barbuilder-adjustment]
 
 builder ใช้ค่าปรับ **ตอนรับข้อมูลเข้า** ในทุกการเรียก `update(price, ...)` และ `update_bar(bar, ...)`
 ดังนั้น state ของ OHLC ที่สะสมอยู่จะอยู่ในกรอบราคาร่วมที่ปรับแล้วเสมอ การเปลี่ยนค่าปรับระหว่าง bar จะมีผลเฉพาะ
@@ -251,13 +253,13 @@ flowchart LR
 `set_adjustment` method `reset()` จะล้าง state ของ OHLCV ต่อ bar เพื่อเตรียม bar ถัดไป แต่ยังเก็บค่าปรับ
 ระดับ segment ไว้
 
-## การ roll กลาง bar {#mid-bar-roll-boundary}
+## การ roll กลาง bar [#mid-bar-roll-boundary]
 
 ถ้าการ roll เกิดขึ้นระหว่าง target bar ที่กำลังสร้างอยู่ builder จะคง state ของ OHLC ปัจจุบันไว้ และใช้ค่าปรับใหม่
 เฉพาะกับการอัปเดตที่ตามมา ส่วนก่อนถึงจุดเปลี่ยนจะใช้ offset เดิม ส่วนหลังจุดเปลี่ยนใช้ offset ใหม่ การเขียน OHLC
 ที่มีอยู่ใหม่ด้วยค่าปรับใหม่จะต้องใช้ input ดิบ ซึ่ง builder ไม่ได้เก็บไว้
 
-## ข้อจำกัด {#limitations}
+## ข้อจำกัด [#limitations]
 
 - ฟีเจอร์นี้ต้องได้รับ metadata ของ transition จากผู้เรียก engine ไม่ได้ค้นหาการ roll เลือกสัญญา หรืออนุมาน
   ราคา roll เอง ซึ่งเป็นความรับผิดชอบของผู้เรียก

@@ -1,14 +1,16 @@
-# ลำดับการทำงานของ Backtest Execution
+---
+title: "ลำดับการทำงานของ Backtest Execution"
+---
 
 backtest loop จะประมวลผลสถานะตลาดก่อนเรียก callback ของ strategy จากนั้นจึง settle command ที่เกิดขึ้น
 ใน timestamp เดียวกัน
 
-## ลำดับของข้อมูลและ message {#data-and-message-sequencing}
+## ลำดับของข้อมูลและ message [#data-and-message-sequencing]
 
 backtest loop หลักจะนำ market data ใหม่ไปประมวลผลเพื่อ execute order ก่อนที่ data engine
 จะ dispatch ข้อมูลนั้นไปยัง actor และ strategy
 
-### ลำดับการทำงานของ main loop {#main-loop-flow}
+### ลำดับการทำงานของ main loop [#main-loop-flow]
 
 สำหรับข้อมูลแต่ละจุด engine จะทำงานสามขั้นตอน:
 
@@ -68,7 +70,7 @@ timer event ใช้กลไก settle แบบเดียวกัน โ�
 สำหรับ timer ที่ใช้กับ bar ที่ aggregate ภายใน ดู
 [จังหวะเวลาของการ aggregate bar ภายใน](bar-execution.md#internal-bar-aggregation-timing)
 
-### การเลื่อน settlement ของ option {#deferred-option-settlement}
+### การเลื่อน settlement ของ option [#deferred-option-settlement]
 
 ที่ timestamp หมดอายุของ option การตรวจสอบการหมดอายุอัตโนมัติจะปิดตลาดของ option นั้น cancel order ที่เปิดอยู่
 และ reject order ใหม่ การ settle position จะรอจนกว่า market data ทั้งหมดที่ timestamp นั้นถูกประมวลผลแล้ว
@@ -83,9 +85,9 @@ settlement หลังจาก market data ทั้งหมดที่ time
 หรือตั้ง `defer_option_settlement` เป็น `false` อย่างชัดเจนเพื่อ settle ทันที การ settle ทันที
 อาจใช้ **ราคา underlying ที่เก่ากว่า** หากยังมี update ที่ timestamp เดียวกันที่ยังไม่ได้ประมวลผล
 
-### การ settle command {#command-settling}
+### การ settle command [#command-settling]
 
-#### Command ในรอบเดียวกัน {#same-cycle-commands}
+#### Command ในรอบเดียวกัน [#same-cycle-commands]
 
 fill ของ order อาจกระตุ้น callback ของ strategy ที่ submit order อื่น เช่น stop-loss จาก
 `on_order_filled` engine จะดึงคิว venue command และประมวลผล command ที่เกิดจาก event เหล่านั้น
@@ -94,7 +96,7 @@ fill ของ order อาจกระตุ้น callback ของ strategy 
 
 simulation module จะทำงานครั้งเดียว หลังจาก command loop เสร็จสิ้น
 
-#### Command ที่ถูกหน่วงด้วย latency {#latency-delayed-commands}
+#### Command ที่ถูกหน่วงด้วย latency [#latency-delayed-commands]
 
 [`LatencyModel`](../behavioral_models.md) จะวาง command แต่ละตัวไว้ในคิว inflight ของ venue
 พร้อม timestamp ที่จะมาถึง เมื่อ command ถึงกำหนด จุด settlement จะเป็นตัวกำหนดว่า
@@ -111,7 +113,7 @@ engine จะปล่อย command นั้นหรือไม่:
 market data ของ instrument อื่นจะไม่ทำให้ command เก่าทำงานกับสถานะตลาดที่ล้าสมัย command
 ที่มี timestamp มาถึงในอนาคตจะยังอยู่ในคิว inflight
 
-### Inbound latency ของ sandbox {#sandbox-inbound-latency}
+### Inbound latency ของ sandbox [#sandbox-inbound-latency]
 
 `SandboxExecutionClientConfig.latency_model` รับ `StaticLatencyModel` โดยใช้รูปแบบเดียวกับการตั้งค่า
 `fee_model` model นี้จะหน่วง submit, modify และ cancel ตามขา insert, update และ delete ของ
@@ -122,7 +124,7 @@ event ที่ venue สร้างขึ้น (accept, fill, cancel, expirat
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-#### จังหวะเวลาของ event และ command {#event-and-command-timing}
+#### จังหวะเวลาของ event และ command [#event-and-command-timing]
 
 event ของ client แต่ละตัวใช้ execution channel ของ runner ตามลำดับที่ปล่อยออกมา ไม่ว่าจะมี latency model หรือไม่:
 
@@ -138,7 +140,7 @@ event ของ client แต่ละตัวใช้ execution channel ข�
 - cancel-all จะ cancel เฉพาะ order ที่ venue ได้รับแล้วเท่านั้น order ที่ submit ยังอยู่ระหว่างทาง
   จะไม่ถูกแตะต้องจนกว่า venue จะประมวลผล submit นั้น
 
-#### Contingent order {#contingent-orders}
+#### Contingent order [#contingent-orders]
 
 ทั้งใน backtest และ sandbox การทำงานแบบ contingent จะเคารพการรับของ venue:
 
@@ -151,7 +153,7 @@ event ของ client แต่ละตัวใช้ execution channel ข�
 - การเปลี่ยนจำนวนแบบ contingent ที่ถูกข้ามไปก่อน venue ได้รับ จะไม่ถูก replay เมื่อ submit มาถึง order จะคง
   จำนวนที่ submit ไว้ เว้นแต่มีกฎอื่นที่เกี่ยวข้องเปลี่ยนแปลงมัน
 
-#### การหยุดขณะที่มี command อยู่ระหว่างทาง {#stopping-with-commands-in-flight}
+#### การหยุดขณะที่มี command อยู่ระหว่างทาง [#stopping-with-commands-in-flight]
 
 การหยุด client จะทิ้งทุกอย่างที่ยังอยู่ระหว่างทาง:
 
@@ -161,7 +163,7 @@ event ของ client แต่ละตัวใช้ execution channel ข�
 - `CancelAllOrders` ที่ถูกทิ้งจะถูกละไป strategy ไม่ได้ mark order ใดเป็น `PENDING_CANCEL` สำหรับมัน
   จึงไม่มีสถานะ pending ที่ต้องปล่อย
 
-### ความหมายของการ shutdown {#shutdown-semantics}
+### ความหมายของการ shutdown [#shutdown-semantics]
 
 `BacktestEngine::end()` แยกจากการตั้งค่า `shutdown_on_error` ใน
 [backtest API และการรันซ้ำ](apis-and-runs.md#shutdown-on-error) มันจะเรียก handler `on_stop`
@@ -183,12 +185,12 @@ event ของ client แต่ละตัวใช้ execution channel ข�
   data tick สุดท้ายหรือใน `on_stop`) เส้นทาง shutdown จะเลื่อน clock ของ engine ไปยัง timestamp ที่ inflight
   ตัวล่าสุดมาถึง เพื่อให้ command เหล่านั้นยัง settle ได้ก่อน engine หยุด
 
-## Backtest ที่มีเฉพาะ timer {#timer-only-backtests}
+## Backtest ที่มีเฉพาะ timer [#timer-only-backtests]
 
 backtest engine รองรับการรันที่มี timer แต่ไม่มี market data ซึ่งมีประโยชน์สำหรับงานที่ตั้งเวลาไว้
 หรือการทดสอบ logic ที่ขึ้นกับ timer timer จะทำงานตามลำดับเวลา
 
-## Trade ID แบบ deterministic {#deterministic-trade-ids}
+## Trade ID แบบ deterministic [#deterministic-trade-ids]
 
 simulated exchange (ใช้ทั้งใน backtest และ sandbox execution) จะปล่อย `TradeId` แบบ deterministic สำหรับ
 fill แต่ละตัวที่สร้างขึ้น ID มีรูปแบบ `T-{hash:016x}-{count:03d}` ส่วน hex 16 ตัวอักษรคือ hash แบบ FNV-1a ของ

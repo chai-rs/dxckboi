@@ -1,11 +1,13 @@
-# Value Types
+---
+title: "Value Types"
+---
 
 NautilusTrader มี value type เฉพาะสำหรับแทนแนวคิดหลักในการเทรด ได้แก่
 `Price`, `Quantity` และ `Money` type เหล่านี้ใช้เลขคณิตแบบ fixed-point ภายใน
 เพื่อให้การคำนวณมีประสิทธิภาพและให้ผลลัพธ์ที่แน่นอน (deterministic) เหมือนกันในทุกแพลตฟอร์ม
 และทุก environment
 
-## ภาพรวม {#overview}
+## ภาพรวม [#overview]
 
 | Type       | วัตถุประสงค์                                       | มีเครื่องหมาย | Currency |
 | ---------- | ----------------------------------------------- | ---------- | -------- |
@@ -13,12 +15,12 @@ NautilusTrader มี value type เฉพาะสำหรับแทนแ�
 | `Price`    | ราคาตลาด, quote, ระดับราคา                       | ใช่          | -        |
 | `Money`    | จำนวนเงิน, P&L, ยอดเงินคงเหลือใน account            | ใช่          | ใช่        |
 
-## การดำเนินการทางคณิตศาสตร์ {#arithmetic-operations}
+## การดำเนินการทางคณิตศาสตร์ [#arithmetic-operations]
 
 value type รองรับตัวดำเนินการทางคณิตศาสตร์มาตรฐาน type ของผลลัพธ์ขึ้นอยู่กับตัวดำเนินการ
 และ type ของ operand
 
-### การดำเนินการแบบ binary ระหว่าง type เดียวกัน {#same-type-binary-operations}
+### การดำเนินการแบบ binary ระหว่าง type เดียวกัน [#same-type-binary-operations]
 
 การบวกและการลบระหว่าง value type เดียวกันจะคืนค่าเป็น type นั้น ซึ่งคงความหมายทางโดเมนไว้
 (ราคาบวกราคาก็ยังเป็นราคา):
@@ -54,14 +56,14 @@ value type รองรับตัวดำเนินการทางคณ
 > หมายเหตุ: ต้นฉบับมีส่วนเรื่องตัวดำเนินการแบบ unary และการดำเนินการข้าม type ที่อธิบายตามกฎของ Python
 > จึงตัดออก
 
-## การจัดการ precision {#precision-handling}
+## การจัดการ precision [#precision-handling]
 
 `Price` และ `Quantity` เก็บฟิลด์ `precision` แบบชัดเจนและเปลี่ยนแปลงไม่ได้ ซึ่งระบุจำนวนตำแหน่งทศนิยม
 `Money` ใช้ precision ของสกุลเงินสำหรับการปัดเศษเริ่มต้นและเป็น precision ขั้นต่ำในการแสดงผล ส่วน
 constructor แบบ exact ของมันสามารถเก็บจำนวนที่ละเอียดกว่านั้นได้โดยไม่ต้องเปลี่ยนสกุลเงิน type เหล่านี้ไม่มี
 precision แบบ "ไม่ระบุ"
 
-### การแทนค่าแบบ fixed-point {#fixed-point-representation}
+### การแทนค่าแบบ fixed-point [#fixed-point-representation]
 
 value type ใช้จำนวนเต็มที่ถูก scale แทนเลขทศนิยมแบบ floating-point โดย scale ส่วนกลางคือ 10^9 ในโหมดมาตรฐาน
 และ 10^16 ในโหมด high-precision ค่า DeFi ที่รองรับ precision สูงกว่านั้นจะใช้ precision ของตัวเองเป็น scale
@@ -84,18 +86,18 @@ Parquet หรือ Arrow metadata ของไฟล์จะเก็บ prec
 ดูว่า precision ระดับ instrument จำกัดราคาและ quantity ที่ใช้ได้อย่างไรในส่วน
 [Precision](instruments/index.md#precision) ของคู่มือ Instruments
 
-### Precision ในการคำนวณ {#arithmetic-precision}
+### Precision ในการคำนวณ [#arithmetic-precision]
 
 เมื่อคำนวณระหว่างค่าที่มี precision ต่างกัน ผลลัพธ์จะใช้ precision สูงสุดของ operand
 
-## ข้อจำกัดเฉพาะของแต่ละ type {#type-specific-constraints}
+## ข้อจำกัดเฉพาะของแต่ละ type [#type-specific-constraints]
 
-### Quantity {#quantity}
+### Quantity [#quantity]
 
 `Quantity` แทนจำนวนที่ไม่ติดลบ การพยายามสร้าง quantity ที่ติดลบ
 หรือลบ quantity ที่มากกว่าออกจาก quantity ที่น้อยกว่าจะทำให้เกิด error
 
-### Money {#money}
+### Money [#money]
 
 ค่า `Money` มีสกุลเงินกำกับอยู่ การบวกและการลบระหว่างค่า `Money`
 ต้องใช้ **สกุลเงินเดียวกัน** มิฉะนั้นจะเกิด error
@@ -108,9 +110,9 @@ constructor แบบ exact จะปฏิเสธการสูญเสี�
 การ serialize เป็น string จะคงตัวเลขที่ละเอียดกว่าซึ่งเก็บไว้ และการ deserialize จะคืนค่าเหล่านั้นโดยไม่ปัดตาม
 สกุลเงิน
 
-## รูปแบบการใช้งานทั่วไป {#common-patterns}
+## รูปแบบการใช้งานทั่วไป [#common-patterns]
 
-### การแปลงเป็น type อื่น {#converting-to-other-types}
+### การแปลงเป็น type อื่น [#converting-to-other-types]
 
 value type มี method สำหรับแปลงค่า เช่น `as_decimal()` (คง precision ไว้) และ `as_double()` (แปลงเป็น float)
 
@@ -120,7 +122,7 @@ value type มี method สำหรับแปลงค่า เช่น `a
 ของ Rust ซึ่งมี mantissa ขนาด 96 บิต จึงอาจสูญเสียตัวเลขหลังจุดทศนิยมได้เมื่อค่ามีตัวเลขนัยสำคัญมากเกินไป
 การ serialize เป็น string จะคงจำนวน `Money` ที่เก็บไว้ครบถ้วน
 
-### การสร้างจาก string {#creating-from-strings}
+### การสร้างจาก string [#creating-from-strings]
 
 value type สามารถ parse จากรูปแบบ string ได้ เช่น `"100.5"` สำหรับ quantity, `"99.95"` สำหรับราคา
 และ `"1000.00 USD"` สำหรับ money

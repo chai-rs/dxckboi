@@ -1,11 +1,13 @@
-# Coinbase
+---
+title: "Coinbase"
+---
 
 Coinbase ก่อตั้งในปี 2012 และเป็นหนึ่งใน cryptocurrency exchange ที่ใหญ่ที่สุดซึ่งอยู่ภายใต้การกำกับดูแลของสหรัฐฯ
 Advanced Trade API ของ Coinbase รองรับการเทรด spot, perpetual swap และ dated futures adapter นี้รองรับการรับ
 ข้อมูลตลาดแบบ live และการ execute order ทั้งบน account แบบ spot (Cash) และ CFM derivatives (Margin) ผ่าน execution
 client ตัวเดียวกัน โดย factory เป็นผู้เลือกประเภท account (ดู [ขอบเขตของ execution](#execution-scope))
 
-## ภาพรวม {#overview}
+## ภาพรวม [#overview]
 
 Adapter ของ Coinbase implement ด้วย Rust
 
@@ -21,11 +23,11 @@ Component:
 - `CoinbaseExecutionClientFactory`: factory ของ execution client โดยเลือก spot หรือ CFM derivatives ด้วย
   `account_type` ใน config
 
-## ตัวอย่าง {#examples}
+## ตัวอย่าง [#examples]
 
 - [ตัวอย่าง Rust](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/coinbase/examples/)
 
-## เอกสารของ Coinbase {#coinbase-documentation}
+## เอกสารของ Coinbase [#coinbase-documentation]
 
 Coinbase มีเอกสารสำหรับ Advanced Trade API:
 
@@ -43,7 +45,7 @@ Adapter นี้มุ่งไปที่ Coinbase Advanced Trade API ไม�
 ถูกนำออกไปแล้วใน NautilusTrader 1.224.0
 :::
 
-## Products {#products}
+## Products [#products]
 
 Product เป็นคำเรียกรวมสำหรับกลุ่มของ instrument type ที่เกี่ยวข้องกัน
 
@@ -55,7 +57,7 @@ Product type ที่รองรับมีดังนี้:
 | Perpetual contracts | ✓      | Perpetual swap แบบ USD-margined บน FCM venue          |
 | Futures contracts   | ✓      | Dated delivery futures (nano BTC, nano ETH ฯลฯ)       |
 
-## Symbology {#symbology}
+## Symbology [#symbology]
 
 Coinbase ใช้ field `product_id` ดั้งเดิมของ venue เป็น symbol ของ Nautilus โดยตรง และ instrument ID คือ
 `{product_id}.COINBASE`
@@ -81,7 +83,7 @@ Adapter ระบุ product type เชิงโครงสร้างจา�
 - `BIP-20DEC30-CDE.COINBASE` (BTC perpetual swap)
 - `BIT-24APR26-CDE.COINBASE` (BTC dated future, Apr 2026)
 
-### Product ที่เป็น alias (USDC และ USD) {#aliased-products-usdc-and-usd}
+### Product ที่เป็น alias (USDC และ USD) [#aliased-products-usdc-and-usd]
 
 Coinbase รวมคู่เดียวกันที่ quote เป็น USDC และ USD ไว้ใน book เดียวของ matching engine `GET /products` แสดง
 ความสัมพันธ์นี้ผ่าน `alias` และ `alias_to`:
@@ -103,7 +105,7 @@ Strategy ที่ถือแค่ USDC จึงเทรด `BTC-USDC.COINBA
 settlement currency กำหนดจาก `product_id` ที่ส่ง ดังนั้น order ที่วางบน `BTC-USDC.COINBASE` จะหักหรือเติม
 wallet USDC เสมอ
 
-## Environment {#environments}
+## Environment [#environments]
 
 Coinbase มี environment สำหรับเทรดสองแบบ ตั้งค่า environment ที่ต้องการด้วย field `environment` ใน config ของ client
 
@@ -112,14 +114,14 @@ Coinbase มี environment สำหรับเทรดสองแบบ ต
 | Live        | `CoinbaseEnvironment.LIVE`    | `https://api.coinbase.com`         |
 | Sandbox     | `CoinbaseEnvironment.SANDBOX` | `https://api-sandbox.coinbase.com` |
 
-### Live (production) {#live-production}
+### Live (production) [#live-production]
 
 Environment เริ่มต้นสำหรับ live trading ด้วยเงินจริง ระบุ `api_key` และ `api_secret` ใน
 `CoinbaseExecutionClientConfig` (ค่าเริ่มต้นของ environment คือ Live)
 
 Environment variable: `COINBASE_API_KEY`, `COINBASE_API_SECRET`
 
-### Sandbox {#sandbox}
+### Sandbox [#sandbox]
 
 Environment ทดสอบแบบ static mock สำหรับเชื่อมต่อระบบให้ครบ ตาม
 [เอกสาร Sandbox](https://docs.cdp.coinbase.com/coinbase-app/advanced-trade-apis/sandbox) ตั้ง `environment`
@@ -140,13 +142,13 @@ environment variable ที่ตรงกัน) ในการสร้าง
 production (ด้วยเงินจริงและความระมัดระวัง)
 :::
 
-## การยืนยันตัวตน {#authentication}
+## การยืนยันตัวตน [#authentication]
 
 Coinbase Advanced Trade ใช้การยืนยันตัวตนด้วย JWT แบบ ES256 ทุก REST request และทุก WebSocket subscription
 จะสร้าง JWT อายุสั้นที่ sign ด้วย EC private key ของคุณ adapter จะ resolve credential จาก environment variable
 หรือจาก field ใน config
 
-### การสร้าง API key {#creating-an-api-key}
+### การสร้าง API key [#creating-an-api-key]
 
 Coinbase มี key หลายประเภท adapter ต้องการ **Coinbase App Secret API key** ที่ใช้ signature algorithm แบบ
 **ECDSA** (ไม่ใช่ Ed25519)
@@ -192,7 +194,7 @@ sign request ด้วย ES256 ดู
 [คู่มือการยืนยันตัวตนด้วย API key](https://docs.cdp.coinbase.com/coinbase-app/authentication-authorization/api-key-authentication)
 ของ Coinbase
 
-### Environment variable {#environment-variables}
+### Environment variable [#environment-variables]
 
 | Variable              | คำอธิบาย                                                  |
 | --------------------- | ------------------------------------------------------- |
@@ -210,14 +212,14 @@ export COINBASE_API_SECRET="$(cat ~/path/to/cdp_api_key.pem)"
 แนะนำให้ใช้ environment variable ในการจัดการ credential
 :::
 
-### อายุของ JWT {#jwt-lifetime}
+### อายุของ JWT [#jwt-lifetime]
 
 JWT ของ Coinbase หมดอายุหลัง 120 วินาที ตาม
 [WebSocket overview](https://docs.cdp.coinbase.com/coinbase-app/advanced-trade-apis/websocket/websocket-overview)
 ต้องสร้าง JWT ใหม่สำหรับ WebSocket message ที่ต้องยืนยันตัวตนทุกครั้ง (คือทุกครั้งที่ subscribe) adapter จะสร้าง
 JWT ใหม่ให้ทุก REST request ที่ sign และทุก subscribe message ที่ต้องยืนยันตัวตน ไม่ต้อง rotate เอง
 
-## Portfolio {#portfolios}
+## Portfolio [#portfolios]
 
 Account ของ Coinbase มี **portfolio** ตั้งแต่หนึ่งตัวขึ้นไป แต่ละ portfolio มี wallet ของตัวเอง (USD, USDC, BTC ฯลฯ)
 ยอดเงิน และขอบเขตของ order ทุก account มี portfolio `DEFAULT` และผู้ใช้สร้าง portfolio แบบ `CONSUMER` เพิ่มได้
@@ -226,7 +228,7 @@ Account ของ Coinbase มี **portfolio** ตั้งแต่หนึ�
 CDP API key จะ **ผูกกับ portfolio เดียวตั้งแต่ตอนสร้าง** ทุก request ที่ยืนยันตัวตน (การค้นหา account, การส่ง order,
 การยกเลิก) จะทำงานกับ portfolio นั้น เว้นแต่จะระบุ portfolio อื่นอย่างชัดเจน
 
-### การหา UUID ของ portfolio {#finding-your-portfolio-uuids}
+### การหา UUID ของ portfolio [#finding-your-portfolio-uuids]
 
 รัน probe binary ที่ยืนยันตัวตนของ adapter:
 
@@ -258,7 +260,7 @@ curl -H "Authorization: Bearer $JWT" \
   https://api.coinbase.com/api/v3/brokerage/portfolios
 ```
 
-### เมื่อใดต้องใช้ `retail_portfolio_id` {#when-retail_portfolio_id-is-required}
+### เมื่อใดต้องใช้ `retail_portfolio_id` [#when-retail_portfolio_id-is-required]
 
 Endpoint `POST /orders` ของ Coinbase จะ route ไปยัง portfolio ที่ key ผูกไว้โดยค่าเริ่มต้น ดังนั้น account ที่มี
 portfolio เดียวไม่จำเป็นต้องตั้ง field นี้ ให้ตั้งใน
@@ -274,7 +276,7 @@ CDP key จะใช้ portfolio ที่ key มี permission เป็น�
 หากการ routing เริ่มต้นของ venue ไม่ตรงกับโครงสร้าง account ของคุณ
 :::
 
-### การสร้าง portfolio ใหม่ {#creating-a-new-portfolio}
+### การสร้าง portfolio ใหม่ [#creating-a-new-portfolio]
 
 ผู้ใช้ส่วนใหญ่ไม่จำเป็นต้องสร้าง portfolio เพราะ portfolio เริ่มต้นของ account ใช้งานได้โดยไม่ต้องตั้งค่าเพิ่ม ให้สร้าง
 ที่ [coinbase.com/portfolios](https://www.coinbase.com/portfolios) เฉพาะเมื่อต้องการ:
@@ -286,7 +288,7 @@ CDP key จะใช้ portfolio ที่ key มี permission เป็น�
 หลังสร้าง portfolio แล้ว ให้เติมเงิน (โอนจาก wallet ของ portfolio เริ่มต้นบน coinbase.com) ก่อนส่ง order ใด ๆ
 มิฉะนั้น venue จะคืน `account is not available` สำหรับ quote currency
 
-### การแก้ปัญหา `account is not available` {#troubleshooting-account-is-not-available}
+### การแก้ปัญหา `account is not available` [#troubleshooting-account-is-not-available]
 
 Venue คืน error นี้ได้จากหลายสาเหตุ วินิจฉัยได้ด้วยการรัน probe binary ข้างต้นแล้วตรวจรายการ wallet ของ portfolio
 
@@ -297,7 +299,7 @@ Venue คืน error นี้ได้จากหลายสาเหตุ 
 | ถูก reject สำหรับ product `*-USD` บน account ที่ไม่ใช่ของสหรัฐฯ             | ข้อจำกัดตามเขตอำนาจ (เช่น account ของ AU เทรดคู่ที่ quote เป็น USD ไม่ได้)                                                                                                                     | ใช้ quote ที่มีให้ในพื้นที่ (USDC, AUD, EUR ฯลฯ) แทน USD                                                                                                                                                                                                      |
 | ถูก reject ทันทีหลัง rotate key                                         | Key ใหม่ถูกสร้างใน portfolio ต่างจาก key เดิม                                                                                                                                                  | อัปเดต `retail_portfolio_id` ให้ตรงกับ portfolio ของ key ใหม่ หรือย้ายเงิน                                                                                                                                                                                        |
 
-## ข้อมูลตลาด {#market-data}
+## ข้อมูลตลาด [#market-data]
 
 Data client ให้บริการทุกอย่างจาก WebSocket channel ยกเว้นข้อมูล index และ funding ของ derivatives เนื่องจาก
 Coinbase Advanced Trade ไม่ publish index price หรือ funding rate บน WebSocket channel ใดเลย สอง stream นี้จึง
@@ -317,7 +319,7 @@ Coinbase Advanced Trade ไม่ publish index price หรือ funding rate 
 Subscription `heartbeats` จะถูกส่งเสมอตอนเชื่อมต่อและส่งซ้ำทุกครั้งที่ reconnect เพื่อให้ทันกำหนด subscribe
 ภายในห้าวินาทีของ venue และรักษาการเชื่อมต่อไว้เมื่อ topic ของ product ที่ subscribe ไม่มีความเคลื่อนไหว
 
-### Bars {#bars}
+### Bars [#bars]
 
 Request bar ย้อนหลังรับ aggregation แบบ EXTERNAL ที่ granularity ที่ adapter map ไว้ ได้แก่ 1m, 5m, 15m, 30m, 1h,
 2h, 6h และ 1d step หรือ aggregation อื่นจะถูกปฏิเสธ endpoint `/products/{id}/candles` ของ Coinbase ยังรับ
@@ -328,7 +330,7 @@ Bar subscription แบบ live ต่างออกไป channel `candles` �
 ดังนั้น specification ของ subscription แบบอื่นจะได้ bar 5 นาทีที่ติดป้ายเป็น type ที่ request ไว้ ให้ request bar type
 `5-MINUTE-LAST-EXTERNAL` สำหรับ subscription แบบ live และใช้ request ย้อนหลังสำหรับ granularity อื่น
 
-### Funding rates {#funding-rates}
+### Funding rates [#funding-rates]
 
 Adapter poll endpoint REST `/products/{id}` ตามรอบ `derivatives_poll_interval_secs` (ค่าเริ่มต้น 15 วินาที) และปล่อย
 `FundingRateUpdate` จาก payload `future_product_details` ของ FCM เมื่อมี `funding_rate` funding interval
@@ -338,7 +340,7 @@ WebSocket ดังนั้นการ poll REST จึงเป็นแห�
 
 ยังไม่ได้ implement request funding rate ย้อนหลัง
 
-### Instrument status {#instrument-status}
+### Instrument status [#instrument-status]
 
 `subscribe_instrument_status` จะเข้าร่วม channel `status` ของ WebSocket ของ Coinbase เมื่อ subscribe ครั้งแรก
 (venue publish status feed เดียวสำหรับทุก product) และกรอง event ขาเข้าให้เหลือเฉพาะ instrument ที่ subscribe ไว้
@@ -351,14 +353,14 @@ WebSocket ดังนั้นการ poll REST จึงเป็นแห�
 Product ที่รายงาน status ว่าง (futures) หรือ status ที่ adapter ไม่ได้ model ไว้ ไม่มีข้อมูลที่เป็นประโยชน์ต่อ data engine
 และจะถูกข้าม subscription ของ channel จะถูกยกเลิกเมื่อ instrument ตัวสุดท้าย unsubscribe
 
-## ความสามารถด้าน order {#orders-capability}
+## ความสามารถด้าน order [#orders-capability]
 
 ตารางด้านล่างอธิบายความสามารถด้าน order ของ **venue** Coinbase โดย
 [`CoinbaseExecutionClient`](#execution-scope) ที่มีให้จัดการ spot หรือ CFM derivatives ตาม `account_type`
 ที่ตั้งค่าไว้ ความสามารถด้าน order ของ Coinbase ต่างกันระหว่าง Spot และ Derivatives (perpetual และ dated futures
 ใช้ชุดความสามารถ order ของ FCM ร่วมกัน)
 
-### ขอบเขตของ execution {#execution-scope}
+### ขอบเขตของ execution [#execution-scope]
 
 `CoinbaseExecutionClientFactory` สร้าง `CoinbaseExecutionClient` เพียง type เดียว โดยเลือกกลุ่ม product ด้วย
 field `account_type` ของ `CoinbaseExecutionClientConfig`:
@@ -383,7 +385,7 @@ Account type อื่นจะถูกปฏิเสธตอนสร้า�
 เริ่มต้น (ดู [Execution client routing](../concepts/live.md#execution-client-routing)) และเมื่อส่ง order ให้ส่ง
 `client_id` ที่ต้องการไปด้วย
 
-### ประเภท order {#order-types}
+### ประเภท order [#order-types]
 
 ตารางนี้แสดงประเภท order ตามที่ model ของ Nautilus เปิดให้ใช้ คอลัมน์ขวาแสดง key ของ `order_configuration`
 ที่ adapter ส่งออกไป ประเภท order ของ Coinbase ที่ไม่อยู่ในตารางนี้ (TWAP, Bracket, Scaled, SOR LIMIT IOC)
@@ -399,14 +401,14 @@ Account type อื่นจะถูกปฏิเสธตอนสร้า�
 | `LIMIT_IF_TOUCHED`     | -    | -         | -      | *Coinbase ไม่รองรับ*                                              |
 | `TRAILING_STOP_MARKET` | -    | -         | -      | *Coinbase ไม่รองรับ*                                              |
 
-### Execution instruction {#execution-instructions}
+### Execution instruction [#execution-instructions]
 
 | Instruction   | Spot | Perpetual | Future | หมายเหตุ                                                                       |
 | ------------- | ---- | --------- | ------ | ----------------------------------------------------------------------------- |
 | `post_only`   | ✓    | ✓         | ✓      | LIMIT GTC และ LIMIT GTD เท่านั้น                                                |
 | `reduce_only` | -    | -         | -      | *Coinbase ไม่รองรับ* ดู [การเทรด derivatives](#derivatives-trading)              |
 
-### Time in force {#time-in-force}
+### Time in force [#time-in-force]
 
 Adapter รับค่าตามตารางนี้ ชุดค่าผสมที่ไม่ได้ระบุไว้จะถูกปฏิเสธตอนส่งด้วย `"Unsupported TIF {tif} for {order_type}"`
 
@@ -416,7 +418,7 @@ Adapter รับค่าตามตารางนี้ ชุดค่า�
 | `LIMIT`      | ✓   | ✓   | -   | ✓   | GTD ต้องมี `expire_time` ส่วน LIMIT IOC *ยังไม่ได้ implement* (ดู [SOR LIMIT IOC](#advanced-order-features))                                            |
 | `STOP_LIMIT` | ✓   | ✓   | -   | -   | ต้องมี `trigger_price`                                                                                                                                  |
 
-### ฟีเจอร์ order ขั้นสูง {#advanced-order-features}
+### ฟีเจอร์ order ขั้นสูง [#advanced-order-features]
 
 | ฟีเจอร์              | Spot | Perpetual | Future | หมายเหตุ                                                                                           |
 | ------------------ | ---- | --------- | ------ | ------------------------------------------------------------------------------------------------- |
@@ -432,7 +434,7 @@ Adapter รับค่าตามตารางนี้ ชุดค่า�
 [Create Order reference](https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/orders/create-order)
 และ [Edit Order reference](https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/orders/edit-order)
 
-### การควบคุม position (derivatives) {#position-controls-derivatives}
+### การควบคุม position (derivatives) [#position-controls-derivatives]
 
 | การควบคุม      | หมายเหตุ                                         |
 | ------------- | ----------------------------------------------- |
@@ -440,7 +442,7 @@ Adapter รับค่าตามตารางนี้ ชุดค่า�
 | Margin type   | ตั้งต่อ order: cross (ค่าเริ่มต้น) หรือ isolated       |
 | Position mode | One-way เท่านั้น ไม่มี hedge mode                   |
 
-### Batch operation {#batch-operations}
+### Batch operation [#batch-operations]
 
 | การดำเนินการ    | หมายเหตุ                                                                                                                                       |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -448,7 +450,7 @@ Adapter รับค่าตามตารางนี้ ชุดค่า�
 | Batch Modify | ไม่รองรับ แต่ละการแก้ไขคือ request `Edit Order` หนึ่งครั้ง                                                                                         |
 | Batch Cancel | `POST /api/v3/brokerage/orders/batch_cancel` รับ array `order_ids` ไม่มีขนาดสูงสุดที่ระบุไว้ในเอกสาร และ response แจ้งผลสำเร็จ/ล้มเหลวราย order |
 
-### การ query order {#order-querying}
+### การ query order [#order-querying]
 
 | ฟีเจอร์                | Spot | Perpetual | Future | หมายเหตุ                                          |
 | -------------------- | ---- | --------- | ------ | ------------------------------------------------ |
@@ -457,13 +459,13 @@ Adapter รับค่าตามตารางนี้ ชุดค่า�
 | Order status updates | ✓    | ✓         | ✓      | การเปลี่ยนสถานะแบบ real-time ผ่าน channel `user`    |
 | Trade history        | ✓    | ✓         | ✓      | Execution report และ fill report                 |
 
-### ข้อจำกัดของการเทรด spot {#spot-trading-limitations}
+### ข้อจำกัดของการเทรด spot [#spot-trading-limitations]
 
 - ไม่รับ MARKET FOK บน spot Coinbase ระบุว่า `market_market_fok` ใช้ได้กับ perpetual เท่านั้น และ reject ด้วย
   `UNSUPPORTED_ORDER_CONFIGURATION`
 - รองรับ MARKET order ที่ระบุขนาดเป็น quote ส่วน LIMIT order ระบุขนาดเป็นหน่วย base
 
-### การเทรด derivatives {#derivatives-trading}
+### การเทรด derivatives [#derivatives-trading]
 
 Derivatives ของ Coinbase เทรดผ่าน FCM (Futures Commission Merchant) venue exec client ส่ง order ผ่าน endpoint
 `POST /orders` เดียวกับที่ใช้สำหรับ spot ค่าเริ่มต้นของ `leverage` และ `margin_type` (`CROSS` หรือ `ISOLATED`)
@@ -482,12 +484,12 @@ Adapter จะ log warning ในกรณีต่อไปนี้:
 Coinbase ไม่ได้แยก flag ของ auto-deleveraging ออกจาก liquidation ทั้งสองกรณีจึงแสดงผ่าน warning เดียวกัน user
 channel ไม่มี warning ที่เทียบเท่า ดังนั้นการบังคับปิดจะเห็นได้จาก reconciliation แทนที่จะเห็นจาก live stream
 
-## พฤติกรรมของ execution client {#execution-client-behavior}
+## พฤติกรรมของ execution client [#execution-client-behavior]
 
 ส่วนนี้อธิบายว่า `CoinbaseExecutionClient` แปลงคำสั่ง order ของ Nautilus และ event จาก venue ของ Coinbase
 ให้เป็น execution event ของ Nautilus อย่างไร
 
-### การส่ง order {#order-submission}
+### การส่ง order [#order-submission]
 
 `submit_order` สร้างรูปแบบ `order_configuration` ของ Coinbase โดยตรงจาก field ของ order ใน Nautilus:
 
@@ -508,7 +510,7 @@ channel ไม่มี warning ที่เทียบเท่า ดัง�
 decode ล้มเหลว หรือ HTTP 5xx จึงไม่ได้พิสูจน์ว่าถูก reject adapter จะปล่อย order ไว้ในสถานะ in flight และเก็บ
 metadata ของการส่งไว้จนกว่า user channel หรือ reconciliation จะ resolve ได้
 
-### การแก้ไข order {#order-modification}
+### การแก้ไข order [#order-modification]
 
 `modify_order` post ไปที่ `/orders/edit` ด้วย `EditOrderRequest` ที่มี type Coinbase รองรับการแก้ไขเฉพาะ GTC
 ที่เปิดอยู่ และ reject การแก้ไข order บน futures venue ด้วย `CANNOT_EDIT_FUTURES_ORDER` ดังนั้นการแก้ไขจึงใช้ได้
@@ -523,7 +525,7 @@ metadata ของการส่งไว้จนกว่า user channel ห
 (ใช้ `edit_failure_reason` ก่อน หากไม่มีจึงใช้ `preview_failure_reason`) ความล้มเหลวของ HTTP ที่ไม่รู้ผลลัพธ์ที่ venue
 จะปล่อย order ไว้ใน `PENDING_UPDATE` จนกว่า update, ผลการ query หรือ reconciliation จะ resolve ได้
 
-### การยกเลิก {#cancellation}
+### การยกเลิก [#cancellation]
 
 - `cancel_order` post `batch_cancel` ที่มี id เดียว ความล้มเหลวราย order ที่ venue ระบุชัดจะแสดงเป็น
   `OrderCancelRejected` ส่วนความล้มเหลวของ transport ทั้ง request ที่ไม่รู้ผลลัพธ์ที่ venue จะปล่อย order ไว้ใน
@@ -536,7 +538,7 @@ metadata ของการส่งไว้จนกว่า user channel ห
 - `batch_cancel_orders` แบ่งกลุ่มแบบเดียวกัน และแสดงความล้มเหลวราย order ที่ venue ระบุชัดเป็น
   `OrderCancelRejected` ความล้มเหลวของ transport ที่ไม่รู้ผลลัพธ์ที่ venue จะปล่อย order ที่ได้รับผลกระทบไว้รอ reconciliation
 
-### User WebSocket channel {#user-websocket-channel}
+### User WebSocket channel [#user-websocket-channel]
 
 `CoinbaseExecutionClient` subscribe channel `user` โดยไม่กรอง `product_ids` และใช้ JWT ใหม่ แล้ว parse แต่ละ
 event เป็น `OrderStatusReport` และส่งเข้า execution event stream Coinbase รายงานสถานะสะสมต่อ order แทน fill
@@ -558,7 +560,7 @@ User channel ไม่ส่ง `price`, `stop_price`, `trigger_type` หรื�
 เมื่อ reconnect สถานะ account จะถูกดึงใหม่ผ่าน REST เพื่อกู้การเปลี่ยนแปลงยอดเงินระหว่างช่วงที่หลุดการเชื่อมต่อ
 การติดตามค่าสะสมต่อ order ยังคงอยู่ข้ามการ reconnect เพื่อให้ส่วนต่างของ fill ที่สังเคราะห์ยังถูกต้อง
 
-### การตัด fill ซ้ำ {#fill-deduplication}
+### การตัด fill ซ้ำ [#fill-deduplication]
 
 User-channel WebSocket อาจ replay event เมื่อ reconnect execution client มี FIFO สำหรับตัดรายการซ้ำขนาด 10,000
 entry ที่ใช้ key เป็น `(venue_order_id, trade_id)` และทิ้ง fill ที่ trade ID ที่สังเคราะห์ตรงกับที่เพิ่งเห็นไป map ของ
@@ -566,7 +568,7 @@ entry ที่ใช้ key เป็น `(venue_order_id, trade_id)` และ
 เชื่อมต่อนานมาก (เกินช่วงการตัดซ้ำใน memory) fill ที่ replay อาจปล่อย `FillReport` ซ้ำได้ ในกรณีนั้น strategy ควร
 พึ่ง reconciliation ผ่าน REST เพื่อกู้สถานะที่ถูกต้อง
 
-### Position reconciliation {#position-reconciliation}
+### Position reconciliation [#position-reconciliation]
 
 สำหรับ account แบบ Cash (spot) client จะไม่คืน position report เพราะ spot ของ Coinbase ไม่มี position สำหรับ
 account แบบ Margin position report มาจาก endpoint REST `cfm/positions` (รายการ) และ `cfm/positions/{product_id}`
@@ -574,7 +576,7 @@ account แบบ Margin position report มาจาก endpoint REST `cfm/posi
 จาก REST ผ่าน `generate_order_status_report(s)` และ `generate_fill_reports` ตอนเชื่อมต่อ และตามรอบ reconciliation
 มาตรฐานที่ตั้งไว้ใน `LiveExecutionEngineConfig`
 
-## Rate limiting {#rate-limiting}
+## Rate limiting [#rate-limiting]
 
 Coinbase เผยแพร่ limit ต่อไปนี้สำหรับ Advanced Trade API:
 
@@ -611,7 +613,7 @@ Trade (เพดานต่อวินาที, limit ต่อ portfolio) �
 [Coinbase App rate limiting](https://docs.cdp.coinbase.com/coinbase-app/api-architecture/rate-limiting)
 :::
 
-## Reconnect และ resubscribe {#reconnect-and-resubscribe}
+## Reconnect และ resubscribe [#reconnect-and-resubscribe]
 
 WebSocket client ใช้ exponential backoff เมื่อ reconnect โดยเริ่มที่ 250ms และสูงสุด 30s subscription ที่เก็บไว้
 จะถูก replay อัตโนมัติหลัง handshake เสร็จ Coinbase จะตัดการเชื่อมต่อ client ที่ไม่ส่ง subscribe message ภายใน
@@ -628,9 +630,9 @@ JWT ใหม่ทุก subscribe message เพราะ Coinbase ต้อ�
 การเชื่อมต่อนั้น และสร้าง inner client ใหม่แทนการใช้ state machine เดิม เพื่อรับประกันว่าจะได้ command channel,
 output channel และ shutdown signal ใหม่ แม้คำสั่ง `Disconnect` ของ session ก่อนหน้าจะแพ้ race กับ shutdown signal
 
-## การตั้งค่า {#configuration}
+## การตั้งค่า [#configuration]
 
-### ตัวเลือก config ของ data client {#data-client-configuration-options}
+### ตัวเลือก config ของ data client [#data-client-configuration-options]
 
 | ตัวเลือก                             | ค่าเริ่มต้น  | คำอธิบาย                                                                            |
 | ---------------------------------- | --------- | --------------------------------------------------------------------------------- |
@@ -646,7 +648,7 @@ output channel และ shutdown signal ใหม่ แม้คำสั่�
 | `derivatives_poll_interval_secs`   | `15`      | ช่วงเวลาระหว่างการ poll REST ที่ปล่อย `IndexPriceUpdate` และ `FundingRateUpdate`         |
 | `transport_backend`                | `Sockudo` | Backend ของ transport แบบ WebSocket                                               |
 
-### ตัวเลือก config ของ execution client {#execution-client-configuration-options}
+### ตัวเลือก config ของ execution client [#execution-client-configuration-options]
 
 | ตัวเลือก                   | ค่าเริ่มต้น  | คำอธิบาย                                                                                                                           |
 | ------------------------ | --------- | -------------------------------------------------------------------------------------------------------------------------------- |
@@ -671,9 +673,9 @@ output channel และ shutdown signal ใหม่ แม้คำสั่�
 > [ตัวอย่าง Rust](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/coinbase/examples/)
 > และ[การรัน live trading ด้วย Rust](../how_to/run_rust_live_trading.md)
 
-## ข้อจำกัดที่ทราบ {#known-limitations}
+## ข้อจำกัดที่ทราบ [#known-limitations]
 
-### ฝั่ง venue {#venue-side}
+### ฝั่ง venue [#venue-side]
 
 - การแก้ไข order จำกัดเฉพาะ GTC ที่เปิดอยู่ และถูก reject บน order ของ futures venue ด้วย
   `CANNOT_EDIT_FUTURES_ORDER` กรณีอื่นทั้งหมดต้องใช้ cancel-replace
@@ -686,7 +688,7 @@ output channel และ shutdown signal ใหม่ แม้คำสั่�
 - User-channel WebSocket รายงานสถานะสะสมต่อ order ไม่ใช่ fill ราย trade exec client derive ปริมาณ ราคา และ
   commission ต่อ fill จากส่วนต่างของค่าสะสม `trade_id` ราย trade สังเคราะห์จาก `(venue_order_id, cumulative_quantity)`
 
-### ฝั่ง adapter {#adapter-side}
+### ฝั่ง adapter [#adapter-side]
 
 - **Identity ของ fill ที่คงที่ต่างกันระหว่างเส้นทาง live และ REST** user channel ไม่มี `trade_id` ต่อ fill ของ
   Coinbase ดังนั้น `FillReport` แบบ live จึงใช้ ID ที่สังเคราะห์จาก venue order ID และปริมาณสะสม ส่วน REST
@@ -716,7 +718,7 @@ output channel และ shutdown signal ใหม่ แม้คำสั่�
   และไม่รับ parameter ของ granularity และ `subscribe_bars` ไม่ได้ปฏิเสธ bar specification แบบอื่น subscription ที่
   step อื่นจะได้ bar 5 นาทีที่ประทับด้วย `BarType` ที่ request ไว้ ดู [Bars](#bars)
 
-## Diagnostic binary {#diagnostic-binaries}
+## Diagnostic binary [#diagnostic-binaries]
 
 มี binary สามตัวที่ช่วยตรวจการเชื่อมต่อ ยืนยันการทำงานแบบ live และดูแลความเรียบร้อยของ account:
 
@@ -729,7 +731,7 @@ output channel และ shutdown signal ใหม่ แม้คำสั่�
 
 Binary ที่ต้องยืนยันตัวตนทั้งสองตัวอ่าน `COINBASE_API_KEY` และ `COINBASE_API_SECRET` จาก environment
 
-## การมีส่วนร่วม {#contributing}
+## การมีส่วนร่วม [#contributing]
 
 :::info
 หากต้องการฟีเจอร์เพิ่มเติมหรือต้องการมีส่วนร่วมพัฒนา adapter ของ Coinbase โปรดดู

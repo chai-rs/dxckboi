@@ -1,11 +1,13 @@
-# Perpetual Contract
+---
+title: "Perpetual Contract"
+---
 
 `PerpetualContract` แทนสัญญา perpetual futures แบบทั่วไปที่ใช้ได้กับทุก asset class ใช้เมื่อ venue
 มี perpetual swap ที่ไม่ได้ถูก model ไว้เป็น `CryptoPerpetual` โดยเฉพาะ
 
 ตัวอย่างเช่น สัญญา perpetual ที่ไม่ใช่ crypto และ synthetic swap เฉพาะของแต่ละ venue
 
-## ฟิลด์ {#fields}
+## ฟิลด์ [#fields]
 
 | Field                 | Rust type          | Required/default | หมายเหตุ |
 | --------------------- | ------------------ | ---------------- | ---------------------------------------- |
@@ -38,7 +40,7 @@
 
 **หมายเหตุ**: Rust เก็บค่า `instrument_id` ไว้ในชื่อ `id`
 
-## พฤติกรรม {#behavior}
+## พฤติกรรม [#behavior]
 
 - `PerpetualContract` มี instrument class เป็น `Swap`
 - ไม่มี activation timestamp หรือ expiration timestamp
@@ -46,7 +48,7 @@
 - สัญญาแบบ linear โดยทั่วไป settle ด้วย quote currency
 - ใช้ `CryptoPerpetual` สำหรับ crypto perpetual ที่ base asset เป็นสกุลเงิน
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -80,14 +82,14 @@ let eurusd_perp = PerpetualContract::builder()
     .unwrap();
 ```
 
-## Adapter {#adapters}
+## Adapter [#adapters]
 
 **Adapter ที่สร้างหรือใช้ instrument แบบ `PerpetualContract` ได้แก่**:
 
 - [Architect AX](../../integrations/architect_ax.md) สำหรับสัญญา perpetual ที่ venue กำหนด
 - [Binance](../../integrations/binance.md) สำหรับสัญญา perpetual แบบ USD-M TradFi
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Crypto Perpetual](crypto_perpetual.md) อธิบาย crypto perpetual futures
 - [Data](../data/) อธิบาย mark price, index price และ funding rate update

@@ -1,10 +1,12 @@
-# Grid market making แบบ on-chain ด้วย short-term order (dYdX)
+---
+title: "Grid market making แบบ on-chain ด้วย short-term order (dYdX)"
+---
 
 tutorial นี้รัน strategy `GridMarketMaker` ที่มาพร้อมกับโปรเจกต์บน dYdX v4 ผ่าน `LiveNode` ของ Rust strategy
 จะวาง limit order แบบสมมาตรรอบราคา mid และเอียง (skew) grid เพื่อจัดการ inventory ส่วน venue จะหมุนเวียน
 short-term order ผ่านการหมดอายุตาม block (time-to-block expiry) แทนการ cancel อย่างชัดเจน
 
-## บทนำ {#introduction}
+## บทนำ [#introduction]
 
 grid market maker ดูแลขั้นบันไดของ buy limit และ sell limit ที่วางรออยู่ตามระยะราคาคงที่รอบ mid ปัจจุบัน
 เมื่อ order ถูก fill strategy จะได้กำไรจาก spread ระหว่างระดับ buy และ sell การจัดการ inventory จะคุม net
@@ -39,13 +41,13 @@ flowchart LR
     CL -->|no| LT
 ```
 
-### การเอียง inventory (ได้แรงบันดาลใจจาก Avellaneda-Stoikov) {#inventory-skewing-avellaneda-stoikov-inspired}
+### การเอียง inventory (ได้แรงบันดาลใจจาก Avellaneda-Stoikov) [#inventory-skewing-avellaneda-stoikov-inspired]
 
 เมื่อ position ฝั่ง long เพิ่มขึ้น grid ทั้งหมดจะเลื่อนลง (buy ถูกลง, sell ถูกลง) เพื่อกระตุ้นให้เกิด fill ฝั่ง sell
 เมื่อ position ฝั่ง short เพิ่มขึ้น grid จะเลื่อนขึ้น แนวทางนี้ตาม framework ของ Avellaneda-Stoikov ที่ปรับให้ใช้กับ
 grid แบบไม่ต่อเนื่อง
 
-### ทำไมต้อง dYdX v4 {#why-dydx-v4}
+### ทำไมต้อง dYdX v4 [#why-dydx-v4]
 
 dYdX v4 มีคุณสมบัติต่อไปนี้ที่เหมาะกับ market making:
 
@@ -55,9 +57,9 @@ dYdX v4 มีคุณสมบัติต่อไปนี้ที่เห
 - **On-chain order book** ที่ match แบบ deterministic ในแต่ละ block
 - **Batch cancel**: `MsgBatchCancel` ครั้งเดียวล้าง short-term order ทั้งหมด
 
-## สิ่งที่ต้องเตรียม {#prerequisites}
+## สิ่งที่ต้องเตรียม [#prerequisites]
 
-### Account dYdX ที่มีเงินทุน {#funded-dydx-account}
+### Account dYdX ที่มีเงินทุน [#funded-dydx-account]
 
 คุณต้องมี account dYdX ที่มี collateral เป็น USDC ตัวอย่างนี้เทรดบน mainnet โดยค่าเริ่มต้น หัวข้อ
 [รันตัวอย่าง](#run-the-example) แสดงวิธีสลับไปใช้ testnet ดูหัวข้อ
@@ -65,7 +67,7 @@ dYdX v4 มีคุณสมบัติต่อไปนี้ที่เห
 account บน testnet ส่วน API trading key เป็นทางเลือก: adapter จะ sign ด้วย private key ของ account เอง
 เว้นแต่คุณจะตั้งค่า [permissioned key trading](../integrations/dydx.md#permissioned-key-trading)
 
-### Environment variable {#environment-variables}
+### Environment variable [#environment-variables]
 
 ```bash
 # Mainnet
@@ -77,9 +79,9 @@ export DYDX_TESTNET_PRIVATE_KEY="0x..."
 export DYDX_TESTNET_WALLET_ADDRESS="dydx1..."
 ```
 
-## ภาพรวมของ strategy {#strategy-overview}
+## ภาพรวมของ strategy [#strategy-overview]
 
-### การตั้งราคา grid แบบ geometric {#geometric-grid-pricing}
+### การตั้งราคา grid แบบ geometric [#geometric-grid-pricing]
 
 แต่ละระดับห่างจาก mid เป็นเปอร์เซ็นต์คงที่ (basis point):
 
@@ -114,7 +116,7 @@ Sell level N: mid * (1 + bps/10000)^N - skew
                         Buy 3:  968.30
 ```
 
-### การจัดการ inventory {#inventory-management}
+### การจัดการ inventory [#inventory-management]
 
 strategy บังคับขีดจำกัด position ผ่านกลไกสองแบบ:
 
@@ -126,7 +128,7 @@ strategy บังคับขีดจำกัด position ผ่านกล�
 การเรียก `cancel_all_orders` เป็นแบบ asynchronous order ที่ค้างอยู่อาจยังถูก fill ระหว่าง cancel request กับ
 การยืนยัน การตรวจ exposure กรณีเลวร้ายที่สุดต่อฝั่งช่วยป้องกัน exposure เกินชั่วขณะระหว่างช่วง cancel-requote
 
-### เกณฑ์การ requote {#requote-threshold}
+### เกณฑ์การ requote [#requote-threshold]
 
 `requote_threshold_bps` ควบคุมว่า mid ต้องเคลื่อนไหวมากแค่ไหนก่อนที่ strategy จะ cancel order ที่เปิดอยู่ทั้งหมด
 และวาง grid ใหม่:
@@ -134,7 +136,7 @@ strategy บังคับขีดจำกัด position ผ่านกล�
 - **เกณฑ์ต่ำ** (5 bps): ตอบสนองเร็วขึ้น มีธุรกรรม cancel/place มากขึ้น
 - **เกณฑ์สูง** (50 bps): ธุรกรรมน้อยลง แต่ order อาจอยู่ห่างจากราคาปัจจุบันมากขึ้น
 
-## Configuration {#configuration}
+## Configuration [#configuration]
 
 | Parameter               | Type           | ค่าเริ่มต้น    | คำอธิบาย                                                                  |
 | ----------------------- | -------------- | ---------- | ------------------------------------------------------------------------ |
@@ -148,7 +150,7 @@ strategy บังคับขีดจำกัด position ผ่านกล�
 | `expire_time_secs`      | `Option<u64>`  | `None`     | เวลาหมดอายุของ order เป็นวินาที ใช้ GTD เมื่อตั้งไว้ มิฉะนั้นใช้ GTC                |
 | `on_cancel_resubmit`    | `bool`         | `false`    | ส่ง grid ใหม่ที่ quote ถัดไปหลังการ cancel ที่ไม่คาดคิด                          |
 
-### การเลือก parameter {#choosing-parameters}
+### การเลือก parameter [#choosing-parameters]
 
 - **`grid_step_bps`**: [50, 100] bps ในตลาดที่ผันผวน และ [5, 20] bps ในสภาวะสงบ grid ที่กว้างกว่าได้ spread
   ต่อ fill มากกว่าแต่ fill น้อยครั้งกว่า
@@ -162,9 +164,9 @@ strategy บังคับขีดจำกัด position ผ่านกล�
   สำหรับ short-term order แต่ละตัวไม่นานหลังจากหมดอายุ flag นี้จะ reset จุดยึด (anchor) ของการ requote
   เพื่อให้ quote ถัดไปสร้าง grid ใหม่ แม้ mid จะยังเคลื่อนไหวไม่เกิน `requote_threshold_bps`
 
-## ข้อพิจารณาเฉพาะของ dYdX {#dydx-specific-considerations}
+## ข้อพิจารณาเฉพาะของ dYdX [#dydx-specific-considerations]
 
-### การหมดอายุของ short-term order {#short-term-order-expiry}
+### การหมดอายุของ short-term order [#short-term-order-expiry]
 
 เมื่อ `expire_time_secs=8` adapter จะจัด order เป็นประเภท short-term:
 
@@ -184,7 +186,7 @@ strategy บังคับขีดจำกัด position ผ่านกล�
 ดูรายละเอียดทั้งหมดได้ที่หัวข้อ [order classification](../integrations/dydx.md#order-classification)
 ในคู่มือ integration
 
-### การ cancel ที่ไม่คาดคิดและ `on_cancel_resubmit` {#unexpected-cancels-and-on_cancel_resubmit}
+### การ cancel ที่ไม่คาดคิดและ `on_cancel_resubmit` [#unexpected-cancels-and-on_cancel_resubmit]
 
 set `pending_self_cancels` ใช้แยกการ cancel ที่ strategy เริ่มเองออกจากการ cancel ที่ไม่คาดคิด:
 
@@ -201,20 +203,20 @@ callback `on_order_filled` ยังลบ order ที่ fill ครบแล�
 ก่อนการยืนยัน cancel จะมาถึง วิธีนี้ป้องกันไม่ให้รายการที่ค้างเก่าสะสม partial fill จะคง order ID ไว้ เพื่อให้
 การ cancel ของตัวเองในภายหลังยังถูกระบุได้ถูกต้อง
 
-### การ quantize order {#order-quantization}
+### การ quantize order [#order-quantization]
 
 `OrderMessageBuilder` ของ adapter quantize ราคาและขนาดสำหรับ market ของ dYdX ให้อัตโนมัติ ไม่ต้องปัดหรือ
 แปลงค่าเอง ดูรายละเอียดได้ที่ [Price and size quantization](../integrations/dydx.md#price-and-size-quantization)
 
-### Post-only order {#post-only-orders}
+### Post-only order [#post-only-orders]
 
 strategy ส่ง order ของ grid ทั้งหมดด้วย `post_only=true` exchange จะ accept แล้ว cancel ทันทีสำหรับ order
 แบบ post-only ใดๆ ที่จะข้าม spread ตอน match strategy จะเห็น `OrderCanceled` ไม่ใช่ `OrderRejected` ดังนั้น
 ทุก fill จึงใช้อัตราค่าธรรมเนียม maker และ grid จะไม่กิน offer ของตัวเองระหว่างช่วง requote
 
-## การรันและการหยุด {#running-and-stopping}
+## การรันและการหยุด [#running-and-stopping]
 
-### การตั้งค่าสภาพแวดล้อม {#environment-setup}
+### การตั้งค่าสภาพแวดล้อม [#environment-setup]
 
 credential โหลดจาก environment variable หรือไฟล์ `.env` ที่ root ของโปรเจกต์ (โหลดอัตโนมัติผ่าน `dotenvy`):
 
@@ -230,7 +232,7 @@ DYDX_PRIVATE_KEY=0x...
 DYDX_WALLET_ADDRESS=dydx1...
 ```
 
-### รันตัวอย่าง {#run-the-example}
+### รันตัวอย่าง [#run-the-example]
 
 :::warning
 คำสั่งนี้วาง order จริงบน **dYdX mainnet** โดยค่าเริ่มต้น
@@ -244,7 +246,7 @@ DYDX_WALLET_ADDRESS=dydx1...
 cargo run --example dydx-grid-mm --package nautilus-dydx --features examples
 ```
 
-### การหยุดอย่างนุ่มนวล {#graceful-shutdown}
+### การหยุดอย่างนุ่มนวล [#graceful-shutdown]
 
 กด **Ctrl+C** เพื่อหยุด node ลำดับการ shutdown:
 
@@ -253,7 +255,7 @@ cargo run --example dydx-grid-mm --package nautilus-dydx --features examples
 1. node ประมวลผล event ที่เหลือในช่วงผ่อนผัน 5 วินาที (`delay_post_stop_secs`)
 1. client disconnect และ node จบการทำงาน
 
-## อธิบายโค้ด {#code-walkthrough}
+## อธิบายโค้ด [#code-walkthrough]
 
 function `main` อยู่ที่
 [`crates/adapters/dydx/examples/node_grid_mm.rs`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/dydx/examples/node_grid_mm.rs)
@@ -327,7 +329,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 - **`with_reconciliation(false)`**: ปิดไว้เพื่อความเรียบง่าย ควรเปิดใน production เพื่อกู้คืน state ข้ามการ restart
 - **`with_delay_post_stop_secs(5)`**: ช่วงผ่อนผันให้ event การ cancel และการปิดที่ค้างอยู่เสร็จสิ้นระหว่าง shutdown
 
-### Flow ของ event {#event-flow}
+### Flow ของ event [#event-flow]
 
 ```mermaid
 flowchart TB
@@ -346,13 +348,13 @@ flowchart TB
     K[on_stop] --> L[cancel_all_orders + close positions]
 ```
 
-## กลไกภายในของ strategy {#strategy-internals}
+## กลไกภายในของ strategy [#strategy-internals]
 
 snippet Rust ต่อไปนี้เป็นฉบับย่อของ source ของ strategy ใน
 [`crates/trading/src/examples/strategies/grid_mm/strategy.rs`](https://github.com/nautechsystems/nautilus_trader/blob/develop/crates/trading/src/examples/strategies/grid_mm/strategy.rs)
 ซึ่งมีการจัดการ error และการติดตาม state ที่ snippet เหล่านี้ละไว้
 
-### การกำหนดขนาด trade (`on_start`) {#trade-size-resolution-on_start}
+### การกำหนดขนาด trade (`on_start`) [#trade-size-resolution-on_start]
 
 strategy กำหนดขนาด trade จาก cache ของ instrument ตามลำดับนี้:
 
@@ -387,7 +389,7 @@ fn on_start(&mut self) -> anyhow::Result<()> {
 }
 ```
 
-### Quote handler (`on_quote`, ฉบับย่อ) {#quote-handler-on_quote-abbreviated}
+### Quote handler (`on_quote`, ฉบับย่อ) [#quote-handler-on_quote-abbreviated]
 
 ```rust
 fn on_quote(&mut self, quote: &QuoteTick) -> anyhow::Result<()> {
@@ -445,7 +447,7 @@ fn on_quote(&mut self, quote: &QuoteTick) -> anyhow::Result<()> {
 }
 ```
 
-### การตั้งราคา grid (`grid_orders`) {#grid-pricing-grid_orders}
+### การตั้งราคา grid (`grid_orders`) [#grid-pricing-grid_orders]
 
 method `grid_orders` คำนวณราคา grid แบบ geometric และบังคับ `max_position` ต่อระดับ:
 
@@ -498,7 +500,7 @@ fn grid_orders(
 }
 ```
 
-## ผลลัพธ์จากการรันบน mainnet 35 วินาที {#what-a-35-second-mainnet-run-produces}
+## ผลลัพธ์จากการรันบน mainnet 35 วินาที [#what-a-35-second-mainnet-run-produces]
 
 การรันบน mainnet 35 วินาทีกับ `ETH-USD-PERP.DYDX` ด้วย config ของตัวอย่าง (`grid_step_bps=100`, `num_levels=3`,
 `skew_factor=0.5`, `requote_threshold_bps=10`, `expire_time_secs=8`) จับได้ 47 requote event, การส่ง order 276 ครั้ง,
@@ -527,7 +529,7 @@ mid อยู่ใกล้ 2,281 USD ระดับ buy และ sell ด้
 ติดตามการเพิ่มขึ้นของ block height ของ chain โดยเป้าหมาย `GoodTilBlock` ของแต่ละ order ตั้งไว้ล่วงหน้าราว 16 block
 ทำให้หมดอายุในแปดวินาที*
 
-### สร้าง panel ใหม่ {#regenerate-the-panels}
+### สร้าง panel ใหม่ [#regenerate-the-panels]
 
 :::warning
 การรันเพื่อจับข้อมูลจะวาง order จริงบน dYdX mainnet โดยค่าเริ่มต้น หากต้องการจับข้อมูลจากการรันบน testnet แทน
@@ -546,9 +548,9 @@ timeout 35 ./target/release/examples/dydx-grid-mm > /tmp/dydx_main.log 2>&1
 
 > หมายเหตุ: ต้นฉบับใช้ script Python (`docs/tutorials/assets/grid_market_maker_dydx/render_panels.py`) วาด panel จาก log นี้ จึงตัดขั้นตอนนั้นออก
 
-## การติดตามและทำความเข้าใจ output {#monitoring-and-understanding-output}
+## การติดตามและทำความเข้าใจ output [#monitoring-and-understanding-output]
 
-### Log message {#log-messages}
+### Log message [#log-messages]
 
 | Log message                                         | ความหมาย                                                            |
 | --------------------------------------------------- | ----------------------------------------------------------------- |
@@ -561,7 +563,7 @@ timeout 35 ./target/release/examples/dydx-grid-mm > /tmp/dydx_main.log 2>&1
 บรรทัด `Submit short-term order`, `BatchCancel` และ benign cancel ถูก log ที่ระดับ DEBUG ตัวอย่างตั้ง
 `stdout_level: LevelFilter::Info` ไว้ จึงต้องเปลี่ยนเป็น `LevelFilter::Debug` เพื่อดูบรรทัดเหล่านี้
 
-### รูปแบบพฤติกรรมที่คาดหวัง {#expected-behavior-patterns}
+### รูปแบบพฤติกรรมที่คาดหวัง [#expected-behavior-patterns]
 
 1. **Startup**: instrument โหลด, WebSocket เชื่อมต่อ, quote แรกกระตุ้น grid เริ่มต้น
 1. **Steady state**: grid คงอยู่ข้าม tick การ requote เกิดเมื่อ mid เคลื่อนไหวอย่างน้อย `requote_threshold_bps`,
@@ -572,9 +574,9 @@ timeout 35 ./target/release/examples/dydx-grid-mm > /tmp/dydx_main.log 2>&1
    และ quote ถัดไปจะ refresh grid
 1. **Shutdown**: order ทั้งหมดถูก cancel, position ปิด, WebSocket disconnect
 
-## เคล็ดลับการปรับแต่ง {#customization-tips}
+## เคล็ดลับการปรับแต่ง [#customization-tips]
 
-### ความผันผวนสูงกับต่ำ {#high-vs-low-volatility}
+### ความผันผวนสูงกับต่ำ [#high-vs-low-volatility]
 
 | สภาวะ             | การปรับ                                                                        |
 | --------------- | ---------------------------------------------------------------------------- |
@@ -582,7 +584,7 @@ timeout 35 ./target/release/examples/dydx-grid-mm > /tmp/dydx_main.log 2>&1
 | ผันผวนต่ำ          | `grid_step_bps` แคบลง ([10, 30]), `num_levels` มากขึ้น, `skew_factor` สูงขึ้น    |
 | liquidity บาง    | เพิ่ม `requote_threshold_bps` เพื่อลดความถี่ของการ cancel                         |
 
-### หลาย instrument {#multiple-instruments}
+### หลาย instrument [#multiple-instruments]
 
 รัน instance ของ `GridMarketMaker` แยกกันต่อ instrument แต่ละ instance ดูแล grid, position และ state ของการ
 cancel ของตัวเองอย่างอิสระ:
@@ -616,12 +618,12 @@ node.add_strategy(GridMarketMaker::new(btc_config))?;
 node.add_strategy(GridMarketMaker::new(eth_config))?;
 ```
 
-### สลับระหว่าง mainnet กับ testnet {#mainnet-vs-testnet-toggle}
+### สลับระหว่าง mainnet กับ testnet [#mainnet-vs-testnet-toggle]
 
 ตัวอย่างเลือก network จากค่าคงที่ `DYDX_NETWORK` ใกล้ส่วนบนของไฟล์ (`DydxNetwork::Mainnet` โดยค่าเริ่มต้น)
 เปลี่ยนเป็น `DydxNetwork::Testnet` แล้ว build ใหม่เพื่อรันบน testnet
 
-## อ่านเพิ่มเติม {#further-reading}
+## อ่านเพิ่มเติม [#further-reading]
 
 - [dYdX v4 Integration Guide](../integrations/dydx.md): reference ฉบับเต็มของ adapter
 - [dYdX Protocol Documentation](https://docs.dydx.xyz/): เอกสารทางการของ protocol

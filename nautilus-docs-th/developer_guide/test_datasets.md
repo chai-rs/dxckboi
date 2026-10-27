@@ -1,10 +1,12 @@
-# Test Datasets
+---
+title: "Test Datasets"
+---
 
 มาตรฐานเป้าหมายสำหรับการคัดสรร (curate), จัดเก็บ และใช้งานชุดข้อมูลภายนอกที่ใช้เป็น test fixture
 ชุดข้อมูลใหม่ควรเป็นไปตามมาตรฐานนี้ ส่วนชุดข้อมูลเดิมที่มีอยู่ก่อนนโยบายนี้บันทึกไว้ใน
 [ชุดข้อมูลแบบ legacy](#legacy-datasets)
 
-## ประเภทของชุดข้อมูล {#dataset-categories}
+## ประเภทของชุดข้อมูล [#dataset-categories]
 
 **ข้อมูลขนาดเล็ก** (< 1 MB) ถูก check in เข้า `test_data/<source>/` โดยตรงพร้อมไฟล์ `metadata.json`
 ไฟล์เหล่านี้ใช้ได้เสมอโดยไม่ต้องเข้าถึงเครือข่าย
@@ -35,7 +37,7 @@ cargo run --locked -p nautilus-testkit --bin prepare-test-data
 - license อนุญาตให้ใช้ภายใน แต่ไม่ได้อนุญาตอย่างชัดเจนให้เผยแพร่ fixture ที่ derive มาซ้ำ
 - ชุดข้อมูลเหมาะกับตัวอย่างหรือ integration test แบบ opt-in แต่ไม่เหมาะกับ CI ค่าเริ่มต้น
 
-## Metadata ที่จำเป็น {#required-metadata}
+## Metadata ที่จำเป็น [#required-metadata]
 
 ชุดข้อมูลที่คัดสรรแล้วทุกชุดที่เก็บหรือเผยแพร่ artifact จริงต้องมี `metadata.json` ที่มีอย่างน้อย:
 
@@ -81,7 +83,7 @@ cargo run --locked -p nautilus-testkit --bin prepare-test-data
 ฟิลด์ metadata อื่น ๆ ยังแนะนำให้ใส่ในส่วนที่ใช้ได้ โดยเฉพาะ `licence` และ `added_at` ควรบันทึกไว้เสมอแม้เป็น
 ชุดข้อมูลแบบ user-fetched
 
-## รูปแบบการจัดเก็บ {#storage-format}
+## รูปแบบการจัดเก็บ [#storage-format]
 
 ชุดข้อมูลใหม่ควรเก็บเป็น **Nautilus Parquet** (ไม่ใช่รูปแบบดิบของผู้ให้บริการ) ซึ่งช่วยให้:
 
@@ -94,7 +96,7 @@ cargo run --locked -p nautilus-testkit --bin prepare-test-data
 ชุดข้อมูลแบบ user-fetched ควรได้ผลลัพธ์เป็น Nautilus Parquet เช่นกันหลังขั้นตอนแปลงในเครื่อง ไฟล์ดิบของผู้ให้บริการ
 ควรอยู่นอก repo และนอก bucket R2 สาธารณะ
 
-## หลักการตั้งชื่อ {#naming-convention}
+## หลักการตั้งชื่อ [#naming-convention]
 
 ```
 <source>_<instrument>_<date>_<datatype>.parquet
@@ -106,9 +108,9 @@ cargo run --locked -p nautilus-testkit --bin prepare-test-data
 - `tardis_BTCUSDT_2020-09-01_depth10.parquet`
 - `histdata_EURUSD.SIM_2020-01_quotes.parquet`
 
-## Workflow การคัดสรร {#curation-workflow}
+## Workflow การคัดสรร [#curation-workflow]
 
-### ไฟล์ธรรมดา (ดาวน์โหลดครั้งเดียว) {#simple-files-single-download}
+### ไฟล์ธรรมดา (ดาวน์โหลดครั้งเดียว) [#simple-files-single-download]
 
 ใช้ `scripts/curate-dataset.sh`:
 
@@ -119,7 +121,7 @@ scripts/curate-dataset.sh <slug> <filename> <download-url> <license>
 คำสั่งนี้สร้าง directory ที่มีเวอร์ชัน (`v1/<slug>/`) พร้อมไฟล์, `LICENSE.txt` และ `metadata.json` ที่มีฟิลด์
 ที่จำเป็นข้างต้น
 
-### Pipeline ที่ซับซ้อน (parse + แปลง) {#complex-pipelines-parse--transform}
+### Pipeline ที่ซับซ้อน (parse + แปลง) [#complex-pipelines-parse--transform]
 
 สำหรับชุดข้อมูลที่ต้องแปลงรูปแบบ (เช่น ITCH แบบ binary เป็น Parquet):
 
@@ -128,7 +130,7 @@ scripts/curate-dataset.sh <slug> <filename> <download-url> <license>
 3. ส่ง output เป็นไฟล์ Parquet และ `metadata.json` ไปยัง directory ในเครื่อง
 4. อัปโหลดไปยัง R2 ด้วยมือ แล้วเพิ่ม checksum ใน `checksums.json`
 
-### Pipeline แบบ user-fetched (จำกัดการเผยแพร่ซ้ำ) {#user-fetched-pipelines-restricted-redistribution}
+### Pipeline แบบ user-fetched (จำกัดการเผยแพร่ซ้ำ) [#user-fetched-pipelines-restricted-redistribution]
 
 สำหรับชุดข้อมูลที่ NautilusTrader เผยแพร่ซ้ำไม่ได้:
 
@@ -155,7 +157,7 @@ scripts/curate-dataset.sh <slug> <filename> <download-url> <license>
 สามารถดูแล mirror ส่วนตัวสำหรับ CI ภายในหรือพนักงานได้เมื่อ license อนุญาตให้แชร์ภายใน ให้ถือว่าเป็นเส้นทาง
 การดำเนินงานแยกต่างหาก ไม่ใช่ส่วนหนึ่งของมาตรฐาน test-data สาธารณะ
 
-## การเพิ่มชุดข้อมูลใหม่ {#adding-a-new-dataset}
+## การเพิ่มชุดข้อมูลใหม่ [#adding-a-new-dataset]
 
 1. คัดสรรข้อมูลตาม workflow ข้างต้น
 2. เขียน `metadata.json` ให้มีฟิลด์ที่จำเป็นครบ
@@ -207,7 +209,7 @@ test ที่อาศัยข้อมูลแบบ user-fetched ควร:
 
 หาก CI ค่าเริ่มต้นไม่ได้คาดว่าจะรัน Rust test ที่ต้องเตรียมชุดข้อมูลด้วยมือ ให้ใช้ `#[ignore]`
 
-## การสร้างชุดข้อมูลใหม่ {#regenerating-datasets}
+## การสร้างชุดข้อมูลใหม่ [#regenerating-datasets]
 
 หากการเปลี่ยน schema ทำให้ไฟล์ Parquet ขนาดใหญ่ใช้ไม่ได้ ให้สร้างใหม่จากข้อมูลต้นทางเดิม โดยใช้ curation test ด้านล่าง
 หลังสร้างใหม่แล้ว:
@@ -220,7 +222,7 @@ test ที่อาศัยข้อมูลแบบ user-fetched ควร:
    `TEST_DATA_ROOT_PATH` ไว้ให้ใช้ cache ที่สอดคล้องกันภายใต้ path นั้น
 1. commit `checksums.json` และ `metadata.json` (ซึ่งจะล้าง cache ของ CI ไปด้วย)
 
-### ITCH AAPL L3 deltas {#itch-aapl-l3-deltas}
+### ITCH AAPL L3 deltas [#itch-aapl-l3-deltas]
 
 ต้นทาง: `01302019.NASDAQ_ITCH50.gz` (~4.4 GB) จาก NASDAQ EMI
 
@@ -236,7 +238,7 @@ ln -sf ~/Downloads/01302019.NASDAQ_ITCH50.gz /tmp/01302019.NASDAQ_ITCH50.gz
 cargo test -p nautilus-testkit --lib test_curate_aapl_itch -- --ignored --nocapture
 ```
 
-### Tardis Deribit BTC-PERPETUAL L2 deltas {#tardis-deribit-btc-perpetual-l2-deltas}
+### Tardis Deribit BTC-PERPETUAL L2 deltas [#tardis-deribit-btc-perpetual-l2-deltas]
 
 ต้นทาง: `tardis_deribit_incremental_book_L2_2020-04-01_BTC-PERPETUAL.csv.gz` จาก
 [Tardis](https://tardis.dev/) ข้อมูลวันแรกของแต่ละเดือนมีให้เป็นตัวอย่างฟรี (ไม่ต้องใช้ API key)
@@ -250,12 +252,12 @@ wget -O test_data/large/tardis_deribit_incremental_book_L2_2020-04-01_BTC-PERPET
 cargo test -p nautilus-tardis --features arrow test_curate_deribit_deltas -- --ignored --nocapture
 ```
 
-## ข้อมูลทดสอบสำหรับ tutorial {#tutorial-test-data}
+## ข้อมูลทดสอบสำหรับ tutorial [#tutorial-test-data]
 
 tutorial และคู่มือหลายชิ้นโหลด market data ที่ผู้ใช้จัดหาเอง environment variable `NAUTILUS_DATA_DIR` ใช้ override
 path ฐานของข้อมูลเหล่านี้ ให้ใช้ `test_data/local/` เป็นตำแหน่งใน repository ที่ถูก ignore สำหรับไฟล์เหล่านี้
 
-### โครงสร้าง directory {#directory-layout}
+### โครงสร้าง directory [#directory-layout]
 
 ```text
 test_data/local/
@@ -271,7 +273,7 @@ test_data/local/
 directory `test_data/local/` ถูก gitignore ไว้ script ของ tutorial จะหยุดพร้อมข้อความแจ้งว่าข้อมูลขาด เมื่อไม่พบไฟล์
 ที่คาดไว้
 
-### การได้มาซึ่งข้อมูล {#obtaining-the-data}
+### การได้มาซึ่งข้อมูล [#obtaining-the-data]
 
 **Depth snapshot ของ Binance** หาได้จาก [Binance public data portal](https://data.binance.vision/) ดาวน์โหลดไฟล์
 BTCUSDT T_DEPTH ของวันที่ 2022-11-01 แล้ววาง CSV ของ snap และ update ไว้ใต้ `test_data/local/Binance/`
@@ -289,7 +291,7 @@ curl -L "https://quote-saver.bycsi.com/orderbook/linear/XRPUSDT/2024-12-01_XRPUS
 **ข้อมูล tick ของ HISTDATA** หาได้จาก [histdata.com](https://www.histdata.com/) ดาวน์โหลดข้อมูล tick แบบ ASCII
 ของ EUR/USD เดือนใดก็ได้ แล้ววาง CSV (หรือ `.csv.gz`) ไว้ใต้ `test_data/local/HISTDATA/`
 
-## ชุดข้อมูลแบบ legacy {#legacy-datasets}
+## ชุดข้อมูลแบบ legacy [#legacy-datasets]
 
 ชุดข้อมูลเหล่านี้มีมาก่อนนโยบายนี้และใช้รูปแบบดิบของผู้ให้บริการ (CSV/CSV.gz) โดยไม่มี `metadata.json`
 ยังใช้ได้กับ test เดิม ส่วนชุดข้อมูลใหม่ควรเป็นไปตามมาตรฐาน Parquet ข้างต้น

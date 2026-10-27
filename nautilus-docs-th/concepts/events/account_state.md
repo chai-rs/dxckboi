@@ -1,4 +1,6 @@
-# AccountState
+---
+title: "AccountState"
+---
 
 `AccountState` เก็บ snapshot ของยอด balance และ margin ของ account ระบบจะ publish event นี้เมื่อ:
 
@@ -10,7 +12,7 @@
 
 flag `is_reported` ใช้แยก snapshot ที่ venue รายงานมา ออกจาก snapshot ที่ระบบคำนวณเอง
 
-## ฟิลด์ {#fields}
+## ฟิลด์ [#fields]
 
 | Field           | Required/default | คำอธิบาย                                                                 |
 | --------------- | ---------------- | ------------------------------------------------------------------------- |
@@ -25,7 +27,7 @@ flag `is_reported` ใช้แยก snapshot ที่ venue รายงา�
 | `ts_init`       | Required         | UNIX timestamp (nanoseconds) ตอนที่ object ถูกสร้าง                       |
 | `info`          | `None`           | ข้อมูล account เฉพาะของ venue ที่ไม่มีฟิลด์แบบ typed รองรับ (เป็น dict ว่างเมื่อไม่ได้ตั้งค่า) |
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 โดยปกติจะอ่าน account state ผ่าน `Portfolio` แทนการเขียน handler แยกเฉพาะ
 
@@ -34,7 +36,7 @@ flag `is_reported` ใช้แยก snapshot ที่ venue รายงา�
 ผลลัพธ์ที่ได้แยกขาดจาก Portfolio การแก้ไข account ที่ได้คืนมาจะไม่เปลี่ยน account ตัวหลักที่ engine
 ถืออยู่
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Events](index.md) - ประเภทของ event และการ dispatch
 - [Accounting](../accounting.md) - ประเภท account, balance และ margin model

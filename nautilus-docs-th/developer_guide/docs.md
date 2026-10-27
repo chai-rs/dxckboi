@@ -1,4 +1,6 @@
-# Docs Style
+---
+title: "Docs Style"
+---
 
 ใช้คู่มือนี้สำหรับสไตล์และแนวปฏิบัติในการเขียนเอกสารของ NautilusTrader
 
@@ -6,13 +8,13 @@
 และ `.markdownlint.jsonc` บังคับใช้ส่วนที่ตรวจสอบได้แบบอัตโนมัติ คู่มือนี้ครอบคลุมเฉพาะสิ่งที่เป็นของเอกสาร
 NautilusTrader โดยไม่ทวนมาตรฐานพื้นฐานนั้นซ้ำ
 
-## หลักการทั่วไป {#general-principles}
+## หลักการทั่วไป [#general-principles]
 
 - เลือกใช้โครงสร้างที่เรียบง่าย และเขียนให้กระชับอ่านง่าย
 - ใช้ convention, สไตล์ และรูปแบบที่สม่ำเสมอ
 - เขียนให้ผู้อ่านที่มีพื้นฐานทางเทคนิคต่างกันเข้าใจได้
 
-## ประเภทของเอกสาร {#documentation-types}
+## ประเภทของเอกสาร [#documentation-types]
 
 หน้าส่วนใหญ่ควรจัดอยู่ในหนึ่งในสี่ประเภท
 ([Divio documentation system](https://docs.divio.com/documentation-system/))
@@ -33,7 +35,7 @@ NautilusTrader โดยไม่ทวนมาตรฐานพื้นฐ�
 
 เนื้อหา how-to ที่แยกเดี่ยวและไม่ได้เฉพาะกับ venue ใดให้อยู่ใน `how_to/`
 
-### การเลือกประเภทที่เหมาะสม {#choosing-the-right-type}
+### การเลือกประเภทที่เหมาะสม [#choosing-the-right-type]
 
 - **หน้านี้พาผู้มาใหม่ผ่านประสบการณ์การเรียนรู้หรือไม่?** Tutorial
 - **หน้านี้ตอบคำถาม "ทำ...อย่างไร?" ให้คนที่รู้จักระบบอยู่แล้วหรือไม่?** How-to guide
@@ -49,7 +51,7 @@ tutorial บอกว่า "ทำสิ่งนี้ แล้วสิ่�
 เมื่อเอกสารประเภทหนึ่งต้องอ้างถึงอีกประเภทหนึ่ง ให้ใส่ link แทนการเขียนซ้ำในหน้า ตัวอย่างเช่น how-to guide
 ที่ตั้งค่า `LiveNodeConfig` ควร link ไปยัง API reference สำหรับนิยามของ field แทนที่จะแสดงรายการซ้ำอีกครั้ง
 
-## ภาษาและน้ำเสียง {#language-and-tone}
+## ภาษาและน้ำเสียง [#language-and-tone]
 
 - ใช้ประโยค active voice เมื่อทำได้ ("Configure the adapter" แทน "The adapter should be configured")
 - ใช้ present tense เมื่ออธิบายความสามารถที่มีอยู่ในปัจจุบัน
@@ -58,18 +60,18 @@ tutorial บอกว่า "ทำสิ่งนี้ แล้วสิ่�
 - เขียนตรงไปตรงมาและกระชับ หลีกเลี่ยงคำฟุ่มเฟือยอย่าง "basically", "simply", "just"
 - ใช้โครงสร้างคู่ขนานในรายการ รักษารูปแบบไวยากรณ์ให้สม่ำเสมอทุกข้อ
 
-## ตาราง Markdown {#markdown-tables}
+## ตาราง Markdown [#markdown-tables]
 
 ไวยากรณ์ตาราง การจัดแนว pipe และการเว้นระยะของเส้นคั่นให้เป็นไปตามคู่มือ
 [Markdown Style](markdown_style.md#tables)
 
-### Notes และคำอธิบาย {#notes-and-descriptions}
+### Notes และคำอธิบาย [#notes-and-descriptions]
 
 - notes และคำอธิบายทั้งหมดควรจบด้วยจุด
 - เขียน notes ให้กระชับแต่ได้ใจความ
 - ใช้ sentence case (ตัวพิมพ์ใหญ่เฉพาะอักษรแรกและคำนามเฉพาะ)
 
-### ตัวอย่าง {#example}
+### ตัวอย่าง [#example]
 
 ```markdown
 | Order Type             | Spot | Margin | USDT Futures | Coin Futures | Notes                   |
@@ -79,7 +81,7 @@ tutorial บอกว่า "ทำสิ่งนี้ แล้วสิ่�
 | `MARKET_IF_TOUCHED`    | -    | -      | ✓            | ✓            | Futures only.           |
 ```
 
-### สัญลักษณ์แสดงการรองรับ {#support-indicators}
+### สัญลักษณ์แสดงการรองรับ [#support-indicators]
 
 - ใช้ `✓` สำหรับฟีเจอร์ที่รองรับ
 - ใช้ `-` สำหรับฟีเจอร์ที่ไม่รองรับ (ไม่ใช้ `✗` หรือสัญลักษณ์อื่น)
@@ -88,14 +90,14 @@ tutorial บอกว่า "ทำสิ่งนี้ แล้วสิ่�
   สำหรับสิ่งที่ venue ไม่มี หรือ `*Not currently implemented*` สำหรับสิ่งที่ adapter ยังไม่ได้ทำ
 - ปล่อย cell ว่างไว้เมื่อไม่มีเนื้อหาที่จำเป็น
 
-## การอ้างอิงโค้ด {#code-references}
+## การอ้างอิงโค้ด [#code-references]
 
 inline code และ fenced code block ให้เป็นไปตามคู่มือ [Markdown Style](markdown_style.md#code)
 
 เมื่ออ้างอิงตำแหน่งในโค้ด ให้ใช้ `file_path::function_name` หรือ `file_path::ClassName` แทนเลขบรรทัด
 ซึ่งจะล้าสมัยเมื่อโค้ดเปลี่ยน
 
-## Headings {#headings}
+## Headings [#headings]
 
 สไตล์ของ heading, ตัวพิมพ์ และลำดับชั้นให้เป็นไปตามคู่มือ [Markdown Style](markdown_style.md#headings):
 ใช้ title case สำหรับ heading ของหน้า และ sentence case สำหรับ heading ที่อยู่ใต้ลงไป
@@ -105,33 +107,33 @@ NautilusTrader มีข้อยกเว้นหนึ่งข้อสำ�
 
 ให้ขึ้นต้นคำนามเฉพาะด้วยตัวพิมพ์ใหญ่เสมอไม่ว่า heading จะอยู่ระดับใด (ชื่อผลิตภัณฑ์ เทคโนโลยี บริษัท ตัวย่อ)
 
-## Lists {#lists}
+## Lists [#lists]
 
 เครื่องหมายรายการ การเรียงลำดับ และการย่อหน้าให้เป็นไปตามคู่มือ [Markdown Style](markdown_style.md#lists)
 
 จบรายการด้วยจุดเมื่อเป็นประโยคสมบูรณ์
 
-## Links และการอ้างอิง {#links-and-references}
+## Links และการอ้างอิง [#links-and-references]
 
 ข้อความของ link, สไตล์ของ link และรูปภาพให้เป็นไปตามคู่มือ
 [Markdown Style](markdown_style.md#links-and-images)
 
 อ้างอิงเอกสารภายนอกเมื่อเหมาะสม
 
-## คำศัพท์ทางเทคนิค {#technical-terminology}
+## คำศัพท์ทางเทคนิค [#technical-terminology]
 
 - สร้างตาราง capability โดยอิงตาม domain model ของ Nautilus ไม่ใช่ศัพท์เฉพาะของ exchange
 - กล่าวถึงศัพท์เฉพาะของ exchange ในวงเล็บหรือ notes เมื่อจำเป็นต่อความชัดเจน
 - ใช้คำศัพท์ให้สม่ำเสมอตลอดทั้งเอกสาร
 
-## ตัวอย่างและ code sample {#examples-and-code-samples}
+## ตัวอย่างและ code sample [#examples-and-code-samples]
 
 - ให้ตัวอย่างที่ใช้งานได้จริงและรันได้
 - ใส่ import และบริบทที่จำเป็น
 - ใช้ชื่อตัวแปรและค่าที่สมจริง
 - เพิ่ม comment อธิบายส่วนที่ไม่ชัดเจนในตัวอย่าง
 
-## Admonitions {#admonitions}
+## Admonitions [#admonitions]
 
 ใช้ admonition block เพื่อเน้นข้อมูลสำคัญ:
 
@@ -145,11 +147,11 @@ NautilusTrader มีข้อยกเว้นหนึ่งข้อสำ�
 
 อย่าใช้ admonition มากเกินไป เพราะยิ่งมากยิ่งลดความสำคัญลง
 
-## MDX components {#mdx-components}
+## MDX components [#mdx-components]
 
 เว็บไซต์เอกสาร (fumadocs) มี MDX component ในตัวที่ใช้ได้ในทุกไฟล์ `.md` โดยไม่ต้อง import
 
-### Tabs {#tabs}
+### Tabs [#tabs]
 
 ใช้ tabs สำหรับเนื้อหาที่แยกตามภาษาหรือตาม variant
 
@@ -161,7 +163,7 @@ NautilusTrader มีข้อยกเว้นหนึ่งข้อสำ�
 
 > หมายเหตุ: ตัวอย่าง Tabs ในต้นฉบับใช้คู่ Rust/Python จึงตัดออก
 
-### Steps {#steps}
+### Steps [#steps]
 
 ใช้ `Steps` และ `Step` สำหรับขั้นตอนที่ต้องทำตามลำดับ
 
@@ -176,7 +178,7 @@ Start the trading node.
 </Steps>
 ```
 
-### Accordions {#accordions}
+### Accordions [#accordions]
 
 ใช้ `Accordions` และ `Accordion` สำหรับเนื้อหาที่ยุบ/ขยายได้
 
@@ -188,7 +190,7 @@ Content here.
 </Accordions>
 ```
 
-### Files {#files}
+### Files [#files]
 
 ใช้ `Files`, `Folder` และ `File` สำหรับแสดงโครงสร้าง directory
 
@@ -201,7 +203,7 @@ Content here.
 </Files>
 ```
 
-### Cards {#cards}
+### Cards [#cards]
 
 ใช้ `Cards` และ `Card` สำหรับ grid ของเนื้อหาที่มี link
 
@@ -212,11 +214,11 @@ Content here.
 </Cards>
 ```
 
-### TypeTable {#typetable}
+### TypeTable [#typetable]
 
 ใช้ `TypeTable` สำหรับตารางเอกสารของ parameter หรือ type
 
-## API documentation {#api-documentation}
+## API documentation [#api-documentation]
 
 - อธิบาย parameter และ return type ให้ชัดเจน
 - ใส่ตัวอย่างการใช้งานสำหรับ API ที่ซับซ้อน

@@ -1,4 +1,6 @@
-# Adapters
+---
+title: "Adapters"
+---
 
 Adapter ทำหน้าที่เชื่อมต่อผู้ให้บริการข้อมูล (data provider) และ trading venue เข้ากับ NautilusTrader โดยแปลง
 protocol เฉพาะของแต่ละ venue ให้เป็น domain object และ event ที่ data engine และ execution engine ใช้งาน
@@ -45,7 +47,7 @@ flowchart LR
 | `DataClient`         | จัดการการ subscribe และ request ข้อมูลตลาด                     |
 | `ExecutionClient`    | จัดการการส่ง แก้ไข และยกเลิก order                             |
 
-## การตั้งค่าและการ routing {#configuration-and-routing}
+## การตั้งค่าและการ routing [#configuration-and-routing]
 
 แต่ละ adapter มี config type และ factory สำหรับ client ที่รองรับ config ใช้เลือกค่าเฉพาะของ venue เช่น
 product, environment, credential และนโยบายการโหลด instrument ส่วน factory จะสร้าง client ขึ้นมาเมื่อ build
@@ -55,7 +57,7 @@ node หนึ่งตัวลงทะเบียน data client และ e
 เมื่อต้องการให้ client ตัวใดตัวหนึ่งรับผิดชอบ request, subscription หรือ order นั้นโดยเฉพาะ หากไม่ระบุ client
 data engine และ execution engine จะใช้ route ตาม venue และ route เริ่มต้นที่ node ตั้งค่าไว้
 
-## Custom adapter {#custom-adapters}
+## Custom adapter [#custom-adapters]
 
 คุณพัฒนา adapter ของตัวเองได้ custom adapter รับผิดชอบงานด้าน data และ execution แบบเดียวกับ adapter
 ที่มีมาในตัว และทำงานร่วมกับ adapter เหล่านั้นใน `LiveNode` เดียวกันได้ strategy ยังคงใช้ API มาตรฐานสำหรับ
@@ -68,7 +70,7 @@ Adapter ทำงานอยู่นอกขอบเขตของ core ท
 > หมายเหตุ: ต้นฉบับส่วนนี้ที่เหลืออธิบายการเขียน custom adapter เป็น Python package (PyO3/GIL, asyncio)
 > จึงตัดออก ดูแนวทางฝั่ง Rust ได้ที่[คู่มือนักพัฒนา adapter](../developer_guide/adapters.md)
 
-## Instrument provider {#instrument-providers}
+## Instrument provider [#instrument-providers]
 
 Instrument provider โหลดนิยามของ venue แล้ว parse ให้เป็น object `Instrument` ของ Nautilus
 แต่ละ adapter เป็นผู้กำหนดพฤติกรรมนี้เอง API ของ adapter อาจมี loader แยกต่างหาก มี provider config
@@ -80,11 +82,11 @@ Instrument provider โหลดนิยามของ venue แล้ว pars
 - โหลดขณะ runtime ใน [environment context](architecture.md#environment-contexts) แบบ `sandbox` หรือ `live`
   ให้ actor และ strategy ใช้งาน
 
-### งานวิจัยและ backtest {#research-and-backtesting}
+### งานวิจัยและ backtest [#research-and-backtesting]
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python (การโหลด instrument Binance USD-M หนึ่งตัว) จึงตัดออก
 
-### Live trading {#live-trading}
+### Live trading [#live-trading]
 
 แต่ละ integration จัดการการโหลดตอน startup ต่างกัน ตัวอย่างเช่น provider config ของ Binance สามารถตั้ง
 `load_all` เพื่อโหลด catalog ทั้งหมด หรือตั้ง `load_all` เป็น false แล้วระบุ `load_ids` เพื่อโหลดเฉพาะ
@@ -101,17 +103,17 @@ Subscription, การส่ง order และ execution reconciliation ไม
 reconciliation จัดการ report ของ instrument ที่ยังไม่ได้โหลดอย่างไร ดูได้ที่
 [instrument availability](execution/reconciliation.md#instrument-availability)
 
-## Data client {#data-clients}
+## Data client [#data-clients]
 
 Data client จัดการ subscription และ request ข้อมูลตลาดของ venue โดยเชื่อมต่อกับ API ของ venue แล้ว
 normalize ข้อมูลที่เข้ามาให้เป็น type ของ Nautilus
 
-### การ request ข้อมูล {#requesting-data}
+### การ request ข้อมูล [#requesting-data]
 
 Actor และ strategy request ข้อมูลได้ด้วย method ที่มีมาให้ (เช่น request instrument definition หรือ bar
 ย้อนหลัง) และข้อมูลจะถูกส่งกลับผ่าน callback
 
-### การ subscribe ข้อมูล {#subscribing-to-data}
+### การ subscribe ข้อมูล [#subscribing-to-data]
 
 สำหรับข้อมูลแบบ real-time ให้ใช้ method สำหรับ subscription (เช่น subscribe trade หรือ bar) โดยต้องโหลด
 instrument เข้า cache ไว้ก่อนแล้ว
@@ -124,7 +126,7 @@ instrument เข้า cache ไว้ก่อนแล้ว
 ที่คู่กัน
 :::
 
-## Execution client {#execution-clients}
+## Execution client [#execution-clients]
 
 Execution client จัดการ order ของ venue โดยแปลงคำสั่ง order ของ Nautilus ให้เป็นการเรียก API เฉพาะของ venue
 และประมวลผล execution report ที่ได้กลับมาให้เป็น event ของ Nautilus
@@ -141,7 +143,7 @@ order, fill และ position ที่จำเป็นดึงมาคร�
 กลับมาได้ แต่จะไม่นำผลทางเศรษฐศาสตร์ของ position หรือ portfolio ย้อนหลังที่หลักฐานที่มีไม่รองรับมาใช้ ดู
 [Bounded history safety](execution/reconciliation.md#bounded-history-safety)
 
-### ข้อตกลงการ execute แบบ reduce-only {#reduce-only-execution-contract}
+### ข้อตกลงการ execute แบบ reduce-only [#reduce-only-execution-contract]
 
 Execution client **ต้องไม่ทิ้ง** `reduce_only=true` แบบเงียบ ๆ เด็ดขาด ต้องเลือกอย่างใดอย่างหนึ่ง คือส่ง
 instruction ของ venue ที่มีเอกสารรองรับและบังคับเจตนาเดียวกัน หรือ reject order ก่อนส่งออกไป ทั้งนี้ venue
@@ -172,7 +174,7 @@ stream update, การ query หรือ reconciliation แทนการเ
 หากต้องการสร้าง custom adapter ดู[คู่มือนักพัฒนา adapter](../developer_guide/adapters.md)
 :::
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Live trading](live.md): ตั้งค่าและรัน live trading ด้วย adapter
 - [Execution](execution/): การ execute order ผ่าน adapter

@@ -1,4 +1,6 @@
-# Greeks
+---
+title: "Greeks"
+---
 
 Nautilus มีสองเส้นทางสำหรับทำงานกับ option Greeks ซึ่งเป็นค่าที่วัดว่าราคา option ตอบสนองต่อ
 การเปลี่ยนแปลงของตัวแปรตลาดอย่างไร:
@@ -13,9 +15,9 @@ subscription ของข้อมูลและไม่ต้องคำน�
 ไม่ได้ stream Greeks, การ backtest และการปรับแต่งเอง เช่น shock, beta weighting และ percent
 Greeks
 
-## Greeks จาก venue {#venue-provided-greeks}
+## Greeks จาก venue [#venue-provided-greeks]
 
-### OptionGreeks {#optiongreeks}
+### OptionGreeks [#optiongreeks]
 
 type `OptionGreeks` แทนค่าความอ่อนไหว (sensitivity) ที่ venue ให้มาสำหรับสัญญา option หนึ่งสัญญา เป็น
 type ที่ implement ใน Rust โดยตรง
@@ -43,7 +45,7 @@ actor หรือ strategy สามารถ subscribe ด้วย `subscribe
 ดู API การ subscribe ทั้งหมดได้ในคู่มือ [Options](options.md) ซึ่งรวมถึงการรวม option chain,
 การกรองช่วง strike และโหมด snapshot
 
-### การจัดเก็บและการ replay {#persistence-and-replay}
+### การจัดเก็บและการ replay [#persistence-and-replay]
 
 `OptionGreeks` เป็นสมาชิกโดยตรงของ enum `Data` ดังนั้นจึงถูกจัดเก็บลง data catalog และ replay ใน
 backtest ในฐานะ market data แบบ built-in แทนที่จะเป็น custom data ให้ใช้ method ของ catalog ที่เฉพาะสำหรับ type นี้
@@ -56,7 +58,7 @@ backtest ในฐานะ market data แบบ built-in แทนที่จ
 เข้ากับการอัปเดต BBO ของ `QuoteTick` ที่ replay สำหรับแต่ละ option instrument ฟิลด์ `underlying_price` ใช้เป็น
 ตัวตั้งต้นในการเลือก ATM และ `delta` รองรับการเลือก strike ตาม delta ผ่าน `StrikeRange.delta(target, tolerance)`
 
-### Core schema เทียบกับ custom data {#core-schema-versus-custom-data}
+### Core schema เทียบกับ custom data [#core-schema-versus-custom-data]
 
 ฟิลด์ดั้งเดิมของ `OptionGreeks` ประกอบเป็น core schema ได้แก่ Greeks มาตรฐานห้าตัว (`delta`, `gamma`,
 `vega`, `theta` และ `rho`) รวมถึง implied volatility, ราคา underlying, open interest และ
@@ -66,7 +68,7 @@ convention ชื่อฟิลด์เหล่านี้คงที่
 `volga`, `charm`, input สำหรับ calibration หรือ metadata ของ surface ให้เก็บใน [custom data](custom_data.md) ไม่ใช่ใน type
 ดั้งเดิม ฟิลด์ optional ของ venue เป็นแบบ nullable ส่วน `convention` ไม่เป็น nullable
 
-### Type ใน Rust ที่อยู่เบื้องหลัง {#underlying-rust-types}
+### Type ใน Rust ที่อยู่เบื้องหลัง [#underlying-rust-types]
 
 implementation หลักใน Rust อยู่ใน `crates/model/src/data/greeks.rs` และ
 `crates/model/src/data/option_chain.rs`:
@@ -80,7 +82,7 @@ implementation หลักใน Rust อยู่ใน `crates/model/src/data
   implement โดย `OptionGreeks`, `GreeksData`, `PortfolioGreeks` และ
   `BlackScholesGreeksResult`
 
-### ฟังก์ชัน Black-Scholes {#black-scholes-functions}
+### ฟังก์ชัน Black-Scholes [#black-scholes-functions]
 
 ฟังก์ชันคำนวณราคาระดับล่างอยู่ใน `crates/model/src/data/greeks.rs` ได้แก่ `black_scholes_greeks`
 (คำนวณ Greeks เมื่อทราบ volatility), `imply_vol`, `imply_vol_and_greeks` (หา implied volatility จากราคาตลาด
@@ -107,14 +109,14 @@ Convention:
 - Rho ถูก scale ด้วย 0.01 (ความอ่อนไหวต่อการเปลี่ยนแปลงของอัตราดอกเบี้ย 1 จุดเปอร์เซ็นต์)
 - option แบบ American จะถูกคำนวณราคาเหมือนแบบ European สำหรับการคำนวณ Greeks
 
-## ตัวคำนวณ Greeks ในเครื่อง {#local-greeks-calculator}
+## ตัวคำนวณ Greeks ในเครื่อง [#local-greeks-calculator]
 
-### GreeksCalculator {#greekscalculator}
+### GreeksCalculator [#greekscalculator]
 
 `GreeksCalculator` คำนวณ Black-Scholes Greeks จาก market data ใน cache โดยใช้ cache และ clock
 และเข้าถึงได้จาก actor และ strategy
 
-#### Greeks ของ instrument {#instrument-greeks}
+#### Greeks ของ instrument [#instrument-greeks]
 
 `instrument_greeks()` คำนวณ Greeks ของ instrument เดียว (option หรือ underlying) โดยใช้ quantity เท่ากับ 1
 และใช้ `flat_interest_rate` เมื่อไม่มี yield curve ใน cache ผลลัพธ์คือ `GreeksData` หรือไม่มีค่าระหว่างที่
@@ -142,13 +144,13 @@ carry ต่ออัตราดอกเบี้ยจาก dividend yield �
 สำหรับ instrument ที่ไม่ใช่ option เช่น futures และหุ้น ตัวคำนวณจะคืน `GreeksData` ที่มี `delta=1` หรือ
 delta แบบ beta-weighted และมี gamma, vega, theta และ rho เป็นศูนย์ ฟิลด์เฉพาะของ option จะคงค่าเริ่มต้นไว้
 
-#### สถานการณ์ shock {#shock-scenarios}
+#### สถานการณ์ shock [#shock-scenarios]
 
 ใช้สมมติฐานการเปลี่ยนแปลงของ spot, volatility หรือเวลา ผ่านพารามิเตอร์ `spot_shock` (เช่น +10 จุดบน
 underlying), `vol_shock` (เช่น +2 จุดเปอร์เซ็นต์ของ volatility) และ `time_to_expiry_shock` (เช่น `1 / 365.25`
 เพื่อเลื่อนไปข้างหน้าหนึ่งวันปฏิทิน)
 
-#### การอัปเดต volatility {#volatility-update}
+#### การอัปเดต volatility [#volatility-update]
 
 ปรับ implied volatility จากจุดตั้งต้นที่อยู่ใน cache ด้วย `update_vol` (ใช้ vol ใน cache เป็นจุดตั้งต้น)
 และ `cache_greeks` (เก็บผลลัพธ์ไว้สำหรับรอบถัดไป)
@@ -157,16 +159,16 @@ underlying), `vol_shock` (เช่น +2 จุดเปอร์เซ็น�
 การตรวจสอบและ full solver เป็นทางสำรองตามที่อธิบายไว้ข้างต้น หาก cache ไม่มี Greeks ก่อนหน้าของ
 instrument นั้น ตัวคำนวณจะแก้หา implied volatility แบบเต็ม
 
-#### Greeks แบบ beta-weighted {#beta-weighted-greeks}
+#### Greeks แบบ beta-weighted [#beta-weighted-greeks]
 
 แสดง delta และ gamma ในรูปของ index ผ่าน `index_instrument_id`, `beta_weights` และ `percent_greeks`
 
-#### Vega แบบถ่วงน้ำหนักตามเวลา {#time-weighted-vega}
+#### Vega แบบถ่วงน้ำหนักตามเวลา [#time-weighted-vega]
 
 ทำให้ vega ของวันหมดอายุที่ต่างกันเทียบกันได้ ด้วย `vega_time_weight_base` (เช่น `30` เพื่อ normalize
 เป็น vega 30 วัน)
 
-#### Greeks ของ portfolio {#portfolio-greeks}
+#### Greeks ของ portfolio [#portfolio-greeks]
 
 `portfolio_greeks()` รวม Greeks ของ position ที่เปิดอยู่ทั้งหมดที่ตรงกับเงื่อนไขการกรอง และคืนค่าเป็น
 `PortfolioGreeks` นอกจากตัวกรองด้านล่างแล้วยังรับ `flat_interest_rate`, `index_instrument_id`,
@@ -188,7 +190,7 @@ instrument นั้น ตัวคำนวณจะแก้หา implied vo
 การประเมินมูลค่า instrument ที่ล้มเหลวหรือผลรวมที่ไม่จำกัด (nonfinite) จะทำให้เกิด error การคำนวณจะไม่คืน
 ผลลัพธ์ portfolio เพียงบางส่วน
 
-### GreeksData {#greeksdata}
+### GreeksData [#greeksdata]
 
 `GreeksData` เก็บบริบทของการคำนวณ Greeks ของ instrument เดียว การ cache และการ publish ที่ร้องขอ
 จะใช้การประเมินมูลค่า option แบบไม่มี shock หลังจากผ่านการตรวจสอบแล้วเท่านั้น การประเมินมูลค่าจาก cache
@@ -230,7 +232,7 @@ instrument นั้น ตัวคำนวณจะแก้หา implied vo
 `quantity * &greeks_data.to_portfolio_greeks()` เพื่อให้ได้ผลลัพธ์เดียวกัน ส่วน expression ใน Rust
 `quantity * &greeks_data` จะ scale ด้วย quantity เท่านั้นและคืนค่าเป็น `GreeksData`
 
-### PortfolioGreeks {#portfoliogreeks}
+### PortfolioGreeks [#portfoliogreeks]
 
 `PortfolioGreeks` เป็นผลลัพธ์ของการแปลงและการรวมค่าระดับ portfolio
 
@@ -250,7 +252,7 @@ instrument นั้น ตัวคำนวณจะแก้หา implied vo
 | `ts_event` | timestamp ของ event หน่วยนาโนวินาที                                 |
 | `ts_init`  | timestamp ตอน initialize หน่วยนาโนวินาที                            |
 
-### Yield curve {#yield-curves}
+### Yield curve [#yield-curves]
 
 `YieldCurve` เก็บอัตราดอกเบี้ยหรือ dividend yield ตาม tenor หน่วยเป็นปี curve ที่มีอัตราเดียวจะเป็นแบบ
 flat และ curve ที่มีตั้งแต่สามจุดขึ้นไปจะถูก interpolate ตัวคำนวณค้นหา curve ใน cache ด้วย
@@ -270,7 +272,7 @@ interpolate ได้ `cache.add_yield_curve()` จะปฏิเสธ curve �
 `nautilus_serialization::ensure_custom_data_registered::<YieldCurve>()` ก่อนการเขียนและ query
 ของ catalog หรือ streaming
 
-### การบันทึกค่าที่คำนวณได้ {#recording-calculated-values}
+### การบันทึกค่าที่คำนวณได้ [#recording-calculated-values]
 
 `GreeksData` และ `PortfolioGreeks` รองรับการบันทึกแบบ Arrow โดยตรงภายใต้ selector
 `NautilusRecordType` ที่ตรงกัน streaming writer ใน Rust รับ record เหล่านี้ได้โดยตรง
@@ -281,7 +283,7 @@ query เหล่านี้คืนข้อมูลแบบ Arrow record 
 และไม่เติมข้อมูลลง cache ของตัวคำนวณ ส่วน yield curve เป็น custom data ไม่ใช่ record
 ดู [Yield curve](#yield-curves)
 
-## การเลือกระหว่างสองเส้นทาง {#choosing-between-the-two-paths}
+## การเลือกระหว่างสองเส้นทาง [#choosing-between-the-two-paths]
 
 | เกณฑ์                  | จาก venue (`OptionGreeks`)                                | ตัวคำนวณในเครื่อง (`GreeksCalculator`)                  |
 | --------------------- | --------------------------------------------------------- | --------------------------------------------------- |
@@ -295,7 +297,7 @@ query เหล่านี้คืนข้อมูลแบบ Arrow record 
 | ค่าที่ได้                | delta, gamma, vega, theta, rho, IV และ open interest       | delta, gamma, vega, theta, rho, itm_prob และ vol    |
 | Data type             | `OptionGreeks`                                            | `GreeksData` และ `PortfolioGreeks`                    |
 
-## นิยามของ Greek {#greek-definitions}
+## นิยามของ Greek [#greek-definitions]
 
 คำศัพท์เหล่านี้ปรากฏในทั้งสองเส้นทาง ฟังก์ชัน Black-Scholes ในเครื่องจะ scale vega และ theta ตามที่อธิบาย
 ไว้ข้างต้น ส่วน `OptionGreeks` จะคงค่าที่ venue หรือ broker แต่ละรายรายงานมา และบันทึก `convention` ของค่านั้นไว้
@@ -309,11 +311,11 @@ query เหล่านี้คืนข้อมูลแบบ Arrow record 
 | Rho      | `rho`      | ความอ่อนไหวต่อการเปลี่ยนแปลงของอัตราดอกเบี้ยปลอดความเสี่ยง (`dV/dr`)                                                   |
 | ITM prob | `itm_prob` | ความน่าจะเป็นที่ option จะจบแบบ in the money: `P(ϕS_T > ϕK)` โดยที่ `ϕ = 1` สำหรับ call และ `ϕ = -1` สำหรับ put |
 
-## ตัวอย่าง {#examples}
+## ตัวอย่าง [#examples]
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python (การ subscribe Greeks จาก Bybit, Deribit และ OKX) จึงตัดออก
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Options](options.md): option instrument, การ subscribe chain และการกรอง strike
 - [Data](data/): data type แบบ built-in, custom data และโมเดลการ subscribe

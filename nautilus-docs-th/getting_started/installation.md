@@ -1,4 +1,6 @@
-# การติดตั้ง
+---
+title: "การติดตั้ง"
+---
 
 NautilusTrader รองรับอย่างเป็นทางการบนแพลตฟอร์ม 64 บิตต่อไปนี้:
 
@@ -25,7 +27,7 @@ CI ที่รันต่อเนื่องมาจาก GitHub Actions r
 ดูรายการ crate, feature flag และเวอร์ชัน Rust ขั้นต่ำ (MSRV) ได้ที่หัวข้อ
 [การตั้งค่าโปรเจกต์](../concepts/rust.md#project-setup) ส่วนหัวข้อด้านล่างอธิบายการเตรียม toolchain และการ build จาก source
 
-## ตรวจสอบที่มาของ build {#verifying-build-provenance}
+## ตรวจสอบที่มาของ build [#verifying-build-provenance]
 
 artifact ทุกตัวที่โปรเจกต์เผยแพร่มี cryptographic attestation ที่สร้างโดย CI/CD pipeline:
 
@@ -40,9 +42,9 @@ artifact ถูกสร้างโดย GitHub Actions workflow ทางก�
 การตรวจสอบ Docker image ต้องใช้ [cosign](https://github.com/sigstore/cosign)
 :::
 
-## ติดตั้งจาก source {#from-source}
+## ติดตั้งจาก source [#from-source]
 
-### 1. ติดตั้ง rustup {#1-install-rustup}
+### 1. ติดตั้ง rustup [#1-install-rustup]
 
 ติดตั้ง [rustup](https://rustup.rs/) (ตัวติดตั้ง Rust toolchain):
 
@@ -57,7 +59,7 @@ curl https://sh.rustup.rs -sSf | sh
 
 ตรวจสอบ: `rustc --version`
 
-### 2. เปิดใช้ cargo {#2-enable-cargo}
+### 2. เปิดใช้ cargo [#2-enable-cargo]
 
 เปิดใช้ `cargo` ใน shell ปัจจุบัน:
 
@@ -69,7 +71,7 @@ source $HOME/.cargo/env
 # Start a new PowerShell session
 ```
 
-### 3. ติดตั้ง clang {#3-install-clang}
+### 3. ติดตั้ง clang [#3-install-clang]
 
 ติดตั้ง [clang](https://clang.llvm.org/) (frontend ภาษา C สำหรับ LLVM) บน Linux คำสั่งนี้จะติดตั้ง
 [lld](https://lld.llvm.org/) ด้วย ซึ่งถูกตั้งค่าให้เป็น linker ของ Rust เพื่อให้ build เร็วขึ้น:
@@ -87,7 +89,7 @@ sudo apt-get install clang lld
 
 ตรวจสอบ: `clang --version`
 
-### 4. Clone source {#5-clone-and-sync-dependencies}
+### 4. Clone source [#5-clone-and-sync-dependencies]
 
 clone source ด้วย `git`:
 
@@ -104,7 +106,7 @@ cd nautilus_trader
 flag `--depth 1` ดึงเฉพาะ commit ล่าสุด ทำให้ clone ได้เร็วและเบากว่า
 :::
 
-### 5. ติดตั้ง Cap'n Proto สำหรับ HyperSync {#6-install-capn-proto-for-hypersync}
+### 5. ติดตั้ง Cap'n Proto สำหรับ HyperSync [#6-install-capn-proto-for-hypersync]
 
 compiler ของ [Cap'n Proto](https://capnproto.org) ยังมีไว้สำหรับการพัฒนา schema ของ HyperSync
 dependency ของ HyperSync ที่ pin ไว้มาพร้อม Rust binding ที่ generate ไว้แล้ว build ปกติจึงไม่ต้อง generate schema ใหม่
@@ -125,7 +127,7 @@ Cap'n Proto เป็น development dependency
 ในคู่มือนักพัฒนา หรือเริ่มเขียนโปรเจกต์ของตัวเองตาม [รัน backtest (Rust)](../how_to/run_rust_backtest.md)
 และ [Write a Strategy (Rust)](../how_to/write_rust_strategy.md)
 
-## เวอร์ชันและการ release {#versioning-and-releases}
+## เวอร์ชันและการ release [#versioning-and-releases]
 
 NautilusTrader ยังอยู่ระหว่างการพัฒนาอย่างต่อเนื่อง บาง feature อาจยังไม่สมบูรณ์ และแม้ API จะเริ่มเสถียรขึ้น
 แต่ก็อาจมี breaking change ระหว่าง release ได้ โปรเจกต์พยายามบันทึกการเปลี่ยนแปลงเหล่านี้ไว้ใน release notes
@@ -135,7 +137,7 @@ NautilusTrader ยังอยู่ระหว่างการพัฒน�
 
 ใช้ NautilusTrader เฉพาะเมื่อคุณพร้อมจะปรับตัวตามการเปลี่ยนแปลงเหล่านี้
 
-## Redis {#redis}
+## Redis [#redis]
 
 การใช้ [Redis](https://redis.io) กับ NautilusTrader เป็น**ทางเลือก** และจำเป็นเฉพาะเมื่อตั้งค่าให้เป็น backend
 ของ cache database หรือ [message bus](../concepts/message_bus.md)
@@ -167,7 +169,7 @@ docker run -d --name redis -p 6379:6379 redis:latest
 แนะนำให้ใช้ [Redis Insight](https://redis.io/insight/) เป็น GUI เพื่อดูและ debug ข้อมูลใน Redis อย่างมีประสิทธิภาพ
 :::
 
-## Precision mode {#precision-mode}
+## Precision mode [#precision-mode]
 
 NautilusTrader รองรับ precision mode สองแบบสำหรับ value type หลัก (`Price`, `Quantity`, `Money`)
 ซึ่งต่างกันที่ความกว้างบิตภายในและจำนวนทศนิยมสูงสุด
@@ -185,11 +187,11 @@ NautilusTrader รองรับ precision mode สองแบบสำหร�
 benchmark เปรียบเทียบประสิทธิภาพของทั้งสองโหมดยังอยู่ระหว่างจัดทำ
 :::
 
-### การตั้งค่า build {#build-configuration}
+### การตั้งค่า build [#build-configuration]
 
 precision mode ถูกเลือกตอน compile ผ่าน Rust feature flag `high-precision`
 
-### Rust feature flag {#rust-feature-flag}
+### Rust feature flag [#rust-feature-flag]
 
 หากต้องการเปิดโหมด high-precision (128 บิต) ใน Rust ให้เพิ่ม feature `high-precision` ลงใน `Cargo.toml`:
 

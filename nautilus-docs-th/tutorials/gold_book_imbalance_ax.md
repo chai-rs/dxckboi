@@ -1,4 +1,6 @@
-# Gold Perpetual Book Imbalance with Proxy Futures Data (AX Exchange)
+---
+title: "Gold Perpetual Book Imbalance with Proxy Futures Data (AX Exchange)"
+---
 
 tutorial นี้ backtest strategy แบบ top-of-book imbalance บน **XAU-PERP** ที่
 [AX Exchange](https://architect.exchange) โดยใช้ quote แบบ `mbp-1` ของสัญญา gold futures ของ CME (`GC.v.0`) จาก
@@ -7,7 +9,7 @@ tutorial นี้ backtest strategy แบบ top-of-book imbalance บน **XA
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก ดูวิธีรัน backtest ด้วย Rust ได้ที่
 > [Run a Backtest (Rust)](../how_to/run_rust_backtest.md)
 
-## บทนำ {#introduction}
+## บทนำ [#introduction]
 
 top-of-book imbalance เป็นสัญญาณระดับ microstructure เมื่อฝั่งหนึ่งของ BBO มีขนาด order ที่วางรออยู่มากกว่าอีกฝั่งมาก
 book จะเอียงไปทางฝั่งนั้น เมื่อฝั่งที่หนักกว่าดูดซับ flow ไว้ ราคาในระยะสั้นมักเคลื่อนไปทางฝั่งที่บางกว่า
@@ -47,7 +49,7 @@ flowchart LR
     D2 -->|no| SELL
 ```
 
-### ทำไมต้องใช้ข้อมูล proxy {#why-proxy-data}
+### ทำไมต้องใช้ข้อมูล proxy [#why-proxy-data]
 
 Databento ยังไม่ครอบคลุม AX Exchange สัญญา gold futures `GC` ของ CME เป็น gold derivative ที่มี liquidity สูงที่สุดในโลก
 จึงให้ microstructure ที่เป็นตัวแทนได้ดีสำหรับการ backtest strategy ทองคำ **continuous contract** `GC.v.0` ต่อข้อมูลข้าม
@@ -59,7 +61,7 @@ Databento ยังไม่ครอบคลุม AX Exchange สัญญา
 อ่านเพิ่มเติมเกี่ยวกับความสามารถในการพยากรณ์ของ feature ด้าน book imbalance ได้ที่ [บทความของ Databento เรื่อง HFT
 signals with sklearn](https://databento.com/blog/hft-sklearn-python)
 
-## สิ่งที่ต้องมีก่อน {#prerequisites}
+## สิ่งที่ต้องมีก่อน [#prerequisites]
 
 - [ติดตั้ง NautilusTrader แล้ว](../getting_started/installation.md)
 - clone ของ repository NautilusTrader:
@@ -75,22 +77,22 @@ cd nautilus_trader
 export DATABENTO_API_KEY="your-api-key"
 ```
 
-## การเตรียมข้อมูล {#data-preparation}
+## การเตรียมข้อมูล [#data-preparation]
 
-### ดาวน์โหลด quote ของ CME gold futures {#download-cme-gold-futures-quotes}
+### ดาวน์โหลด quote ของ CME gold futures [#download-cme-gold-futures-quotes]
 
 ดาวน์โหลดข้อมูลจาก dataset `GLBX.MDP3` symbol `GC.v.0` (`stype_in="continuous"`) schema `mbp-1` ช่วง
 `2024-11-15` ถึง `2024-11-16` แล้วเก็บเป็นไฟล์ `gc_gold_quotes.dbn.zst` request นี้ดาวน์โหลดหนึ่งวันทำการ และการรันครั้ง
 ต่อไปจะใช้ไฟล์เดิม
 
-### โหลดเป็น quote tick ของ Nautilus {#load-into-nautilus-quote-ticks}
+### โหลดเป็น quote tick ของ Nautilus [#load-into-nautilus-quote-ticks]
 
 `DatabentoDataLoader` parse ไฟล์ `.dbn.zst` และปล่อย object `QuoteTick` ออกมา argument `instrument_id` จะ override
 symbology ของ Databento ทำให้ทุก tick ใช้ `XAU-PERP.AX` loader resolve price precision ของ ID นั้นไม่ได้ จึงต้องส่ง
 `price_precision` อย่างชัดเจน (ในที่นี้คือ `2`) และต้องตรงกับการนิยาม instrument ด้านล่าง loader ใช้ไฟล์
 `crates/adapters/databento/publishers.json`
 
-## การนิยาม instrument {#instrument-definition}
+## การนิยาม instrument [#instrument-definition]
 
 ข้อมูล proxy ต้องนิยาม instrument เอง price precision, tick size และพารามิเตอร์ margin เป็นสมมติฐานของ backtest tick
 `0.01` ละเอียดกว่าทั้ง tick ของ CME `GC` (`0.10`) และ tick ของ AX `XAU-PERP` (`0.1`)
@@ -102,7 +104,7 @@ lot size เป็น `1`, initial margin `0.08` และ maintenance margin `0
 ค่าธรรมเนียมเป็นสมมติฐานของ backtest ที่ระบุชัดเจน ดูอัตราปัจจุบันได้ที่
 [เอกสารของ AX](https://docs.architect.exchange/)
 
-## Config ของ strategy {#strategy-configuration}
+## Config ของ strategy [#strategy-configuration]
 
 strategy subscribe quote และเปรียบเทียบขนาดฝั่ง bid กับ ask ในทุก `QuoteTick` โดยไม่ได้ subscribe L2 book delta
 
@@ -115,7 +117,7 @@ strategy subscribe quote และเปรียบเทียบขนาด�
 
 ตัวอย่างของ AX นิยาม strategy นี้ไว้ในไดเรกทอรี `examples/live/architect_ax`
 
-## การตั้งค่า backtest {#backtest-setup}
+## การตั้งค่า backtest [#backtest-setup]
 
 backtest ใช้ `BacktestEngine` ที่มี trader ID `BACKTESTER-001` และเพิ่ม venue `AX` ด้วย OMS type แบบ `NETTING`,
 account type แบบ `MARGIN`, base currency เป็น USD, balance เริ่มต้น `100000 USD` และ `MakerTakerFeeModel` ที่ maker
@@ -125,7 +127,7 @@ rate `0.0002` และ taker rate `0.0005` จากนั้นเพิ่ม
 
 ดูวิธีตั้งค่าและรัน `BacktestEngine` ด้วย Rust ได้ที่ [Run a Backtest (Rust)](../how_to/run_rust_backtest.md)
 
-## ผลลัพธ์ของการรัน {#what-the-run-produces}
+## ผลลัพธ์ของการรัน [#what-the-run-produces]
 
 การ replay ข้อมูล GC.v.0 mbp-1 ของวันที่ 2024-11-15 (หนึ่งวันทำการ) ผ่าน `OrderBookImbalance(0.10, 1.0, 5s)` ได้
 FOK fill 2,378 ครั้ง fill เหล่านี้รวมสุทธิเป็นรอบ position ที่ปิดแล้ว 5 รอบ realized pnl สะสมจบที่ **-4,170 USD**
@@ -151,7 +153,7 @@ threshold trigger ที่ 0.10 มวลข้อมูลทางซ้า�
 **รูปที่ 4.** *realized pnl สะสมเป็น USD ตลอดห้ารอบ position ที่ปิดแล้ว ความชันเป็นลบอย่างสม่ำเสมอ และ pnl ต่อรอบถูก
 ครอบงำด้วย spread*
 
-## ขั้นตอนถัดไป {#next-steps}
+## ขั้นตอนถัดไป [#next-steps]
 
 - **Trigger ที่เข้มขึ้น**: ลด `trigger_imbalance_ratio` เป็น `0.05` หรือเพิ่ม `trigger_min_size` เป็น `5` เพื่อให้ต้องมี
   สัญญาณที่แรงขึ้นก่อน submit order
@@ -160,7 +162,7 @@ threshold trigger ที่ 0.10 มวลข้อมูลทางซ้า�
   CME futures ที่สอดคล้องกันได้
 - **AX sandbox**: ดู[คู่มือ integration ของ AX Exchange](../integrations/architect_ax.md) เมื่อ backtest ทำงานได้ตามต้องการแล้ว
 
-## การรันแบบ live {#running-live}
+## การรันแบบ live [#running-live]
 
 strategy `OrderBookImbalance` ตัวเดียวกันรันแบบ live กับ AX sandbox ได้ script สำหรับเริ่มใช้ `LiveNode` แทน
 `BacktestEngine` และตั้งค่า data client และ execution client ของ AX สำหรับ `AxEnvironment.SANDBOX` ดูวิธีรัน live ด้วย
@@ -168,7 +170,7 @@ Rust ได้ที่ [Run Live Trading (Rust)](../how_to/run_rust_live_tradin
 
 สำหรับการตั้งค่าการเชื่อมต่อและ API key ดู[คู่มือ integration ของ AX Exchange](../integrations/architect_ax.md)
 
-## อ่านเพิ่มเติม {#further-reading}
+## อ่านเพิ่มเติม [#further-reading]
 
 - [tutorial Mean Reversion with Proxy FX Data](fx_mean_reversion_ax.md)
 - [เอกสารของ Architect Exchange](https://docs.architect.exchange/)

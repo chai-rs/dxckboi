@@ -1,4 +1,6 @@
-# Binance
+---
+title: "Binance"
+---
 
 Binance ก่อตั้งในปี 2017 และเป็นหนึ่งใน exchange คริปโตที่ใหญ่ที่สุดเมื่อวัดจากปริมาณการซื้อขายรายวันและ
 open interest ของสินทรัพย์คริปโตและอนุพันธ์
@@ -13,12 +15,12 @@ implement ด้วย Rust
   รายเดือน และรายไตรมาส ทั้งงวดปัจจุบันและงวดถัดไป)
 - **Binance Coin-Margined Futures** (perpetual และสัญญาส่งมอบรายไตรมาสงวดปัจจุบันหรืองวดถัดไป)
 
-## ตัวอย่าง {#examples}
+## ตัวอย่าง [#examples]
 
 - [ตัวอย่าง Rust สำหรับ spot](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/binance/examples/spot/)
 - [ตัวอย่าง Rust สำหรับ futures](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/binance/examples/futures/)
 
-## ภาพรวม {#overview}
+## ภาพรวม [#overview]
 
 adapter เปิดให้ใช้ component สาธารณะเหล่านี้:
 
@@ -31,7 +33,7 @@ adapter เปิดให้ใช้ component สาธารณะเหล�
 [การตั้งค่า live node](#live-node-configuration)
 :::
 
-### การรองรับผลิตภัณฑ์ {#product-support}
+### การรองรับผลิตภัณฑ์ [#product-support]
 
 | ประเภทผลิตภัณฑ์                            | รองรับ | หมายเหตุ                                              |
 | --------------------------------------- | --------- | -------------------------------------------------- |
@@ -53,7 +55,7 @@ strategy subscribe หรือ submit order ให้ส่ง `client_id` ท�
 [Execution client routing](../concepts/live.md#execution-client-routing) ดู[ตัวอย่าง](#examples)ประกอบ
 :::
 
-## Data type {#data-types}
+## Data type [#data-types]
 
 integration นี้มี custom data type หลายชนิด:
 
@@ -74,7 +76,7 @@ integration นี้มี custom data type หลายชนิด:
 (เช่น `data/custom_binance_bar`) ให้แปลงด้วย
 [nautilus catalog migrate-parquet](../how_to/migrate_parquet_catalog.md)
 
-## Symbology {#symbology}
+## Symbology [#symbology]
 
 ใช้ symbol ดั้งเดิมของ Binance เท่าที่ทำได้สำหรับสัญญา spot และ futures
 เนื่องจาก NautilusTrader รองรับการเทรดหลาย venue จึงต้องแยกแยะระหว่าง
@@ -121,7 +123,7 @@ BINANCE_FUTURES_INSTRUMENT_ID=BTCUSDT_270326.BINANCE \
   cargo run -p nautilus-binance --example binance-futures-data-tester --features examples
 ```
 
-## ข้อจำกัด notional ของ Spot {#spot-notional-constraints}
+## ข้อจำกัด notional ของ Spot [#spot-notional-constraints]
 
 instrument ของ Spot ที่โหลดผ่าน SBE หรือ JSON จะเติมฟิลด์ `min_notional` และ
 `max_notional` จาก filter `MIN_NOTIONAL` และ `NOTIONAL` เมื่อมีทั้งสอง filter
@@ -136,12 +138,12 @@ PostgreSQL จะเก็บ metadata ของ instrument ไว้เมื�
 database ที่มีอยู่ ให้รัน `nautilus database init --schema "$PWD/schema/sql"` จาก root ของ repository เพื่อเพิ่ม
 ที่เก็บ metadata metadata ที่เคยถูกทิ้งไปก่อนหน้าต้องโหลด instrument definition ใหม่
 
-## ความสามารถด้าน order {#order-capability}
+## ความสามารถด้าน order [#order-capability]
 
 ตารางต่อไปนี้แสดงรายละเอียดของ order type, execution instruction และ
 ตัวเลือก time-in-force ของผลิตภัณฑ์ Binance ที่รองรับ
 
-### Order type {#order-types}
+### Order type [#order-types]
 
 | Order Type             | Spot | USDT Futures | Coin Futures | หมายเหตุ                                   |
 | ---------------------- | ---- | ------------ | ------------ | --------------------------------------- |
@@ -157,7 +159,7 @@ Binance Spot publish ชุด order type ที่รองรับต่อ s
 ชุดนี้ ดังนั้น venue จะ reject conditional order ของ Spot ที่ใช้ type ที่ symbol นั้นไม่รองรับ
 adapter ไม่ได้ reject ภายในเครื่อง
 
-### Execution instruction {#execution-instructions}
+### Execution instruction [#execution-instructions]
 
 | Instruction   | Spot | USDT Futures | Coin Futures | หมายเหตุ                                                     |
 | ------------- | ---- | ------------ | ------------ | --------------------------------------------------------- |
@@ -170,7 +172,7 @@ order อยู่บน leg ที่ระบุและไม่เปิด
 [New Order API](https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/rest-api/New-Order) ของ Binance
 สำหรับข้อจำกัดของ wire format
 
-#### ข้อจำกัดของ post-only {#post-only-restrictions}
+#### ข้อจำกัดของ post-only [#post-only-restrictions]
 
 เฉพาะ order type แบบ *limit* เท่านั้นที่รองรับ `post_only`
 
@@ -179,7 +181,7 @@ order อยู่บน leg ที่ระบุและไม่เปิด
 | `LIMIT`      | ✓    | ✓            | ✓            | ใช้ `LIMIT_MAKER` สำหรับ Spot และ TIF `GTX` สำหรับ Futures |
 | `STOP_LIMIT` | -    | ✓            | ✓            | เฉพาะ Futures                                       |
 
-### Time in force {#time-in-force}
+### Time in force [#time-in-force]
 
 | Time in force | Spot | USDT Futures | Coin Futures | หมายเหตุ                                     |
 | ------------- | ---- | ------------ | ------------ | ----------------------------------------- |
@@ -188,7 +190,7 @@ order อยู่บน leg ที่ระบุและไม่เปิด
 | `FOK`         | ✓    | ✓            | ✓            | Fill or Kill                             |
 | `IOC`         | ✓    | ✓            | ✓            | Immediate or Cancel                      |
 
-#### GTD policy {#gtd-policy}
+#### GTD policy [#gtd-policy]
 
 [ค่า time-in-force ของ Binance Spot](https://github.com/binance/binance-spot-api-docs/blob/master/enums.md) คือ
 `GTC`, `IOC` และ `FOK` Spot ไม่มี `GTD` หรือ `goodTillDate` แบบ native
@@ -214,7 +216,7 @@ order ที่ไม่มี expiry ด้วย
 ตั้ง `use_gtd=False` เฉพาะเมื่อ strategy ที่ submit มี `manage_gtd_expiry=True` เท่านั้น adapter
 จะ warn และส่ง `GTC` แทน ส่วน Nautilus จะ cancel order เมื่อถึงเวลาหมดอายุภายในเครื่อง
 
-### ฟีเจอร์ order ขั้นสูง {#advanced-order-features}
+### ฟีเจอร์ order ขั้นสูง [#advanced-order-features]
 
 | ฟีเจอร์            | Spot | USDT Futures | Coin Futures | หมายเหตุ                                       |
 | ------------------ | ---- | ------------ | ------------ | ------------------------------------------- |
@@ -223,7 +225,7 @@ order ที่ไม่มี expiry ด้วย
 | Bracket Orders     | -    | -            | -            | *มีแผน* ปัจจุบันถูกปฏิเสธตอน submit  |
 | Iceberg Orders     | ✓    | -            | -            | Spot `icebergQty` จาก `display_qty`       |
 
-### Batch operation {#batch-operations}
+### Batch operation [#batch-operations]
 
 | Operation    | Spot | USDT Futures | Coin Futures | หมายเหตุ                                   |
 | ------------ | ---- | ------------ | ------------ | --------------------------------------- |
@@ -231,7 +233,7 @@ order ที่ไม่มี expiry ด้วย
 | Batch Modify | -    | -            | -            | ยังไม่ได้ implement                        |
 | Batch Cancel | -*   | ✓            | ✓            | *Spot fallback ไปเป็นการ cancel ทีละตัว |
 
-#### พฤติกรรมของ cancel all orders {#cancel-all-orders-behavior}
+#### พฤติกรรมของ cancel all orders [#cancel-all-orders-behavior]
 
 โดย default `cancel_all_orders()` ของ strategy จะส่ง cancel ทีละตัวสำหรับ order ที่เกี่ยวข้องกับ
 strategy นั้น เมื่อใช้ `strategy_only=False` strategy จะส่ง command `CancelAllOrders` แบบกว้าง
@@ -263,7 +265,7 @@ cancel endpoint ต่างออกไป adapter จะ route ไปยัง
 | USDT Futures | `DELETE /fapi/v1/allOpenOrders` | `DELETE /fapi/v1/algoOpenOrders` | `DELETE /fapi/v1/algoOrder` |
 | Coin Futures | `DELETE /dapi/v1/allOpenOrders` | `DELETE /dapi/v1/algoOpenOrders` | `DELETE /dapi/v1/algoOrder` |
 
-#### Retry policy ของ submit, modify และ cancel {#submit-modify-and-cancel-retry-policy}
+#### Retry policy ของ submit, modify และ cancel [#submit-modify-and-cancel-retry-policy]
 
 execution client ส่ง command submit, modify หรือ cancel แต่ละตัวเพียงครั้งเดียว request แรกอาจไปถึง
 matching engine แล้ว จึงไม่ retry แบบสุ่มสี่สุ่มห้าหลังเกิด timeout, network failure หรือ response สถานะ unknown
@@ -288,7 +290,7 @@ matching engine แล้ว จึงไม่ retry แบบสุ่มส�
 การตั้งค่าเหล่านี้ไม่ retry order command เพราะการส่ง command ที่กำกวมซ้ำอาจทำให้
 order หรือการแก้ไขซ้ำซ้อน
 
-### การจัดการ position {#position-management}
+### การจัดการ position [#position-management]
 
 | ฟีเจอร์          | Spot | USDT Futures | Coin Futures | หมายเหตุ                                   |
 | ---------------- | ---- | ------------ | ------------ | --------------------------------------- |
@@ -304,7 +306,7 @@ position ใดล้มเหลว `generate_position_status_reports` จะ r
 return ชุด report ที่ไม่สมบูรณ์ ดู
 [ความพร้อมของ instrument](../concepts/execution/reconciliation.md#instrument-availability)
 
-### Risk event {#risk-events}
+### Risk event [#risk-events]
 
 | ฟีเจอร์              | Spot | USDT Futures | Coin Futures | หมายเหตุ                              |
 | -------------------- | ---- | ------------ | ------------ | ---------------------------------- |
@@ -351,7 +353,7 @@ status report และ fill report จะถูกปล่อยรวมก�
 fill ที่รวมมาจะถูกปิดด้วย fill ที่อนุมานจาก `avg_px` ของ status report
 :::
 
-#### การประมาณค่า commission {#commission-estimation}
+#### การประมาณค่า commission [#commission-estimation]
 
 เมื่อ Binance ละฟิลด์ commission (`N`/`n`) ออกจาก fill event
 adapter จะประมาณ commission เป็น `default_taker_fee * qty * price` โดยใช้
@@ -360,7 +362,7 @@ quote currency ใช้กับสัญญา linear ของ USD-M เท�
 ตั้งค่า `default_taker_fee` บน
 `BinanceExecutionClientConfig` ให้ตรงกับ fee tier ของคุณ (default: 0.0004 / 0.04%)
 
-### การ query order {#order-querying}
+### การ query order [#order-querying]
 
 | ฟีเจอร์              | Spot | USDT Futures | Coin Futures | หมายเหตุ                          |
 | -------------------- | ---- | ------------ | ------------ | ------------------------------ |
@@ -369,7 +371,7 @@ quote currency ใช้กับสัญญา linear ของ USD-M เท�
 | Order status updates | ✓    | ✓            | ✓            | การเปลี่ยนสถานะ order แบบ real-time |
 | Trade history        | ✓    | ✓            | ✓            | execution และ fill report    |
 
-#### ระยะเวลาเก็บประวัติ trade ของ Futures {#futures-trade-history-retention}
+#### ระยะเวลาเก็บประวัติ trade ของ Futures [#futures-trade-history-retention]
 
 Binance เก็บ account trade ของ USD-M และ COIN-M ไว้สามเดือนย้อนหลัง Binance ไม่ได้ระบุว่า
 หมายถึงเดือนตามปฏิทินหรือระยะเวลาคงที่ adapter จึงใช้ 88 วันล่าสุดเป็นหน้าต่างประวัติ fill
@@ -386,7 +388,7 @@ time ต้องมี start time ด้วย
 Spot ไม่ได้รับผลกระทบ ดู
 [Futures change log](https://developers.binance.com/en/docs/products/derivatives-trading-usds-futures/change-log) ของ Binance
 
-### Contingent order {#contingent-orders}
+### Contingent order [#contingent-orders]
 
 | ฟีเจอร์            | Spot | USDT Futures | Coin Futures | หมายเหตุ                                        |
 | ------------------ | ---- | ------------ | ------------ | -------------------------------------------- |
@@ -400,7 +402,7 @@ Spot ไม่ได้รับผลกระทบ ดู
 `OrderRejected` ให้กับ child ที่ยังไม่ถูก accept หรือ fill ส่วน execution report ของ child จะขับเคลื่อน fill,
 cancellation, expiration และสถานะสิ้นสุดอื่น ๆ
 
-### พารามิเตอร์ของ order {#order-parameters}
+### พารามิเตอร์ของ order [#order-parameters]
 
 ปรับแต่ง order แต่ละตัวได้โดยตั้ง `Params` บน command `SubmitOrder`
 (ดูตัวอย่าง Rust ด้านล่าง) Binance execution client รู้จักพารามิเตอร์ต่อไปนี้:
@@ -413,7 +415,7 @@ cancellation, expiration และสถานะสิ้นสุดอื่�
 
 ดูพฤติกรรมทั้งหมดได้ที่ [Price match](#price-match), [RPI](#rpi) และ [Close position](#close-position)
 
-### Price match {#price-match}
+### Price match [#price-match]
 
 Binance Futures รองรับ price matching แบบ BBO (Best Bid/Offer) ผ่าน
 พารามิเตอร์ `priceMatch` ซึ่งให้ exchange เป็นผู้เลือกราคา limit
@@ -423,7 +425,7 @@ order จะเข้าร่วม order book แบบ dynamic ที่ร�
 เมื่อใช้ `price_match` ให้ submit limit order พร้อมราคาอ้างอิงสำหรับการตรวจ risk ภายในเครื่อง Binance จะกำหนด
 ราคาที่ใช้งานจริงจากสถานะตลาดและโหมดของ price match
 
-#### ค่า price match ที่ใช้ได้ {#valid-price-match-values}
+#### ค่า price match ที่ใช้ได้ [#valid-price-match-values]
 
 | ค่า         | พฤติกรรม                                                       |
 | ------------- | -------------------------------------------------------------- |
@@ -440,7 +442,7 @@ order จะเข้าร่วม order book แบบ dynamic ที่ร�
 ดูรายละเอียดเพิ่มเติมได้ที่ [เอกสารอย่างเป็นทางการ](https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/rest-api)
 :::
 
-#### ลำดับของ event {#event-sequence}
+#### ลำดับของ event [#event-sequence]
 
 เมื่อ submit order พร้อม `price_match`:
 
@@ -452,7 +454,7 @@ order จะเข้าร่วม order book แบบ dynamic ที่ร�
    event `OrderUpdated` พร้อมราคาที่ใช้งานจริง
 5. ราคาของ order ใน cache ของ Nautilus จะตรงกับราคาที่ Binance accept
 
-#### ตัวอย่าง {#example}
+#### ตัวอย่าง [#example]
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python (limit order ของ `BTCUSDT-PERP.BINANCE` ที่ราคาอ้างอิง 65000 พร้อม `price_match` เป็น `QUEUE`) จึงตัดออก
 
@@ -462,7 +464,7 @@ order จะเข้าร่วม order book แบบ dynamic ที่ร�
 ราคาใหม่
 :::
 
-### RPI {#rpi}
+### RPI [#rpi]
 
 Binance RPI (Retail Price Improvement) ใช้ `timeInForce=RPI` เป็นแบบ post-only และ match เฉพาะกับ
 retail order ที่เข้าเกณฑ์จาก Binance App หรือ Web
@@ -486,7 +488,7 @@ let params = Params::new([("rpi".to_string(), true.into())].into());
 self.submit_order(order, None, None, Some(params))?;
 ```
 
-### Close position {#close-position}
+### Close position [#close-position]
 
 conditional order ของ Binance Futures รองรับ `closePosition` ซึ่งปิดทั้ง position
 เมื่อ trigger ทำงาน Binance จะ resolve จำนวนฝั่ง server จากขนาด position ปัจจุบัน
@@ -531,7 +533,7 @@ execution client ที่ไม่ตีความ `close_position` อาจ
 ผ่านเส้นทาง reduce-only มาตรฐาน แทนที่จะปิดทั้ง position
 :::
 
-### Trailing stop {#trailing-stops}
+### Trailing stop [#trailing-stops]
 
 สำหรับ trailing stop market order บน Binance:
 
@@ -545,7 +547,7 @@ execution client ที่ไม่ตีความ `close_position` อาจ
 error ให้ใช้ `activation_price` แทน
 :::
 
-## Link & Trade {#link--trade}
+## Link & Trade [#link--trade]
 
 adapter จะเติม prefix ของ integration ID ของ NautilusTrader ให้กับ client order ID ที่รองรับ สำหรับ
 โปรแกรม [Link and Trade](https://www.binance.com/en/support/faq/detail/a78a065d0c4846aaa1af474d8e712ab9)
@@ -565,7 +567,7 @@ custom ID ที่ยาวไม่เกิน 24 byte ไม่ต้อง�
 warning และส่ง ID เดิมโดยไม่มี prefix
 ข้อจำกัดด้านความยาวและตัวอักษรของ Binance ยังคงมีผล
 
-### Order ที่มีอยู่แล้วหลังการอัปเกรด {#existing-orders-after-an-upgrade}
+### Order ที่มีอยู่แล้วหลังการอัปเกรด [#existing-orders-after-an-upgrade]
 
 การเข้ารหัสแบบตัวเลข, UUID และแบบมี raw prefix ที่มีอยู่แล้วจะไม่เปลี่ยนแปลง decoder ยังรับ
 ID แบบเก่าที่ไม่มี prefix ด้วย เมื่อ operation กับ order ที่มีอยู่แล้วมี ID แบบ tag สั้นแต่ไม่มี venue order
@@ -576,7 +578,7 @@ order ต่างกัน จะปฏิเสธ operation นั้นเ�
 wire client order ID เดิมไว้เมื่อแทนที่ order เชิงตรรกะเดียวกัน รวมถึง order ที่ submit
 ด้วย ID แบบเก่าที่ไม่มี prefix การค้นหาเหล่านี้ใช้กับกรณีที่การแก้ไขใช้ transport แบบ WebSocket ด้วย
 
-### การ decode client order ID {#decoding-client-order-ids}
+### การ decode client order ID [#decoding-client-order-ids]
 
 เมื่อ query Binance โดยตรง (REST API, web UI หรือโค้ด HTTP ของคุณเอง)
 ฟิลด์ `clientOrderId` จะเป็นรูปแบบที่เข้ารหัสแล้ว มี utility function สองตัวที่กู้คืน
@@ -593,7 +595,7 @@ adapter จะ decode ให้อัตโนมัติทุกที่ท�
 หรือ payload ดิบจาก venue
 :::
 
-## Order book {#order-books}
+## Order book [#order-books]
 
 order book สามารถดูแลได้ทั้งแบบ depth เต็มหรือบางส่วน stream ของ diff-depth และอัตราการ update
 แตกต่างกันตามผลิตภัณฑ์และ transport ของ Spot:
@@ -610,7 +612,7 @@ book subscription จะปล่อย snapshot ไม่ว่าจะ seed �
 - delta ทุกตัวของ snapshot มี `F_SNAPSHOT` และ delta สุดท้ายมี `F_SNAPSHOT | F_LAST`
 - snapshot ที่ไม่มีระดับราคาจะเป็น `Clear` ตัวเดียวที่ล้าง book
 
-### Futures L2 subscription {#futures-l2-subscriptions}
+### Futures L2 subscription [#futures-l2-subscriptions]
 
 depth ของ subscription แบบ `L2_MBP` เป็นตัวเลือก stream:
 
@@ -631,7 +633,7 @@ accessor `OrderBook.bids(depth=...)` และ `OrderBook.asks(depth=...)` จ�
 ที่ return โดยไม่ลบระดับราคาที่เก็บไว้ ให้ unsubscribe ก่อนเปลี่ยน depth ของ subscription ของ
 instrument
 
-### Spot L2 subscription {#spot-l2-subscriptions}
+### Spot L2 subscription [#spot-l2-subscriptions]
 
 subscription แบบ partial-depth ของ Spot ส่ง snapshot top-N ที่สมบูรณ์ในตัว depth ที่รองรับ
 ขึ้นกับ [Spot market data mode](#spot-market-data-mode):
@@ -648,7 +650,7 @@ subscription แบบ partial-depth ของ Spot ส่ง snapshot top-N ท
 - ให้ unsubscribe ก่อนเปลี่ยน depth ของ subscription ของ instrument subscription แบบ partial-depth ใหม่จะไม่
   ลบ stream เดิม
 
-### L1 top-of-book subscription {#l1-top-of-book-subscriptions}
+### L1 top-of-book subscription [#l1-top-of-book-subscriptions]
 
 subscription แบบ `L1_MBP` ต้องใช้ depth 1 และใช้ stream `bestBidAsk` หรือ `bookTicker` ของ Spot
 และ stream `bookTicker` ของ Futures แต่ละ update จะปล่อย `QuoteTick` ตามปกติ
@@ -658,20 +660,20 @@ subscription แบบ `L1_MBP` ต้องใช้ depth 1 และใช้
 subscription ของ quote และ L1 ใช้ stream ของ venue ร่วมกันผ่าน reference counting client
 จะปฏิเสธ subscription แบบ L1 และ L2 พร้อมกันสำหรับ instrument เดียวกัน
 
-### Snapshot request {#snapshot-requests}
+### Snapshot request [#snapshot-requests]
 
 request snapshot ของ order book แบบระบุชัดเจนรองรับแยกจากการ synchronize ของ subscription:
 
 - **Spot**: depth ใน [1, 5000]
 - **Futures**: depth 5, 10, 20, 50, 100, 500 หรือ 1000
 
-### การ synchronize และ recovery ของ snapshot {#snapshot-synchronization-and-recovery}
+### การ synchronize และ recovery ของ snapshot [#snapshot-synchronization-and-recovery]
 
 subscription แบบ diff-depth ของ Futures และ subscription แบบ `L2_MBP` ของ Spot ที่ไม่ระบุ depth จะคง diff-depth
 stream ไว้ และ seed book จาก REST snapshot ผ่าน
 [กลไก recovery ของ book ที่ใช้ร่วมกัน](../developer_guide/adapters.md#order-book-recovery-ownership)
 
-#### การ synchronize {#synchronization}
+#### การ synchronize [#synchronization]
 
 การ synchronize เริ่มที่ diff แรกหลังการ subscribe หรือหลังการ reconnect ของ data WebSocket:
 
@@ -692,7 +694,7 @@ diff ที่ผิดกฎเหล่านี้ถือเป็น seque
 request snapshot ใหม่โดยไม่ต้อง resubscribe diff ที่ parse ไม่ได้จะปรากฏเป็น gap ที่
 diff ถัดไป
 
-#### ขีดจำกัดของ recovery {#recovery-limits}
+#### ขีดจำกัดของ recovery [#recovery-limits]
 
 - **Snapshot timeout**: `book_snapshot_timeout_secs` (default **10 วินาที**) จำกัดเวลาของ snapshot
   request แต่ละครั้ง ตั้งเป็น `0` เพื่อให้ใช้ timeout ของ HTTP client
@@ -706,7 +708,7 @@ diff ถัดไป
 - **ความล้มเหลวต่อเนื่อง**: recovery จะดำเนินต่อไปจนกว่า snapshot จะเชื่อม diff ใน buffer ได้หรือ
   book ถูก unsubscribe book อื่น ๆ ทำงานต่อไปอย่างอิสระ
 
-#### การ pace snapshot {#snapshot-pacing}
+#### การ pace snapshot [#snapshot-pacing]
 
 snapshot request ใช้ส่วนแบ่งต่อ client ของงบ request weight ของ venue ดังนั้นการ resync จำนวนมากพร้อมกัน
 เช่นหลัง reconnect จะรองบแทนที่จะใช้เกิน:
@@ -720,7 +722,7 @@ snapshot request ใช้ส่วนแบ่งต่อ client ของง�
 - snapshot request แบบระบุชัดเจนใช้งบเดียวกัน
 - การ retry ของ HTTP client สำหรับ snapshot request ที่ล้มเหลวไม่ถูก pace
 
-### การตรวจสอบ recovery แบบ live {#live-recovery-validation}
+### การตรวจสอบ recovery แบบ live [#live-recovery-validation]
 
 harness `binance-book-stress` เป็นเครื่องมือพัฒนาสำหรับการเปลี่ยนแปลงการ synchronize และ recovery ของ book มัน
 เชื่อมต่อกับ market data ของผลิตภัณฑ์ที่เลือกโดยไม่ submit order ใด ๆ และตรวจสอบ book ที่ปล่อยออกมาเทียบกับ
@@ -769,13 +771,13 @@ test lifecycle ของ book แบบอัตโนมัติใช้ mock
 [Stress harnesses](../developer_guide/spec_data_testing.md#stress-harnesses) สำหรับ flag ที่ใช้ร่วมกัน
 และรูปแบบ output
 
-## Timestamp ของ quote {#quote-timestamps}
+## Timestamp ของ quote [#quote-timestamps]
 
 ฟิลด์ `ts_event` บน `QuoteTick` แตกต่างกันตาม transport Spot SBE ใช้
 event timestamp หน่วยไมโครวินาที message `bookTicker` แบบ JSON สาธารณะของ Spot อาจไม่มี event
 timestamp ซึ่งในกรณีนั้น adapter จะใช้ `ts_init` ส่วน Futures ใช้ transaction time
 
-## Bar และ market data ย้อนหลัง {#bars-and-historical-market-data}
+## Bar และ market data ย้อนหลัง [#bars-and-historical-market-data]
 
 Spot รองรับ kline ราย 1 วินาทีสำหรับ subscription และ historical request kline subscription
 แบบ real-time ของ Spot ต้องใช้ `spot_market_data_mode=Json` เพราะ Binance ไม่ได้
@@ -800,7 +802,7 @@ historical request ของ core bar รับ time bar ที่ aggregate ภ
 ที่ตรงกัน ส่วน bar ที่ aggregate ภายในจะถูกสร้างโดย `DataEngine` จาก response ของ trade, quote หรือ source-bar ดิบ
 ผ่านพารามิเตอร์ request `bar_types` โดย Binance data client ไม่ได้ aggregate ให้
 
-## ข้อมูลเฉพาะของ Binance {#binance-specific-data}
+## ข้อมูลเฉพาะของ Binance [#binance-specific-data]
 
 bar, mark price, index price และ funding rate subscribe ได้ตามปกติ custom
 data type ด้านล่างเปิดให้เข้าถึงฟิลด์เฉพาะ venue เพิ่มเติมที่ data type ของ core ไม่มี
@@ -810,7 +812,7 @@ payload ของ mark-price ใน Binance Futures เก็บราคา set
 funding-rate จาก stream เดียวกันด้วย ฟิลด์ moving-average `ap` (optional) ของ USD-M จะถูก
 parse ที่ขอบเขตของ transport แต่ไม่ได้เปิดให้ใช้เป็น domain data หรือ custom data
 
-### `BinanceSpotTicker` {#binancespotticker}
+### `BinanceSpotTicker` [#binancespotticker]
 
 custom data ของ ticker 24 ชั่วโมงของ Spot ต้องใช้ market-data mode แบบ JSON สาธารณะ และ
 ค่า metadata `instrument_id` (subscribe ด้วย `DataType` ชื่อ `BinanceSpotTicker` พร้อม metadata
@@ -819,7 +821,7 @@ custom data ของ ticker 24 ชั่วโมงของ Spot ต้อง
 adapter จะ subscribe stream `@ticker` ของ instrument โหมด SBE จะปฏิเสธ
 subscription นี้เพราะ Binance Spot SBE ไม่มี stream นี้
 
-### `BinanceFuturesTicker` {#binancefuturesticker}
+### `BinanceFuturesTicker` [#binancefuturesticker]
 
 subscribe สถิติ ticker 24 ชั่วโมงของ Futures instrument ที่ระบุ ด้วย `DataType` ชื่อ
 `BinanceFuturesTicker` พร้อม metadata `{"instrument_id": "BTCUSDT-PERP.BINANCE"}`
@@ -828,7 +830,7 @@ adapter จะ subscribe stream `@ticker` ของ instrument และปล�
 `metadata={"instrument_id": "<instrument_id>"}` custom data ของ ticker ต้องมี `instrument_id` ไม่รองรับ
 ticker subscription แบบทั้งตลาด
 
-### `BinanceFuturesMarkPriceUpdate` {#binancefuturesmarkpriceupdate}
+### `BinanceFuturesMarkPriceUpdate` [#binancefuturesmarkpriceupdate]
 
 subscribe `BinanceFuturesMarkPriceUpdate` (รวมข้อมูล funding rate)
 จาก actor หรือ strategy (เช่นใน `on_start`) ด้วย `DataType` ชื่อ `BinanceFuturesMarkPriceUpdate`
@@ -840,7 +842,7 @@ type เพราะ method นี้รับ custom/generic data ทุกช�
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-### `BinanceFuturesLiquidation` {#binancefuturesliquidation}
+### `BinanceFuturesLiquidation` [#binancefuturesliquidation]
 
 subscribe update ของ liquidation ได้ทั้งแบบ:
 
@@ -858,7 +860,7 @@ data type จะไม่มี metadata
 adapter จะพัก liquidation stream ราย symbol ขณะที่แบบทั้งตลาด active และ
 กู้คืน stream ราย symbol ที่ active หลังจาก unsubscribe แบบทั้งตลาดแล้ว
 
-### Futures open interest {#futures-open-interest}
+### Futures open interest [#futures-open-interest]
 
 open interest เป็นแบบ request เท่านั้น Futures data client ไม่มี subscription ของ open interest ทั้งสอง type ต้องมี
 metadata `instrument_id` และ `BinanceFuturesOpenInterestHist` ยังต้องมี string `period` ของ Binance เช่น
@@ -870,7 +872,7 @@ metadata `instrument_id` และ `BinanceFuturesOpenInterestHist` ยังต
 adapter derive จาก symbol สำหรับ perpetual และจาก instrument definition ใน cache สำหรับ
 สัญญาส่งมอบ
 
-## Funding rate {#funding-rates}
+## Funding rate [#funding-rates]
 
 adapter ปล่อย `FundingRateUpdate` เป็น data type ระดับหลักผ่าน
 `subscribe_funding_rates` ข้อมูลมาจาก WebSocket endpoint
@@ -896,7 +898,7 @@ adapter ยังเปิดให้เข้าถึง payload ของ ve
 [Get Funding Rate Info](https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Get-Funding-Rate-Info)
 แต่ adapter ไม่ได้ใช้
 
-## การ poll สถานะ instrument {#instrument-status-polling}
+## การ poll สถานะ instrument [#instrument-status-polling]
 
 data client จะ poll `exchangeInfo` ของ Binance เป็นระยะเพื่อตรวจจับการเปลี่ยนแปลง
 สถานะการซื้อขายของ instrument เมื่อ symbol เปลี่ยนสถานะ (เช่น
@@ -924,9 +926,9 @@ precision cache ของ execution client ด้วย
 การ refresh catalog และการ poll สถานะจะเรียงลำดับ request และการอัปเดต snapshot ของตน เพื่อไม่ให้ response ที่ซ้อนกัน
 เขียนทับสถานะที่ใหม่กว่าหรือทำให้ event `InstrumentStatus` ซ้ำ แต่ละ task มีช่วงเวลา poll ของตัวเอง
 
-### การ map สถานะ {#status-mapping}
+### การ map สถานะ [#status-mapping]
 
-#### Spot {#spot}
+#### Spot [#spot]
 
 | Binance status   | MarketStatusAction     |
 | ---------------- | ---------------------- |
@@ -940,7 +942,7 @@ precision cache ของ execution client ด้วย
 Binance US จะ poll exchange info แบบ JSON สาธารณะแทน ซึ่ง map `TRADING` เป็น `Trading`, `BREAK`
 เป็น `Pause` และค่าอื่นทั้งหมดเป็น `NotAvailableForTrading`
 
-#### Futures (USD-M) {#futures-usd-m}
+#### Futures (USD-M) [#futures-usd-m]
 
 | Binance status    | MarketStatusAction |
 | ----------------- | ------------------ |
@@ -961,7 +963,7 @@ Binance US จะ poll exchange info แบบ JSON สาธารณะแท�
 | TradingHalt       | Halt               |
 | TradingCancelOnly | Halt               |
 
-#### Futures (COIN-M) {#futures-coin-m}
+#### Futures (COIN-M) [#futures-coin-m]
 
 | Binance status    | MarketStatusAction     |
 | ----------------- | ---------------------- |
@@ -987,14 +989,14 @@ symbol ที่เริ่มต้นในสถานะที่ซื้�
 ปรากฏใน instruments cache จึงไม่ได้ monitor การเปลี่ยนสถานะของ symbol เหล่านั้น
 :::
 
-## Rate limiting {#rate-limiting}
+## Rate limiting [#rate-limiting]
 
 Binance ใช้ระบบ rate limiting แบบตามช่วงเวลา โดยติดตาม request weight
 ในหน้าต่างเวลาคงที่ (ทุกนาที reset ที่วินาที :00) API
 endpoint แต่ละตัวมีต้นทุน weight ที่กำหนดไว้ และการใช้ weight ทั้งหมดจะถูกติดตาม
 ต่อ IP address
 
-### ขีดจำกัด weight ของ venue {#venue-weight-limits}
+### ขีดจำกัด weight ของ venue [#venue-weight-limits]
 
 โควตา weight ต่อ IP ของ Binance เอง ซึ่งต้นทุนของ endpoint ด้านล่างดึงไปใช้:
 
@@ -1003,7 +1005,7 @@ endpoint แต่ละตัวมีต้นทุน weight ที่กำ
 | Spot/Margin | 6,000        | 1 minute |
 | Futures     | 2,400        | 1 minute |
 
-### ต้นทุน weight ของ endpoint {#endpoint-weight-costs}
+### ต้นทุน weight ของ endpoint [#endpoint-weight-costs]
 
 Binance คิด weight ต่อ request ดังนี้:
 
@@ -1024,7 +1026,7 @@ Binance คิด weight ต่อ request ดังนี้:
 `X-MBX-ORDER-COUNT-1M` Binance ไม่คิด IP request weight สำหรับ endpoint นี้ แต่ adapter ยังคงเข้าคิว
 ผ่าน global bucket เป็นส่วนหนึ่งของโมเดลการ pace ภายในเครื่อง
 
-### ขีดจำกัดของ WebSocket API {#websocket-api-limits}
+### ขีดจำกัดของ WebSocket API [#websocket-api-limits]
 
 WebSocket API (ใช้สำหรับการส่ง order และ user data stream) ใช้โควตา weight เดียวกับ
 REST API:
@@ -1035,7 +1037,7 @@ REST API:
 | Handshake        | 5      | ต้นทุน weight ต่อความพยายามเชื่อมต่อหนึ่งครั้ง   |
 | Ping/pong frames | 5/sec  | อัตรา ping/pong สูงสุด                |
 
-### การ pace ของ adapter {#adapter-pacing}
+### การ pace ของ adapter [#adapter-pacing]
 
 adapter รัน token bucket limiter ของตัวเองก่อนการนับของ venue ทุก HTTP request
 จะดึง token หนึ่งตัวจาก request bucket ต่อผลิตภัณฑ์ และทุก order operation จะดึง
@@ -1072,9 +1074,9 @@ Binance return HTTP 429 เมื่อใช้ weight เกินที่อ
 
 :::
 
-## การตั้งค่า {#configuration}
+## การตั้งค่า [#configuration]
 
-### Data client {#data-client}
+### Data client [#data-client]
 
 | Option                             | Default   | คำอธิบาย                                                                    |
 | ---------------------------------- | --------- | ------------------------------------------------------------------------------ |
@@ -1096,7 +1098,7 @@ Binance return HTTP 429 เมื่อใช้ weight เกินที่อ
 | `us`                               | `False`   | route live Spot JSON client ไปยัง Binance US                                   |
 | `transport_backend`                | `Sockudo` | backend ของ WebSocket transport                                                   |
 
-### Execution client {#execution-client}
+### Execution client [#execution-client]
 
 | Option                             | Default   | คำอธิบาย                                                             |
 | ---------------------------------- | --------- | ----------------------------------------------------------------------- |
@@ -1128,13 +1130,13 @@ Binance return HTTP 429 เมื่อใช้ weight เกินที่อ
 | `bnfcr_currency`                   | `USDT`    | สกุลเงินที่ใช้ resolve ยอดคงเหลือและค่าธรรมเนียมแบบ `BNFCR`                     |
 | `transport_backend`                | `Sockudo` | backend ของ WebSocket transport                                            |
 
-### การตั้งค่า live node {#live-node-configuration}
+### การตั้งค่า live node [#live-node-configuration]
 
 ใช้ `BinanceDataClientConfig` คู่กับ `BinanceDataClientFactory` และ `BinanceExecutionClientConfig` คู่กับ
 `BinanceExecutionClientFactory` ดู[ตัวอย่าง Rust](#examples) สำหรับการตั้งค่า live node
 ที่ใช้ data client และ execution client
 
-### Futures Credits Trading Mode (BNFCR) {#futures-credits-trading-mode-bnfcr}
+### Futures Credits Trading Mode (BNFCR) [#futures-credits-trading-mode-bnfcr]
 
 Binance Futures Credits Trading Mode เป็นโหมดตามข้อกำหนดของ EU ซึ่งระบุมูลค่าของ wallet, margin, PnL และค่าธรรมเนียม
 ของ USD-M futures เป็น `BNFCR` หน่วยเครดิตภายในนี้ใช้แทนยอดคงเหลือ stablecoin และผูกค่า 1:1 กับ
@@ -1145,7 +1147,7 @@ USD
 ตั้ง `bnfcr_currency` เป็น `USDC` เมื่อเทรด perpetual ที่ใช้ USDC เป็น margin สินทรัพย์ futures อื่นที่ไม่รู้จักจะถูก
 ลงทะเบียนเป็นสกุลเงินคริปโตทั่วไปแทนที่จะล้มเหลว
 
-### Spot market data mode {#spot-market-data-mode}
+### Spot market data mode [#spot-market-data-mode]
 
 `spot_market_data_mode` บน `BinanceDataClientConfig` เลือก transport ของข้อมูล Spot มีผลกับ Spot เท่านั้น
 Futures ไม่เปลี่ยนแปลง
@@ -1163,7 +1165,7 @@ subscription แบบ `BookDeltas` เต็มของ Spot ใช้ diff-de
 transport ที่เลือก พร้อมการ synchronize ด้วย REST snapshot ส่วน subscription ที่ระบุ depth ใช้ snapshot ของ book บางส่วน
 (ดู [Order book](#order-books))
 
-### ชนิดของ key {#key-types}
+### ชนิดของ key [#key-types]
 
 adapter sign ด้วย **Ed25519** หรือ **HMAC-SHA256** โดยตรวจจับชนิดของ key จากรูปแบบของ API secret
 อัตโนมัติ จึงไม่ต้องตั้งค่าใด ๆ secret ที่ parse ได้เป็น Ed25519 private key แบบ PKCS#8 จะ sign ด้วย
@@ -1191,7 +1193,7 @@ implementation จะดึง seed ขนาด 32 byte ออกจากโ�
 ให้ถอดรหัสก่อน: `openssl pkey -in encrypted.pem -out decrypted.pem`
 :::
 
-#### การสร้าง key แบบ Ed25519 {#generating-ed25519-keys}
+#### การสร้าง key แบบ Ed25519 [#generating-ed25519-keys]
 
 **ทางเลือกที่ 1: OpenSSL (แนะนำ)**
 
@@ -1231,7 +1233,7 @@ export BINANCE_API_SECRET="$(cat binance_ed25519_private.pem)"
 เก็บ private key ไว้อย่างปลอดภัย ห้ามแชร์หรือ commit ลง version control
 :::
 
-### API credential {#api-credentials}
+### API credential [#api-credentials]
 
 ส่ง credential ให้กับ config object โดยตรง หรือตั้ง environment variable
 ที่เหมาะสม (ดู [Environment](#environments) สำหรับตัวแปรของแต่ละ
@@ -1253,7 +1255,7 @@ environment variable `BINANCE_ED25519_*` และ `BINANCE_*_ED25519_*` ถู�
 เมื่อ trading node เริ่มทำงาน คุณจะได้รับการยืนยันว่า
 credential ถูกต้องและมีสิทธิ์ในการเทรดหรือไม่
 
-### Product type {#product-type}
+### Product type [#product-type]
 
 config เลือกผลิตภัณฑ์ที่รองรับหนึ่งตัวด้วยฟิลด์ `product_type` และ
 enum `BinanceProductType`:
@@ -1267,13 +1269,13 @@ enum `BinanceProductType`:
 instrument loader แบบ standalone ดู [การรองรับผลิตภัณฑ์](#product-support)
 :::
 
-### การ override base URL {#base-url-overrides}
+### การ override base URL [#base-url-overrides]
 
 override base URL default ของทั้ง HTTP REST และ WebSocket API ได้ ซึ่ง
 มีประโยชน์สำหรับการตั้งค่า API cluster หรือเมื่อ Binance ให้
 endpoint เฉพาะมา
 
-### Binance US {#binance-us}
+### Binance US [#binance-us]
 
 ตั้ง `us=True` บน config เพื่อ route ไปยัง Binance US Spot แบบเต็มรูปแบบ Binance US ไม่ใช่ alias ของ custom URL
 switch นี้จะเลือก endpoint และ transport ต่อไปนี้:
@@ -1300,7 +1302,7 @@ JSON สาธารณะของ Binance US ครอบคลุม live mar
 พฤติกรรม Spot JSON ที่ไม่ต้องใช้ credential เดิมเมื่อตั้ง `us=False` และ
 `spot_market_data_mode=Json`
 
-### Environment {#environments}
+### Environment [#environments]
 
 Binance มี trading environment สามแบบ แต่ละแบบมี API
 credential และ endpoint แยกกัน ตัวเลือก config `environment` ใช้เลือกว่าจะ
@@ -1312,7 +1314,7 @@ credential และ endpoint แยกกัน ตัวเลือก config
 | **Demo**    | `BinanceEnvironment.DEMO`    | Demo Trading ด้วยเงินจำลองทั้ง Spot และ Futures |
 | **Testnet** | `BinanceEnvironment.TESTNET` | test network แบบเดิมของ Spot และ Futures               |
 
-#### Live (production) {#live-production}
+#### Live (production) [#live-production]
 
 environment default สำหรับ live trading ด้วยเงินจริง ใช้ credential ของบัญชี Binance
 หลักของคุณ
@@ -1322,7 +1324,7 @@ environment default สำหรับ live trading ด้วยเงินจ�
 | `BINANCE_API_KEY`    | API key ของ live    |
 | `BINANCE_API_SECRET` | API secret ของ live |
 
-#### Demo trading {#demo-trading}
+#### Demo trading [#demo-trading]
 
 ฝึกเทรดด้วยเงินจำลองบนโครงสร้างพื้นฐาน production บัญชี demo
 ใช้ login ของ Binance เดียวกับบัญชี live แต่เทรดด้วย
@@ -1348,7 +1350,7 @@ environment default สำหรับ live trading ด้วยเงินจ�
 | `BINANCE_DEMO_API_KEY`    | API key ของ demo    |
 | `BINANCE_DEMO_API_SECRET` | API secret ของ demo |
 
-#### Testnet {#testnet}
+#### Testnet [#testnet]
 
 test network แบบเดิมที่มีบัญชีผู้ใช้ ยอดเงิน และ order book ของตัวเอง สำหรับการตั้งค่าการเทรดจำลองใหม่ควรใช้
 `environment=BinanceEnvironment.DEMO` Spot testnet ยังอยู่ที่
@@ -1375,7 +1377,7 @@ credential ของ testnet แยกจากบัญชี live โดยส
 data และสภาพคล่องแตกต่างจาก production
 :::
 
-### การโหลด instrument {#instrument-loading}
+### การโหลด instrument [#instrument-loading]
 
 instrument provider ควบคุมการเลือกและการกรอง ฟิลด์ที่ใช้ได้แก่ `load_all`, `load_ids`, `filters`,
 `log_warnings` และ `query_commission_rates`
@@ -1387,7 +1389,7 @@ instrument provider ควบคุมการเลือกและการ
 instrument ที่ parse แล้วไม่มีอัตรา fee ของ maker หรือ taker
 `query_commission_rates` ไม่ได้คัดลอก commission ของ account ลงใน instrument
 
-### Parser warning {#parser-warnings}
+### Parser warning [#parser-warnings]
 
 instrument บางตัวของ Binance ไม่สามารถ parse เป็น object ของ Nautilus ได้หากมี
 ค่าฟิลด์เกินกว่าที่แพลตฟอร์มรองรับ instrument เหล่านี้จะถูกข้าม
@@ -1398,7 +1400,7 @@ warn เมื่อถูกเลือกอย่างชัดเจนผ
 
 หากต้องการปิด warning เหล่านี้ ให้ตั้ง `log_warnings=False` บน instrument provider config
 
-### Futures hedge mode {#futures-hedge-mode}
+### Futures hedge mode [#futures-hedge-mode]
 
 Hedge mode ของ Binance Futures อนุญาตให้ถือทั้ง long และ short position บน
 instrument เดียวกันพร้อมกันได้
@@ -1425,14 +1427,14 @@ position ทั้งสองฝั่งของ venue
 แถว position นั้น โดยรายงานทั้ง ID ใน cache และ ID ที่คาดหวัง ให้ reconcile สถานะใน cache ก่อนลอง startup ใหม่
 adapter ไม่ได้ทำ alias ให้ ID เดิมหรือสร้าง venue position ซ้ำ
 
-### สถาปัตยกรรม COIN-M / USD-M {#coin-m--usd-m-architecture}
+### สถาปัตยกรรม COIN-M / USD-M [#coin-m--usd-m-architecture]
 
 Binance COIN-M Futures (CM / DAPI) และ USD-M Futures (UM / FAPI) ใช้
 สถาปัตยกรรมร่วมกัน section นี้อธิบายผลกระทบต่อ adapter
 
 ดูรายละเอียดทั้งหมดที่ [Important CM-UM Integration Notice](https://developers.binance.com/docs/derivatives/coin-margined-futures/Important-CM-UM-Integration-Notice)
 
-#### WebSocket stream {#websocket-streams}
+#### WebSocket stream [#websocket-streams]
 
 payload ของ market-data stream มี `st` (symbol type: `1` = UM, `2` = CM) บน
 `<symbol>@aggTrade`, `<symbol>@ticker`, `<symbol>@bookTicker`,
@@ -1448,7 +1450,7 @@ stream แบบ array ทั้งตลาด (`!ticker@arr`, `!miniTicker@arr
 `!forceOrder@arr`, `!contractInfo`) ส่งเนื้อหา UM + CM ที่รวมกันทั้งบน
 `fstream` และ `dstream`
 
-#### REST และ WebSocket API {#rest-and-websocket-api}
+#### REST และ WebSocket API [#rest-and-websocket-api]
 
 - response ยืนยันการวางและแก้ไข order ไม่มี
   `avgPrice` / `cumQuote` / `cumBase` adapter ดึง fill จาก user
@@ -1462,7 +1464,7 @@ stream แบบ array ทั้งตลาด (`!ticker@arr`, `!miniTicker@arr
   ทั้งหมดผ่าน algo order API
 - `GET /dapi/v1/openOrders` ที่ใช้ symbol ไม่ถูกต้องจะ return error `-1121`
 
-#### Rate-limit pool {#rate-limit-pools}
+#### Rate-limit pool [#rate-limit-pools]
 
 UM และ CM ใช้ rate-limit pool ของ Binance ร่วมกัน: 2400 weight/นาทีต่อ IP บวก 1200 order/นาที และ 300 order/10 วินาทีต่อ
 account Rust futures HTTP client ใน process เดียวกันใช้สถานะ request-weight ร่วมกันระหว่าง UM และ CM สำหรับ
@@ -1474,13 +1476,13 @@ environment หรือขอบเขต custom endpoint เดียวกั
 API key ต่างกันมีสถานะ order-count แยกกัน process ที่แยกกันและ
 API key หลายตัวสำหรับบัญชี Binance เดียวยังคงต้องประสานงานจากภายนอก
 
-#### dualSidePosition {#dualsideposition}
+#### dualSidePosition [#dualsideposition]
 
 UM และ CM ใช้การตั้งค่า `dualSidePosition` เดียวกัน การเปลี่ยนค่าฝั่งใด
 ฝั่งหนึ่งจะมีผลกับทั้งสองฝั่ง ตรวจสอบให้แน่ใจว่าทั้ง UM และ CM ไม่มี open order หรือ position
 ก่อนเปลี่ยนการตั้งค่านี้
 
-## การมีส่วนร่วม {#contributing}
+## การมีส่วนร่วม [#contributing]
 
 :::info
 หากต้องการมีส่วนร่วมกับ Binance adapter ดู

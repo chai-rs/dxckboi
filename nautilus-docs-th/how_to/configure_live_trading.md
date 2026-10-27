@@ -1,4 +1,6 @@
-# ตั้งค่า Live Trading Node
+---
+title: "ตั้งค่า Live Trading Node"
+---
 
 ตั้งค่า `LiveNode` สำหรับเชื่อมต่อกับตลาดจริง สำหรับ lifecycle ของ node ดู
 [Live trading](../concepts/live.md) สำหรับผลลัพธ์ของ command ดู
@@ -25,14 +27,14 @@ inference, การคำนวณหนัก หรือ synchronous I/O จ
 graceful shutdown และการรองรับ Ctrl+C (SIGINT)
 :::
 
-## LiveNodeConfig {#livenodeconfig}
+## LiveNodeConfig [#livenodeconfig]
 
 `LiveNodeConfig` เป็นเจ้าของการตั้งค่า component หลักของ node ให้ลงทะเบียน data และ execution client ผ่าน
 builder ของ `LiveNode` ไม่ใช่ผ่าน dictionary ของ client บน config นี้ สำหรับพื้นฐานเรื่องค่า default ของ config
 และความหมายของ `Option<T>` ดู
 คู่มือแนวคิด [Configuration](../concepts/configuration.md)
 
-### พารามิเตอร์หลักของการตั้งค่า {#core-configuration-parameters}
+### พารามิเตอร์หลักของการตั้งค่า [#core-configuration-parameters]
 
 | Setting                       | Default      | คำอธิบาย                                                                      |
 | ----------------------------- | ------------ | -------------------------------------------------------------------------------- |
@@ -54,7 +56,7 @@ position ID ที่ถูกสร้างขึ้น ส่วนชื่�
 จึงยังต้องใช้ tag ที่ไม่ซ้ำกัน
 :::
 
-### การตั้งค่า cache database {#cache-database-configuration}
+### การตั้งค่า cache database [#cache-database-configuration]
 
 ระบบ live แบบ Rust-native เก็บพฤติกรรมของ cache ไว้ใน `CacheConfig` และการตั้งค่าการเชื่อมต่อ Redis ไว้ใน
 `RedisCacheConfig`
@@ -129,7 +131,7 @@ node หยุดหรือถูก dispose ตอน startup kernel จะ�
 backing และ flush การเขียนที่ buffer ไว้ การ return ออกจาก `run()` ทันทีอาจทำให้การบันทึกครั้งสุดท้ายหายไป
 :::
 
-### การตั้งค่า MessageBus {#messagebus-configuration}
+### การตั้งค่า MessageBus [#messagebus-configuration]
 
 พฤติกรรมของ message bus อยู่ใน `MessageBusConfig` ส่วนการตั้งค่าการเชื่อมต่อ Redis อยู่ใน
 `RedisMessageBusConfig` ซึ่ง implement `MessageBusBackingFactory` และสร้าง backing
@@ -170,20 +172,20 @@ producer ภายนอกที่เขียนลง Redis โดยตร�
 [external egress และ ingress](../concepts/message_bus.md#external-egress-and-ingress) สำหรับฟิลด์
 ของ wire format
 
-## การตั้งค่าหลาย venue {#multi-venue-configuration}
+## การตั้งค่าหลาย venue [#multi-venue-configuration]
 
 node หนึ่งตัวเชื่อมต่อกับ client หลายตัวได้ เช่น ลงทะเบียน data client ของ Binance spot และ USD-M futures
 ก่อน build node
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-## การตั้งค่า ExecutionEngine {#executionengine-configuration}
+## การตั้งค่า ExecutionEngine [#executionengine-configuration]
 
 `LiveExecutionEngineConfig` ควบคุมการประมวลผล order, execution event และ
 venue reconciliation ดูรายละเอียดทั้งหมดได้ที่
 [Rust API docs](https://nautilustrader.io/docs/core-latest/)
 
-### Reconciliation {#reconciliation}
+### Reconciliation [#reconciliation]
 
 กู้คืน order และ position event ที่พลาดไป เพื่อให้สถานะของระบบสอดคล้องกับ venue
 
@@ -196,7 +198,7 @@ venue reconciliation ดูรายละเอียดทั้งหมด�
 
 ดูรายละเอียดที่ [Execution reconciliation](../concepts/execution/reconciliation.md)
 
-### การกรอง order {#order-filtering}
+### การกรอง order [#order-filtering]
 
 ควบคุมว่าระบบจะประมวลผล order event และ report ใดบ้าง เพื่อป้องกันความขัดแย้ง
 ระหว่าง trading node
@@ -216,7 +218,7 @@ reconciliation ติด tag ให้ order ตามที่มา:
 order ที่มี tag `RECONCILIATION` จะไม่ถูกกรองเลย การปรับ position จึงสำเร็จเสมอ
 :::
 
-### Continuous reconciliation {#continuous-reconciliation}
+### Continuous reconciliation [#continuous-reconciliation]
 
 continuous reconciliation ทำให้สถานะ execution ระหว่าง runtime สอดคล้องกันหลัง startup โดยตรวจสอบ
 order ที่อยู่ระหว่างทาง (in-flight), poll open order, ตรวจสถานะ position และ audit own order book
@@ -254,7 +256,7 @@ order ที่อยู่ระหว่างทาง (in-flight), poll open
 
 :::
 
-### ตัวเลือกเพิ่มเติม {#additional-options}
+### ตัวเลือกเพิ่มเติม [#additional-options]
 
 | Setting                            | Default | คำอธิบาย                                                                                                        |
 | ---------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -265,7 +267,7 @@ order ที่อยู่ระหว่างทาง (in-flight), poll open
 | `snapshot_positions_interval_secs` | None    | ระยะห่าง (วินาที) ระหว่าง position snapshot                                                                     |
 | `debug`                            | False   | เปิด debug logging สำหรับ execution                                                                                |
 
-### การจัดการหน่วยความจำ {#memory-management}
+### การจัดการหน่วยความจำ [#memory-management]
 
 purge order ที่ปิดแล้ว, position ที่ปิดแล้ว และ account event ออกจาก
 cache ในหน่วยความจำเป็นระยะ เพื่อให้หน่วยความจำมีขอบเขตระหว่าง session ที่รันนานหรือ HFT
@@ -283,19 +285,19 @@ cache ในหน่วยความจำเป็นระยะ เพื�
 แต่ละ loop จะเรียกใช้ cache API ที่อธิบายไว้ใน
 [Cache](../concepts/cache.md)
 
-## การตั้งค่า strategy {#strategy-configuration}
+## การตั้งค่า strategy [#strategy-configuration]
 
 สำหรับรายการพารามิเตอร์ทั้งหมดของ `StrategyConfig` ดู
 [Rust API docs](https://nautilustrader.io/docs/core-latest/)
 
-### การระบุตัวตน {#identification}
+### การระบุตัวตน [#identification]
 
 | Setting        | Default | คำอธิบาย                                                                |
 | -------------- | ------- | -------------------------------------------------------------------------- |
 | `strategy_id`  | None    | identifier ของ strategy ที่ไม่ซ้ำ                                                |
 | `order_id_tag` | None    | tag ที่ไม่ซ้ำซึ่งต่อท้าย order ID ของ strategy นี้ ห้ามมีขีดกลาง |
 
-### การจัดการ order {#order-management}
+### การจัดการ order [#order-management]
 
 | Setting                         | Default | คำอธิบาย                                                                                        |
 | ------------------------------- | ------- | -------------------------------------------------------------------------------------------------- |
@@ -312,7 +314,7 @@ cache ในหน่วยความจำเป็นระยะ เพื�
 [Advanced orders](../concepts/orders/advanced.md#strategy-managed-contingencies) สำหรับขอบเขตด้านความเป็นเจ้าของและ
 การรองรับของ venue
 
-## การจัดการ signal บน Windows {#windows-signal-handling}
+## การจัดการ signal บน Windows [#windows-signal-handling]
 
 `LiveNode` จัดการ Ctrl+C (SIGINT) และบน Unix จะจัดการ SIGTERM ด้วยใน run loop ของ Rust
 เพื่อให้ runner และ task ต่าง ๆ shutdown ได้อย่างเรียบร้อย

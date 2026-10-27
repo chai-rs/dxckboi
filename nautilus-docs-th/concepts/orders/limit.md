@@ -1,16 +1,18 @@
-# Limit
+---
+title: "Limit"
+---
 
 `FIX OrdType <40>=2`
 
 *Limit* order จะวางพักอยู่ใน limit order book ที่ราคาที่กำหนด และจะ execute ที่ราคานั้นหรือดีกว่าเท่านั้น
 
-## กรณีการใช้งาน {#use-cases}
+## กรณีการใช้งาน [#use-cases]
 
 ใช้ *Limit* order เมื่อต้องการควบคุมราคา execution และเมื่อเหมาะสมก็ใช้เพื่อให้สภาพคล่อง (provide liquidity)
 การใช้งานทั่วไปได้แก่ market making, การทยอยเข้าหรือออกจาก position ที่ระดับราคาที่เลือกไว้ และการมุ่งรับค่าธรรมเนียมแบบ
 maker ด้วย `post_only` order นี้จะไม่ fill ที่ราคาแย่กว่า limit price แต่อาจไม่ได้ fill เลยหรือ fill เพียงบางส่วน
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 **ตัวอย่าง**: สร้าง *Limit* order บน exchange Binance Futures Crypto เพื่อ SELL สัญญา Perpetual Futures
 ETHUSDT-PERP จำนวน 20 สัญญา โดยตั้ง limit price ไว้ที่ 5000 USDT เพื่อทำหน้าที่เป็น market maker
@@ -44,7 +46,7 @@ let order = self.order().limit(
 
 ดูรายละเอียดเพิ่มเติมได้ที่ [Rust API docs](https://nautilustrader.io/docs/core-latest/)
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Orders](index.md) - แนวคิดของ order, execution instruction และ order factory
 - [Emulated orders](emulated.md) - การจำลอง *Limit* order ซึ่งจะถูกปล่อยออกไปเป็น *Market* order เมื่อถึง trigger

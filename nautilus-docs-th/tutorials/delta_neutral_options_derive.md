@@ -1,4 +1,6 @@
-# Options strategy แบบ delta-neutral (Derive)
+---
+title: "Options strategy แบบ delta-neutral (Derive)"
+---
 
 :::note
 tutorial นี้เป็นแบบ **Rust เท่านั้น** โดยรัน strategy แบบ short volatility ที่เป็น delta-neutral แบบ live บน Derive
@@ -23,7 +25,7 @@ strategy นี้เทรดด้วยเงินจริงบน mainnet
 ครั้งแรกเท่านั้น ถ้า option leg ที่เลือกหรือ hedge instrument มี open position อยู่แล้ว strategy อาจส่ง hedge order ได้
 :::
 
-## สิ่งที่ต้องมี {#prerequisites}
+## สิ่งที่ต้องมี [#prerequisites]
 
 - ทำตาม[คู่มือ integration ของ Derive](../integrations/derive.md) จนเสร็จ รวมถึงการตั้งค่า wallet, subaccount,
   session key และการเติมเงิน
@@ -52,7 +54,7 @@ export DERIVE_SUBACCOUNT_ID="12345"
 `node_delta_neutral.rs` และไม่ได้อ่าน network จาก environment ให้แก้ค่าคงที่เป็น `DeriveEnvironment::Mainnet`
 แล้ว build ใหม่ เฉพาะเมื่อต้องการรันด้วยเงินจริง
 
-## ภาพรวมของ strategy {#strategy-overview}
+## ภาพรวมของ strategy [#strategy-overview]
 
 strategy `DeltaNeutralVol` อยู่ใน module examples ของ trading crate runner ของ Derive ใช้ strategy นี้ใน
 ห้าขั้นตอน:
@@ -92,7 +94,7 @@ flowchart LR
     C -->|yes| M --> H
 ```
 
-### Portfolio delta {#portfolio-delta}
+### Portfolio delta [#portfolio-delta]
 
 strategy คำนวณ exposure สุทธิดังนี้:
 
@@ -105,7 +107,7 @@ portfolio_delta = call_delta * call_position
 short strangle จะเริ่มต้นใกล้ delta-neutral เมื่อ delta ของ call และ put หักล้างกัน เมื่อสินทรัพย์อ้างอิงเคลื่อนไหว
 delta สุทธิจะเบี่ยงออกไป และ strategy จะ hedge ด้วย perpetual เพื่อดึง portfolio กลับเข้าใกล้ศูนย์
 
-## การตั้งค่า {#configuration}
+## การตั้งค่า [#configuration]
 
 runner ตัวอย่างที่ `crates/adapters/derive/examples/node_delta_neutral.rs` ตั้งค่าผ่านค่าคงที่ที่ด้านบนของไฟล์
 ถ้าต้องการเปลี่ยนการรัน ให้แก้ค่าคงที่เหล่านี้แล้ว build ตัวอย่างใหม่ คำสั่ง `cargo run` จะ build ตัวอย่างใหม่ให้
@@ -189,7 +191,7 @@ Derive sign ราคา limit ของ premium อย่างชัดเจ�
 `entry_premium_offset_ticks=1` entry order จะใช้ option ask แบบ live เมื่อมี เมื่อฝั่ง quote ว่าง จะใช้ฟิลด์ IV ของ
 Derive แทน ส่วน Bybit และ OKX ใช้เส้นทาง IV-parameter ที่ใช้ร่วมกัน
 
-## การตั้งค่า node {#node-setup}
+## การตั้งค่า node [#node-setup]
 
 runner ของ Derive ใช้ live environment และเลือก testnet หรือ mainnet จากค่าคงที่ `DERIVE_ENVIRONMENT`:
 
@@ -240,9 +242,9 @@ node.add_strategy(strategy)?;
 node.run().await?;
 ```
 
-## การทำงานของ strategy {#how-the-strategy-works}
+## การทำงานของ strategy [#how-the-strategy-works]
 
-### การเลือก strike {#strike-selection}
+### การเลือก strike [#strike-selection]
 
 ตอนเริ่มต้น strategy จะ query cache หา option instrument ทั้งหมดที่ตรงกับ `option_family` สำหรับ Derive
 ตัวอย่างนี้ใช้ `ETH` ดังนั้น instrument ที่ตรงกันจะมี symbol เช่น `ETH-20260626-3000-C.DERIVE`
@@ -258,7 +260,7 @@ strategy จะตัด option ที่หมดอายุแล้วออ
 นี่เป็น heuristic ที่อิงลำดับของ strike strategy สำหรับ production อาจ subscribe Greeks ของทั้ง chain ก่อน
 แล้วจึงเลือกตาม delta จริง
 
-### Greeks และ ticker feed ที่ใช้ร่วมกัน {#greeks-and-shared-ticker-feeds}
+### Greeks และ ticker feed ที่ใช้ร่วมกัน [#greeks-and-shared-ticker-feeds]
 
 Derive publish ฟิลด์ราคาของ option บน channel `ticker_slim` เดียวกับที่ใช้ส่ง quote adapter สร้าง `OptionGreeks`
 จาก `option_pricing` ดังนั้น strategy จึงต้อง subscribe เพียงสอง option leg ที่เลือกไว้:
@@ -277,7 +279,7 @@ adapter เก็บ reference count ของ ticker subscription ที่อ�
 - Funding rate
 - Option Greeks
 
-### การ rehedge บน Derive {#rehedging-on-derive}
+### การ rehedge บน Derive [#rehedging-on-derive]
 
 execution adapter ของ Derive ส่ง market order เป็น signed order ที่มีราคา limit ซึ่งจำกัดด้วย slippage ก่อน sign
 order adapter จะ refresh ticker snapshot ของ hedge instrument แล้วเขียนราคาที่แย่ที่สุดที่ยอมรับได้ลงใน payload
@@ -292,17 +294,17 @@ abs(portfolio_delta) > rehedge_delta_threshold
 portfolio delta ที่เป็นบวกจะทำให้เกิด SELL บน `ETH-PERP.DERIVE` ส่วน portfolio delta ที่เป็นลบจะทำให้เกิด BUY
 flag `hedge_pending` ป้องกันการส่งซ้ำระหว่างที่ order ยังอยู่ระหว่างดำเนินการ
 
-### การติดตาม position {#position-tracking}
+### การติดตาม position [#position-tracking]
 
 strategy ติดตาม position ผ่าน `on_order_filled` และไม่ poll position ทุกครั้งที่มีอัปเดต reconciliation จะโหลด
 position ที่มีอยู่ตอนเริ่มต้น จากนั้น fill ที่ตามมาจะอัปเดตตัวนับ call, put และ hedge ใน memory
 
-### การปิดระบบ {#shutdown}
+### การปิดระบบ [#shutdown]
 
 ตอน stop strategy จะ cancel open order ของ option leg ที่เลือกและ hedge instrument แล้ว unsubscribe จาก data
 feed และปล่อย position ไว้ตามเดิม ถ้าต้องการปิด strangle และ hedge ให้ทำเองหรือใช้ exit strategy แยกต่างหาก
 
-## ผลลัพธ์จากการรัน {#what-the-run-produces}
+## ผลลัพธ์จากการรัน [#what-the-run-produces]
 
 บน testnet ที่ตั้ง `enter_strangle: false` strategy ควรค้นพบ leg ที่เลือก subscribe Greeks และไม่ส่ง entry order
 symbol ที่เลือกได้จะขึ้นกับ chain ของ Derive ขณะนั้น:
@@ -340,7 +342,7 @@ hedge instrument อยู่แล้ว timer สำหรับ rehedge เ�
 **รูปที่ 4** *heuristic การเลือก strike เทียบกับ IV smile แบบสมมติ strike ของ call อยู่ใกล้ percentile
 `(1 - target_call_delta)` และ strike ของ put อยู่ใกล้ `abs(target_put_delta)`*
 
-## ข้อพิจารณาด้านความเสี่ยง {#risk-considerations}
+## ข้อพิจารณาด้านความเสี่ยง [#risk-considerations]
 
 - **ความเสี่ยงด้าน gamma**: short strangle มี gamma เป็นลบ การเคลื่อนไหวขนาดใหญ่ของ ETH อาจเพิ่ม delta exposure
   เร็วกว่าที่ timer ของ rehedge จะตอบสนองทัน
@@ -353,7 +355,7 @@ hedge instrument อยู่แล้ว timer สำหรับ rehedge เ�
 - **ความเสี่ยงด้าน lifecycle**: การหยุด strategy จะหยุดการ hedge ด้วย position จะยังเปิดอยู่และไม่มีการ hedge
   จนกว่าจะมีการจัดการจากที่อื่น
 
-## การรันตัวอย่าง {#running-the-example}
+## การรันตัวอย่าง [#running-the-example]
 
 ด้วยค่าคงที่ที่ให้มา ตัวอย่างจะใช้ Derive testnet โดยปิดการเข้า strangle และเปิดการ hedge ถ้า subaccount ถือ
 position ใน leg ที่เลือกหรือ hedge instrument อยู่ portfolio delta อาจเกิน threshold แล้ว strategy จะส่ง hedge
@@ -382,13 +384,13 @@ timeout --signal=INT 45 cargo run --example derive-delta-neutral --package nauti
     --features examples
 ```
 
-## ซอร์สโค้ดฉบับเต็ม {#complete-source}
+## ซอร์สโค้ดฉบับเต็ม [#complete-source]
 
 - runner ตัวอย่าง: `crates/adapters/derive/examples/node_delta_neutral.rs`
 - implementation ของ strategy: `crates/trading/src/examples/strategies/delta_neutral_vol/`
 - README ของ strategy: `crates/trading/src/examples/strategies/delta_neutral_vol/README.md`
 
-## ดูเพิ่มเติม {#see-also}
+## ดูเพิ่มเติม [#see-also]
 
 - [Derive integration](../integrations/derive.md): การตั้งค่า environment, symbology, ความสามารถ และความหมาย
   ของ execution

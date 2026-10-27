@@ -1,4 +1,6 @@
-# Environment Setup
+---
+title: "Environment Setup"
+---
 
 ใช้ editor ที่รองรับภาษา Rust เวอร์ชันปัจจุบัน เช่น Visual Studio Code
 
@@ -15,11 +17,11 @@ NautilusTrader *ต้อง* compile และรันได้บน **Linux,
 `std::path::Path` ในโค้ด และทำตาม [shell portability policy](shell.md#define-the-portability-target) สำหรับ script
 :::
 
-## การตั้งค่า {#setup}
+## การตั้งค่า [#setup]
 
 ขั้นตอนต่อไปนี้สำหรับระบบแบบ UNIX และทำเพียงครั้งเดียว
 
-### ตั้งค่าแบบเร็ว {#quick-setup}
+### ตั้งค่าแบบเร็ว [#quick-setup]
 
 ใช้เส้นทางนี้เป็นการตั้งค่าแบบกระชับสำหรับเครื่องพัฒนา Linux หรือ macOS ใหม่ หัวข้อละเอียดด้านล่างอธิบายแต่ละขั้นตอน
 และทางเลือกอื่น
@@ -54,11 +56,11 @@ prek install
 ผู้ใช้ Windows ควรทำตามขั้นตอนการติดตั้งจาก source ใน
 [คู่มือการติดตั้ง](../getting_started/installation.md#from-source) แล้วใช้คำสั่งที่เกี่ยวข้องจากคู่มือนี้
 
-### 1. ติดตั้ง dependency {#1-install-dependencies}
+### 1. ติดตั้ง dependency [#1-install-dependencies]
 
 ทำตาม[คู่มือการติดตั้ง](../getting_started/installation.md)
 
-### 2. ติดตั้งเครื่องมือพัฒนา {#2-install-development-tools}
+### 2. ติดตั้งเครื่องมือพัฒนา [#2-install-development-tools]
 
 NautilusTrader pin เวอร์ชันของเครื่องมือพัฒนาทุกตัว เพื่อให้ contributor ทุกคนและ CI ใช้เวอร์ชันเดียวกัน
 Makefile target เดียวติดตั้งได้ครบชุด:
@@ -94,7 +96,7 @@ rustup toolchain install nightly
 rustup toolchain install "$(bash scripts/tool-version.sh nightly)" --profile minimal
 ```
 
-#### สิ่งที่ต้องติดตั้งครั้งเดียว: cargo-binstall {#one-off-prerequisite-cargo-binstall}
+#### สิ่งที่ต้องติดตั้งครั้งเดียว: cargo-binstall [#one-off-prerequisite-cargo-binstall]
 
 `make install-tools` ใช้ [`cargo-binstall`](https://github.com/cargo-bins/cargo-binstall) ดึง `prek` มาเป็น
 prebuilt binary แทนการ compile จาก source ติดตั้ง `cargo-binstall` ครั้งเดียวต่อเครื่อง:
@@ -105,7 +107,7 @@ cargo install cargo-binstall --locked
 
 ขั้นตอนนี้ทำครั้งเดียว การรัน `make install-tools` ครั้งต่อไปจะใช้ `cargo-binstall` ที่ติดตั้งไว้แล้ว
 
-#### แหล่งความจริงเดียวของเวอร์ชัน {#single-source-of-truth-for-versions}
+#### แหล่งความจริงเดียวของเวอร์ชัน [#single-source-of-truth-for-versions]
 
 manifest ของ repository คือแหล่งอ้างอิงหลักของเวอร์ชัน dependency และเครื่องมือ ถ้ามีวิธีอ่านเวอร์ชันปัจจุบันจาก
 manifest ได้ อย่าคัดลอกเลขเวอร์ชันไปใส่ใน docs, runner image หรือ script
@@ -129,7 +131,7 @@ Makefile อ่านค่าเหล่านี้ผ่าน `scripts/carg
 make outdated
 ```
 
-### 3. ตั้งค่า Git hook {#3-set-up-git-hooks}
+### 3. ตั้งค่า Git hook [#3-set-up-git-hooks]
 
 ตั้งค่า hook ของไฟล์และ commit message ซึ่งจะรันอัตโนมัติตอน commit:
 
@@ -150,9 +152,9 @@ make pre-commit
 
 ตรวจให้แน่ใจว่า Rust compiler รายงาน **error เป็นศูนย์** -- build ที่พังทำให้ทุกคนช้าลง
 
-## การจัดการ dependency {#dependency-management}
+## การจัดการ dependency [#dependency-management]
 
-### Rust dependency cooldown {#rust-dependency-cooldown}
+### Rust dependency cooldown [#rust-dependency-cooldown]
 
 การตรวจ cooldown ของ Cargo จะปฏิเสธเวอร์ชันจาก registry ที่ resolve แล้วซึ่ง publish ภายในช่วงเวลาที่ตั้งโดย
 `[workspace.metadata.cooldown]` ใน `Cargo.toml` โดยตรวจทุกไฟล์ `Cargo.lock` ที่ track ไว้ รวมถึงเวอร์ชันที่ commit
@@ -208,12 +210,12 @@ gate ของ lockfile ใน repository นี้
 เปลี่ยน ก่อนเปิด branch ที่ไม่น่าเชื่อถือใน editor ให้รัน `make check-cargo-cooldown` ส่ง `--locked` เมื่อ build โค้ด
 ของ repository โดยตรง และอย่าเปลี่ยน manifest หรือ lockfile ระหว่างการตรวจกับการ compile
 
-## การ build {#builds}
+## การ build [#builds]
 
 Nautilus CLI แบบ standalone เป็น build artifact แยกต่างหาก ดู
 [คู่มือนักพัฒนา Nautilus CLI](#nautilus-cli-developer-guide) เมื่อต้องการแก้ไขหรือใช้ CLI
 
-### Refresh หลัง pull การเปลี่ยนแปลง {#refresh-after-pulling-changes}
+### Refresh หลัง pull การเปลี่ยนแปลง [#refresh-after-pulling-changes]
 
 ใช้คำสั่งที่อัปเดต artifact ที่ได้รับผลกระทบ
 
@@ -223,7 +225,7 @@ Nautilus CLI แบบ standalone เป็น build artifact แยกต่า
 | pin ของ Cargo, uv, `prek` หรือ OSV Scanner           | `make install-tools`         | เครื่องมือพัฒนาที่ pin ไว้                               |
 | เวอร์ชัน Cap'n Proto ใน catalog ที่ใช้ร่วมกัน               | `./scripts/install-capnp.sh` | Cap'n Proto compiler                              |
 
-## Cap'n Proto {#capn-proto}
+## Cap'n Proto [#capn-proto]
 
 เครื่องมือ [Cap'n Proto](https://capnproto.org) ยังมีให้ใช้สำหรับการพัฒนา HyperSync dependency ของ HyperSync
 ที่ pin ไว้มาพร้อม Rust binding ที่ generate แล้ว ดังนั้น build ปกติจะไม่ generate schema ใหม่ NautilusTrader ไม่มี
@@ -264,7 +266,7 @@ capnp --version
 install script จะรับประกันว่าเวอร์ชันที่ pin ไว้ถูกติดตั้ง ถ้า Homebrew หรือ Chocolatey ให้เวอร์ชันที่เก่ากว่า ให้ติดตั้ง
 จาก source หรือดู [คู่มือการติดตั้ง Cap'n Proto](https://capnproto.org/install.html)
 
-## Build ให้เร็วขึ้น {#faster-builds}
+## Build ให้เร็วขึ้น [#faster-builds]
 
 codegen backend Cranelift ช่วยลดเวลา build ในเครื่องสำหรับการพัฒนา, test และการตรวจของ IDE ได้ ต้องใช้ Rust
 nightly toolchain และแก้ `Cargo.toml` ในเครื่อง:
@@ -323,7 +325,7 @@ RUSTUP_TOOLCHAIN=nightly make build-debug
 
 ตั้ง toolchain เดียวกันใน [การตั้งค่า rust-analyzer](#rust-analyzer-settings) ด้วยเมื่อใช้ patch ในเครื่องนี้
 
-## Services {#services}
+## Services [#services]
 
 ไฟล์ Compose pin image ของ PostgreSQL 18, Redis และ pgAdmin ก่อนเริ่ม PostgreSQL 18 กับ volume ที่มีอยู่จาก major
 version ก่อนหน้า ให้ backup database และ migrate ด้วย
@@ -373,11 +375,11 @@ NEXTEST_PROFILE=ci make cargo-test-extras
 NEXTEST_TEST_THREADS=8 make cargo-test-extras
 ```
 
-## คู่มือนักพัฒนา Nautilus CLI {#nautilus-cli-developer-guide}
+## คู่มือนักพัฒนา Nautilus CLI [#nautilus-cli-developer-guide]
 
 Nautilus CLI คือ Rust binary แบบ standalone สำหรับดูแล PostgreSQL และงานอื่น ๆ ของ repository
 
-### Build และเลือก CLI {#build-and-select-the-cli}
+### Build และเลือก CLI [#build-and-select-the-cli]
 
 ติดตั้ง CLI จาก checkout ปัจจุบันด้วย:
 
@@ -417,7 +419,7 @@ cargo run --locked --package nautilus-cli --bin nautilus -- --help
 
 รัน `nautilus --help` เพื่อดูกลุ่มคำสั่งที่มี
 
-### คำสั่ง database {#database-commands}
+### คำสั่ง database [#database-commands]
 
 คำสั่ง database รับการตั้งค่า connection เป็น argument บน command line หรือผ่านไฟล์ `.env` ใน working directory
 ปัจจุบันหรือไดเรกทอรีแม่ CLI ยังรับ environment variable ที่ตรงกันด้วย
@@ -465,7 +467,7 @@ nautilus database assign-account --account-id SIM-001 --trader-id TRADER-001
 
 รัน `nautilus database --help` เพื่อดู syntax ของคำสั่งทั้งหมด
 
-## การตั้งค่า Rust analyzer {#rust-analyzer-settings}
+## การตั้งค่า Rust analyzer [#rust-analyzer-settings]
 
 Rust analyzer เป็น language server ที่นิยมสำหรับ Rust และทำงานร่วมกับ IDE ได้หลายตัว ตัวอย่างด้านล่างครอบคลุม
 VS Code และ AstroNvim สำหรับการตั้งค่าอื่น ดู

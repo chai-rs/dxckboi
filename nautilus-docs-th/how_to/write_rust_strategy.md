@@ -1,4 +1,6 @@
-# เขียน Strategy (Rust)
+---
+title: "เขียน Strategy (Rust)"
+---
 
 strategy คือ actor ที่เพิ่มความสามารถในการจัดการ order เข้ามา คู่มือนี้จะพาสร้าง strategy ขนาดเล็กที่ subscribe quote
 และส่ง market order ควรอ่าน [เขียน Actor (Rust)](write_rust_actor.md) ก่อน
@@ -6,7 +8,7 @@ strategy คือ actor ที่เพิ่มความสามารถ�
 สำหรับพื้นฐานเรื่อง concept ของ strategy และการจัดการ order ดูคู่มือ concept
 [Strategies](../concepts/strategies.md) และ [Rust](../concepts/rust.md)
 
-## กำหนด struct {#define-the-struct}
+## กำหนด struct [#define-the-struct]
 
 strategy เก็บฟิลด์ `StrategyCore` ไว้สำหรับการเชื่อมต่อกับ runtime logic ของ strategy ตามปกติจะไม่ใช้ฟิลด์นี้โดยตรง
 แต่จะใช้ facade method บน `self`
@@ -28,7 +30,7 @@ pub struct MyStrategy {
 }
 ```
 
-## Implement constructor {#implement-the-constructor}
+## Implement constructor [#implement-the-constructor]
 
 `StrategyConfig` รับ `strategy_id` และ `order_id_tag` tag นี้จะถูกต่อท้าย client order ID ทุกตัวที่มาจาก strategy นี้
 เพื่อป้องกันการชนกันเมื่อมีหลาย strategy เทรด instrument เดียวกัน
@@ -53,7 +55,7 @@ impl MyStrategy {
 }
 ```
 
-## เชื่อม core และ implement Debug {#wire-up-the-core-and-implement-debug}
+## เชื่อม core และ implement Debug [#wire-up-the-core-and-implement-debug]
 
 macro `nautilus_strategy!` generate การเชื่อมต่อกับ native runtime ที่ใช้ในการ register และ impl ของ trait `Strategy`
 โดยค่าเริ่มต้นจะ delegate ไปยังฟิลด์ชื่อ `core` หากใช้ชื่อฟิลด์อื่นให้ส่ง argument ตัวที่สองเข้าไป macro ไม่ได้ทำให้
@@ -73,7 +75,7 @@ impl std::fmt::Debug for MyStrategy {
 }
 ```
 
-## Implement trait DataActor {#implement-the-dataactor-trait}
+## Implement trait DataActor [#implement-the-dataactor-trait]
 
 การจัดการข้อมูลทำงานเหมือนกับใน actor คือ subscribe ใน `on_start` แล้วตอบสนองใน handler
 
@@ -115,7 +117,7 @@ impl DataActor for MyStrategy {
 
 `submit_order` เรียกใช้ได้บน `self` ผ่าน impl ของ trait `Strategy` ที่ macro generate ขึ้น
 
-## การเข้าถึง native runtime {#native-runtime-access}
+## การเข้าถึง native runtime [#native-runtime-access]
 
 ใน logic ของ strategy ให้ใช้ facade สาธารณะ:
 
@@ -143,7 +145,7 @@ native handle เหล่านั้นเปิดให้เข้าถึ
 - [method ของ `DataActorNative`](../concepts/rust.md#dataactornative-methods)
 - [method ของ `StrategyNative`](../concepts/rust.md#strategynative-methods)
 
-## Override hook ของ Strategy {#override-strategy-hooks}
+## Override hook ของ Strategy [#override-strategy-hooks]
 
 หากต้องการ override method ของ trait `Strategy` เช่น handler ของ order event หรือ position event ให้ส่ง method
 เหล่านั้นใน block macro จะ generate ส่วนเชื่อมต่อภายในให้อัตโนมัติ ส่วน handler ของ `DataActor` ให้เก็บไว้ใน block
@@ -157,7 +159,7 @@ nautilus_strategy!(MyStrategy, {
 });
 ```
 
-## Method สำหรับจัดการ order {#order-management-methods}
+## Method สำหรับจัดการ order [#order-management-methods]
 
 trait `Strategy` มี facade method ดังนี้:
 
@@ -173,7 +175,7 @@ trait `Strategy` มี facade method ดังนี้:
 | `close_position`      | ปิด position ด้วย market order                    |
 | `close_all_positions` | ปิดทุก position ที่เปิดอยู่                           |
 
-## ตัวอย่างฉบับเต็ม {#full-examples}
+## ตัวอย่างฉบับเต็ม [#full-examples]
 
 - [`EmaCross`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/trading/src/examples/strategies/ema_cross):
   Dual-EMA crossover ที่ใช้งานร่วมกับ indicator

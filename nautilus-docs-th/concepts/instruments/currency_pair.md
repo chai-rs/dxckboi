@@ -1,4 +1,6 @@
-# Currency Pair
+---
+title: "Currency Pair"
+---
 
 `CurrencyPair` แทนตลาด spot หรือตลาดเงินสด (cash market) ที่ quote ในรูป `BASE/QUOTE` โดย base
 currency คือสินทรัพย์ที่ซื้อหรือขาย และ quote currency คือสกุลเงินที่ใช้ตั้งราคาของ base หนึ่งหน่วย
@@ -6,7 +8,7 @@ Nautilus ใช้ type นี้กับทั้งคู่เงิน FX �
 
 ตัวอย่างเช่น `EUR/USD.SIM`, `BTCUSDT.BINANCE` และ `ETH/USD.KRAKEN`
 
-## ฟิลด์ {#fields}
+## ฟิลด์ [#fields]
 
 | Field             | Rust type          | Required/default | Notes                                       |
 | ----------------- | ------------------ | ---------------- | ------------------------------------------- |
@@ -35,7 +37,7 @@ Nautilus ใช้ type นี้กับทั้งคู่เงิน FX �
 
 **หมายเหตุ**: ใน Rust ค่า `instrument_id` ถูกเก็บไว้ในชื่อ `id`
 
-## พฤติกรรม {#behavior}
+## พฤติกรรม [#behavior]
 
 - `CurrencyPair` มี instrument class เป็น `Spot`
 - asset class เป็น `Cryptocurrency` เมื่อสกุลเงินใดสกุลหนึ่งเป็นประเภท crypto หากไม่มีสกุลใดเป็นประเภท crypto
@@ -50,7 +52,7 @@ currency, settlement currency, วันหมดอายุ และการ
 แม้ symbol จะดูเหมือนคู่เงินก็ตาม
 :::
 
-## ตัวอย่าง {#example}
+## ตัวอย่าง [#example]
 
 ```rust tab="Rust"
 use nautilus_core::UnixNanos;
@@ -82,7 +84,7 @@ let btcusdt = CurrencyPair::builder()
     .unwrap();
 ```
 
-## Adapters {#adapters}
+## Adapters [#adapters]
 
 **Adapter ที่สร้างหรือใช้ instrument แบบ `CurrencyPair` ได้แก่**:
 
@@ -93,7 +95,7 @@ let btcusdt = CurrencyPair::builder()
 - [Interactive Brokers](../../integrations/interactive_brokers.md) สำหรับสัญญา FX แบบ cash
 - [Hyperliquid](../../integrations/hyperliquid.md) สำหรับสินทรัพย์ spot
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Data](../data/) อธิบาย market data ที่อ้างอิงถึง instrument
 - [Execution](../execution/) อธิบายการตรวจสอบ order ที่ใช้ precision ของ instrument

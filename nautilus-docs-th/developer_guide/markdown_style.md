@@ -1,11 +1,13 @@
-# Markdown Style
+---
+title: "Markdown Style"
+---
 
 Standard revision: 1
 
 เอกสารนี้กำหนด baseline ของ Markdown ที่ใช้ร่วมกันสำหรับ repository ที่นำสำเนาไปใช้ในเครื่อง สำเนาต้องเหมือนกับ
 source ที่ดูแลอยู่ทุก byte ส่วนเพิ่มเติมเฉพาะ repository ให้แยกไว้ใน local guide อีกฉบับ
 
-## ระดับของข้อกำหนด {#requirement-levels}
+## ระดับของข้อกำหนด [#requirement-levels]
 
 แต่ละกฎมีระดับอย่างใดอย่างหนึ่งจากสามระดับนี้:
 
@@ -20,7 +22,7 @@ source ที่ดูแลอยู่ทุก byte ส่วนเพิ่�
 Required repository อาจบันทึกข้อยกเว้นภายในที่แคบกว่าได้ ในกรณีที่ renderer, เนื้อหาที่ generate ขึ้น หรือเนื้อหาที่
 นำเข้ามาจำเป็นต้องใช้
 
-## ภาษาและ extension {#language-and-extensions}
+## ภาษาและ extension [#language-and-extensions]
 
 - ใช้ [CommonMark](https://spec.commonmark.org/current/) เป็น specification พื้นฐาน
 - ใช้ [GitHub Flavored Markdown](https://github.github.com/gfm/) สำหรับตาราง, task list, ขีดฆ่า (strikethrough)
@@ -31,7 +33,7 @@ Required repository อาจบันทึกข้อยกเว้นภา
 specification ที่ลิงก์ไว้เป็นเอกสารอ้างอิง ไม่ใช่สิ่งที่ต้องอ่านเป็นประจำ ให้เปิดอ่านเฉพาะเมื่อ local guide, เนื้อหาโดยรอบ
 และ markdownlint ยังไม่สามารถตอบความกำกวมที่เป็นรูปธรรมของ parser หรือ renderer ได้
 
-## การบังคับใช้ {#enforcement}
+## การบังคับใช้ [#enforcement]
 
 - ปฏิบัติตาม `.markdownlint.jsonc` ของ repository หรือ config ภายในที่เทียบเท่า
 - ถือว่ามาตรฐานนี้คือ style ที่ตั้งใจไว้ และ markdownlint คือการบังคับใช้แบบอัตโนมัติสำหรับส่วนที่เป็นกลไกของมาตรฐาน
@@ -41,7 +43,7 @@ specification ที่ลิงก์ไว้เป็นเอกสารอ
 
 ไฟล์ที่ถูก generate, เอกสารจาก third-party ที่นำเข้ามา และ renderer fixture อาจใช้ข้อยกเว้นของ repository ที่บันทึกไว้
 
-## Heading {#headings}
+## Heading [#headings]
 
 - ใช้ ATX heading (`#`, `##`, `###` และอื่น ๆ)
 - ใช้ H1 หนึ่งตัวเป็น Markdown heading แรก
@@ -50,7 +52,7 @@ specification ที่ลิงก์ไว้เป็นเอกสารอ
 - รักษาลำดับชั้นให้สมเหตุสมผลโดยไม่ข้ามระดับของ heading
 - เว้นบรรทัดว่างหนึ่งบรรทัดทั้งด้านบนและด้านล่างของแต่ละ heading
 
-## ย่อหน้าและการตัดบรรทัด {#paragraphs-and-wrapping}
+## ย่อหน้าและการตัดบรรทัด [#paragraphs-and-wrapping]
 
 - คั่นย่อหน้าด้วยบรรทัดว่างหนึ่งบรรทัด
 - อย่าใส่บรรทัดว่างติดกันหลายบรรทัด
@@ -58,7 +60,7 @@ specification ที่ลิงก์ไว้เป็นเอกสารอ
 - ควรตัดบรรทัดตามจังหวะธรรมชาติและยอมให้บรรทัดยาวขึ้น แทนที่จะทิ้งคำหนึ่งถึงสามคำไว้ในบรรทัดถัดไป
 - อนุญาตให้ code block, ตาราง และปลายทางของลิงก์ที่ยาวเกินเป้าหมายได้เมื่อจำเป็น
 
-## รายการ {#lists}
+## รายการ [#lists]
 
 - ใช้ `-` สำหรับรายการแบบไม่เรียงลำดับ
 - ใช้รายการแบบเรียงลำดับเฉพาะเมื่อลำดับมีความสำคัญ
@@ -76,7 +78,7 @@ specification ที่ลิงก์ไว้เป็นเอกสารอ
 1. Second step
 ```
 
-## Admonition {#admonitions}
+## Admonition [#admonitions]
 
 - ใช้เฉพาะ syntax ของ admonition ที่ repository บันทึกไว้และ render ได้
 - เมื่อ repository บันทึกไว้และ render GitHub alert ได้ โดยไม่มี syntax ภายในที่เข้มงวดกว่า ให้ใช้รูปแบบ GitHub
@@ -101,7 +103,7 @@ Portable fallback:
 > **Warning:** Back up the database before running the migration.
 ```
 
-## ตาราง {#tables}
+## ตาราง [#tables]
 
 - ใช้ GFM pipe table สำหรับเนื้อหาแบบตาราง
 - ใส่ pipe ทั้งด้านหน้าและด้านท้าย
@@ -123,7 +125,7 @@ Portable fallback:
 | Beta  |    17 |
 ```
 
-## Code {#code}
+## Code [#code]
 
 - ใช้ code block แบบ backtick fence แทน code block แบบย่อหน้า
 - **Transitional**: ระบุภาษาให้กับทุก fence เปิด ใช้ `text` สำหรับข้อความธรรมดาหรือ output ที่ไม่มี grammar เฉพาะกว่านี้
@@ -142,13 +144,13 @@ fn main() {
 
 รัน `cargo test` แล้วแก้ไข `.markdownlint.jsonc`
 
-## การเน้นข้อความ {#emphasis}
+## การเน้นข้อความ [#emphasis]
 
 - ใช้ `*italic*` สำหรับการเน้น
 - ใช้ `**bold**` สำหรับการเน้นอย่างหนัก
 - หลีกเลี่ยงการเน้นที่ไม่ได้เพิ่มความหมาย
 
-## เส้นคั่น {#thematic-breaks}
+## เส้นคั่น [#thematic-breaks]
 
 ใช้ขีดสามตัว:
 
@@ -156,7 +158,7 @@ fn main() {
 ---
 ```
 
-## ลิงก์และรูปภาพ {#links-and-images}
+## ลิงก์และรูปภาพ [#links-and-images]
 
 - ใช้ข้อความลิงก์ที่สื่อความหมาย
 - ควรใช้ inline link เมื่อปลายทางเดียวกันปรากฏมากกว่าหนึ่งครั้งในเอกสาร ควรใช้ลิงก์แบบ reference-style
@@ -164,7 +166,7 @@ fn main() {
 - ใช้ลิงก์ภายในแบบ relative เมื่อ renderer ของ repository รองรับ
 - ใส่ alternative text ที่มีประโยชน์ให้รูปภาพ ใช้ alternative text ว่างเฉพาะกับรูปที่ตั้งใจใช้เพื่อตกแต่งเท่านั้น
 
-## HTML {#html}
+## HTML [#html]
 
 - ควรใช้ syntax ของ Markdown ที่ portable มากกว่า raw HTML
 - ใช้ raw HTML เฉพาะเมื่อ Markdown ไม่สามารถแสดงผลลัพธ์ที่ต้องการได้ หรือ repository บันทึก element หรือ component
@@ -172,14 +174,14 @@ fn main() {
 - เมื่อแก้ไขเนื้อหาโดยรอบ ให้คง front matter, MDX component, fence attribute และ repository extension อื่น ๆ ที่รองรับ
   ไว้
 
-## ไฟล์ {#files}
+## ไฟล์ [#files]
 
 - ใช้ encoding แบบ UTF-8
 - ใช้ line ending แบบ LF
 - จบแต่ละไฟล์ด้วย newline หนึ่งตัว
 - อย่าทิ้ง trailing whitespace และอย่าใช้ช่องว่างท้ายบรรทัดเพื่อสร้าง hard line break ของ Markdown
 
-## แนวทางการแก้ไข {#editing-guidance}
+## แนวทางการแก้ไข [#editing-guidance]
 
 เมื่อสร้างหรือแก้ไข Markdown:
 
@@ -191,7 +193,7 @@ fn main() {
 - อย่าจัดรูปแบบส่วนที่ไม่เกี่ยวข้องใหม่
 - รัน Markdown check แบบเจาะจงของ repository เมื่อมีให้ใช้
 
-## การนำมาใช้ในช่วงเปลี่ยนผ่าน {#transitional-adoption}
+## การนำมาใช้ในช่วงเปลี่ยนผ่าน [#transitional-adoption]
 
 `MD003` บังคับใช้ ATX heading ส่วนการใช้ `1.` ซ้ำในรายการแบบเรียงลำดับ และการระบุภาษาใน fence เปิดของ code block
 เป็นกฎช่วงเปลี่ยนผ่าน `MD029` และ `MD040` จะยังปิดอยู่จนกว่าเอกสารเดิมจะได้รับการ migrate เชิงกลไกแยกต่างหาก อย่าขยาย

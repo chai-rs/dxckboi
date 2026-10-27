@@ -1,4 +1,6 @@
-# Execution
+---
+title: "Execution"
+---
 
 NautilusTrader ประสานงานการส่ง order, การตรวจสอบความเสี่ยง, การ execution ที่ venue, reconciliation
 และการอัปเดต position ข้ามหลาย strategy และหลาย venue หน้านี้อธิบาย component และ message flow
@@ -25,7 +27,7 @@ component หลักของการ execution ได้แก่:
 - `ExecutionEngine`
 - `ExecutionClient`
 
-## Execution flow {#execution-flow}
+## Execution flow [#execution-flow]
 
 `Strategy` ต่อยอดจากความสามารถของ data actor และเพิ่ม method สำหรับจัดการ order และการ execution:
 
@@ -89,7 +91,7 @@ flowchart LR
 เส้นทางการ execution แตกแขนงตามการ emulate และการ route ไปยัง algorithm ก่อนจะไปถึง execution engine
 และ client
 
-## Order management system (OMS) {#order-management-system-oms}
+## Order management system (OMS) [#order-management-system-oms]
 
 ประเภทของ **order management system (OMS)** เป็นตัวกำหนดว่า order จะจับคู่กับ position ของ instrument อย่างไร
 ทั้ง strategy และ venue ไม่ว่าจะจำลองหรือ live ต่างใช้ OMS type ที่นิยามโดย enum `OmsType`
@@ -116,7 +118,7 @@ order จะยังไม่อยู่ในสถานะสิ้นส�
 
 สำหรับการลด inventory ที่สืบทอดมา ดู [การลด position ภายนอก](reconciliation.md#reducing-external-positions)
 
-### การตั้งค่า OMS {#oms-configuration}
+### การตั้งค่า OMS [#oms-configuration]
 
 เมื่อ strategy ไม่ระบุ `oms_type` หรือใช้ `UNSPECIFIED` `ExecutionEngine` จะใช้ OMS type ของ execution
 client ที่เป็นเจ้าของ การ override ของ strategy แบบระบุชัดเป็น `NETTING` หรือ `HEDGING` จะมีลำดับความสำคัญสูงกว่า
@@ -137,7 +139,7 @@ venue ใน backtest ด้วย OMS type เดียวกับ venue จ�
 โหมด position ของ venue อาจต้องการ configuration เฉพาะของ adapter ตัวอย่างเช่น ดู
 [Binance Futures hedge mode](../../integrations/binance.md#futures-hedge-mode)
 
-### Position ID แบบกำหนดเองกับ NETTING {#custom-position-ids-and-netting}
+### Position ID แบบกำหนดเองกับ NETTING [#custom-position-ids-and-netting]
 
 position ID แบบกำหนดเองใช้ได้เฉพาะภายใต้ OMS แบบ `HEDGING` เท่านั้น `NETTING` มี position เดียวต่อ instrument
 และ strategy โดยมี ID ที่กำหนดแน่นอน (deterministic) ในรูปแบบ `{instrument_id}-{strategy_id}`
@@ -155,7 +157,7 @@ OMS จะเป็นแบบใด เพราะ position หนึ่ง�
 `OrderDenied` ที่ชัดเจน ดู [Order lists](../orders/advanced.md#order-lists) สำหรับข้อควรระวังอื่น ๆ
 เกี่ยวกับ list ที่มีหลาย instrument
 
-### การ replay position ข้ามรอบของ NETTING {#position-replay-across-netting-cycles}
+### การ replay position ข้ามรอบของ NETTING [#position-replay-across-netting-cycles]
 
 ภายใต้ `NETTING` engine ใช้ position ID เดิมซ้ำข้ามรอบการปิดและเปิดใหม่ ดังนั้น replay log ของ position
 อาจสะสม fill ทุกตัวที่เคยใช้กับ ID นั้น ตัวเลือก `ExecutionEngineConfig.carry_replay_events_on_reopen`
@@ -177,7 +179,7 @@ snapshot ของ realized PnL จะเปลี่ยนตามการแ
 ของประวัติที่แก้ไขแล้ว และ realized PnL นับแต่ละรอบเพียงครั้งเดียว void ที่จำกัดอยู่ในรอบปัจจุบันจะไม่กระทบ
 archive ดู [Position snapshotting](../positions.md#position-snapshotting)
 
-## Risk engine {#risk-engine}
+## Risk engine [#risk-engine]
 
 `RiskEngine` เป็น component ของทุกระบบ Nautilus ทั้งสภาพแวดล้อม backtest, sandbox และ live มันอยู่บนเส้นทาง
 submit และ modify และยังรับ order event เช่น `OrderReleased` จาก `OrderEmulator` ด้วย ส่วน command สำหรับ
@@ -201,7 +203,7 @@ cancel และ query จะถูกส่งตรงไปยัง componen
 [reason code](#order-denied-reasons) มาตรฐาน หากการตรวจสอบตอน modify ล้มเหลว จะสร้าง event
 `OrderModifyRejected`
 
-### การเลือก account {#account-selection}
+### การเลือก account [#account-selection]
 
 การตรวจสอบยอดเงิน, margin และ position ใช้ account ของ execution client ที่จะรัน command นั้น ก่อนที่
 `OrderSubmitted` จะกำหนด account ให้ order risk engine เลือก account ตามลำดับนี้:
@@ -221,7 +223,7 @@ order list จะเลือก account เดียวจาก `client_id` �
 และจะไม่ fallback ไปใช้ account อื่น position และ open order จะถูกนับในการตรวจสอบการลด position ก็ต่อเมื่อเป็น
 ของ account ที่เลือกเท่านั้น
 
-### Conditional exit แบบปิดทั้ง position {#whole-position-conditional-exits}
+### Conditional exit แบบปิดทั้ง position [#whole-position-conditional-exits]
 
 execution client บางตัวรองรับ conditional exit ที่ venue กำหนดจำนวนที่จะปิดจาก position ที่เปิดอยู่ ณ ตอนที่
 trigger ทำงาน แต่ order ของ Nautilus ยังต้องมีจำนวนตัวยึดตำแหน่ง (placeholder quantity) เพื่อใช้ตรวจสอบภายใน
@@ -263,7 +265,7 @@ exchange จำลองไม่ได้ตีความ `close_position` �
 และ `reduce_only` แทน
 :::
 
-### Trading state {#trading-state}
+### Trading state [#trading-state]
 
 แต่ละ state จะเข้มงวดขึ้นตามลำดับ:
 
@@ -296,7 +298,7 @@ risk engine ใช้กฎเหล่านี้ก่อนส่งต่�
 ดูรายละเอียดของ configuration ได้ใน [Rust API reference](https://nautilustrader.io/docs/core-latest/)
 (`RiskEngineConfig`)
 
-## Execution algorithm {#execution-algorithms}
+## Execution algorithm [#execution-algorithms]
 
 `ExecutionAlgorithm` รับ primary order ที่ถูกเลือกด้วย `exec_algorithm_id` และสามารถแบ่งออกเป็น spawned order
 ที่เล็กลงได้ NautilusTrader รองรับ algorithm แบบกำหนดเอง และมี TWAP ที่ implement แบบ native ใน Rust มาให้
@@ -304,7 +306,7 @@ risk engine ใช้กฎเหล่านี้ก่อนส่งต่�
 ดู [Execution algorithms](algorithms.md) สำหรับการตั้งค่า TWAP, algorithm แบบกำหนดเอง, พฤติกรรมของ
 spawned order และการ query จาก cache
 
-## การ route ของ cancel-all {#cancel-all-routing}
+## การ route ของ cancel-all [#cancel-all-routing]
 
 `Strategy.cancel_all_orders(...)` รองรับทั้งการยกเลิกเฉพาะใน strategy และการยกเลิกแบบกว้าง:
 
@@ -375,7 +377,7 @@ account ของการ execution ที่เลือกยังเป็�
 execution client ภายนอกที่ตั้งค่าไว้อย่างชัดเจนจะได้รับ command ระดับ root ตัวเดิมโดยไม่เปลี่ยนแปลง
 client ภายนอกเป็นผู้รับผิดชอบการกระจาย command ที่จำเป็นหลังขอบเขตนั้นเอง
 
-## ผลลัพธ์ของ command {#command-outcomes}
+## ผลลัพธ์ของ command [#command-outcomes]
 
 execution command แยกแยะระหว่างความล้มเหลวใน local ที่แน่นอน, ผลลัพธ์จาก venue ที่แน่นอน และผลลัพธ์ของ live
 ที่ยังไม่ทราบ ผลลัพธ์ที่ยังไม่ทราบจะคงสถานะระหว่างทางไว้รอการอัปเดตจาก stream, polling, query หรือ
@@ -385,7 +387,7 @@ reconciliation เมื่อ retry จนหมดแล้วอาจมี�
 ขอบเขตของ persistence และที่มาของ reconciliation สิ้นสุด ดู [Runtime checks](reconciliation.md#runtime-checks)
 สำหรับขั้นตอน reconciliation ต่อเนื่อง
 
-## เหตุผลที่ order ถูก deny {#order-denied-reasons}
+## เหตุผลที่ order ถูก deny [#order-denied-reasons]
 
 การ deny ใน local (`OrderDenied`) มี reason code มาตรฐานรูปแบบ `CATEGORY_CONDITION` และอาจมีส่วนต่อท้าย
 สำหรับวินิจฉัย เฉพาะ code ที่อยู่ข้างหน้าเท่านั้นที่เป็นค่ามาตรฐาน ข้อความมีรูปแบบดังนี้:
@@ -475,14 +477,14 @@ engine code เหล่านี้เป็นแหล่งข้อมู�
 
 <!-- END GENERATED: order-denied-reasons -->
 
-## Own order book {#own-order-books}
+## Own order book [#own-order-books]
 
 เมื่อเปิด `manage_own_order_books` `ExecutionEngine` จะดูแลมุมมองแบบ market-by-order (MBO/L3) ของ order ที่
 กำลังทำงานอยู่ของคุณสำหรับแต่ละ instrument strategy สามารถหัก order เหล่านี้ออกจาก public book เพื่อประมาณ
 liquidity สุทธิที่ใช้ได้ ดู [Own order book](../order_book.md#own-order-book) สำหรับวงจรชีวิต, การ query,
 การกรอง และการตรวจสอบ (auditing)
 
-### การ query สำหรับการยกเลิกอย่างปลอดภัย {#safe-cancellation-queries}
+### การ query สำหรับการยกเลิกอย่างปลอดภัย [#safe-cancellation-queries]
 
 เมื่อ query own order book เพื่อหา order ที่จะยกเลิก ให้ตัด `PENDING_CANCEL` ออกจากตัวกรอง `status`
 
@@ -490,12 +492,12 @@ liquidity สุทธิที่ใช้ได้ ดู [Own order book](../
 การรวม `PENDING_CANCEL` อาจทำให้ส่งคำขอ cancel ซ้ำ และเลือก order ที่กำลังรอการยืนยันอยู่แล้วซ้ำแล้วซ้ำอีก
 :::
 
-## Overfill {#overfills}
+## Overfill [#overfills]
 
 **overfill** เกิดขึ้นเมื่อจำนวนที่ fill สะสมของ order เกินจำนวนเดิมของมัน ตัวอย่างเช่น fill รวม 110 หน่วยของ order
 ขนาด 100 หน่วยถือว่า overfill ไป 10 หน่วย
 
-### Overfill เกิดขึ้นได้อย่างไร {#how-overfills-occur}
+### Overfill เกิดขึ้นได้อย่างไร [#how-overfills-occur]
 
 engine จะพบ overfill เมื่อจำนวนที่รายงานมาเกินจำนวนของ order ซึ่งอาจเป็นผลลัพธ์จริงจาก venue, การส่งซ้ำภายใต้
 trade ID ที่ต่างกัน หรือการรายงานที่ไม่สอดคล้องกันของ venue ก็ได้ จำนวนเพียงอย่างเดียวบอกสาเหตุไม่ได้
@@ -510,7 +512,7 @@ fill ใน live อาจมาถึงผ่านสองช่องทา
 [Continuous reconciliation](../../how_to/configure_live_trading.md#continuous-reconciliation) สำหรับรายละเอียด
 ของ configuration
 
-### พฤติกรรมของระบบ {#system-behavior}
+### พฤติกรรมของระบบ [#system-behavior]
 
 `ExecutionEngine` ตรวจสอบ overfill ที่อาจเกิดขึ้นก่อนใช้ fill event แต่ละตัว โดยเปรียบเทียบ `filled_qty` ปัจจุบัน
 ของ order บวกกับ `last_qty` ที่เข้ามา กับ `quantity` เดิม
@@ -529,13 +531,13 @@ fill ใน live อาจมาถึงผ่านสองช่องทา
 เมื่ออนุญาต overfill ฟิลด์ `overfill_qty` ของ order จะติดตามจำนวนส่วนเกิน order จะเปลี่ยนเป็นสถานะ `FILLED`
 และ `leaves_qty` จะถูกจำกัดไว้ที่ศูนย์
 
-### การตรวจจับ fill ซ้ำ {#duplicate-fill-detection}
+### การตรวจจับ fill ซ้ำ [#duplicate-fill-detection]
 
 model ของ `Order` บังคับให้มี fill ที่มีจำนวนได้เพียงหนึ่งตัวต่อ `trade_id` fill ที่ซ้ำที่ราคาล่าสุดที่บันทึกไว้ของ trade
 นั้นจะถูกปฏิเสธในฐานะ fill ซ้ำ ส่วน fill ที่ซ้ำแต่ราคาใหม่จะปรับราคาที่ trade นั้นมีส่วนต่อ `avg_px` โดยไม่เปลี่ยนจำนวน,
 สถานะ หรือ fill เดิมที่เก็บไว้
 
-#### เส้นทางของ core engine {#core-engine-path}
+#### เส้นทางของ core engine [#core-engine-path]
 
 ก่อนใช้ fill `ExecutionEngine` จะเรียก `Order.is_duplicate_fill()` ซึ่งเปรียบเทียบ fill ล่าสุดของ `trade_id` นั้นตาม:
 
@@ -548,7 +550,7 @@ model ของ `Order` บังคับให้มี fill ที่มี�
 restatement) order จะปรับราคาเฉลี่ยของตัวเอง และ engine จะปรับราคาเฉลี่ยของ open position โดยไม่ใช้จำนวน
 หากฟิลด์อื่นต่างกัน `Order.apply()` จะปฏิเสธ ID ที่ถูกใช้ซ้ำ และ engine จะ log และทิ้ง fill นั้น
 
-#### เส้นทางของ reconciliation {#reconciliation-path}
+#### เส้นทางของ reconciliation [#reconciliation-path]
 
 เส้นทางของ reconciliation ตรวจ `trade_id` ก่อนสร้าง event `OrderFilled` และจะทิ้งรายงานเมื่อ ID นั้นมีอยู่แล้วบน
 order ไม่ว่าราคาหรือจำนวนจะเป็นเท่าใด
@@ -556,7 +558,7 @@ order ไม่ว่าราคาหรือจำนวนจะเป็�
 fill จาก reconciliation แบบสังเคราะห์และแบบอนุมานใช้ ID แบบ deterministic ดังนั้นการ replay input ชุดเดิมหลัง
 restart จะได้ `trade_id` เดิมและถูกกำจัดความซ้ำ
 
-### การแจ้งเตือน fill ที่ถูกปฏิเสธ {#declined-fill-notification}
+### การแจ้งเตือน fill ที่ถูกปฏิเสธ [#declined-fill-notification]
 
 เมื่อ `ExecutionEngine` ปฏิเสธ `OrderFilled` หรือ `OrderFillVoided` แทนที่จะนำไปใช้ มันจะ publish event เดิมโดย
 ไม่เปลี่ยนแปลงบน `events.order_fill_declined.{instrument_id}` ตัวอย่างเช่น การปฏิเสธ fill ซ้ำ, overfill หรือ event
@@ -565,7 +567,7 @@ restart จะได้ `trade_id` เดิมและถูกกำจัด
 จุดที่ปฏิเสธแต่ละจุดจะ log เหตุผลไว้ แต่ event ที่ publish ไม่ได้แนบเหตุผลไปด้วย engine จะไม่ publish บน topic นี้
 สำหรับ projection จาก reconciliation ซึ่งอัปเดตเฉพาะ order
 
-### Configuration {#configuration}
+### Configuration [#configuration]
 
 สำหรับ live trading ให้เปิดการยอมรับ overfill ใน `LiveExecutionEngineConfig` ด้วยการตั้ง `allow_overfills` เป็น true
 
@@ -575,7 +577,7 @@ restart จะได้ `trade_id` เดิมและถูกกำจัด
 fill ซ้ำ ใช้ [execution reconciliation](reconciliation.md) เพื่อตรวจหาความคลาดเคลื่อน
 :::
 
-## การแก้ไข fill {#fill-corrections}
+## การแก้ไข fill [#fill-corrections]
 
 venue บางแห่งอาจลดหรือยกเลิกผลของ fill ในภายหลัง Nautilus บันทึกกรณีนี้เป็น event
 [`OrderFillVoided`](../events/order_fill_voided.md) และไม่เคยบันทึกเป็น fill ฝั่งตรงข้าม event นี้ระบุ trade เดิม และ
@@ -590,7 +592,7 @@ order ยัง execute ได้ หากไม่มี fill ใน local ก
 `voided_qty` จะน้อยกว่าจำนวนของ order ก็ตาม status report แบบ working ที่มาภายหลังจะไม่ทำให้ `VOIDED` กลับมาเปิด
 ดู[ข้อตกลงของ `OrderFillVoided`](../events/order_fill_voided.md#contract)ฉบับเต็ม
 
-### Fill ถูก void ได้อย่างไร {#how-voided-fills-occur}
+### Fill ถูก void ได้อย่างไร [#how-voided-fills-occur]
 
 void คือการกระทำของ venue ต่อ trade ที่ได้รายงานไปแล้ว สาเหตุที่พบซ้ำได้ในทุก asset class ได้แก่:
 
@@ -608,7 +610,7 @@ void คือการกระทำของ venue ต่อ trade ที่�
 (trade correct) ส่วน venue ที่แจ้งผ่านช่องทางอื่น (out of band) จะปล่อยให้ break ปรากฏผ่าน
 [execution reconciliation](reconciliation.md)
 
-### แหล่งอ้างอิงของ venue {#venue-references}
+### แหล่งอ้างอิงของ venue [#venue-references]
 
 venue แต่ละแห่งเผยแพร่เงื่อนไขที่ตนจะดำเนินการ:
 
@@ -627,7 +629,7 @@ adapter และแหล่งข้อมูลที่รองรับไ
 - [Betfair](../../integrations/betfair.md#voided-fills): ฟิลด์ `sv` ใน order change message
 - [Polymarket](../../integrations/polymarket.md#trades): สถานะ trade ใน user channel
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Events](../events/): ประเภทของ order event และ position event และการ dispatch
 - [Execution algorithms](algorithms.md): TWAP, algorithm แบบกำหนดเอง และ spawned order

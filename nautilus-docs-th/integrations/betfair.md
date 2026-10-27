@@ -1,4 +1,6 @@
-# Betfair
+---
+title: "Betfair"
+---
 
 Betfair ก่อตั้งในปี 2000 และให้บริการ betting exchange ออนไลน์ที่ใหญ่ที่สุดในโลก integration นี้รองรับ
 การค้นหา instrument, market data แบบ live, สถานะ account, การจัดการ order และการอัปเดตการ execute
@@ -6,7 +8,7 @@ Betfair ก่อตั้งในปี 2000 และให้บริกา
 
 adapter นี้ implement ด้วย Rust
 
-## ภาพรวม {#overview}
+## ภาพรวม [#overview]
 
 adapter ประกอบด้วย component หลายตัว ซึ่งใช้แยกกันหรือใช้ร่วมกันก็ได้:
 
@@ -23,23 +25,23 @@ adapter ประกอบด้วย component หลายตัว ซึ่
 ผู้ใช้ส่วนใหญ่ตั้งค่า live trading node และไม่จำเป็นต้องใช้ component ระดับ low-level เหล่านี้โดยตรง
 :::
 
-## การติดตั้ง {#installation}
+## การติดตั้ง [#installation]
 
 ติดตั้ง NautilusTrader ตาม[คู่มือการติดตั้ง](../getting_started/installation.md) ไม่ต้องติดตั้งส่วนเสริมเฉพาะของ adapter นี้
 
-## ตัวอย่าง {#examples}
+## ตัวอย่าง [#examples]
 
 - [ตัวอย่าง Rust](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/betfair/examples/)
 - [tutorial backtest แบบ book imbalance](../tutorials/backtest_book_imbalance_betfair.md)
 
-## เอกสารของ Betfair {#betfair-documentation}
+## เอกสารของ Betfair [#betfair-documentation]
 
 - [Betfair Developer Program](https://developer.betfair.com/)
 - [Exchange API Guide](https://developer.betfair.com/exchange-api/)
 - [Application keys](https://betfair-developer-docs.atlassian.net/wiki/spaces/1smk3cen4v3lu3yomq5qye0ni/pages/2687105/Application+Keys)
 - [Interactive login](https://betfair-developer-docs.atlassian.net/wiki/spaces/1smk3cen4v3lu3yomq5qye0ni/pages/2687772/Interactive+Login+-+API+Endpoint)
 
-## Credential {#credentials}
+## Credential [#credentials]
 
 Betfair ต้องใช้ application key เพื่อยืนยันตัวตนของ API request หลังจากลงทะเบียนและเติมเงินเข้า account แล้ว
 ให้ขอ key ด้วย [API-NG Developer AppKeys Tool](https://apps.betfair.com/visualisers/api-ng-account-operations/)
@@ -56,7 +58,7 @@ export BETFAIR_APP_KEY=<your_app_key>
 
 adapter ใช้ endpoint interactive login ของ Betfair และไม่ใช้ client certificate
 
-## นโยบาย timestamp {#timestamp-policy}
+## นโยบาย timestamp [#timestamp-policy]
 
 adapter แยกเวลาของ event ฝั่ง venue ออกจากเวลาการสร้าง object ฝั่ง local:
 
@@ -77,9 +79,9 @@ callback ของ live stream แต่ละตัวอ่าน atomic clock
 เมื่อ OCM เข้ามาระหว่าง reconciliation หลัง reconnect adapter จะ buffer message ไว้พร้อม `ts_init` ที่บันทึกไว้
 การ drain buffer จะคงเวลาที่ได้รับเดิมไว้ แทนที่จะใช้เวลาของการ replay ที่เกิดทีหลัง
 
-## การกู้คืน order book {#order-book-recovery}
+## การกู้คืน order book [#order-book-recovery]
 
-### Market image {#market-images}
+### Market image [#market-images]
 
 data client stream ทุก market ที่ subscribe ไว้ผ่าน market subscription เดียวต่อหนึ่ง connection การ subscribe
 market เพิ่มจะเขียน subscription ใหม่โดยรวมทุก market ที่ subscribe ไว้ Betfair จึงส่ง image ของทุก market
@@ -99,7 +101,7 @@ image แต่ละตัวจะแทนที่ book ของทุก r
 
 book subscription คงอยู่จนกว่า client จะ disconnect: การ unsubscribe ไม่เปลี่ยน market subscription
 
-### กำหนดเวลาของ snapshot {#snapshot-deadlines}
+### กำหนดเวลาของ snapshot [#snapshot-deadlines]
 
 subscription เริ่มต้นและ subscription เพื่อกู้คืนจะรอ image ของแต่ละ market ได้นานสุด
 `book_snapshot_timeout_secs` (ค่าเริ่มต้น **10 วินาที**) หลังจากการเขียน subscription เข้าคิวแล้ว
@@ -109,7 +111,7 @@ image ที่ไม่มาจะเริ่มหรือลองกา�
 ยังคงเริ่มการกู้คืน ถ้า image ไม่มาเลย ความพยายามกู้คืนจะรอจนหมดงบ retry 180 วินาที ความพยายามครั้งต่อๆ ไป
 ที่เพดาน retry จะรอได้นานสุดหนึ่งนาที
 
-### ขีดจำกัดของ retry และการ reconnect {#retry-limits-and-reconnects}
+### ขีดจำกัดของ retry และการ reconnect [#retry-limits-and-reconnects]
 
 การกู้คืนจะส่ง market subscription ใหม่โดยไม่มี clock ภายใต้ ID ใหม่ subscription แต่ละครั้งแทนที่ครั้งก่อน
 Betfair จึงตอบด้วย image ใหม่ของทุก market ที่ subscribe ไว้ การกู้คืนจะเข้าร่วมกับ subscription ที่เขียนไว้ภายใน
@@ -130,7 +132,7 @@ sync แล้วในที่เดิมด้วย change แบบ `RESUB
 ดู [Order book recovery ownership](../developer_guide/adapters.md#order-book-recovery-ownership)
 สำหรับกลไกการกู้คืนที่ใช้ร่วมกันและความรับผิดชอบของ adapter
 
-### การตรวจสอบการกู้คืนแบบ live {#live-recovery-validation}
+### การตรวจสอบการกู้คืนแบบ live [#live-recovery-validation]
 
 harness `betfair-book-stress` เป็นเครื่องมือพัฒนาสำหรับการเปลี่ยนแปลงด้านการ synchronize และการกู้คืน book
 มันเชื่อมต่อกับ market data บน mainnet ของ Betfair ด้วย credential ของ account และไม่ส่ง order ใดๆ
@@ -164,11 +166,11 @@ harness ต้องใช้ Exchange Stream API และ Identity, Navigation
 ของ market และเลือก market ดู [Stress harnesses](../developer_guide/spec_data_testing.md#stress-harnesses)
 สำหรับ flag ที่ใช้ร่วมกันและรูปแบบ output
 
-## ความสามารถด้าน order {#orders-capability}
+## ความสามารถด้าน order [#orders-capability]
 
 Betfair เป็น betting exchange แนวคิดหลายอย่างจาก venue ทางการเงินแบบดั้งเดิมจึงใช้ไม่ได้
 
-### ประเภทของ order {#order-types}
+### ประเภทของ order [#order-types]
 
 | ประเภท order            | รองรับ | หมายเหตุ                                                          |
 | ---------------------- | ------ | ----------------------------------------------------------------- |
@@ -197,7 +199,7 @@ cancelled, lapsed และ voided เป็นศูนย์ และแย�
 พร้อมเหตุผล `BET_TAKEN_OR_LAPSED` จาก venue แทนการปิด order ส่วน `CancelAllOrders` ไม่ปล่อย event ราย
 order ตามที่อธิบายไว้ใน [Cancel all orders](#cancel-all-orders)
 
-### Time in force {#time-in-force}
+### Time in force [#time-in-force]
 
 | Time in force  | รองรับ | หมายเหตุ                                                     |
 | -------------- | ------ | ------------------------------------------------------------ |
@@ -211,14 +213,14 @@ order ตามที่อธิบายไว้ใน [Cancel all orders](#c
 order แบบ `LIMIT` ในโหมด `AT_THE_OPEN` จะถูก route ไปเป็น `LIMIT_ON_CLOSE` เช่นกัน เพราะ Betfair ไม่มี
 คำสั่งแบบ at-the-open
 
-### คำสั่งการ execute {#execution-instructions}
+### คำสั่งการ execute [#execution-instructions]
 
 | คำสั่ง          | รองรับ | หมายเหตุ                              |
 | ------------- | ------ | ------------------------------------- |
 | `post_only`   | -      | ไม่เกี่ยวข้องกับ betting exchange        |
 | `reduce_only` | -      | ไม่เกี่ยวข้องกับ betting exchange        |
 
-### ความสามารถขั้นสูงของ order {#advanced-order-features}
+### ความสามารถขั้นสูงของ order [#advanced-order-features]
 
 | ความสามารถ          | รองรับ | หมายเหตุ                            |
 | ------------------ | ------ | ----------------------------------- |
@@ -226,7 +228,7 @@ order แบบ `LIMIT` ในโหมด `AT_THE_OPEN` จะถูก route �
 | Bracket/OCO Orders | -      | ไม่รองรับ                            |
 | Iceberg Orders     | -      | ไม่รองรับ                            |
 
-### การทำงานแบบ batch {#batch-operations}
+### การทำงานแบบ batch [#batch-operations]
 
 | การทำงาน      | รองรับ | หมายเหตุ                                  |
 | ------------ | ------ | ---------------------------------------- |
@@ -234,7 +236,7 @@ order แบบ `LIMIT` ในโหมด `AT_THE_OPEN` จะถูก route �
 | Batch Modify | -      | ไม่รองรับ                                 |
 | Batch Cancel | ✓      | implement ผ่าน `BatchCancelOrders`       |
 
-### Cancel all orders {#cancel-all-orders}
+### Cancel all orders [#cancel-all-orders]
 
 เมื่อไม่ระบุ order side `CancelAllOrders` จะส่ง request ระดับทั้ง market หนึ่งครั้ง และ cancel order ของ
 ทุก selection ใน market นั้น
@@ -249,7 +251,7 @@ venue order ID ใน cache คำสั่งจะไม่ส่ง request �
 `CancelAllOrders` ไม่สร้างคำสั่ง cancel ราย order ความล้มเหลวของ request และคำสั่งจึงไม่ปล่อย order event
 สถานะสุดท้ายของ order มาจาก OCM และ mass-status reconciliation
 
-### การจัดการ position {#position-management}
+### การจัดการ position [#position-management]
 
 | ความสามารถ        | รองรับ | หมายเหตุ                                      |
 | ---------------- | ------ | -------------------------------------------- |
@@ -261,7 +263,7 @@ venue order ID ใน cache คำสั่งจะไม่ส่ง request �
 ตั้ง `position_check_interval_secs=None` ใน `LiveExecutionEngineConfig` เพราะ Betfair ไม่รายงาน position
 ฝั่ง venue ให้ตรวจเทียบ
 
-### การ query order {#order-querying}
+### การ query order [#order-querying]
 
 | ความสามารถ             | รองรับ | หมายเหตุ                                            |
 | --------------------- | ------ | -------------------------------------------------- |
@@ -279,7 +281,7 @@ startup และหลัง reconnect จะข้าม hook เหล่า�
   ยังใช้ได้ `QueryOrder` ยังรองรับการตรวจ order ที่ inflight
 - position report คืน error ว่าไม่รองรับ ให้[ปิดการตรวจ position](#position-management)
 
-## Flow การควบคุมการ execute {#execution-control-flow}
+## Flow การควบคุมการ execute [#execution-control-flow]
 
 ตอน startup:
 
@@ -308,7 +310,7 @@ order ใหม่หลังจาก transport หลุดหรือได
   adapter จะใช้ `stream_market_ids_filter` เป็นขอบเขตของ reconciliation แทน
 - `ignore_external_orders=True` ข้ามการอัปเดต OCM ที่ไม่มี `rfo`
 
-## การจัดการ session และการ reconnect {#session-management-and-reconnection}
+## การจัดการ session และการ reconnect [#session-management-and-reconnection]
 
 Betfair ทำให้ session token หมดอายุ adapter จึงต่ออายุ token ล่วงหน้าแทนการรอให้ล้มเหลว โดยจัดการการต่ออายุ
 และการกู้คืนผ่านกลไกสี่แบบ:
@@ -347,7 +349,7 @@ mass status ก่อน แล้วจึง request execution stream ตั�
 handler รอบใหม่ keep-alive ที่สำเร็จจะอัปเดตการยืนยันตัวตนที่เก็บไว้โดยไม่ request การแทนที่อีก ลำดับนี้ป้องกัน
 reconnect loop
 
-## Reconciliation หลัง reconnect {#post-reconnect-reconciliation}
+## Reconciliation หลัง reconnect [#post-reconnect-reconciliation]
 
 หลัง handshake เริ่มต้น การที่ execution transport ของ Betfair หลุดจะหยุดรับการส่ง order ใหม่ทันที
 ซึ่งใช้กับทั้งการ reconnect ของ network แบบอัตโนมัติและการแทนที่ที่ request หลังการ login ใหม่ทั้งหมด adapter
@@ -401,12 +403,12 @@ order ที่วางก่อนช่วงเวลาย้อนหล�
 lookback ทุก order ที่มี `matchedDate` จะเข้าเกณฑ์ การสร้างตามปกติจะ commit การกรองซ้ำเฉพาะเมื่อ report
 ที่สมบูรณ์พร้อมจะคืนค่าแล้ว
 
-## การค้นหาเฉพาะ order ที่เปิดอยู่ {#open-only-order-discovery}
+## การค้นหาเฉพาะ order ที่เปิดอยู่ [#open-only-order-discovery]
 
 reconciliation แบบเฉพาะ order ที่เปิดอยู่ (open-only) จะค้นหา bet ที่ยัง execute ได้และ order ทั้งหมดใน market
 ที่เปิดใช้ BSP
 
-### ประวัติการแทนที่ {#replacement-history}
+### ประวัติการแทนที่ [#replacement-history]
 
 adapter จะ query Bet ID ของการแทนที่ที่รู้จักสำหรับ order ที่ค้นพบและการแก้ไขที่ยังไม่ resolve การค้นหาเพิ่มเติม
 เหล่านี้กู้คืน fill สะสมและ quantity ที่ยืนยันแล้ว:
@@ -415,7 +417,7 @@ adapter จะ query Bet ID ของการแทนที่ที่รู�
   แทนที่จะถือว่า fill ของมันเป็นศูนย์
 - order ที่เปิดอยู่ใน cache แต่ไม่พบในการค้นหาฝั่ง venue ไม่ได้ทำให้เกิดความล้มเหลวนี้ด้วยตัวเอง
 
-### ขอบเขตของ market {#market-scope}
+### ขอบเขตของ market [#market-scope]
 
 query การค้นหาใช้[ขอบเขต market ของ reconciliation ที่ตั้งค่าไว้](#execution-control-flow) คำสั่งสำหรับ
 instrument เฉพาะจะจำกัดการค้นหาให้แคบลงเหลือ market ของ instrument นั้น และไม่คืน report ใดเลยเมื่อ market
@@ -425,7 +427,7 @@ instrument เฉพาะจะจำกัดการค้นหาให้
 ของ order ที่ติดตามอยู่นอกขอบเขตการค้นหาด้วย แถวเหล่านั้นไม่ถูกรวมใน report แต่ประวัติที่จำเป็นที่หายไปยังทำให้
 การ scan ล้มเหลว
 
-### Bet แบบ BSP ที่รออยู่ {#resting-bsp-bets}
+### Bet แบบ BSP ที่รออยู่ [#resting-bsp-bets]
 
 เพื่อกู้คืน[bet แบบ BSP](#order-types) ที่รออยู่ รวมถึง bet ที่ adapter ไม่ได้ติดตาม adapter จะค้นหา market
 ที่เปิดใช้ BSP ซึ่งมี order ของ account ที่ execution-complete ด้วย โดย query market เหล่านี้ด้วย
@@ -441,7 +443,7 @@ instrument เฉพาะจะจำกัดการค้นหาให้
 market ที่ไม่มี BSP จะไม่ถูก scan หาประวัติ order ที่ไม่เกี่ยวข้อง order ในอดีตภายใน market ที่เปิดใช้ BSP
 ที่ค้นพบ รวมถึง limit bet ธรรมดา ยังอาจเพิ่มประวัติการแทนที่ที่จำเป็นและเพิ่มงานของการ scan ได้
 
-## Tick scheme และราคา {#tick-scheme-and-pricing}
+## Tick scheme และราคา [#tick-scheme-and-pricing]
 
 Betfair ใช้ tick scheme แบบเป็นขั้น (tiered) ที่ increment ต่างกันตามช่วงราคา:
 
@@ -460,7 +462,7 @@ Betfair ใช้ tick scheme แบบเป็นขั้น (tiered) ที�
 
 ราคาต่ำสุดคือ 1.01 และสูงสุดคือ 1000.00
 
-## การแก้ไข order {#order-modification}
+## การแก้ไข order [#order-modification]
 
 - ราคาและขนาดเปลี่ยนพร้อมกันแบบ atomic ไม่ได้ ต้องทำแยกกัน
 - การแก้ราคาใช้ `ReplaceOrders` (cancel + order ใหม่ที่ราคาใหม่)
@@ -478,7 +480,7 @@ adapter จะปล่อย `OrderCanceled` สำหรับ order เชิ
 OCM การ cancel ของ bet เก่ามาถึงขณะที่การแทนที่ยังค้างอยู่ และ REST call คืนความล้มเหลวของการ replace
 แบบเด็ดขาดใดๆ ในภายหลัง
 
-### การกู้คืนการแก้ไขที่กำกวม {#recovering-an-ambiguous-modification}
+### การกู้คืนการแก้ไขที่กำกวม [#recovering-an-ambiguous-modification]
 
 เมื่อ REST response หายไปหรือกำกวม adapter จะ resolve การแก้ไขจาก OCM stream หรือจากผล `listCurrentOrders`
 ที่ยืนยัน มีเพียง reconciliation ที่ไล่แบ่งหน้าครบทั้งหมดเท่านั้นที่พิสูจน์ได้ว่า order เดิมไม่เปลี่ยนแปลง หรือปิดไป
@@ -520,9 +522,9 @@ terminal จะ resolve โดยไม่มี `OrderUpdated` report นั้
 รอบที่ resolve จะระงับ Bet ID ในอดีตตามที่อธิบายข้างต้น เมื่อ order ตัวแทนเชิงตรรกะเป็น terminal แล้ว query
 แบบระบุและแบบ mass status ในภายหลังจะคง order status report ของ Bet ID ในอดีตของมันไว้
 
-## ความล้มเหลวและการ retry ของคำสั่ง order {#order-command-failures-and-retries}
+## ความล้มเหลวและการ retry ของคำสั่ง order [#order-command-failures-and-retries]
 
-### การ correlate request {#request-correlation}
+### การ correlate request [#request-correlation]
 
 Betfair มีค่าแยกกันสำหรับการ correlate order เชิงตรรกะและการกรอง request ซ้ำ:
 
@@ -543,7 +545,7 @@ client order ID ที่ยาวเกิน 32 ตัวอักษรจะ
 แบบใดแบบหนึ่งระบุ order ที่ติดตามได้มากกว่าหนึ่งตัว order status report และ fill report ของ OCM และ reconciliation
 จะละ `client_order_id` และคง Bet ID ไว้ เพื่อให้ reconciliation match ด้วยตัวตนฝั่ง venue ได้
 
-### Retry และความกำกวม {#retry-and-ambiguity}
+### Retry และความกำกวม [#retry-and-ambiguity]
 
 การเรียก order ที่เปลี่ยน state ใช้ retry ได้สูงสุดสามครั้งโดยค่าเริ่มต้น ภายในงบเวลารวม 45 วินาที ขีดจำกัดเวลาที่ผ่านไป
 ทำให้ทุก retry อยู่ภายในช่วงการกรองซ้ำ `customerRef` 60 วินาทีของ Betfair adapter จัดการความล้มเหลวดังนี้:
@@ -570,7 +572,7 @@ client order ID ที่ยาวเกิน 32 ตัวอักษรจะ
 ทำให้การ cancel เสร็จสมบูรณ์ด้วยเหตุผลสถานะ terminal เดียวกัน ยกเว้นกับ bet แบบ BSP ซึ่ง venue ยังไม่ได้ cancel:
 กรณีนั้นจะปล่อย `OrderCancelRejected` และ bet ยังเปิดอยู่จนถึง BSP reconciliation
 
-### JSON-RPC error {#json-rpc-errors}
+### JSON-RPC error [#json-rpc-errors]
 
 JSON-RPC error ของ Betfair มี `code` ที่เป็นตัวเลขและ `message` ชั้นนอก และอาจมี `errorCode` และ
 `errorDetails` ของ API ซ้อนอยู่ด้วย ค่าชั้นนอกอธิบาย envelope ของ JSON-RPC Betfair มักใช้ `-32099` พร้อม
@@ -580,7 +582,7 @@ API error ที่นำไปใช้งานได้เก็บอยู�
 ระมัดระวังตามตารางข้างต้น การเรียกแบบอ่านอย่างเดียวยังคงนโยบาย retry ที่กว้างกว่า และ retry `TIMEOUT_ERROR`
 หรือ error ชั้นนอกทั่วไปที่ retry ได้
 
-## การจัดการ fill จาก order stream {#order-stream-fill-handling}
+## การจัดการ fill จาก order stream [#order-stream-fill-handling]
 
 execution client ประมวลผลการอัปเดต order จาก Exchange Streaming API ของ Betfair
 มี option ของ configuration สองตัวที่ควบคุมการกรองการอัปเดต:
@@ -605,7 +607,7 @@ flowchart TD
 จะพลาดการอัปเดต fill และ cancel แบบ live จาก stream
 :::
 
-### การจัดการ fill {#fill-handling}
+### การจัดการ fill [#fill-handling]
 
 adapter จัดการ edge case หลายแบบเมื่อประมวลผล fill จาก stream:
 
@@ -637,7 +639,7 @@ adapter จัดการ edge case หลายแบบเมื่อปร�
   โดย mass-status reconciliation หลัง reconnect ดู
   [Reconciliation หลัง reconnect](#post-reconnect-reconciliation)
 
-### Fill ที่ถูก void {#voided-fills}
+### Fill ที่ถูก void [#voided-fills]
 
 Betfair อาจ void bet ที่ match แล้วหลังจากรายงานไปแล้ว เช่น หลังคำตัดสินด้าน integrity หรือคำตัดสินของ VAR
 order stream ส่งยอดสะสมมาใน `sv` (size voided) การ void ที่เกิดจากการถอน runner จะ settle แทนการส่งผ่าน
@@ -656,7 +658,7 @@ correction การ void ของ Betfair ไม่เคยตั้ง `is_r
 adapter ยัง publish custom data type [`BetfairOrderVoided`](#custom-data-types) ที่มีรายละเอียดการ void
 ดิบจาก venue ด้วย
 
-## Rate limiting {#rate-limiting}
+## Rate limiting [#rate-limiting]
 
 adapter ใช้ rate limit bucket แยกกัน เพื่อไม่ให้การ poll สถานะ account และ reconciliation ไปจำกัดการวาง order:
 
@@ -684,7 +686,7 @@ keep-alive ล้มเหลวแบบใดก็ตาม การ login �
 ดู [Why am I receiving the TOO_MANY_REQUESTS error?](https://support.developer.betfair.com/hc/en-us/articles/360000406111)
 สำหรับวิธีที่ Betfair ใช้ขีดจำกัดเหล่านี้
 
-## การป้องกันราคาด้วย market version {#market-version-price-protection}
+## การป้องกันราคาด้วย market version [#market-version-price-protection]
 
 Betfair มี `version` อยู่ในนิยามของ market ซึ่งเปลี่ยนเมื่อ market ถูกนิยามใหม่ เช่น เมื่อ runner ถูกถอนออกหรือ
 สถานะของ market เปลี่ยน มันไม่ได้ติดตามการอัปเดตราคาปกติหรือ volume ที่ match การแนบ version นั้นไปกับ order
@@ -696,7 +698,7 @@ instrument แต่สร้าง instrument ของ Betfair ทุกตั
 `placeOrders` หรือ `replaceOrders` เลย `use_market_version=True` จึงไม่เปลี่ยนอะไร อย่าพึ่งมันเพื่อป้องกันราคา
 :::
 
-## Custom data type {#custom-data-types}
+## Custom data type [#custom-data-types]
 
 adapter ปล่อย custom data ผ่าน market stream, order stream, race stream และ cricket stream custom data
 ของ market จะไหลเข้ามาโดยอัตโนมัติเมื่อ subscribe market
@@ -722,7 +724,7 @@ marker นี้ตอน `SEG_END` หลังจาก publish การอ�
 เปิดใช้ด้วย `subscribe_race_data=True` ไม่ใช่ทุก race ที่มีการติดตาม GPS ข้อมูลคริกเก็ตต้องใช้
 `subscribe_cricket_data=True`
 
-## ข้อมูลย้อนหลัง {#historical-data}
+## ข้อมูลย้อนหลัง [#historical-data]
 
 `BetfairDataLoader` แปลงไฟล์ stream ของ Betfair ที่บันทึกไว้เป็น type เหล่านี้:
 
@@ -740,7 +742,7 @@ trade tick คำนวณจาก volume ที่เทรดแบบสะ�
 [ตัวอย่าง Rust](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/betfair/examples/)
 สำหรับการโหลดไฟล์และรันผ่าน backtest
 
-## การ deploy หลาย node {#multi-node-deployment}
+## การ deploy หลาย node [#multi-node-deployment]
 
 เมื่อ trading node หลายตัวใช้ account ของ Betfair เดียวกันในคนละ market:
 
@@ -753,7 +755,7 @@ trade tick คำนวณจาก volume ที่เทรดแบบสะ�
 นั้นได้ มีเพียง bet ที่ไม่มี reference เช่น bet ที่วางบนเว็บไซต์ Betfair เท่านั้นที่ถูกทิ้ง ถ้าไม่มี market filter
 แต่ละ node จะ reconcile และรายงานทั้ง account
 
-## Configuration {#configuration}
+## Configuration [#configuration]
 
 adapter ตั้งค่าความมีชีวิต (liveness) ของ stream และขนาด message ดังนี้:
 
@@ -779,7 +781,7 @@ adapter ตั้งค่าความมีชีวิต (liveness) ขอ
   ฝั่ง execution จะยังปิดอยู่ตลอดเวลาที่ order stream อยู่ในสถานะ pending, rejected, degraded,
   disconnected หรือกำลัง reconcile
 
-### Configuration ของ data client {#data-client-configuration}
+### Configuration ของ data client [#data-client-configuration]
 
 | Option                              | ค่าเริ่มต้น | หมายเหตุ                                                     |
 | ----------------------------------- | -------- | ---------------------------------------------------------- |
@@ -816,7 +818,7 @@ adapter ตั้งค่าความมีชีวิต (liveness) ขอ
 กำหนดอัตรา conflation ตั้ง `stream_conflate_ms=0` เพื่อขอไม่ให้ conflate อย่างชัดเจนและรับทุกการอัปเดตราคา
 :::
 
-### Configuration ของ execution client {#execution-client-configuration}
+### Configuration ของ execution client [#execution-client-configuration]
 
 | Option                              | ค่าเริ่มต้น      | หมายเหตุ                                                             |
 | ----------------------------------- | ------------- | ------------------------------------------------------------------ |
@@ -844,7 +846,7 @@ adapter ตั้งค่าความมีชีวิต (liveness) ขอ
 | `use_market_version`                | `False`       | แนบ market version ไปกับ order; ปัจจุบันยังไม่มีผล                       |
 | `stream_gap_recovery_lookback_mins` | `10`          | ช่วงเวลาย้อนหลังสำหรับ mass-status reconciliation หลัง reconnect         |
 
-## การมีส่วนร่วม {#contributing}
+## การมีส่วนร่วม [#contributing]
 
 :::info
 หากต้องการ feature เพิ่มเติมหรือร่วมพัฒนา adapter ของ Betfair โปรดดู

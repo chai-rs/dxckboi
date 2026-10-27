@@ -1,11 +1,13 @@
-# Events
+---
+title: "Events"
+---
 
 NautilusTrader จำลองการเปลี่ยนแปลงของ execution, position, account และเวลาในรูปของ event
 โดย `MessageBus` จะส่ง event เหล่านี้ไปยัง component ที่สนใจ และส่งต่อไปยัง handler ของ strategy
 ในกรณีที่รองรับ คู่มือนี้อธิบายชนิดของ event, การ dispatch และวิธีที่ order fill และการแก้ไข fill
 ก่อให้เกิด position event
 
-## หมวดหมู่ของ event {#event-categories}
+## หมวดหมู่ของ event [#event-categories]
 
 | หมวด     | ตัวอย่าง                                         | ที่มา                             |
 | -------- | ----------------------------------------------- | ------------------------------- |
@@ -14,7 +16,7 @@ NautilusTrader จำลองการเปลี่ยนแปลงขอ�
 | Account  | `AccountState`                                  | `ExecutionClient` / `Portfolio` |
 | Time     | `TimeEvent`                                     | `Clock` (timer และ alert)        |
 
-## การ dispatch ไปยัง handler {#handler-dispatch}
+## การ dispatch ไปยัง handler [#handler-dispatch]
 
 เมื่อ event มาถึง strategy ระบบจะเรียก handler ตามลำดับที่ตายตัว โดย **handler เฉพาะ** จะทำงานก่อน
 **handler รวม** ดังนั้นจะจัดการ event ที่ระดับความละเอียดใดก็ได้ หรือใช้ทั้งสองแบบร่วมกัน
@@ -22,19 +24,19 @@ NautilusTrader จำลองการเปลี่ยนแปลงขอ�
 strategy จะส่ง event ไปยัง handler ของตน **เฉพาะตอนที่กำลังทำงานอยู่เท่านั้น** event ที่มาถึงก่อน
 start หรือหลัง stop จะไม่ถูก dispatch
 
-### Order event {#order-events}
+### Order event [#order-events]
 
 1. handler เฉพาะ (เช่น `on_order_filled`)
 1. `on_order_event` (รับ order event ทุกชนิด)
 
-### Position event {#position-events}
+### Position event [#position-events]
 
 สำหรับ position lifecycle event ที่ dispatch ไปยัง strategy:
 
 1. handler เฉพาะ (เช่น `on_position_opened`)
 1. `on_position_event` (รับ position lifecycle event ทุกตัวที่ถูก dispatch)
 
-### Time event {#time-events}
+### Time event [#time-events]
 
 timer และ alert จะสร้าง object `TimeEvent` ส่ง `callback` ตอนเรียก `set_timer` หรือ
 `set_time_alert` เพื่อส่ง event ไปยัง method ของคุณเอง
@@ -44,7 +46,7 @@ timer และ alert จะสร้าง object `TimeEvent` ส่ง `callba
 - จะใช้ callback ที่เคยลงทะเบียนไว้ภายใต้ชื่อเดียวกัน หากมี
 - หากไม่มี event จะถูกส่งไปที่ `on_time_event`
 
-## Order event {#order-events-1}
+## Order event [#order-events-1]
 
 order event ใช้สร้าง order, เปลี่ยนสถานะ หรือแก้ไขประวัติ fill ของ order โดย execution pipeline
 จะนำ event ไปใช้กับ order และ cache แล้ว publish บน `MessageBus` ตารางด้านล่างแสดง transition หลัก
@@ -71,7 +73,7 @@ order ที่ partially filled, order จากภายนอก และ or
 | [`OrderFilled`](order_filled.md)                  | Accepted -> Filled/PartiallyFilled                     | `on_order_filled`          |
 | [`OrderFillVoided`](order_fill_voided.md)         | แก้ไข fill ที่รู้จัก หรือยืนยันสถานะ terminal สำหรับ fill ที่ไม่รู้จัก | `on_order_fill_voided`     |
 
-### ฟิลด์ร่วมของ order event {#common-python-order-event-fields}
+### ฟิลด์ร่วมของ order event [#common-python-order-event-fields]
 
 order event แต่ละชนิดมีฟิลด์เหล่านี้:
 
@@ -91,7 +93,7 @@ order event แต่ละชนิดมีฟิลด์เหล่าน�
 เพิ่ม `last_qty`, `last_px`, `trade_id` และ `commission` ส่วน [`OrderFillVoided`](order_fill_voided.md)
 ระบุ trade ที่ถูกแก้ไขและเก็บปริมาณที่ถูก void สะสมไว้
 
-## Position event {#position-events-1}
+## Position event [#position-events-1]
 
 position lifecycle event อธิบายการเปลี่ยนแปลงของ position ใน cache ที่เกิดจาก fill และการแก้ไข fill
 `ExecutionEngine` จะประมวลผล `OrderFilled` แต่ละตัว อัปเดตหรือสร้าง position แล้ว emit lifecycle event
@@ -115,7 +117,7 @@ publish event นี้ แต่ทั้ง `on_position_event` และ hand
 จาก `position.adjustments()`
 :::
 
-### จาก fill สู่ position: ห่วงโซ่เหตุและผล {#from-fill-to-position-the-causal-chain}
+### จาก fill สู่ position: ห่วงโซ่เหตุและผล [#from-fill-to-position-the-causal-chain]
 
 แผนภาพต่อไปนี้แสดงว่า `OrderFilled` เพียงตัวเดียวก่อให้เกิด position event อย่างไร ซึ่งเป็นจุดเชื่อม
 ระหว่างการจัดการ order กับการติดตาม position
@@ -161,7 +163,7 @@ sequenceDiagram
    fill ออกเป็นสองส่วน ส่วนหนึ่งปิด position เดิม (`PositionClosed`) อีกส่วนเปิด position ใหม่
    (`PositionOpened`)
 
-### ฟิลด์ของ position event {#position-event-fields}
+### ฟิลด์ของ position event [#position-event-fields]
 
 position lifecycle event ทั้งสามชนิดมีชุดฟิลด์หลักร่วมกัน และมีฟิลด์เพิ่มเติมเมื่อ position พัฒนาไป
 เครื่องหมายถูกหมายถึง event ชนิดนั้นมีฟิลด์นี้ ขีดหมายถึงไม่มีฟิลด์นี้
@@ -196,7 +198,7 @@ position lifecycle event ทั้งสามชนิดมีชุดฟิ�
 | `ts_event`         | ✓      | ✓       | ✓      | timestamp ของ event ที่เป็นตัวกระตุ้น               |
 | `ts_init`          | ✓      | ✓       | ✓      | timestamp ที่ event ถูกสร้าง                     |
 
-### การไล่ตามจาก order ไปยัง position {#tracing-orders-to-positions}
+### การไล่ตามจาก order ไปยัง position [#tracing-orders-to-positions]
 
 `Cache` มี method สำหรับไล่ไปมาระหว่าง order และ position ได้ทั้งจาก position ไปหา order ทุกตัวที่มี
 fill ร่วม และจาก order ไปหา position ที่ order นั้นสังกัด ส่วน order ที่เปิด position จะถูกเก็บไว้บน
@@ -204,7 +206,7 @@ position โดยตรง
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-## Account event {#account-events}
+## Account event [#account-events]
 
 event `AccountState` แทน snapshot ของ balance และ margin โดยจะเกิดขึ้นเมื่อ:
 
@@ -216,7 +218,7 @@ account state ประกอบด้วย balance, margin, account type แ�
 event เหล่านี้ภายในเพื่อติดตาม exposure และ balance ดูรายการฟิลด์ทั้งหมดได้ที่
 [`AccountState`](account_state.md)
 
-## คู่มือที่เกี่ยวข้อง {#related-guides}
+## คู่มือที่เกี่ยวข้อง [#related-guides]
 
 - [Orders](../orders/) - ชนิดของ order และ state machine
 - [Positions](../positions.md) - วงจรชีวิตของ position และ PnL

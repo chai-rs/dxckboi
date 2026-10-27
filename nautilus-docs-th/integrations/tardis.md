@@ -1,4 +1,6 @@
-# Tardis
+---
+title: "Tardis"
+---
 
 Tardis ให้บริการ market data ของ cryptocurrency แบบละเอียด รวมถึง snapshot และ update ของ order book
 แบบ tick-by-tick, trade, open interest, funding rate, option summary และ liquidation
@@ -20,7 +22,7 @@ NautilusTrader เชื่อมต่อกับ Tardis API, WebSocket server
 [environment variable](#environment-variables)
 :::
 
-## ภาพรวม {#overview}
+## ภาพรวม [#overview]
 
 adapter นี้ implement ด้วย Rust component ของมันถูก compile รวมอยู่ใน NautilusTrader จึงไม่ต้องติดตั้ง
 client library ของ Tardis แยกต่างหาก ดู API, รูปแบบข้อมูล และ server ต้นทางได้ที่
@@ -30,7 +32,7 @@ Tardis Node เวอร์ชันต่ำสุดที่ทดสอบ�
 order book ของ Deribit เมื่อ update ที่อยู่ในคิวซึ่ง snapshot ครอบคลุมแล้วมาถึงหลัง snapshot
 NautilusTrader ไม่ได้ pin เวอร์ชันใน deployment ของ Tardis Machine ของผู้ใช้
 
-## รูปแบบที่รองรับ {#supported-formats}
+## รูปแบบที่รองรับ [#supported-formats]
 
 Tardis ให้ market data แบบ *normalized* ซึ่งเป็นรูปแบบเดียวกันที่สอดคล้องกันทุก exchange ที่รองรับ
 การ normalize นี้ทำให้ parser ตัวเดียวจัดการข้อมูลจาก[exchange ใดก็ได้ที่ Tardis รองรับ](#venues)
@@ -66,7 +68,7 @@ NautilusTrader รองรับรูปแบบ normalized ของ Tardis 
 ดูเพิ่มเติมที่ [Tardis Machine quickstart](https://docs.tardis.dev/tardis-machine/quickstart) ของ Tardis
 :::
 
-## Bar {#bars}
+## Bar [#bars]
 
 adapter แปลง interval และ suffix ของ trade bar ใน Tardis เป็น `BarType` ของ Nautilus
 ได้แก่:
@@ -81,19 +83,19 @@ adapter แปลง interval และ suffix ของ trade bar ใน Tardis
 
 interval หน่วยนาทีที่หารเป็นชั่วโมงหรือวันได้ลงตัวจะใช้ aggregation `HOUR` หรือ `DAY` มาตรฐานของ Nautilus
 
-## Symbology และการ normalize {#symbology-and-normalization}
+## Symbology และการ normalize [#symbology-and-normalization]
 
 integration ของ Tardis จะ normalize symbol อย่างสม่ำเสมอเพื่อให้เข้ากันได้กับ adapter ของ crypto exchange
 ใน NautilusTrader โดยปกติ NautilusTrader จะใช้ชื่อดั้งเดิมของ exchange ที่ Tardis ให้มา สำหรับบาง exchange
 จะปรับ symbol ดิบให้ตรงกับ symbology ของ Nautilus ดังนี้:
 
-### กฎทั่วไป {#common-rules}
+### กฎทั่วไป [#common-rules]
 
 - symbol ทั้งหมดถูกแปลงเป็นตัวพิมพ์ใหญ่
 - บาง exchange จะต่อท้าย suffix ของประเภทตลาดด้วยขีด (hyphen)
 - symbol ดั้งเดิมของ exchange ถูกเก็บไว้ใน field `raw_symbol` ของ instrument definition ใน Nautilus
 
-### การ normalize เฉพาะ exchange {#exchange-specific-normalizations}
+### การ normalize เฉพาะ exchange [#exchange-specific-normalizations]
 
 - **Binance**: Nautilus ต่อท้าย suffix `-PERP` ให้ symbol ของ perpetual จาก `binance`,
   `binance-futures`, `binance-us`, `binance-dex` และ `binance-jersey`
@@ -108,7 +110,7 @@ integration ของ Tardis จะ normalize symbol อย่างสม่ำ
 - [Bybit symbology](./bybit.md#symbology)
 - [dYdX symbology](./dydx.md#symbology)
 
-## Venue {#venues}
+## Venue [#venues]
 
 exchange บางแห่งบน Tardis ถูกแบ่งออกเป็นหลาย venue
 ตารางด้านล่างแสดงการจับคู่ระหว่าง venue ของ Nautilus กับ exchange ที่สอดคล้องกันใน Tardis:
@@ -163,7 +165,7 @@ exchange ID บางตัวเป็น venue ที่เลิกให้�
 Tardis Node [18.2.3](https://github.com/tardis-dev/tardis-node/releases/tag/18.2.3) ยกเลิกการ stream แบบ real-time
 ของ BitMEX แต่การ replay ข้อมูลย้อนหลังของ BitMEX, channel และการ normalize ยังรองรับอยู่
 
-## Environment variable {#environment-variables}
+## Environment variable [#environment-variables]
 
 Tardis และ NautilusTrader ใช้ environment variable ต่อไปนี้
 
@@ -175,7 +177,7 @@ Tardis และ NautilusTrader ใช้ environment variable ต่อไป�
 instruments metadata API ของ Tardis ต้องยืนยันตัวตนด้วย bearer token และใช้ได้กับ subscription ของ Tardis
 ระดับ pro และ business ที่ active อยู่
 
-## การรัน historical replay ของ Tardis Machine {#running-tardis-machine-historical-replays}
+## การรัน historical replay ของ Tardis Machine [#running-tardis-machine-historical-replays]
 
 [Tardis Machine Server](https://docs.tardis.dev/tardis-machine/quickstart) เป็น server ที่รันในเครื่องได้
 และมีการ cache ข้อมูลในตัว มันให้ market data ของ cryptocurrency ทั้งแบบย้อนหลังระดับ tick และแบบ real-time
@@ -202,7 +204,7 @@ Tardis Node 18.2.3 บน Node.js 26.7.0 การ replay อาจทิ้ง 
 - สำหรับแต่ละ data type และวัน (UTC) เขียนไฟล์ `.parquet` ที่เข้ากันได้กับ catalog แยกตาม instrument หรือ bar type
 - จบ stream และ flush ข้อมูลที่เหลือลง disk
 
-### ไฟล์ output {#output-files}
+### ไฟล์ output [#output-files]
 
 ไฟล์ถูกเขียนหนึ่งไฟล์ต่อวัน (UTC) และ instrument หรือต่อ bar type โดยใช้ช่วง timestamp แบบ ISO 8601:
 
@@ -222,7 +224,7 @@ Tardis Node 18.2.3 บน Node.js 26.7.0 การ replay อาจทิ้ง 
 
 หากไม่ได้ระบุ `output_path` และไม่ได้ตั้ง `NAUTILUS_PATH` output จะไปอยู่ที่ working directory ปัจจุบันโดยค่าเริ่มต้น
 
-### ขั้นตอน {#procedure}
+### ขั้นตอน [#procedure]
 
 :::warning
 อย่า publish port ของ Tardis Machine บน host address `0.0.0.0` Docker
@@ -247,7 +249,7 @@ docker run \
 คำสั่งนี้เริ่ม server `tardis-machine` โดยไม่มี cache ถาวรในเครื่อง ซึ่งอาจกระทบประสิทธิภาพ
 เพื่อประสิทธิภาพการ replay ที่ดีขึ้น ให้รันด้วย persistent volume
 
-### Configuration {#configuration}
+### Configuration [#configuration]
 
 ถัดไป ให้เตรียมไฟล์ configuration แบบ JSON ไว้
 
@@ -289,7 +291,7 @@ docker run \
 }
 ```
 
-### Output ของ book snapshot {#book-snapshot-output}
+### Output ของ book snapshot [#book-snapshot-output]
 
 option `book_snapshot_output` ควบคุมวิธีแปลงและจัดเก็บ message `book_snapshot_*` ของ Tardis
 
@@ -328,7 +330,7 @@ option `book_snapshot_output` ควบคุมวิธีแปลงแล�
 }
 ```
 
-### การดึง BBO จาก option summary {#option-summary-bbo-extraction}
+### การดึง BBO จาก option summary [#option-summary-bbo-extraction]
 
 ตั้ง `extract_bbo_as_quotes` เป็น `true` เมื่อ request ข้อมูล `option_summary` จาก Tardis Machine และ
 backtest ต้องใช้ BBO quote ของ option ด้วย Nautilus ยังคงเขียน `OptionGreeks` จากทุก message
@@ -354,7 +356,7 @@ option นี้ใช้กับ message `option_summary` ของ Tardis Mac
 }
 ```
 
-### การ replay ด้วย Rust {#rust-replays}
+### การ replay ด้วย Rust [#rust-replays]
 
 หากต้องการรัน replay ด้วย Rust ให้เปิด feature flag `replay` ของ `nautilus-tardis` และสร้าง binary
 ในลักษณะต่อไปนี้:
@@ -388,7 +390,7 @@ export NAUTILUS_LOG=debug
 cargo run -p nautilus-tardis --features replay --bin tardis-replay <path_to_your_config>
 ```
 
-### Catalog สำหรับ backtest แบบ option chain {#option-chain-backtest-catalog}
+### Catalog สำหรับ backtest แบบ option chain [#option-chain-backtest-catalog]
 
 backtest แบบ option chain เริ่มหลังจากที่ Tardis replay เขียนข้อมูลลง catalog ของ Nautilus แล้ว
 backtest loader ไม่ได้ request ข้อมูล Tardis ที่ขาดหายระหว่างการรัน ดังนั้น catalog ต้องมี:
@@ -411,7 +413,7 @@ strategy สามารถเลือกสัญญาตาม moneyness ด
 `CappedOptionFeeModel` หรือ `TieredNotionalOptionFeeModel` ไม่มีการ map จาก exchange ของ Tardis ไปยัง
 fee model โดยอัตโนมัติ
 
-### การแปลง CSV ของ option chain เป็น catalog {#option-chain-csv-catalog-conversion}
+### การแปลง CSV ของ option chain เป็น catalog [#option-chain-csv-catalog-conversion]
 
 สำหรับ option chain ย้อนหลังจากไฟล์ CSV ของ Tardis ที่ดาวน์โหลดได้ ให้ใช้ `convert_tardis_options_chain_csv(...)`
 เพื่อแปลงแถว `options_chain` เป็นข้อมูล catalog ของ Nautilus เส้นทางนี้ไม่ได้เรียกทั้ง Tardis Machine และ
@@ -438,7 +440,7 @@ precision ที่อนุมานได้อาจเพิ่มขึ้�
 
 > หมายเหตุ: ต้นฉบับมีเฉพาะตัวอย่าง Python จึงตัดออก
 
-## การโหลดข้อมูล CSV ของ Tardis {#loading-tardis-csv-data}
+## การโหลดข้อมูล CSV ของ Tardis [#loading-tardis-csv-data]
 
 สามารถโหลดข้อมูล CSV รูปแบบ Tardis ด้วย Rust ได้ loader จะอ่านข้อมูล CSV แบบ text จาก disk และ parse
 เป็นข้อมูลของ Nautilus
@@ -458,7 +460,7 @@ loader และ streamer ของ delta จะข้ามแถวใด ๆ 
 precision แยกตาม instrument แต่ยังแนะนำให้ระบุ precision อย่างชัดเจนเพื่อให้ได้ output แบบ deterministic
 :::
 
-### การโหลดข้อมูล CSV ด้วย Rust {#loading-csv-data-in-rust}
+### การโหลดข้อมูล CSV ด้วย Rust [#loading-csv-data-in-rust]
 
 สามารถโหลดข้อมูล CSV รูปแบบ Tardis ด้วย Rust โดยใช้ฟังก์ชันโหลดใน `crates/adapters/tardis/src/csv/mod.rs`
 เมื่อโหลดข้อมูล สามารถระบุ instrument ID, price precision และ size precision ได้ (ตัวเลือกเสริม) การระบุ
@@ -496,7 +498,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-## การ stream ข้อมูล CSV ของ Tardis {#streaming-tardis-csv-data}
+## การ stream ข้อมูล CSV ของ Tardis [#streaming-tardis-csv-data]
 
 integration ของ Tardis สามารถโหลดและประมวลผลไฟล์ CSV ขนาดใหญ่เป็น chunk ที่ตั้งค่าได้ ทำให้ประมวลผลไฟล์
 ขนาดหลาย gigabyte ได้โดยไม่ต้องโหลดทั้งไฟล์เข้าหน่วยความจำหรือใช้หน่วยความจำของระบบจนหมด
@@ -510,7 +512,7 @@ integration ของ Tardis สามารถโหลดและประม
 - Funding rates
 - แถว options chain
 
-### การใช้หน่วยความจำ {#memory-use}
+### การใช้หน่วยความจำ [#memory-use]
 
 การ stream จำกัดจำนวน record ที่ parse แล้วซึ่งถูกเก็บไว้ในแต่ละช่วงเวลา:
 
@@ -526,7 +528,7 @@ integration ของ Tardis สามารถโหลดและประม
 อย่างชัดเจน
 :::
 
-### การ stream ข้อมูล CSV ด้วย Rust {#streaming-csv-data-in-rust}
+### การ stream ข้อมูล CSV ด้วย Rust [#streaming-csv-data-in-rust]
 
 ฟังก์ชันการ stream เบื้องหลัง implement ด้วย Rust และใช้งานได้โดยตรง:
 
@@ -562,7 +564,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-## Metadata ของ instrument {#instrument-metadata}
+## Metadata ของ instrument [#instrument-metadata]
 
 pipeline การ replay และ data client จะ request metadata ของทุก exchange ใน option ของ Tardis ที่ตั้งค่าไว้
 ก่อนเชื่อมต่อกับ Tardis Machine โดยใช้
@@ -580,7 +582,7 @@ client รับ argument `api_key`, `base_url`, `timeout_secs`, `normalize_symb
 (ตัวเลือกเสริม) มันดึงได้ทั้ง symbol เดียวหรือทุก instrument ของ exchange หนึ่ง ให้ใช้ exchange ID ของ Tardis
 แบบ lower-kebab เช่น `binance-futures`
 
-### การ request instrument ด้วย Rust {#requesting-instruments-in-rust}
+### การ request instrument ด้วย Rust [#requesting-instruments-in-rust]
 
 ดูตัวอย่างแบบสมบูรณ์ได้ที่ `crates/adapters/tardis/bin/example_http.rs`
 
@@ -620,7 +622,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-## Data client ของ Nautilus {#nautilus-data-client}
+## Data client ของ Nautilus [#nautilus-data-client]
 
 `TardisDataClientConfig` และ `TardisDataClientFactory` เชื่อม stream ของ Tardis Machine ที่ตั้งค่าไว้
 เข้ากับ Nautilus node configuration จะเลือกโหมดใดโหมดหนึ่ง:
@@ -647,7 +649,7 @@ mark price และ index price ได้เมื่อค่าเปลี�
 config ของ data client ฝั่ง Rust สามารถตั้ง `book_snapshot_output` เป็น `depth` ได้ configuration JSON
 ของการ replay แบบ standalone รองรับทั้งสองค่า
 
-## การสร้าง trade ID {#trade-id-derivation}
+## การสร้าง trade ID [#trade-id-derivation]
 
 trade tick ใช้ trade ID ที่ venue ให้มาใน message หรือแถว CSV ของ Tardis เป็น `TradeId` หาก venue ไม่ได้ให้
 trade ID (เป็น string ว่างหรือ null ในบาง exchange) parser ทั้งสองจะใช้ hash แบบ FNV-1a ที่ deterministic
@@ -655,13 +657,13 @@ hash ประกอบด้วย symbol, timestamp, ราคา, จำน�
 ทั้งสองจะได้ ID เดียวกันสำหรับ event เดียวกัน โดยมีเงื่อนไขว่าค่าใน CSV แปลงไปกลับผ่าน `f64` ได้โดยไม่เปลี่ยน
 event เดียวกันจาก venue จะได้ trade ID เดียวกันในทุกการ replay ทำให้การตัดข้อมูลซ้ำในขั้นถัดไปยังถูกต้อง
 
-## ข้อจำกัดและข้อควรพิจารณา {#limitations-and-considerations}
+## ข้อจำกัดและข้อควรพิจารณา [#limitations-and-considerations]
 
 `TardisDataClient` ไม่ได้ implement data request ของ Nautilus รวมถึง request ของ instrument, order book,
 quote, trade, funding rate และ bar ให้ตั้งค่า historical replay ผ่าน `options` หรือใช้
 `run_tardis_machine_replay` สำหรับ workflow ของ catalog
 
-## การทดสอบความเข้ากันได้กับ Tardis Node {#testing-tardis-node-compatibility}
+## การทดสอบความเข้ากันได้กับ Tardis Node [#testing-tardis-node-compatibility]
 
 regression test ของ Deribit จะป้อน snapshot, update ในคิวที่ snapshot ครอบคลุมแล้ว และ update ใหม่
 ผ่าน normalizer ของ Tardis Node ที่ติดตั้งไว้ จากนั้นตรวจ order book ของ Nautilus ทั้งหมด ต้องใช้ Node.js
@@ -677,7 +679,7 @@ TARDIS_NODE_MODULE="$tardis_test_dir/node_modules/tardis-dev" \
 rm -rf "$tardis_test_dir"
 ```
 
-## การมีส่วนร่วม {#contributing}
+## การมีส่วนร่วม [#contributing]
 
 :::info
 สำหรับฟีเจอร์เพิ่มเติมหรือการมีส่วนร่วมพัฒนา adapter ของ Tardis โปรดดู

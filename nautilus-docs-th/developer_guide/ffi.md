@@ -1,4 +1,6 @@
-# สัญญาด้านหน่วยความจำของ FFI
+---
+title: "สัญญาด้านหน่วยความจำของ FFI"
+---
 
 NautilusTrader เปิด C foreign function interface (FFI) จากเพียง `nautilus-core` และ
 `nautilus-model` เท่านั้น ทั้งสอง crate ซ่อน interface นี้ไว้หลัง Cargo feature `ffi` และเก็บ
@@ -10,13 +12,13 @@ ABI สาธารณะสำหรับ guest plug-in และไม่ไ�
 กฎด้านล่างนี้เข้มงวด การละเมิดอาจทำให้เกิด undefined behavior รวมถึง double free,
 memory leak และการเข้าถึง pointer ที่ไม่ถูกต้อง
 
-## การจัดการ panic {#panic-handling}
+## การจัดการ panic [#panic-handling]
 
 Rust panic ต้องไม่ unwind ข้ามฟังก์ชัน `extern "C"` เด็ดขาด ฟังก์ชันที่ export และอาจ panic ได้
 ต้องส่งการทำงานผ่าน `nautilus_core::ffi::abort_on_panic` ซึ่งจะ log panic
 และ abort process ก่อนที่การ unwind จะข้ามขอบเขตของ C
 
-## ความเป็นเจ้าของ `CVec` {#cvec-ownership}
+## ความเป็นเจ้าของ `CVec` [#cvec-ownership]
 
 `CVec` แทน metadata ของการจัดสรรหน่วยความจำ (allocation) ของ vector ใน Rust ในรูปแบบที่เข้ากันได้กับ C
 `CVec` ที่สร้างจาก `Vec<T>` จะโอนความเป็นเจ้าของ allocation แบบผู้เดียว (unique ownership) ให้กับผู้เรียกฝั่ง foreign
@@ -45,7 +47,7 @@ dereference ผู้ใช้ฝั่ง Rust ต้องใช้ `CVec::int
 - ตรวจสอบ invariant ของ `len`, `cap` และ null pointer ก่อนสร้างข้อมูลกลับคืนหรือยืมข้อมูล
 - ใช้ element type แบบ concrete ที่ตรงกับ allocation ของ `Vec<T>` ต้นทาง
 
-## ฟังก์ชัน drop เฉพาะ type {#type-specific-drop-functions}
+## ฟังก์ชัน drop เฉพาะ type [#type-specific-drop-functions]
 
 ไม่มี `cvec_drop` แบบ generic การสร้างทุก allocation กลับเป็น `Vec<u8>` จะทำให้ allocator ได้
 layout ของ element ที่ผิดสำหรับ type อื่น vector ที่มีเจ้าของแต่ละตัวที่ข้ามขอบเขตต้องมีฟังก์ชัน drop
@@ -55,13 +57,13 @@ layout ของ element ที่ผิดสำหรับ type อื่น 
 ให้เพิ่มฟังก์ชัน drop ไว้ข้างๆ ฟังก์ชันที่สร้างข้อมูล (producer) เพื่อให้การ review ตรวจสอบทั้งคู่ไปพร้อมกันได้ test ต้องครอบคลุม
 sentinel ของค่าว่างและการตรวจสอบ metadata ที่ฝั่งผู้ใช้ implement ไว้
 
-## Buffer ที่ยืมมาจากฝั่ง foreign {#borrowed-foreign-buffers}
+## Buffer ที่ยืมมาจากฝั่ง foreign [#borrowed-foreign-buffers]
 
 หน่วยความจำที่จัดสรรนอก Rust ต้องไม่ถูกสร้างกลับเป็น `Vec<T>` ให้ยืมผ่าน
 `CVec::as_slice` และ copy ด้วย `to_vec()` เมื่อ Rust ต้องการพื้นที่เก็บที่เป็นเจ้าของเอง ผู้เรียกฝั่ง foreign ยังคง
 เป็นเจ้าของและต้องคืน buffer ต้นฉบับด้วย allocator ที่สร้างมันขึ้นมา
 
-## Opaque pointer {#opaque-pointers}
+## Opaque pointer [#opaque-pointers]
 
 model object ที่ layout ไม่ได้เป็น `repr(C)` จะข้าม ABI ในรูปของ opaque pointer ที่เป็นเจ้าของ (owning)
 header ที่ generate ขึ้นจะ forward-declare type นั้นไว้ ผู้เรียกฝั่ง foreign จึงจัดการมันได้ผ่านฟังก์ชันที่ export เท่านั้น:
@@ -99,7 +101,7 @@ pub unsafe extern "C" fn orderbook_drop(book: *mut OrderBook) {
 เจ้าของฝั่ง foreign ต้องเรียกฟังก์ชัน drop เพียงครั้งเดียวเท่านั้น ห้าม copy pointer แล้วนำทั้งสองสำเนา
 ไปใช้ (consume) และห้ามใช้ pointer หลังจาก drop แล้ว
 
-## Checklist สำหรับการ review {#review-checklist}
+## Checklist สำหรับการ review [#review-checklist]
 
 สำหรับ FFI export ที่เพิ่มใหม่หรือมีการเปลี่ยนแปลงแต่ละตัว:
 

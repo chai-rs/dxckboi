@@ -1,9 +1,11 @@
-# OKX
+---
+title: "OKX"
+---
 
 OKX ก่อตั้งในปี 2017 เป็น cryptocurrency exchange ที่ให้บริการเทรด spot, margin, perpetual swap, futures, option,
 spread และ event contract integration นี้รองรับการรับ market data แบบ live และการ execute order บน OKX
 
-## ภาพรวม {#overview}
+## ภาพรวม [#overview]
 
 Adapter นี้ implement ด้วย Rust และไม่ต้องใช้ OKX client library ภายนอก
 
@@ -20,11 +22,11 @@ OKX adapter ประกอบด้วยหลาย component ซึ่งใ
 ผู้ใช้ส่วนใหญ่จะตั้งค่า live trading node ตามที่แสดงด้านล่าง โดยไม่จำเป็นต้องใช้ component ระดับล่างเหล่านี้โดยตรง
 :::
 
-## ตัวอย่าง {#examples}
+## ตัวอย่าง [#examples]
 
 - [ตัวอย่าง Rust](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/okx/examples/)
 
-## ผลิตภัณฑ์ที่รองรับ {#product-support}
+## ผลิตภัณฑ์ที่รองรับ [#product-support]
 
 | ผลิตภัณฑ์         | แหล่งของ instrument            | Data | Exec | หมายเหตุ                                         |
 | --------------- | ---------------------------- | ---- | ---- | -------------------------------------------- |
@@ -70,7 +72,7 @@ adapter จึงไม่แก้ไข `info` ของ instrument เหล�
 Endpoint ด้านผลิตภัณฑ์การเงินของ OKX เช่น `/api/v5/finance/okusd/*` อยู่นอกขอบเขตของ OKX trading adapter
 :::
 
-## การอัปเดต instrument {#instrument-updates}
+## การอัปเดต instrument [#instrument-updates]
 
 Data client โหลด instrument cache ผ่าน REST ตอน connect และ subscribe WebSocket channel instruments ของ OKX สำหรับ
 instrument type แต่ละประเภทที่กำหนดไว้ ทุกเส้นทางการอัปเดตจะเคารพ instrument type, family และ contract type ที่ตั้งค่าไว้
@@ -94,7 +96,7 @@ instrument type แต่ละประเภทที่กำหนดไว�
 - Instrument ที่หายไปจาก REST response จะยังคงอยู่ใน cache เพราะอาจยังมี subscription ที่เปิดอยู่ใช้งาน การระงับ, การหมดอายุ
   และการ delist จะมาเป็น event `InstrumentStatus` ผ่าน instruments channel
 
-## การ subscribe order book {#order-book-subscriptions}
+## การ subscribe order book [#order-book-subscriptions]
 
 รองรับ subscription ต่อไปนี้สำหรับ book แบบ L2 market-by-price (`L2_MBP`):
 
@@ -132,13 +134,13 @@ callback ของ depth แบบ unmanaged จะไม่แตะ book ท�
 ต่อไป การส่ง native depth จะกลับมาพร้อม snapshot เต็มชุดใหม่หลัง reconnect โดยไม่ขึ้นกับการกู้คืนของ delta ดูข้อจำกัดของการ
 กู้คืนได้ที่ [การกู้คืน order book](#order-book-recovery)
 
-## การกู้คืน order book {#order-book-recovery}
+## การกู้คืน order book [#order-book-recovery]
 
 Data client กู้คืน delta book แต่ละตัวอย่างอิสระ ระหว่างการกู้คืนจะระงับการอัปเดตแบบ incremental และแทนที่ subscription
 เพื่อขอ snapshot ใหม่ output จะกลับมาก็ต่อเมื่อ client ยอมรับ snapshot แล้ว ซึ่งต้องส่ง request unsubscribe และ subscribe
 สำหรับการแทนที่ไปแล้ว snapshot ที่ยอมรับจะแทนที่ระดับราคาที่มีอยู่ทั้งหมด snapshot ที่ว่างเปล่าจะล้าง book
 
-### Trigger ของการกู้คืน {#recovery-triggers}
+### Trigger ของการกู้คืน [#recovery-triggers]
 
 การกู้คืนเริ่มต้นเมื่อ:
 
@@ -156,7 +158,7 @@ Data client กู้คืน delta book แต่ละตัวอย่า�
 การตรวจ feed ที่นิ่งผิดปกติ (stale-feed) จะแค่ log warning และข้าม book ที่การกู้คืนที่กำลังทำงานเป็นเจ้าของอยู่ โดยไม่เริ่มการ
 กู้คืน เพราะตลาดที่เงียบอาจไม่มีการเปลี่ยนแปลงของ book จริง ๆ
 
-### Retry loop และขีดจำกัด {#retry-loop-and-limits}
+### Retry loop และขีดจำกัด [#retry-loop-and-limits]
 
 Adapter ใช้ [กลไกการกู้คืน book ที่ใช้ร่วมกัน](../developer_guide/adapters.md#order-book-recovery-ownership) instrument
 แต่ละตัวมี recovery loop หนึ่งตัว ซึ่งจะทำงานจนกว่าจะยอมรับ snapshot ใหม่ได้ หรือจนกว่าการ unsubscribe หรือ shutdown จะ
@@ -189,14 +191,14 @@ stateDiagram-v2
 subscribe สำหรับการแทนที่ การกู้คืนที่รออยู่ระหว่างความพยายามหลังหมด budget จะ retry บนการเชื่อมต่อใหม่ทันที การแทนที่
 subscription จะคงความตั้งใจในการ reconnect ไว้ ส่วนการ unsubscribe และ shutdown จะยกเลิกการกู้คืน
 
-### ความล้มเหลวต่อเนื่อง {#persistent-failures}
+### ความล้มเหลวต่อเนื่อง [#persistent-failures]
 
 เมื่อ retry budget หมด client จะ log error หนึ่งครั้ง แล้ว log warning สำหรับแต่ละความพยายามที่ล้มเหลว ที่ interval
 สิบห้านาที book ที่ล้มเหลวต่อเนื่องจะส่ง subscription request ประมาณแปดครั้งต่อชั่วโมง ซึ่งอาจเกิดกับ instrument ที่ venue
 ไม่ให้บริการแล้ว อัตรานี้ยังต่ำกว่าขีดจำกัดของ OKX ที่ 480 ครั้งต่อชั่วโมงต่อการเชื่อมต่ออยู่มาก snapshot ที่มาช้าจะทำให้การ
 กู้คืนเสร็จสิ้นได้ทุกเมื่อ ให้ unsubscribe เพื่อหยุดการกู้คืน
 
-### ข้อจำกัดด้านการจับคู่ snapshot {#snapshot-correlation-limitation}
+### ข้อจำกัดด้านการจับคู่ snapshot [#snapshot-correlation-limitation]
 
 Book channel แบบ incremental จะยอมรับ snapshot เฉพาะขณะกำลังสร้างหรือกู้คืนการ synchronize เท่านั้น เมื่อ synchronize
 แล้ว client จะทิ้ง snapshot ที่ไม่ได้ร้องขอโดยไม่แทนที่ book หรือ reset sequence ส่วน channel ที่ publish snapshot เต็มชุด
@@ -210,7 +212,7 @@ Book channel แบบ incremental จะยอมรับ snapshot เฉพ�
 นี้ การกู้คืนยังไม่สามารถแยกแยะ error ของการ unsubscribe กับ error ของการ subscribe ได้อย่างน่าเชื่อถือ เมื่อ response ของ venue
 ระบุเพียง book channel และ instrument
 
-### การปิด deadline ของ snapshot {#disabling-snapshot-deadlines}
+### การปิด deadline ของ snapshot [#disabling-snapshot-deadlines]
 
 การตั้ง `book_snapshot_timeout_secs` เป็น `0` จะปิด deadline ของ snapshot รวมถึงการตรวจสอบครั้งแรกและหลัง reconnect
 sequence gap และการปฏิเสธ subscription ยังคงเริ่มการกู้คืนได้
@@ -224,7 +226,7 @@ sequence gap และการปฏิเสธ subscription ยังคง�
 
 ความพยายามหลังหมด budget ยังคงมีขอบเขตตามที่อธิบายไว้ด้านบน
 
-### การตรวจสอบการกู้คืนแบบ live {#live-recovery-validation}
+### การตรวจสอบการกู้คืนแบบ live [#live-recovery-validation]
 
 Harness `okx-book-stress` เป็นเครื่องมือสำหรับการพัฒนาเมื่อแก้ไขการ synchronize และการกู้คืน book โดยเชื่อมต่อกับ market
 data แบบ public บน OKX mainnet และไม่ส่ง order ใดเลย จะตรวจสอบ book ของ spot, RPI swap และ spread ที่ส่งออกมาเทียบกับ
@@ -254,14 +256,14 @@ Harness ต้องเข้าถึง WebSocket endpoint แบบ public �
 วงจรชีวิตของ book แบบอัตโนมัติใช้ mock server แบบ local ดู [Stress harnesses](../developer_guide/spec_data_testing.md#stress-harnesses)
 สำหรับ flag ที่ใช้ร่วมกันและรูปแบบ output
 
-## Symbology {#symbology}
+## Symbology [#symbology]
 
 OKX ใช้ข้อตกลงด้าน symbol เฉพาะสำหรับ instrument แต่ละประเภท ให้เติม suffix `.OKX` เมื่ออ้างถึง instrument ใน Nautilus
 เช่น `BTC-USDT.OKX`
 
-### รูปแบบ symbol ตามประเภท instrument {#symbol-format-by-instrument-type}
+### รูปแบบ symbol ตามประเภท instrument [#symbol-format-by-instrument-type]
 
-#### SPOT {#spot}
+#### SPOT [#spot]
 
 รูปแบบ: `{BaseCurrency}-{QuoteCurrency}`
 
@@ -275,7 +277,7 @@ OKX ใช้ข้อตกลงด้าน symbol เฉพาะสำห�
 ใน strategy ให้ใช้ instrument ID `BTC-USDT.OKX` สำหรับ spot ที่ quote เป็น USDT และ `BTC-USDC.OKX` สำหรับ spot ที่
 quote เป็น USDC
 
-#### SWAP (perpetual swap) {#swap-perpetual-swaps}
+#### SWAP (perpetual swap) [#swap-perpetual-swaps]
 
 รูปแบบ: `{BaseCurrency}-{QuoteCurrency}-SWAP`
 
@@ -291,7 +293,7 @@ quote เป็น USDC
 - **Linear** (USDT-margined): ใช้ stablecoin เช่น USDT เป็น margin
 - **Inverse** (coin-margined): ใช้ cryptocurrency ที่เป็น base เป็น margin
 
-#### FUTURES (futures แบบมีวันหมดอายุ) {#futures-dated-futures}
+#### FUTURES (futures แบบมีวันหมดอายุ) [#futures-dated-futures]
 
 รูปแบบ: `{BaseCurrency}-{QuoteCurrency}-{YYMMDD}`
 
@@ -303,7 +305,7 @@ quote เป็น USDC
 
 Futures อาจเป็น linear หรือ inverse ก็ได้ adapter จะดูจาก field `ctType` ของ OKX
 
-#### SPREADS {#spreads}
+#### SPREADS [#spreads]
 
 รูปแบบ: `{Leg1InstrumentId}_{Leg2InstrumentId}`
 
@@ -326,7 +328,7 @@ Futures อาจเป็น linear หรือ inverse ก็ได้ adapte
 - Workflow ด้าน option RFQ และ block trading ของ OKX แยกออกจาก Nitro spread order book API และไม่ได้ถูก route ผ่าน
   เส้นทาง spread นี้
 
-#### OPTIONS {#options}
+#### OPTIONS [#options]
 
 รูปแบบ: `{BaseCurrency}-{QuoteCurrency}-{YYMMDD}-{Strike}-{Type}`
 
@@ -341,7 +343,7 @@ Futures อาจเป็น linear หรือ inverse ก็ได้ adapte
 - `C` = Call option
 - `P` = Put option
 
-#### EVENTS {#events}
+#### EVENTS [#events]
 
 Instrument ID ของ event contract บน OKX ใช้ market ID ที่ instruments API ของ OKX ส่งกลับมา adapter แทน market เหล่านี้ด้วย
 instrument ประเภท `BinaryOption` ของ Nautilus
@@ -350,7 +352,7 @@ instrument ประเภท `BinaryOption` ของ Nautilus
 
 - `BTC-ABOVE-DAILY-261224-1600-65000` - Event contract market ใน series `BTC-ABOVE-DAILY`
 
-### คำถามที่พบบ่อย {#common-questions}
+### คำถามที่พบบ่อย [#common-questions]
 
 **ถาม: จะรู้ได้อย่างไรว่าควรใช้ contract type แบบไหน?**
 ตอบ: Instrument แบบ linear และ inverse มี symbol ที่แตกต่างกัน
@@ -358,7 +360,7 @@ instrument ประเภท `BinaryOption` ของ Nautilus
 **ถาม: จะโหลด event contract ได้อย่างไร?**
 ตอบ: ใช้ `OKXInstrumentType.EVENTS`
 
-## Retail price improvement (RPI) {#retail-price-improvement-rpi}
+## Retail price improvement (RPI) [#retail-price-improvement-rpi]
 
 ใช้ Retail Price Improvement (RPI) สำหรับงานเหล่านี้:
 
@@ -369,7 +371,7 @@ instrument ประเภท `BinaryOption` ของ Nautilus
 Adapter map ความสามารถเหล่านี้ไปยัง type ของ order book, order และวงจรชีวิตที่มีอยู่แล้วของ Nautilus การ route แบบ RPI
 เป็นแบบ opt-in ดังนั้น subscription และ order มาตรฐานจะไม่เปลี่ยนแปลง
 
-### Market data ของ RPI {#rpi-market-data}
+### Market data ของ RPI [#rpi-market-data]
 
 ส่ง `params={"rpi": True}` ให้ `subscribe_book_deltas` หรือ `request_book_snapshot` เพื่อใช้ channel `books-rpi` แบบ public
 หรือ `GET /api/v5/market/books-rpi` feed นี้รวมปริมาณแบบ organic เข้ากับปริมาณ RPI ที่พร้อมให้ execute
@@ -413,7 +415,7 @@ Response ของ instrument แบบ public เปิดเผยเกณฑ
 ตรงข้าม map `info` จะเก็บ price band เป็น string ทศนิยมแบบตรงตัว adapter ไม่ปฏิเสธหรือปัดราคา order จากค่าเหล่านี้ เพราะ
 OKX เป็นผู้ใช้กฎของ instrument และ account ที่เป็นทางการ ให้ใช้ `rpi_px_round` หรือจัดการการปฏิเสธจาก venue เอง
 
-### Execution ของ RPI {#rpi-execution}
+### Execution ของ RPI [#rpi-execution]
 
 ส่งตัวควบคุม RPI ผ่าน `params` ของ command `submit_order`, `submit_order_list` หรือ `modify_order` ตัวควบคุมเหล่านี้ใช้ได้กับ
 execution ทั้งแบบ HTTP และ private WebSocket:
@@ -443,7 +445,7 @@ Rust client ระดับล่างเปิดให้ใช้ matrix แ
 Tuple สำหรับ batch amend ทาง WebSocket รับ request ID แบบ optional และ serialize เป็น `reqId` ซึ่งไม่ได้แทนที่ client ID
 ของ order
 
-### Notional ขั้นต่ำของ RPI {#rpi-minimum-notional}
+### Notional ขั้นต่ำของ RPI [#rpi-minimum-notional]
 
 RPI maker order ต้องผ่านทั้ง `minSz` ของ instrument และ
 [RPI minimum notional](https://www.okx.com/docs-v5/log_en/#2026-08-18-rpi-maker-minimum-notional-amount):
@@ -463,7 +465,7 @@ Order ที่อยู่ใน book แล้วตอนที่กฎน�
 ไม่ใช่ RPI รวมถึง order ที่มี `rpiTakerAccess: true` ได้รับการยกเว้นจากกฎ notional นี้ order ที่ผ่าน `minSz` ก็ยังอาจไม่ผ่าน
 การตรวจ RPI minimum notional ได้
 
-### Response และวงจรชีวิตของ RPI {#rpi-responses-and-lifecycle}
+### Response และวงจรชีวิตของ RPI [#rpi-responses-and-lifecycle]
 
 Private order message จะ parse ทั้ง `ordType: rpi` และ alias สำหรับการ migrate `ordType: elp` การวาง RPI ที่ยังไม่ fill อาจ
 ปรากฏบน private order channel ครั้งแรกเป็น `state: canceled` โดยที่ `accFillSz` เป็นศูนย์หรือว่าง ในกรณีนั้น adapter จะส่ง
@@ -483,7 +485,7 @@ Instrument endpoint แบบ public ไม่ได้ส่งสิทธิ�
 Response อาจมีชื่อ field ทั้งแบบ RPI และ ELP ในช่วงเปลี่ยนผ่าน adapter จะเลือกใช้ `rpi` และ `rpiMaker` ก่อน อ่าน `elp` และ
 `elpMaker` เป็น alias ของ response และส่งเฉพาะชื่อแบบ RPI เท่านั้น raw trade message อธิบาย `source: "1"` ว่าเป็น RPI order
 
-### สิ่งที่ไม่รวมสำหรับ RPI {#rpi-exclusions}
+### สิ่งที่ไม่รวมสำหรับ RPI [#rpi-exclusions]
 
 Adapter ตั้งใจไม่รวมสิ่งต่อไปนี้:
 
@@ -497,11 +499,11 @@ OKX จะไม่สนใจ `rpiPxRound` สำหรับ option และ
 ดู [OKX RPI migration changelog](https://www.okx.com/docs-v5/log_en/#2026-07-28)
 และ [RPI program guide](https://www.okx.com/help/okx-retail-price-improvement-program-rpi)
 
-## ความสามารถด้าน order {#orders-capability}
+## ความสามารถด้าน order [#orders-capability]
 
 ด้านล่างคือประเภท order, execution instruction และตัวเลือก time-in-force ที่รองรับสำหรับผลิตภัณฑ์ linear perpetual swap บน OKX
 
-### การระบุ order ทาง WebSocket {#websocket-order-identification}
+### การระบุ order ทาง WebSocket [#websocket-order-identification]
 
 Operation ของ order ทาง WebSocket บน OKX ใช้ `instIdCode` (identifier ของ instrument แบบตัวเลข) แทนพารามิเตอร์ `instId`
 แบบ string adapter จะ resolve ค่า `instIdCode` จาก instrument definition ที่ดึงมาตอน startup และ cache ไว้ตลอดอายุของ session
@@ -511,7 +513,7 @@ Operation ของ order ทาง WebSocket บน OKX ใช้ `instIdCode` 
 scope ที่ไม่มี instrument ที่ใช้งานได้จะยกเลิกการเชื่อมต่อก่อนเปิด WebSocket แม้ scope อื่นจะสำเร็จก็ตาม instrument ที่ยังไม่
 เปิดเทรด (pre-open) และรายการที่ parse ไม่ได้ไม่นับว่าผ่านข้อกำหนดนี้ option ที่ไม่ได้กำหนด instrument family ไว้จะยังคงถูกข้าม
 
-### การย้าย spot จาก USD ไป USDC {#usd-to-usdc-spot-migration}
+### การย้าย spot จาก USD ไป USDC [#usd-to-usdc-spot-migration]
 
 OKX กำลังรวม spot book ของ USD และ USDC เข้าด้วยกัน นี่เป็นการเปลี่ยนแปลงฝั่ง venue แบบ breaking instrument `Crypto-USD`
 ที่ได้รับผลกระทบจะถูกแทนที่ด้วย instrument `Crypto-USDC` ดู
@@ -522,7 +524,7 @@ OKX กำลังรวม spot book ของ USD และ USDC เข้า
 | เปิดเทรดคู่ขนาน            | 08:00 UTC วันที่ 23 กันยายน 2026   |
 | Delist คู่ USD           | 08:00 UTC วันที่ 30 กันยายน 2026   |
 
-#### Instrument ID {#instrument-ids}
+#### Instrument ID [#instrument-ids]
 
 Subscribe และเทรดด้วย instrument ID ตัวใหม่ที่มาแทน:
 
@@ -534,7 +536,7 @@ OKX ไม่ได้ map ค่า `instId` หรือ `instIdCode` ขอ�
 cache ของ instrument หรือ `instIdCode` ใหม่ หลังจาก delist แล้ว request และ subscription ที่ยังใช้ ID ของ USD อาจล้มเหลว
 หรือไม่ได้ข้อมูลกลับมา
 
-#### Quote currency สำหรับการเทรด {#trading-quote-currency}
+#### Quote currency สำหรับการเทรด [#trading-quote-currency]
 
 ค่าเริ่มต้นของ `tradeQuoteCcy` คือ quote currency ใน `instId` การเปลี่ยนแค่ instrument ID จาก `Crypto-USD` เป็น
 `Crypto-USDC` จะเปลี่ยน quote สำหรับการเทรดโดยปริยายจาก USD เป็น USDC
@@ -557,7 +559,7 @@ Adapter จะปฏิเสธ order แบบ local เมื่อ:
 รายการนี้เก็บมาจาก instrument definition รวมถึง `GET /api/v5/account/instruments` และจัดเก็บใน map `info` ของ instrument
 เป็น `okx_trade_quote_ccy_list`
 
-#### การเปิดใช้งาน account {#account-activation}
+#### การเปิดใช้งาน account [#account-activation]
 
 :::warning
 เรียก `OKXHttpClient.activate_feature("1")` เพื่อเปิดการเทรดบน order book ของ USDC เฉพาะหลังจาก OKX ปฏิเสธ order
@@ -569,7 +571,7 @@ Error code `51773` จาก `activate_feature` หมายความว่�
 USDC ใช้ไม่ได้ order ที่สำเร็จเป็นการยืนยันว่า account เทรด instrument นั้นได้
 :::
 
-### ข้อกำหนดของ client order ID {#client-order-id-requirements}
+### ข้อกำหนดของ client order ID [#client-order-id-requirements]
 
 OKX กำหนดให้ client order ID เป็นตัวอักษรและตัวเลขเท่านั้น (alphanumeric) และยาวไม่เกิน 32 ตัวอักษร เครื่องหมาย hyphen (`-`)
 จะถูกปฏิเสธ จึงต้องตั้ง `use_hyphens_in_client_order_ids` เป็น false ใน strategy config
@@ -577,7 +579,7 @@ OKX กำหนดให้ client order ID เป็นตัวอักษ�
 Client order ID ของ Nautilus ที่ยาวเกิน 32 ตัวอักษรก็จะถูกปฏิเสธเช่นกัน เมื่อต้องการ identifier แบบ UUID ให้ใช้
 `use_uuid_client_order_ids=True` ร่วมกับ `use_hyphens_in_client_order_ids=False` เพื่อให้ค่าที่ generate ขึ้นอยู่ในขีดจำกัดของ OKX
 
-### ประเภท order {#order-types}
+### ประเภท order [#order-types]
 
 | ประเภท order             | Linear perpetual swap | หมายเหตุ                                                       |
 | ---------------------- | --------------------- | ----------------------------------------------------------- |
@@ -596,7 +598,7 @@ Client order ID ของ Nautilus ที่ยาวเกิน 32 ตัว�
 endpoint `cancel-advance-algos` ในการยกเลิก
 :::
 
-### Spread order {#spread-orders}
+### Spread order [#spread-orders]
 
 Spread instrument ของ OKX ใช้ spread trading order book และกลุ่ม API แยกต่างหาก execution client จะ route spread order
 ตาม spread instrument ID เช่น `ETH-USD-SWAP_ETH-USD-261225.OKX` ผ่าน endpoint HTTP `/api/v5/sprd/*`
@@ -625,7 +627,7 @@ Spread order list, conditional order, time-in-force แบบ FOK และ modi
 - [Spread order details](https://www.okx.com/docs-v5/en/#spread-trading-rest-api-get-order-details).
 - [Spread order channel](https://www.okx.com/docs-v5/en/#spread-trading-websocket-private-channel-order-channel).
 
-### Execution instruction {#execution-instructions}
+### Execution instruction [#execution-instructions]
 
 | Instruction   | Linear perpetual swap | หมายเหตุ                                                  |
 | ------------- | --------------------- | ----------------------------------------------------- |
@@ -638,7 +640,7 @@ futures หรือ swap order ใน position mode แบบ `net` ใน posi
 แบบ cash, option และ event และปฏิเสธการผสมในโหมด long/short ที่จะเพิ่มฝั่งที่เลือก ดู
 [เอกสาร place order ของ OKX](https://www.okx.com/docs-v5/en/#order-book-trading-trade-post-place-order)
 
-### Time in force {#time-in-force}
+### Time in force [#time-in-force]
 
 | Time in force | Linear perpetual swap | หมายเหตุ                                 |
 | ------------- | --------------------- | ------------------------------------ |
@@ -655,7 +657,7 @@ futures หรือ swap order ใน position mode แบบ `net` ใน posi
 ยกเลิก order ณ เวลาหมดอายุที่ระบุ
 :::
 
-### Batch operation {#batch-operations}
+### Batch operation [#batch-operations]
 
 | Operation    | Linear perpetual swap | หมายเหตุ                                     |
 | ------------ | --------------------- | ----------------------------------------- |
@@ -663,7 +665,7 @@ futures หรือ swap order ใน position mode แบบ `net` ใน posi
 | Batch Modify | ✓                     | แก้ไขหลาย order ใน request เดียว            |
 | Batch Cancel | ✓                     | ยกเลิกหลาย order ใน request เดียว           |
 
-### การยกเลิก order ทั้งหมด {#cancel-all-orders}
+### การยกเลิก order ทั้งหมด [#cancel-all-orders]
 
 `Strategy.cancel_all_orders` รองรับ `order_side` ทั้งในโหมดเฉพาะ strategy และโหมดข้าม strategy ดูขอบเขตของ strategy ได้ที่
 [Cancel-all routing](../concepts/execution/index.md#cancel-all-routing)
@@ -676,7 +678,7 @@ mass cancellation ของ venue รวมถึงกรณีที่ option
 ที่ไม่ใช่ spread ทั่วไปจะใช้ order ที่เปิดอยู่ใน cache เป็นค่าเริ่มต้นเช่นกัน ส่วน spread instrument และ option mass-cancel ฝั่ง Rust
 จะใช้ bulk endpoint ของ venue
 
-### เหตุผลของการปฏิเสธ {#rejection-reasons}
+### เหตุผลของการปฏิเสธ [#rejection-reasons]
 
 เมื่อ OKX ปฏิเสธ request แบบ order, modify หรือ cancel ด้วย error code ค่า `reason` ใน `OrderRejected`,
 `OrderModifyRejected` หรือ `OrderCancelRejected` จะอยู่ในรูป `OKX error <code>: <message>` เช่น
@@ -687,7 +689,7 @@ mass cancellation ของ venue รวมถึงกรณีที่ option
 การปฏิเสธที่ adapter สร้างขึ้นก่อนติดต่อ OKX เช่น การตรวจสอบแบบ local ที่ไม่ผ่าน จะใช้ message ของ adapter เองและไม่มี
 error code ของ OKX
 
-### การจัดการ position {#position-management}
+### การจัดการ position [#position-management]
 
 | ความสามารถ          | Linear perpetual swap | หมายเหตุ                                  |
 | ---------------- | --------------------- | ------------------------------------ |
@@ -696,7 +698,7 @@ error code ของ OKX
 | Leverage control | -                     | Execution client ไม่ได้เปิดให้ใช้         |
 | Margin mode      | ✓                     | รองรับโหมด isolated และ cross          |
 
-#### Position mode {#position-modes}
+#### Position mode [#position-modes]
 
 OKX รองรับ position mode สองแบบสำหรับการเทรด derivatives:
 
@@ -748,7 +750,7 @@ ID แบบตัวเลขเป็น ID ที่อิงตาม instru
 [Reconciliation](#reconciliation)
 :::
 
-### Trade mode และการตั้งค่า margin {#trade-modes-and-margin-configuration}
+### Trade mode และการตั้งค่า margin [#trade-modes-and-margin-configuration]
 
 Spot order ที่ใช้เงินสดใช้ trade mode (`tdMode`) ดังนี้:
 
@@ -771,7 +773,7 @@ Multi-currency และ Portfolio margin หนี้สินที่ค้�
 auto-borrow (`51625`) ดูทางเลือกอื่นได้ที่
 [วิธีการชำระหนี้](https://www.okx.com/help/borrowing-and-repaying-in-multi-currency-and-portfolio-margin-account-modes) ของ OKX
 
-#### ภาพรวมของ trade mode {#trade-modes-overview}
+#### ภาพรวมของ trade mode [#trade-modes-overview]
 
 Execution config เลือก trade mode ดังนี้:
 
@@ -797,7 +799,7 @@ Multi-currency หรือ Portfolio margin
 override ต้องตรงกับ margin mode ที่ตั้งไว้
 :::
 
-### การ query order {#order-querying}
+### การ query order [#order-querying]
 
 | ความสามารถ              | Linear perpetual swap | หมายเหตุ                            |
 | -------------------- | --------------------- | ------------------------------ |
@@ -806,7 +808,7 @@ override ต้องตรงกับ margin mode ที่ตั้งไว�
 | Order status updates | ✓                     | การเปลี่ยนสถานะ order แบบ real-time |
 | Trade history        | ✓                     | Execution report และ fill report |
 
-### Contingent order {#contingent-orders}
+### Contingent order [#contingent-orders]
 
 | ความสามารถ            | Linear perpetual swap | หมายเหตุ                                    |
 | ------------------ | --------------------- | -------------------------------------- |
@@ -818,7 +820,7 @@ override ต้องตรงกับ margin mode ที่ตั้งไว�
 HTTP client ระดับล่างมี model สำหรับ payload แบบ attached TP/SL และ OCO ของ OKX แต่ `OKXExecutionClient` ไม่ได้แปลง order
 list แบบ OCO หรือ bracket ของ Nautilus ไปเป็น payload เหล่านั้น
 
-#### สถาปัตยกรรมของ conditional order {#conditional-order-architecture}
+#### สถาปัตยกรรมของ conditional order [#conditional-order-architecture]
 
 Conditional order (algo order ของ OKX) ใช้ HTTP สำหรับ command และ WebSocket สำหรับการอัปเดตสถานะ:
 
@@ -834,7 +836,7 @@ Channel `orders-algo` ส่งเฉพาะการอัปเดต ขณ
 ที่ติดตามไว้ข้ามการ reconnect ของ transport และ deduplicate snapshot ของ advance-algo ที่ถูก replay ส่วน REST reconciliation
 ยังคงรับผิดชอบการกู้คืนตอน cold-start และกรณีพลาดการอัปเดต
 
-#### ประเภท conditional order ที่รองรับ {#supported-conditional-order-types}
+#### ประเภท conditional order ที่รองรับ [#supported-conditional-order-types]
 
 | ประเภท order             | Trigger type      | หมายเหตุ                                                  |
 | ---------------------- | ----------------- | ---------------------------------------------------- |
@@ -852,7 +854,7 @@ Channel `orders-algo` ส่งเฉพาะการอัปเดต ขณ
 ตรวจสอบปริมาณและ notional ตามปกติยังมีผล
 :::
 
-#### ขนาดของ algo order {#algo-sizing}
+#### ขนาดของ algo order [#algo-sizing]
 
 Spot buy แบบ `STOP_MARKET` และ `MARKET_IF_TOUCHED` ใช้ `conditional` order ของ OKX โดยระบุ `tgtCcy` อย่างชัดเจนสำหรับ
 `cash`, `cross` และ `isolated` stop buy ใช้ขา stop-loss ส่วน touched buy ใช้ขา take-profit
@@ -889,7 +891,7 @@ order แบบ standalone ในทุกกรณี [reconciliation](#reconci
 [ข้อจำกัดของการแก้ไขหลังรีสตาร์ท](#modifying-conditional-orders) ก็มีผลเช่นกัน
 :::
 
-#### การแก้ไข conditional order {#modifying-conditional-orders}
+#### การแก้ไข conditional order [#modifying-conditional-orders]
 
 `modify_order` แก้ไข stop order และ touched order ที่ค้างอยู่ผ่าน HTTP `amend-algos`
 
@@ -903,7 +905,7 @@ order แบบ standalone ในทุกกรณี [reconciliation](#reconci
 `OrderModifyRejected` แบบ local การแก้ไข trailing-stop algo ก็จะส่ง `OrderModifyRejected` แบบ local เช่นกัน
 :::
 
-#### Trigger price type {#trigger-price-types}
+#### Trigger price type [#trigger-price-types]
 
 Adapter จะปฏิเสธ feed อื่นนอกเหนือจาก default, last, mark และ index ก่อนส่ง และปฏิเสธ mark/index บน cash-spot และ trailing
 order สำหรับ spot order อื่นใน `cross` หรือ `isolated` จะส่ง mark/index ต่อไปยัง OKX spot-margin buy แบบ
@@ -916,9 +918,9 @@ Stop order และ touched order ใช้แหล่งเหล่านี
 - **Mark price** (`TriggerType.MARK_PRICE`): ใช้ mark price
 - **Index price** (`TriggerType.INDEX_PRICE`): ใช้ราคา index ของ underlying
 
-## การจัดการความเสี่ยง {#risk-management}
+## การจัดการความเสี่ยง [#risk-management]
 
-### การจัดการ event ของ liquidation และ ADL {#liquidation-and-adl-event-handling}
+### การจัดการ event ของ liquidation และ ADL [#liquidation-and-adl-event-handling]
 
 OKX adapter ตรวจจับ event ด้านการจัดการความเสี่ยงที่ exchange เป็นผู้เริ่ม:
 
@@ -962,13 +964,13 @@ Adapter ส่งต่อ order ที่ exchange สร้างขึ้น�
 - [Auto-Deleveraging mechanism](https://www.okx.com/help/okx-contract-auto-deleveraging-adl)
 - [Liquidation mechanism](https://www.okx.com/help/introduction-to-liquidation)
 
-## การเทรด option {#options-trading}
+## การเทรด option [#options-trading]
 
 OKX adapter รองรับการเทรด option (instrument type `OPTION`) โดยมีความแตกต่างบางประการจาก derivatives อื่น option ของ OKX
 เป็นสัญญาแบบ inverse ที่ settle ด้วย cryptocurrency ที่เป็น underlying ดูรายละเอียด API ทั้งหมดได้ที่
 [เอกสาร OKX Options Trading](https://www.okx.com/docs-v5/en/#order-book-trading-trade-post-place-order)
 
-### ประเภท order ที่รองรับ {#supported-order-types}
+### ประเภท order ที่รองรับ [#supported-order-types]
 
 รองรับเฉพาะ order แบบ limit-style เท่านั้น OKX ไม่อนุญาต market order สำหรับ option
 
@@ -984,7 +986,7 @@ Option รองรับ time-in-force แบบ FOK และ IOC OKX ใช�
 Conditional/algo order (`STOP_MARKET`, `STOP_LIMIT`, `MARKET_IF_TOUCHED`, `LIMIT_IF_TOUCHED`, `TRAILING_STOP_MARKET`)
 ไม่รองรับสำหรับ option และจะถูกปฏิเสธ
 
-### โหมดการกำหนดราคา {#pricing-modes}
+### โหมดการกำหนดราคา [#pricing-modes]
 
 Order ของ option กำหนดราคาได้สามแบบที่ใช้ร่วมกันไม่ได้ ส่งโหมดการกำหนดราคาผ่าน `params` ของ order:
 
@@ -1000,7 +1002,7 @@ Order ของ option กำหนดราคาได้สามแบบท
 
 เมื่อแก้ไข order สามารถส่ง params `px_usd` หรือ `px_vol` ตัวเดิมให้ command modify เพื่อแก้ราคาในโหมดการกำหนดราคาเดิมได้
 
-### Option Greeks {#option-greeks}
+### Option Greeks [#option-greeks]
 
 OKX publish ชุด greek สองชุดคู่ขนานกันบน channel `opt-summary`:
 
@@ -1025,35 +1027,35 @@ convention ของ actor ตัวแรก วิธีแก้: actor ต�
 แล้วกรองแบบ local ด้วย `greeks.convention`
 :::
 
-### Position Greeks {#position-greeks}
+### Position Greeks [#position-greeks]
 
 Payload ของ position บน OKX มี Black-Scholes Greeks ระดับ position (`delta_bs`, `gamma_bs`, `theta_bs` และ `vega_bs`)
 `PositionStatusReport` มาตรฐานของ adapter ไม่ได้เปิดเผย field เหล่านี้ stream `opt-summary` ที่อธิบายไว้ด้านบนเป็นแหล่ง Greeks
 ราย instrument ที่ adapter เปิดเผย
 
-### ข้อจำกัด {#restrictions}
+### ข้อจำกัด [#restrictions]
 
 - Adapter ปฏิเสธ reduce-only order ของ option เพราะ OKX ไม่รองรับ instruction นี้สำหรับ option
 - ฝั่งของ position มีค่าเริ่มต้นเป็น `Net`
 
-### Configuration {#configuration}
+### Configuration [#configuration]
 
 :::warning
 การค้นหา option ต้องมีค่า `instrument_families` อย่างน้อยหนึ่งค่า เช่น `BTC-USD`
 :::
 
-## Event contract {#event-contracts}
+## Event contract [#event-contracts]
 
 OKX เปิดให้ใช้สัญญาแบบ prediction market ผ่าน `instType=EVENTS` adapter โหลด instrument เหล่านี้เป็น instrument
 `BinaryOption` ของ Nautilus และเก็บ metadata ของ OKX ไว้ใน field `info` ของ instrument ภายใต้ key `series_id`,
 `inst_category`, `inst_id_code`, `state` และ `rule_type`
 
-### การโหลด instrument ของ event contract {#loading-event-contract-instruments}
+### การโหลด instrument ของ event contract [#loading-event-contract-instruments]
 
 ใช้ `OKXInstrumentType.EVENTS` ใน config ของ data client หรือ execution client adapter จะขอรายการ series ของ event contract
 แล้วจึงขอ instrument ของแต่ละ series
 
-### Market data ของ event contract {#event-contract-market-data}
+### Market data ของ event contract [#event-contract-market-data]
 
 HTTP client ระดับล่างเปิดให้ใช้ endpoint สำหรับค้นหา event contract แบบ public ของ OKX:
 
@@ -1070,7 +1072,7 @@ Endpoint market data มาตรฐานของ OKX คืนข้อมู
 ต้องการทั้งสองผลลัพธ์
 :::
 
-### การเทรด event contract {#event-contract-trading}
+### การเทรด event contract [#event-contract-trading]
 
 ส่งผลลัพธ์ของ event (outcome) บน OKX ผ่าน `params` ของ order เมื่อส่ง order ของ event contract เช่น `params={"outcome": "yes"}`
 
@@ -1087,7 +1089,7 @@ live และระหว่าง reconciliation
 - [Place order request fields](https://www.okx.com/docs-v5/en/#order-book-trading-trade-post-place-order).
 - [Removal of `speedBump`](https://www.okx.com/docs-v5/log_en/#2026-07-24).
 
-## Authentication {#authentication}
+## Authentication [#authentication]
 
 ในการใช้ OKX adapter ให้สร้าง API credential ใน account OKX ของคุณ:
 
@@ -1105,11 +1107,11 @@ export OKX_API_PASSPHRASE="your_passphrase"
 
 หรือส่งโดยตรงใน configuration (ไม่แนะนำสำหรับ production)
 
-## Demo trading {#demo-trading}
+## Demo trading [#demo-trading]
 
 OKX มีสภาพแวดล้อม demo trading สำหรับทดสอบ strategy โดยไม่ใช้เงินจริง
 
-### การตั้งค่า demo account {#setting-up-a-demo-account}
+### การตั้งค่า demo account [#setting-up-a-demo-account]
 
 1. Log in เข้า account OKX ที่ [okx.com](https://www.okx.com)
 2. ไปที่ **Trade** > **Demo Trading**
@@ -1125,7 +1127,7 @@ export OKX_API_SECRET="your_demo_api_secret"
 export OKX_API_PASSPHRASE="your_demo_passphrase"
 ```
 
-### Configuration {#configuration-1}
+### Configuration [#configuration-1]
 
 ตั้งค่า `environment` ใน client configuration เป็นโหมด demo (`DEMO`)
 
@@ -1139,7 +1141,7 @@ Demo API key แยกจาก production key ให้สร้าง API key 
 โหมด demo ไม่ได้
 :::
 
-## Endpoint ตาม region {#regional-endpoints}
+## Endpoint ตาม region [#regional-endpoints]
 
 OKX ให้บริการ endpoint แยกตาม region และ API key จะใช้ได้เฉพาะกับ region ที่ลงทะเบียนไว้เท่านั้น (การใช้ key กับ endpoint ของ
 region อื่นจะได้ `API key doesn't exist`) ตั้ง `region` เพื่อเลือกชุด endpoint ที่ถูกต้อง:
@@ -1157,7 +1159,7 @@ region อื่นจะได้ `API key doesn't exist`) ตั้ง `region
 `region` เลือกค่าเริ่มต้นตาม region และใช้ร่วมกับ `environment` เพื่อเลือก host ของ demo (เช่น `wseeapap.okx.com` สำหรับ demo
 ของ EEA) การ override ด้วย `base_url_http` และ `base_url_ws` อย่างชัดเจนจะมีลำดับความสำคัญเหนือค่าเริ่มต้นของ region เสมอ
 
-## Funding rate {#funding-rates}
+## Funding rate [#funding-rates]
 
 Adapter รับข้อมูล funding rate จาก WebSocket stream
 [Funding Rate Channel](https://www.okx.com/docs-v5/en/#public-data-websocket-funding-rate-channel) OKX ให้ทั้ง `fundingTime`
@@ -1166,7 +1168,7 @@ Adapter รับข้อมูล funding rate จาก WebSocket stream
 สำหรับ request funding rate ย้อนหลัง adapter คำนวณ interval จาก funding timestamp ที่ต่อเนื่องกันซึ่งได้จาก endpoint
 [Get Funding Rate History](https://www.okx.com/docs-v5/en/#public-data-rest-api-get-funding-rate-history)
 
-## Rate limiting {#rate-limiting}
+## Rate limiting [#rate-limiting]
 
 Adapter บังคับใช้ quota ราย endpoint ของ OKX พร้อมคงค่าเริ่มต้นที่เหมาะสมสำหรับการเรียกทาง REST และ WebSocket
 
@@ -1175,7 +1177,7 @@ OKX บังคับใช้ quota ราย endpoint และราย acco
 key ที่ได้รับผลกระทบก่อน retry
 :::
 
-### ขีดจำกัดของ REST {#rest-limits}
+### ขีดจำกัดของ REST [#rest-limits]
 
 ทุก request จะผ่าน global bucket ภายในขนาด 250 request ต่อวินาที บวกกับ bucket เฉพาะ endpoint ด้านล่าง quota ของ endpoint
 สะท้อนขีดจำกัดที่ OKX publish ไว้เมื่อมี
@@ -1240,7 +1242,7 @@ Bucket `/api/v5/market/books-rpi` ของ adapter คือ 20 request ต่�
 request ปกติ และ 10 ต่อ request algo-cancel เอกสาร public ของ OKX ไม่ได้ระบุ rate limit ของ `/api/v5/trade/cancel-advance-algos`
 adapter จึงใช้ bucket แบบระมัดระวัง HTTP client เรียก endpoint นั้นเพื่อยกเลิก advance algo order เช่น trailing stop
 
-### ขีดจำกัดของ WebSocket {#websocket-limits}
+### ขีดจำกัดของ WebSocket [#websocket-limits]
 
 - การสร้างการเชื่อมต่อ: 3 request ต่อวินาที (ต่อ IP)
 - Operation ด้าน subscription (subscribe/unsubscribe/login): 480 request ต่อชั่วโมงต่อการเชื่อมต่อ
@@ -1262,7 +1264,7 @@ Bucket ของ order operation สะท้อนขีดจำกัดท�
 ดู [เอกสาร rate limit ของ OKX](https://www.okx.com/docs-v5/en/#rest-api-rate-limit)
 :::
 
-## Reconciliation {#reconciliation}
+## Reconciliation [#reconciliation]
 
 OKX adapter ใช้นโยบาย reconciliation แยกกันสำหรับสถานะปัจจุบันของ venue และประวัติที่จบแล้ว (terminal):
 
@@ -1282,7 +1284,7 @@ OKX ไม่ได้รายงานขนาดของ algo order ที�
 order status report ทาง REST จะใช้ขนาดของ position ที่ OKX เชื่อมกับ order ผ่าน `closeOrderAlgo` หากไม่มี position ที่เชื่อมไว้
 report จะคงปริมาณเป็นศูนย์และ adapter จะ log warning reconciliation จะไม่โหลด external order ที่มีปริมาณเป็นศูนย์
 
-### ขีดจำกัดของ history request {#history-request-limits}
+### ขีดจำกัดของ history request [#history-request-limits]
 
 ตั้ง `OKXExecutionClientConfig.max_reconciliation_history_pages` เพื่อจำกัด history request ตอน startup:
 
@@ -1304,7 +1306,7 @@ report จะคงปริมาณเป็นศูนย์และ adapte
 order event จากหน้าที่ถูกละไว้อาจไม่ถูกกู้คืน การทำเครื่องหมายว่า report ไม่สมบูรณ์ไม่ได้ทำให้การกู้คืนส่วนนั้นกลับมา
 :::
 
-### Submission ที่ยังไม่ได้รับการยืนยัน {#unacknowledged-submissions}
+### Submission ที่ยังไม่ได้รับการยืนยัน [#unacknowledged-submissions]
 
 OKX กำหนดให้ `50004` และ `51149` เป็น [ผลลัพธ์ของ request ที่ไม่ทราบ](https://my.okx.com/docs-v5/en/#error-code) adapter
 จะปล่อย submission เหล่านี้ไว้โดยยังไม่ resolve แต่ execution policy เริ่มต้นยังอาจ resolve แบบ local ได้เมื่อการตรวจของ
@@ -1331,9 +1333,9 @@ submission ที่เก็บไว้และยังไม่ resolve เ
 [incomplete-recovery shutdown error](../concepts/live.md#submission-recovery-at-shutdown) หลัง teardown policy นี้ไม่ได้เปลี่ยน
 การ resolve timeout สำหรับ command บน order ที่ถูกยอมรับแล้ว, ไม่ได้ให้การกู้คืนที่ทนต่อ crash และไม่ได้พิสูจน์ว่า position เป็นศูนย์
 
-## Configuration {#configuration-2}
+## Configuration [#configuration-2]
 
-### Data client {#data-client}
+### Data client [#data-client]
 
 OKX data client มี configuration option ดังต่อไปนี้
 
@@ -1371,7 +1373,7 @@ OKX data client มี configuration option ดังต่อไปนี้
 
 Spread instrument ใช้ `load_spreads` แทน `instrument_types` เพราะ OKX ให้บริการจาก `/api/v5/sprd/spreads`
 
-### Execution client {#execution-client}
+### Execution client [#execution-client]
 
 OKX execution client มี configuration option ดังต่อไปนี้
 
@@ -1408,7 +1410,7 @@ client ก่อนเทรด
 
 ดู [การย้าย spot จาก USD ไป USDC](#usd-to-usdc-spot-migration) สำหรับ `spot_trade_quote_ccy`
 
-### การ override endpoint ด้วยมือ {#manual-endpoint-overrides}
+### การ override endpoint ด้วยมือ [#manual-endpoint-overrides]
 
 การตั้ง `region` (ดู [Endpoint ตาม region](#regional-endpoints)) จะเลือก endpoint ของ EEA หรือ US ที่ถูกต้องให้อัตโนมัติ ซึ่งเป็นวิธี
 ที่แนะนำ การ override `base_url_*` อย่างชัดเจนด้านล่างยังใช้ได้สำหรับ proxy, การ route แบบกำหนดเอง หรือ endpoint ที่ region
@@ -1431,14 +1433,14 @@ WebSocket URL ตัวใดตัวหนึ่ง ให้ตั้ง `bas
 
 ใช้ `OKXDataClientConfig` กับ `OKXDataClientFactory` และใช้ `OKXExecutionClientConfig` กับ `OKXExecutionClientFactory`
 
-## Deterministic simulation testing {#deterministic-simulation-testing}
+## Deterministic simulation testing [#deterministic-simulation-testing]
 
 OKX เป็น implementation อ้างอิงของ [ข้อกำหนด DST สำหรับ adapter](../concepts/dst.md#adapter-dst-contract) ซึ่ง
 [คู่มือนักพัฒนา adapter](../developer_guide/adapters.md#deterministic-simulation) กำหนดให้ adapter ที่ได้รับการดูแลต้องปฏิบัติตาม
 ส่วนนี้บันทึก audited slice ของ OKX ได้แก่ ไฟล์ที่ static gate ครอบคลุม, เหตุผลการยกเว้นของไฟล์ที่เหลือ และ runtime slice ที่ test
 `dst` พิสูจน์ได้
 
-### ไฟล์ที่ตรวจสอบแล้ว {#audited-files}
+### ไฟล์ที่ตรวจสอบแล้ว [#audited-files]
 
 ไฟล์ production ของ OKX บนเส้นทาง DST ที่ตรวจสอบแล้วจะส่งการอ่าน clock และ timer ที่มีผลต่อสถานะผ่าน DST seam และ sort command
 ของ subscription สำหรับ reconnect และ bulk-unsubscribe static gate ครอบคลุมไฟล์เหล่านี้ใน `crates/adapters/okx/src`:
@@ -1454,7 +1456,7 @@ OKX เป็น implementation อ้างอิงของ [ข้อกำ�
 ที่พิสูจน์แล้วด้วย
 :::
 
-### ไฟล์ที่ไม่รวม {#excluded-files}
+### ไฟล์ที่ไม่รวม [#excluded-files]
 
 ไฟล์ production อื่น ๆ ของ OKX ที่เหลือ (ไม่นับไฟล์ binding) ไม่ถูกรวม เพราะไม่มีสถานะ, clock, RNG, task หรือ transport บนเส้นทาง DST:
 
@@ -1471,7 +1473,7 @@ OKX เป็น implementation อ้างอิงของ [ข้อกำ�
 ไฟล์เจ็ดไฟล์ใต้ `src/python/` ไม่ถูกรวมตามนโยบาย binding/FFI ระดับทั้ง repo ไม่ใช่ตามการตรวจสอบนี้ (ดู
 [Python และ FFI ไม่อยู่ในขอบเขตของ DST](../concepts/dst.md#python-and-ffi-are-not-in-dst-scope))
 
-### Slice ที่พิสูจน์แล้วและยังไม่ได้พิสูจน์ {#proven-and-unproven-slices}
+### Slice ที่พิสูจน์แล้วและยังไม่ได้พิสูจน์ [#proven-and-unproven-slices]
 
 Madsim test เฉพาะจุดใน `crates/adapters/okx/tests/integration/dst.rs` พิสูจน์ slice นี้:
 
@@ -1490,11 +1492,11 @@ facade และ convention gate ร่วมกันแต่ยังไม�
 - Mass cancel, batch amend และ cancel และ spread order
 - เส้นทาง HTTP report และ reconciliation
 
-### ขา simulation test {#simulation-test-leg}
+### ขา simulation test [#simulation-test-leg]
 
 ขาแบบ standard precision รัน integration test `dst` ภายใต้ `simulation` โดยไม่มี feature `high-precision` ที่เป็นค่าเริ่มต้นของ crate
 
-## การมีส่วนร่วม {#contributing}
+## การมีส่วนร่วม [#contributing]
 
 :::info
 หากต้องการฟีเจอร์เพิ่มเติมหรือต้องการมีส่วนร่วมพัฒนา OKX adapter โปรดดู

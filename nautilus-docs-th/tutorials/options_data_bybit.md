@@ -1,4 +1,6 @@
-# ข้อมูล option และ Greeks (Bybit)
+---
+title: "ข้อมูล option และ Greeks (Bybit)"
+---
 
 :::note
 tutorial นี้ใช้ **Rust เท่านั้น** โดยใช้ `LiveNode` ของ Rust
@@ -11,7 +13,7 @@ tutorial นี้เชื่อมต่อกับตลาด option แบ
 instrument, การ subscribe Greeks ที่ venue ให้มา และ snapshot ของ chain
 เป็นระยะพร้อมการกรอง strike แบบอิงกับ ATM
 
-## บทนำ {#introduction}
+## บทนำ [#introduction]
 
 Bybit publish Greeks (delta, gamma, vega, theta) และ implied volatility
 มาพร้อมกับการอัปเดต option ticker ทุกครั้ง NautilusTrader เปิดให้ใช้ข้อมูลนี้ใน
@@ -48,7 +50,7 @@ flowchart LR
     AGG -->|interval timer| C
 ```
 
-## สิ่งที่ต้องมีก่อน {#prerequisites}
+## สิ่งที่ต้องมีก่อน [#prerequisites]
 
 - Rust toolchain ที่ใช้งานได้ ([rustup.rs](https://rustup.rs))
 - repository ของ NautilusTrader ที่ clone มาแล้วและ build ได้
@@ -62,7 +64,7 @@ market data ของ option แบบสาธารณะใช้ public stre
 `wss://stream.bybit.com/v5/public/option`
 :::
 
-## รูปแบบของ DataActor {#the-dataactor-pattern}
+## รูปแบบของ DataActor [#the-dataactor-pattern]
 
 `DataActor` ใน Rust ต้องมีสามส่วน:
 
@@ -73,12 +75,12 @@ market data ของ option แบบสาธารณะใช้ public stre
 macro จะจัดการการเชื่อมต่อกับ runtime แบบ native ที่ implementation แบบ blanket ของ `Actor` และ `Component`
 ต้องการ คุณ implement เฉพาะ callback ที่ต้องการ เพราะทุก callback มี implementation เริ่มต้นที่ไม่ทำอะไร (no-op)
 
-## ส่วนที่ 1: Greeks ราย instrument {#part-1-per-instrument-greeks}
+## ส่วนที่ 1: Greeks ราย instrument [#part-1-per-instrument-greeks]
 
 ตัวอย่าง `bybit-greeks-tester` จะ subscribe `OptionGreeks` ของ
 BTC CALL option ทั้งหมดที่วันหมดอายุใกล้ที่สุด และ log ทุกการอัปเดต
 
-### โครงสร้างของ actor {#actor-structure}
+### โครงสร้างของ actor [#actor-structure]
 
 ```rust
 #[derive(Debug)]
@@ -107,7 +109,7 @@ impl GreeksTester {
 macro ต้องการฟิลด์ `core` ส่วน `client_id` ระบุ data client สำหรับการ subscribe และ vector
 `subscribed_instruments` จะบันทึก subscription ไว้เพื่อให้ actor ลบออกได้ตอน stop
 
-### การค้นหา instrument {#discovering-instruments}
+### การค้นหา instrument [#discovering-instruments]
 
 ตอน start actor จะ query cache เพื่อหา option instrument ทั้งหมด
 กรองเฉพาะ BTC CALL ที่ยังไม่หมดอายุ แล้วหาวันหมดอายุ
@@ -154,7 +156,7 @@ cache ใช้ `Rc<RefCell<...>>` ภายใน และ method สำหร
 ของ cache แล้วจึง subscribe
 :::
 
-### การ subscribe Greeks {#subscribing-to-greeks}
+### การ subscribe Greeks [#subscribing-to-greeks]
 
 หลังค้นหา instrument แล้ว ให้ subscribe ทีละตัว:
 
@@ -166,7 +168,7 @@ for (instrument_id, _, _) in &options {
 }
 ```
 
-### การจัดการการอัปเดต {#handling-updates}
+### การจัดการการอัปเดต [#handling-updates]
 
 การอัปเดต ticker แต่ละครั้งจาก Bybit จะ trigger `on_option_greeks` พร้อม
 event `OptionGreeks`:
@@ -217,7 +219,7 @@ implementation `Deref<Target = OptionGreekValues>` ของ `OptionGreeks` ท�
 
 Bybit ไม่ได้ให้ค่า rho adapter จึงตั้งเป็น `0.0`
 
-### การเก็บกวาด {#cleanup}
+### การเก็บกวาด [#cleanup]
 
 ตอน stop ให้ unsubscribe จากทุก instrument:
 
@@ -233,13 +235,13 @@ fn on_stop(&mut self) -> anyhow::Result<()> {
 }
 ```
 
-## ส่วนที่ 2: snapshot ของ option chain {#part-2-option-chain-snapshots}
+## ส่วนที่ 2: snapshot ของ option chain [#part-2-option-chain-snapshots]
 
 ตัวอย่าง `bybit-option-chain` จะ subscribe option chain ที่รวมไว้แล้ว
 และ log snapshot เป็นระยะ โดยแสดง call และ put ที่แต่ละ strike พร้อม
 quote และ Greeks ของมัน
 
-### ทำไมต้องใช้ option chain {#why-use-option-chains}
+### ทำไมต้องใช้ option chain [#why-use-option-chains]
 
 subscription ราย instrument ให้การควบคุมสัญญาแต่ละตัว แต่สำหรับทั้ง surface คุณต้องจัดการ
 stream แต่ละตัวและเชื่อมโยงการอัปเดตข้าม strike เอง subscription แบบ option chain ทำสิ่งนี้ให้ผ่าน
@@ -249,7 +251,7 @@ stream แต่ละตัวและเชื่อมโยงการอ�
 การรวมนี้เกิดขึ้นภายใน NautilusTrader Bybit publish market data ของ option แยกตามสัญญา และเอกสาร
 public WebSocket ของ V5 ไม่ได้ระบุ stream ของ option chain แบบ native ไว้
 
-### Type ที่เกี่ยวกับ chain {#chain-types}
+### Type ที่เกี่ยวกับ chain [#chain-types]
 
 **`OptionSeriesId`** ระบุชุดวันหมดอายุหนึ่งชุด:
 
@@ -274,7 +276,7 @@ let series_id = OptionSeriesId::new_derived(
 สำหรับช่วง strike แบบ dynamic subscription จะรอจนกว่า engine จะกำหนดราคา ATM ได้จาก
 ราคาอ้างอิงที่ venue ให้มา
 
-### การ subscribe {#subscribing}
+### การ subscribe [#subscribing]
 
 ```rust
 let strike_range = StrikeRange::AtmRelative {
@@ -296,7 +298,7 @@ self.subscribe_option_chain(
 สำหรับโหมด raw ให้ส่ง `None` เป็น `snapshot_interval_ms` ในโหมดนี้ การอัปเดต quote หรือ Greeks ทุกครั้งจะ publish
 slice ทันที
 
-### การจัดการ snapshot {#handling-snapshots}
+### การจัดการ snapshot [#handling-snapshots]
 
 callback `on_option_chain` จะได้รับ `OptionChainSlice` ที่มี
 strike ที่ active ทั้งหมดพร้อมข้อมูล call และ put:
@@ -363,7 +365,7 @@ fn on_option_chain(&mut self, slice: &OptionChainSlice) -> anyhow::Result<()> {
 `OptionStrikeData` แต่ละตัวมี `quote: QuoteTick` (bid/ask) และ
 `greeks: Option<OptionGreeks>` แบบ optional
 
-## การตั้งค่า node {#node-setup}
+## การตั้งค่า node [#node-setup]
 
 ทั้งสองตัวอย่างใช้รูปแบบ `LiveNode` เดียวกัน และไม่ต้องใช้ execution client
 สำหรับการใช้งานเฉพาะข้อมูล:
@@ -403,7 +405,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 เมื่อตั้ง `product_types` เป็น `[BybitProductType::Option]` client จะโหลดเฉพาะ option instrument ตอน startup
 จะรอขณะที่ instrument provider ดึงและ parse option ทุกตัวที่ list ไว้
 
-## การรันตัวอย่าง {#running-the-examples}
+## การรันตัวอย่าง [#running-the-examples]
 
 ```bash
 # Per-instrument Greeks
@@ -416,14 +418,14 @@ cargo run --example bybit-option-chain --package nautilus-bybit --features examp
 หยุดตัวอย่างใดก็ได้ด้วย Ctrl+C callback `on_stop` ของ actor
 จะ unsubscribe ทุก stream ก่อนปิดระบบ
 
-## ผลลัพธ์ที่ตัวอย่างสร้างขึ้น {#what-the-examples-produce}
+## ผลลัพธ์ที่ตัวอย่างสร้างขึ้น [#what-the-examples-produce]
 
 การรันบน mainnet 30 วินาทีในวันที่ 28 เมษายน (BTC ใกล้ 76,800 USDT, วันหมดอายุ 2026-04-28 08:00 UTC) ให้ผลดังนี้:
 
 - tester ราย instrument จับ **การอัปเดต Greeks ได้ 938 ครั้ง** จากสัญญา BTC CALL 22 สัญญา
 - tester ของ chain จับ **snapshot ของ chain ได้ 5 ครั้ง** แต่ละครั้งมี 7 strike
 
-### Output ของ Greeks ราย instrument {#per-instrument-greeks-output}
+### Output ของ Greeks ราย instrument [#per-instrument-greeks-output]
 
 ```text
 Found 22 BTC CALL options at nearest expiry (ts=1777359600000000000)
@@ -433,7 +435,7 @@ GREEKS | BTC-28APR26-71000-C-USDT-OPTION.BYBIT | delta=0.4733 gamma=0.000000 veg
 GREEKS | BTC-28APR26-73000-C-USDT-OPTION.BYBIT | delta=0.4733 gamma=0.000000 vega=0.0000 theta=-0.0000 rho=0.000000 | mark_iv=0.57 bid_iv=0.00 ask_iv=5.00 | underlying=76782.43 oi=0.0
 ```
 
-### Output ของ option chain {#option-chain-output}
+### Output ของ option chain [#option-chain-output]
 
 ```text
 OPTION_CHAIN | BYBIT:BTC:USDT:2026-04-28T08:00:00Z | atm=77000 | calls=7 puts=7 | strikes=7
@@ -442,7 +444,7 @@ OPTION_CHAIN | BYBIT:BTC:USDT:2026-04-28T08:00:00Z | atm=77000 | calls=7 puts=7 
   K=76500 | CALL: bid=265 ask=370 [d=0.442 g=0.00000 v=0.07 iv=29.9%] | PUT: bid=0 ask=5 [d=-0.003 g=0.00000 v=0.07 iv=29.9%]
 ```
 
-### แผงภาพ {#panels}
+### แผงภาพ [#panels]
 
 ![BTC CALL delta vs strike](./assets/options_data_bybit/panel_a_delta_vs_strike.png)
 
@@ -469,16 +471,16 @@ out-of-the-money เล็กน้อย*
 **รูปที่ 4.** *bid-ask spread เฉลี่ยของ CALL ต่อ snapshot ของ chain หน่วยเป็น USDT
 snapshot มาถึงทุกห้าวินาที (`snapshot_interval_ms=5000`)*
 
-### การสร้างแผงภาพใหม่ {#regenerate-the-panels}
+### การสร้างแผงภาพใหม่ [#regenerate-the-panels]
 
 > หมายเหตุ: ต้นฉบับใช้สคริปต์ Python ในการ render แผงภาพ จึงตัดออก
 
-## Source code ฉบับเต็ม {#complete-source}
+## Source code ฉบับเต็ม [#complete-source]
 
 - [`crates/adapters/bybit/examples/node_greeks.rs`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/bybit/examples/node_greeks.rs)
 - [`crates/adapters/bybit/examples/node_option_chain.rs`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/bybit/examples/node_option_chain.rs)
 
-## ขั้นตอนถัดไป {#next-steps}
+## ขั้นตอนถัดไป [#next-steps]
 
 - **ผสมรูปแบบ**: ใช้ Greeks ราย instrument สำหรับสัญญาที่ใกล้ ATM
   ควบคู่กับมุมมอง chain ที่รวมไว้แล้วใน actor เดียว
@@ -491,7 +493,7 @@ snapshot มาถึงทุกห้าวินาที (`snapshot_interval
   short strangle พร้อมการ hedge ด้วย perpetual รวมถึงการวาง order แบบอิง IV
   ผ่านพารามิเตอร์ `order_iv` ของ Bybit
 
-## ดูเพิ่มเติม {#see-also}
+## ดูเพิ่มเติม [#see-also]
 
 - [Options](../concepts/options.md): ประเภทของ option instrument, data type ของ Greeks
   และสถาปัตยกรรมของ chain

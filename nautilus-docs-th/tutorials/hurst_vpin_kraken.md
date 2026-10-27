@@ -1,4 +1,6 @@
-# Strategy เชิงทิศทางด้วย Hurst/VPIN (Kraken Futures)
+---
+title: "Strategy เชิงทิศทางด้วย Hurst/VPIN (Kraken Futures)"
+---
 
 :::note
 tutorial นี้เป็นแบบ **Rust เท่านั้น** โดยใช้ strategy, การ setup backtest และ test จาก core ที่คอมไพล์แล้ว
@@ -9,7 +11,7 @@ tutorial นี้ทำ backtest strategy เชิงทิศทางบน 
 flow แบบ **VPIN** (Volume-synchronized Probability of Informed Trading) โดย `BacktestEngine` ของ Rust จะ replay
 trade และ quote ย้อนหลังจาก [Tardis.dev](https://tardis.dev)
 
-## บทนำ {#introduction}
+## บทนำ [#introduction]
 
 strategy นี้รวมตัวกรอง regime แบบช้าจาก bar เข้ากับสัญญาณ informed flow แบบเร็วจาก trade การเข้า position
 ที่ขับเคลื่อนด้วย quote จะเกิดขึ้นเฉพาะเมื่อสัญญาณทั้งสองสอดคล้องกัน
@@ -32,7 +34,7 @@ strategy นี้มีมาให้ในชื่อ
 ใน module `nautilus_trading::examples::strategies` เช่นเดียวกับ strategy ตัวอย่างอื่น ๆ ที่มีมาให้ มันถูกออกแบบให้
 เรียบง่ายโดยตั้งใจ และไม่มีความได้เปรียบเชิง alpha
 
-### ทำไมต้อง Kraken Futures {#why-kraken-futures}
+### ทำไมต้อง Kraken Futures [#why-kraken-futures]
 
 Kraken Futures มี perpetual ของ Bitcoin และ Ether สองรูปแบบ:
 
@@ -42,19 +44,19 @@ Kraken Futures มี perpetual ของ Bitcoin และ Ether สองร�
 tutorial นี้ใช้ **`PF_XBTUSD`** เพื่อให้สกุลเงินของ account, สกุลเงินที่ quote และกรอบการสุ่มตัวอย่าง dollar bar
 เป็น USD ทั้งหมด
 
-### ทำไมต้องใช้ dollar bar คู่กับ VPIN {#why-dollar-bars-and-vpin-together}
+### ทำไมต้องใช้ dollar bar คู่กับ VPIN [#why-dollar-bars-and-vpin-together]
 
 VPIN นิยามบน bucket ของ *ปริมาณ* แทน bucket ของ *เวลา* dollar bar (การ aggregate แบบ `VALUE` ใน NautilusTrader)
 จะปิดหลังจากมีการซื้อขายครบ notional ที่กำหนด กรอบการสุ่มตัวอย่างจึงปรับตามกิจกรรมของตลาด VPIN bucket แต่ละ
 bucket คือ dollar bar หนึ่งแท่ง และ Hurst ก็ใช้ bar ชุดเดียวกัน สัญญาณทั้งสองจึงใช้ clock และกรอบการสุ่มตัวอย่างเดียวกัน
 
-## สิ่งที่ต้องมี {#prerequisites}
+## สิ่งที่ต้องมี [#prerequisites]
 
 - Rust toolchain ที่ใช้งานได้ (ดู [rustup.rs](https://rustup.rs))
 - repository ของ NautilusTrader ที่ clone และ build ได้แล้ว
 - การเข้าถึงอินเทอร์เน็ตเพื่อดาวน์โหลดตัวอย่างฟรีของ Tardis (ไม่ต้องใช้ API key สำหรับวันแรกของแต่ละเดือน)
 
-## การเตรียมข้อมูล {#data-preparation}
+## การเตรียมข้อมูล [#data-preparation]
 
 Tardis เผยแพร่ข้อมูล Kraken Futures ภายใต้ slug ย้อนหลังชื่อ `cryptofacilities` วันแรกของแต่ละเดือนใช้ได้ฟรีโดยไม่ต้อง
 มี API key ตัวอย่างนี้เพียงพอสำหรับตรวจสอบการ setup แบบวันเดียว backtest เต็มรูปแบบต้องใช้อย่างน้อยสอง session
@@ -107,7 +109,7 @@ let quotes = load_quotes(
 record แรก ๆ สำหรับวันตัวอย่างที่ไม่มีราคาเป็นเศษทศนิยม อาจอนุมานได้เป็น `0` และ matching engine จะปฏิเสธ
 quote tick ที่ precision ไม่ตรงกับ precision ที่ instrument ประกาศไว้
 
-## การนิยาม instrument {#instrument-definition}
+## การนิยาม instrument [#instrument-definition]
 
 tutorial นี้โหลดข้อมูล CSV โดยตรงโดยไม่ใช้ adapter Kraken แบบ live จึงต้องนิยาม `PF_XBTUSD` เองเป็น
 [`CryptoPerpetual`](https://github.com/nautechsystems/nautilus_trader/blob/develop/crates/model/src/instruments/crypto_perpetual.rs)
@@ -144,7 +146,7 @@ let instrument = CryptoPerpetual::builder()
 maker/taker ที่อัตรา maker 0.02% และ taker 0.05% ตรวจสอบอัตราปัจจุบันได้ที่
 [ตารางค่าธรรมเนียมของ Kraken Futures](https://futures.kraken.com/features/fee-schedule)
 
-## การสุ่มตัวอย่างด้วย dollar bar {#dollar-bar-sampling}
+## การสุ่มตัวอย่างด้วย dollar bar [#dollar-bar-sampling]
 
 NautilusTrader มี bar aggregator แบบขับเคลื่อนด้วยข้อมูล (information-driven) ครบทุกแบบจาก AFML บทที่ 2 ได้แก่
 tick, volume, value (dollar) รวมถึง variant แบบ imbalance และ runs ของแต่ละแบบ tutorial นี้ใช้ bar แบบ `VALUE`
@@ -169,7 +171,7 @@ bar แบบ `VALUE` เป็น *มุมมอง* หนึ่งของ
 เกิดการนับซ้ำ
 :::
 
-## ภาพรวมของ strategy {#strategy-overview}
+## ภาพรวมของ strategy [#strategy-overview]
 
 strategy `HurstVpinDirectional` รัน pipeline สามชุดพร้อมกัน ซึ่ง synchronize กันตอนปิด bar:
 
@@ -243,7 +245,7 @@ flowchart LR
 **รูปที่ 1.** *Signal dashboard ของวันที่ 2024-01-16 เวลา 14:09-16:15 UTC: ราคาปิด, Hurst, VPIN marker แสดงราคา
 fill จริง เส้นประเชื่อมแสดง slippage เทียบกับเส้นราคาปิดของ bar*
 
-### ตัวประมาณค่า Hurst {#hurst-estimator}
+### ตัวประมาณค่า Hurst [#hurst-estimator]
 
 strategy ใช้ regression แบบ rescaled-range (R/S) แบบคลาสสิก สำหรับแต่ละ lag `k` ใน `(4, 8, 16, 32)` จะแบ่ง
 return window ออกเป็นช่วงที่ไม่ซ้อนทับกันความยาว `k` คำนวณ rescaled range ของแต่ละช่วง และบันทึกค่า R/S เฉลี่ย
@@ -254,7 +256,7 @@ return window ออกเป็นช่วงที่ไม่ซ้อนท
 **รูปที่ 2.** *Hurst แบบ rolling ตลอด 14 วันของ PF_XBTUSD (2024-01-15 ถึง 2024-01-28) พร้อมเกณฑ์เข้า 0.55
 และเกณฑ์ออก 0.50*
 
-### ตัวประมาณค่า VPIN {#vpin-estimator}
+### ตัวประมาณค่า VPIN [#vpin-estimator]
 
 เมื่อ feed ของ venue ระบุฝั่ง aggressor ของ trade ไว้อย่างชัดเจน VPIN จะลดรูปเหลือ
 
@@ -270,7 +272,7 @@ VPIN = mean_k ( |V_B_k - V_S_k| / (V_B_k + V_S_k) )
 
 **รูปที่ 3.** *การกระจายของ VPIN ตลอดทุก bar พร้อมเกณฑ์เข้า 0.30*
 
-### การตั้งค่า {#configuration}
+### การตั้งค่า [#configuration]
 
 | Parameter          | Value            | คำอธิบาย                                                          |
 | ------------------ | ---------------- | ----------------------------------------------------------------- |
@@ -291,7 +293,7 @@ VPIN = mean_k ( |V_B_k - V_S_k| / (V_B_k + V_S_k) )
 มากขึ้น bar ที่ใหญ่ขึ้นทำให้สัญญาณทั้งสองเรียบขึ้น แต่เสี่ยงที่จะมี sample น้อยเกินไปใน backtest แบบวันเดียว
 :::
 
-## การ setup backtest {#backtest-setup}
+## การ setup backtest [#backtest-setup]
 
 ตั้งค่า `BacktestEngine` ด้วย venue Kraken และ balance เริ่มต้นเป็น USD:
 
@@ -335,7 +337,7 @@ data.extend(quotes.into_iter().map(Data::Quote));
 engine.add_data(data, None, true, true)?;
 ```
 
-### เพิ่ม strategy {#add-the-strategy}
+### เพิ่ม strategy [#add-the-strategy]
 
 ```rust
 use nautilus_model::types::Quantity;
@@ -353,7 +355,7 @@ let config = HurstVpinDirectionalConfig::builder()
 engine.add_strategy(HurstVpinDirectional::new(config))?;
 ```
 
-### รัน backtest {#run-the-backtest}
+### รัน backtest [#run-the-backtest]
 
 ```rust
 engine.run(None, None, None, false)?;
@@ -390,7 +392,7 @@ cargo run -p nautilus-kraken --features examples \
 **รูปที่ 5.** *Hurst เทียบกับ VPIN ราย bar ตลอด backtest ระบายสีตาม VPIN แบบมีเครื่องหมาย จตุภาคที่แรเงาแสดง
 บริเวณที่เข้า position ได้*
 
-### สร้าง panel ใหม่ {#regenerate-the-panels}
+### สร้าง panel ใหม่ [#regenerate-the-panels]
 
 strategy ใน backtest จะ log `Hurst=… VPIN=… signed=… bar_close=…` ทุกครั้งที่ bar ปิด และ log event `OrderFilled`
 มาตรฐานเมื่อเข้าและออก position log เหล่านี้ทำให้สร้าง panel ข้างต้นซ้ำได้ทั้งหมดจาก stdout ของการรัน
@@ -404,7 +406,7 @@ RUST_LOG=info cargo run -p nautilus-kraken --features examples \
 
 > หมายเหตุ: ขั้นตอน render panel ในต้นฉบับใช้สคริปต์ Python (`render_panels.py`) จึงตัดออก
 
-## ขั้นตอนถัดไป {#next-steps}
+## ขั้นตอนถัดไป [#next-steps]
 
 - **กรอบการสุ่มตัวอย่าง**: ลองใช้เกณฑ์ dollar bar ที่ใหญ่ขึ้นหรือเล็กลง aggregator แบบ `VALUE_IMBALANCE` และ
   `VALUE_RUNS` สร้าง bar ที่ปิดเมื่อมีข้อมูลใหม่เข้ามา ซึ่งเป็นทางเลือกแทนการสุ่มตัวอย่างแบบ dollar คงที่
@@ -431,7 +433,7 @@ paper trade บน [demo-futures.kraken.com](https://demo-futures.kraken.com) �
     --example kraken-hurst-vpin-live
   ```
 
-## อ่านเพิ่มเติม {#further-reading}
+## อ่านเพิ่มเติม [#further-reading]
 
 - [source ของ strategy `HurstVpinDirectional`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/trading/src/examples/strategies/hurst_vpin_directional)
 - [แนวคิดด้าน data: bar type และการ aggregate](../concepts/data/index.md#bars-and-aggregation)

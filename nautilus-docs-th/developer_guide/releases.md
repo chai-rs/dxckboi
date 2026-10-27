@@ -1,8 +1,10 @@
-# Releases
+---
+title: "Releases"
+---
 
 คู่มือนี้อธิบายกระบวนการ release และมาตรฐานในการเขียน release notes
 
-## ภาพรวม {#overview}
+## ภาพรวม [#overview]
 
 NautilusTrader ใช้โมเดลสาม branch:
 
@@ -21,7 +23,7 @@ NautilusTrader ใช้โมเดลสาม branch:
 - build Docker image
 - trigger การ rebuild เอกสาร
 
-## Workflow ของ stable release {#stable-release-workflow}
+## Workflow ของ stable release [#stable-release-workflow]
 
 workflow `build` ใช้ GitHub release เป็นจุดยึดของ stable release โดยจะสร้าง release แบบ draft ก่อน แล้วอัปโหลด
 asset ของ wheel และ sdist ไปยัง draft นั้น หลังจากนั้นจึง publish package เหล่านั้นไปยัง package index ต่าง ๆ
@@ -84,7 +86,7 @@ flowchart TD
   release asset ที่ publish แล้วและ release tag จะเปลี่ยนแปลงไม่ได้ แก้ไขได้เฉพาะชื่อเรื่องและ release notes เท่านั้น
   job นี้จะตรวจชุด asset ของ draft ขั้นสุดท้ายก่อน publish และตรวจ release attestation ของ GitHub หลัง publish draft
 
-## การกู้คืน release tag ที่หายไป {#recovering-a-missing-release-tag}
+## การกู้คืน release tag ที่หายไป [#recovering-a-missing-release-tag]
 
 ขั้นตอน `Create git tag` จะสร้าง `v<version>` ก็ต่อเมื่อ commit ของการรันนั้นเปลี่ยนเวอร์ชันจาก parent (`HEAD~1`)
 และจะไม่สร้างเลยหาก tag มีอยู่แล้ว หากเวอร์ชันไม่เปลี่ยนและ tag หายไป `Verify release tag` จะล้มเหลวเสมอไม่ว่าจะ
@@ -139,7 +141,7 @@ release immutability มีผลแล้ว release tag ที่ publish ไ�
 อย่าย้ายหรือ push tag ที่มีอยู่ซ้ำ ให้ตรวจสอบหาสาเหตุของความไม่ตรงกัน ซึ่งในกรณีนี้ `Verify release tag` ถูกออกแบบ
 มาให้ล้มเหลวโดยตั้งใจ
 
-## การกู้คืน release ที่ทำไม่สมบูรณ์ {#recovering-a-partial-release}
+## การกู้คืน release ที่ทำไม่สมบูรณ์ [#recovering-a-partial-release]
 
 ใช้ workflow `recover-release` เมื่อ package มีอยู่แล้วบน PyPI และ crates.io แต่การตรวจสอบ release integrity หรือ
 การ publish GitHub ขั้นสุดท้ายล้มเหลว workflow นี้ตรวจสอบ package ที่มีอยู่โดยไม่ build หรือ publish ใหม่ และยังตรวจ
@@ -181,7 +183,7 @@ GitHub CLI ของ runner ต้องรองรับ `gh attestation verif
 มา และ cache ของ verifier ที่แยกไว้เป็นเวลา 30 วัน job ด้าน integrity และการ publish ขั้นสุดท้ายของ build ปกติก็เก็บ
 artifact สำหรับวินิจฉัยไว้เมื่อล้มเหลวเช่นกัน และการรันซ้ำที่สำเร็จในภายหลังจะคง artifact เหล่านั้นไว้
 
-## การกำหนดเวอร์ชัน {#versioning}
+## การกำหนดเวอร์ชัน [#versioning]
 
 โปรเจกต์ดูแลหมายเลขเวอร์ชันสองชุด:
 
@@ -193,7 +195,7 @@ artifact สำหรับวินิจฉัยไว้เมื่อล�
 ทั้งสองถูก bump แยกกันอย่างอิสระ เวอร์ชันของ Python เป็นตัวกำหนด release tag `v<python-version>` เวอร์ชันที่ลงท้าย
 ด้วย `aN`, `bN` หรือ `rcN` จะสร้าง GitHub pre-release ส่วนเวอร์ชัน final จะสร้าง release ปกติ
 
-## การ publish ไปยัง crates.io {#cratesio-publishing}
+## การ publish ไปยัง crates.io [#cratesio-publishing]
 
 workflow `build` publish Cargo crate จาก job `publish-cargo-crates` job นี้ใช้ crates.io Trusted Publishing ผ่าน
 GitHub Actions OIDC จึงไม่ใช้ cargo token แบบถาวร ให้ตั้งค่าแต่ละ crate บน crates.io ด้วย:
@@ -229,9 +231,9 @@ job ล้มเหลว
 
 repository ของ trusted-publishing ที่ผิด และความไม่ตรงกันของ checksum หรือ sparse index ก็ทำให้การตรวจสอบล้มเหลวเช่นกัน
 
-## Checklist ของ release {#release-checklist}
+## Checklist ของ release [#release-checklist]
 
-### ก่อน release (บน `develop`) {#pre-release-on-develop}
+### ก่อน release (บน `develop`) [#pre-release-on-develop]
 
 - [ ] ปิดงาน `RELEASES.md`: ทบทวนทุกรายการ ลบหมวดที่ว่าง
 - [ ] ตรวจว่าตั้งเวอร์ชันไว้ใน `python/pyproject.toml` และ workspace ของ `Cargo.toml` แล้ว
@@ -241,7 +243,7 @@ repository ของ trusted-publishing ที่ผิด และความ
 - [ ] รัน `make check-docsrs` ในเครื่องกับ release candidate ตัวสุดท้าย
 - [ ] ตรวจว่า CI check ทั้งหมดผ่านบน `develop`
 
-### Release {#release}
+### Release [#release]
 
 - [ ] merge `develop` เข้า `nightly` แล้วตรวจว่า nightly CI ผ่าน
 - [ ] merge `nightly` เข้า `master`
@@ -263,7 +265,7 @@ repository ของ trusted-publishing ที่ผิด และความ
 - [ ] ตรวจว่า workflow `docker` ทำงานเสร็จ (build และ push image แล้ว)
 - [ ] ตรวจว่า workflow `build-docs` ทำงานเสร็จ (trigger การ rebuild เอกสารแล้ว)
 
-### หลัง release (บน `develop`) {#post-release-on-develop}
+### หลัง release (บน `develop`) [#post-release-on-develop]
 
 - [ ] อัปเดตวันที่ release ใน `RELEASES.md` สำหรับเวอร์ชันที่ publish แล้ว
 - [ ] เพิ่มเส้นคั่นแนวนอน `---` ใต้ release ที่เสร็จแล้ว
@@ -273,11 +275,11 @@ repository ของ trusted-publishing ที่ผิด และความ
   (`docs/concepts/rust.md`, `docs/how_to/run_rust_backtest.md`,
   `docs/how_to/run_rust_live_trading.md`)
 
-## Release notes {#release-notes}
+## Release notes [#release-notes]
 
 ส่วนนี้อธิบายมาตรฐานในการเขียน release notes ใน `RELEASES.md`
 
-### หมวด {#sections}
+### หมวด [#sections]
 
 ใช้หมวดต่อไปนี้ตามลำดับ:
 
@@ -291,7 +293,7 @@ repository ของ trusted-publishing ที่ผิด และความ
 
 ละหมวดที่ไม่มีรายการใน release นั้นออก
 
-### Enhancements {#enhancements}
+### Enhancements [#enhancements]
 
 feature ใหม่และการปรับปรุงที่ผู้ใช้มองเห็นได้
 
@@ -309,7 +311,7 @@ feature ใหม่และการปรับปรุงที่ผู้
 - ใช้ backtick สำหรับส่วนที่เป็นโค้ด
 - ระบุให้ชัดว่าเพิ่ม *อะไร* ไม่ใช่เพิ่ม *อย่างไร*
 
-### Breaking Changes {#breaking-changes}
+### Breaking Changes [#breaking-changes]
 
 การเปลี่ยนแปลงที่อาจทำให้โค้ดเดิมใช้งานไม่ได้
 
@@ -326,7 +328,7 @@ feature ใหม่และการปรับปรุงที่ผู้
 - ขึ้นต้นด้วย "Removed", "Renamed" หรือ "Changed"
 - อธิบายวิธี migrate สั้น ๆ
 
-### Security {#security}
+### Security [#security]
 
 การเสริมความปลอดภัยและการแก้ไขที่ป้องกัน crash, undefined behavior หรือข้อมูลเสียหาย
 รวมถึงการเสริมความแข็งแกร่ง (hardening) ที่สำคัญซึ่งยกระดับมาจาก Internal Improvements
@@ -345,7 +347,7 @@ feature ใหม่และการปรับปรุงที่ผู้
 - ไม่รวมการอัปเดต dependency ตามปกติ, hardening เล็กน้อย หรือการแก้ที่เกี่ยวกับ test เท่านั้น
 - ละหมวดนี้ทั้งหมดหาก release นั้นไม่มีรายการด้าน security
 
-### Fixes {#fixes}
+### Fixes [#fixes]
 
 การแก้ bug ที่ช่วยให้ทำงานถูกต้องขึ้น แต่ไม่เข้าข่ายปัญหาด้าน security
 
@@ -360,7 +362,7 @@ feature ใหม่และการปรับปรุงที่ผู้
 
 - ขึ้นต้นด้วย "Fixed"
 
-### Internal Improvements {#internal-improvements}
+### Internal Improvements [#internal-improvements]
 
 รายละเอียดของ implementation และการเปลี่ยนแปลงด้าน infrastructure
 
@@ -379,7 +381,7 @@ feature ใหม่และการปรับปรุงที่ผู้
 - ใช้ "Added", "Implemented", "Improved", "Optimized", "Upgraded", "Refined", "Standardized"
 - ใส่หมายเลขเวอร์ชันสำหรับการอัปเกรด dependency
 
-### Documentation Updates {#documentation-updates}
+### Documentation Updates [#documentation-updates]
 
 การเปลี่ยนแปลงของคู่มือและตัวอย่าง
 
@@ -391,7 +393,7 @@ feature ใหม่และการปรับปรุงที่ผู้
 - Fixed broken links
 ```
 
-### Deprecations {#deprecations}
+### Deprecations [#deprecations]
 
 feature ที่ถูกกำหนดให้ลบออกในอนาคต
 
@@ -405,12 +407,12 @@ feature ที่ถูกกำหนดให้ลบออกในอนา
 
 - อธิบายวิธี migrate และให้ทางเลือกอื่น
 
-## การให้เครดิต {#attribution}
+## การให้เครดิต [#attribution]
 
 - ให้เครดิตผู้ร่วมพัฒนาภายนอก: `thanks @username` หรือ `thanks for reporting @username`
 - ใส่หมายเลข issue/PR สำหรับการมีส่วนร่วมจากชุมชนและ feature ที่ซับซ้อน: `(#1234)`
 
-## รูปแบบการเขียน {#style}
+## รูปแบบการเขียน [#style]
 
 - ใช้ sentence case (ขึ้นต้นตัวพิมพ์ใหญ่เฉพาะคำแรก)
 - ไม่ลงท้ายด้วยจุด
@@ -424,7 +426,7 @@ Bad:  Improved Binance adapter
 Good: Improved Binance fill handling when instrument not cached
 ```
 
-## การจัดประเภทด้าน security {#security-classification}
+## การจัดประเภทด้าน security [#security-classification]
 
 ใส่ไว้ในหมวด Security หากการเปลี่ยนแปลงนั้นแก้ปัญหาเรื่อง:
 
@@ -439,7 +441,7 @@ Good: Improved Binance fill handling when instrument not cached
 
 หมายเหตุ: panic จาก logic ธรรมดาให้อยู่ใน Fixes เว้นแต่จะคุกคามเสถียรภาพของระบบหรือทำให้ข้อมูลเสียหาย
 
-## ตัวอย่าง {#examples}
+## ตัวอย่าง [#examples]
 
 **Security** (อาจทำให้เกิด crash/ความเสียหาย):
 
@@ -467,7 +469,7 @@ Good: Improved Binance fill handling when instrument not cached
 - Implemented Bybit ping/pong handling
 ```
 
-## Template ของ release notes {#release-notes-template}
+## Template ของ release notes [#release-notes-template]
 
 ```markdown
 # NautilusTrader <VERSION> Beta

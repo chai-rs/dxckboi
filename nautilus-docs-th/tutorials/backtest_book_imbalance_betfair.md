@@ -1,4 +1,6 @@
-# Backtest Book Imbalance (Betfair)
+---
+title: "Backtest Book Imbalance (Betfair)"
+---
 
 :::note
 tutorial นี้เป็นแบบ **Rust เท่านั้น** โดยส่งข้อมูล streaming ดิบของ Betfair เข้า `BacktestEngine` ของ Rust โดยตรง
@@ -8,7 +10,7 @@ tutorial นี้เป็นแบบ **Rust เท่านั้น** โด
 tutorial นี้ทำ backtest `BookImbalanceActor` บนตลาด MATCH_ODDS ของ Betfair โดยโหลดไฟล์ `.gz` ข้อมูล streaming
 ย้อนหลังแบบดิบ ป้อนผ่าน `BacktestEngine` ของ Rust และติดตาม imbalance ของปริมาณที่เสนอฝั่ง bid/ask ของแต่ละ runner
 
-## บทนำ {#introduction}
+## บทนำ [#introduction]
 
 Betfair เป็น exchange สำหรับเดิมพันกีฬา ที่ผู้เข้าร่วมทำการ back (bid) และ lay (ask) ผลลัพธ์ต่าง ๆ ที่ odds แบบทศนิยม
 runner แต่ละตัวมี order book ระดับ L2 ของตัวเองที่ทำงานเหมือน order book ในตลาดการเงิน
@@ -59,7 +61,7 @@ flowchart LR
     AC --> SUM --> IMB
 ```
 
-## สิ่งที่ต้องมี {#prerequisites}
+## สิ่งที่ต้องมี [#prerequisites]
 
 - Rust toolchain ที่ใช้งานได้ ([rustup.rs](https://rustup.rs))
 - repository ของ NautilusTrader ที่ clone และ build ได้แล้ว
@@ -78,7 +80,7 @@ test_data/local/betfair/1.253378068.gz
 ไฟล์ดังกล่าว ให้ส่งไฟล์ตัวอย่างที่มากับ `test_data/betfair/` เช่น `test_data/betfair/1-166811431.bz2` loader
 อ่านไฟล์ `.bz2` ได้ด้วย
 
-## การโหลดข้อมูล {#loading-the-data}
+## การโหลดข้อมูล [#loading-the-data]
 
 `BetfairDataLoader` อ่านไฟล์ของ Betfair Exchange Streaming API ที่บีบอัดด้วย gzip และ parse แต่ละบรรทัดเป็น
 domain object ของ Nautilus:
@@ -147,7 +149,7 @@ variant `Status` บรรจุการเปลี่ยนสถานะข
 engine จะ route `Data::InstrumentStatus` ไปยัง matching engine ซึ่งจะเห็นการระงับและการปิดตลาดจาก stream
 :::
 
-## Actor {#the-actor}
+## Actor [#the-actor]
 
 NautilusTrader มี `BookImbalanceActor` มาให้ใน module examples ของ crate trading ตัวอย่างนี้ต่อ actor เข้ากับ
 list ของ instrument ราย runner และ interval ของ log:
@@ -166,7 +168,7 @@ build ตัวอย่างใหม่
 source ฉบับเต็มอยู่ที่
 [`crates/trading/src/examples/actors/imbalance/actor.rs`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/trading/src/examples/actors/imbalance/actor.rs)
 
-### วิธีการทำงาน {#how-it-works}
+### วิธีการทำงาน [#how-it-works]
 
 `DataActor` ใน Rust ต้องมีสามส่วน:
 
@@ -185,9 +187,9 @@ delta แต่ละตัวของแต่ละฝั่งและอ�
 แต่ matching engine ของ exchange ยังคงดูแล book ของตัวเองผ่าน `book.apply_delta()` ทุก delta หาก actor ต้องการ
 state ของ book เต็มจาก `self.cache().order_book(&instrument_id)` ให้ตั้ง `managed: true`
 
-## การ setup backtest engine {#backtest-engine-setup}
+## การ setup backtest engine [#backtest-engine-setup]
 
-### สร้าง engine และ venue {#create-the-engine-and-venue}
+### สร้าง engine และ venue [#create-the-engine-and-venue]
 
 Betfair เป็น exchange เดิมพันที่ settle เป็นเงินสด venue จึงใช้ `AccountType::Cash`, `OmsType::Netting` และ
 `BookType::L2_MBP`:
@@ -207,7 +209,7 @@ engine.add_venue(
 )?;
 ```
 
-### เพิ่ม instrument, actor และข้อมูล {#add-instruments-actor-and-data}
+### เพิ่ม instrument, actor และข้อมูล [#add-instruments-actor-and-data]
 
 ```rust
 for instrument in instruments.values() {
@@ -224,7 +226,7 @@ engine.add_data(data, None, true, true)?;
 instrument ของ element แรกลงทะเบียนไว้แล้ว โดยสันนิษฐานว่า batch เป็นข้อมูลชนิดเดียวกันทั้งหมด เมื่อ `sort: true`
 จะเรียงข้อมูลตาม timestamp
 
-### รัน {#run}
+### รัน [#run]
 
 ```rust
 engine.run(None, None, None, false)?;
@@ -233,7 +235,7 @@ engine.run(None, None, None, false)?;
 พารามิเตอร์ทั้งสี่คือ `(start, end, run_config_id, streaming)` เมื่อใช้ `None` สำหรับ `start` และ `end` engine
 จะใช้ช่วงเวลาทั้งหมดของข้อมูลที่โหลดไว้
 
-## สิ่งที่เกิดขึ้นระหว่างการรัน {#what-happens-during-the-run}
+## สิ่งที่เกิดขึ้นระหว่างการรัน [#what-happens-during-the-run]
 
 สำหรับ data point แต่ละตัวตามลำดับ timestamp นั้น engine จะ:
 
@@ -246,7 +248,7 @@ engine.run(None, None, None, false)?;
 matching engine ดูแล order book เต็มของแต่ละ instrument ตัวอย่างนี้ไม่มี order ให้ match หากเปลี่ยน actor เป็น
 `Strategy` strategy ก็จะใช้ state ของ book นั้นได้
 
-## ผลลัพธ์ {#results}
+## ผลลัพธ์ [#results]
 
 ชุดข้อมูล MATCH_ODDS ที่บันทึกเองมีสาม runner และ 143,098 data point release build รันเสร็จในราว 48 ms:
 
@@ -275,7 +277,7 @@ runner `48783` มีแรง back ที่แรงกว่า (+0.466) จ�
 **รูปที่ 3.** *ปริมาณ back (bid) และ lay (ask) สะสมของแต่ละ runner ทั้งสองฝั่งไม่ได้เพิ่มขึ้นอย่างเดียว: ในช่วงสั้น ๆ
 ปริมาณ lay บางครั้งแซงปริมาณ back แม้ imbalance สะสมจะยังเป็นบวก*
 
-### สร้าง panel ใหม่ {#regenerate-the-panels}
+### สร้าง panel ใหม่ [#regenerate-the-panels]
 
 actor จะ log `[runner] update #N: batch bid=B ask=A cumulative imbalance=I` ทุกการอัปเดตครั้งที่ N
 ตัว renderer จะ parse บรรทัดเหล่านั้นและเขียนไฟล์ PNG แบบ static โดยใช้ theme tearsheet `nautilus_dark`
@@ -290,7 +292,7 @@ cargo run -p nautilus-betfair --features examples --release \
 
 > หมายเหตุ: ขั้นตอน render panel ในต้นฉบับใช้สคริปต์ Python (`render_panels.py`) จึงตัดออก
 
-## การรันตัวอย่าง {#running-the-example}
+## การรันตัวอย่าง [#running-the-example]
 
 ```bash
 # Debug build
@@ -306,12 +308,12 @@ cargo run -p nautilus-betfair --features examples --release --example betfair-ba
 cargo run -p nautilus-betfair --features examples --release --example betfair-backtest -- test_data/betfair/1-166811431.bz2
 ```
 
-## Source ฉบับเต็ม {#complete-source}
+## Source ฉบับเต็ม [#complete-source]
 
 ตัวอย่างฉบับเต็มอยู่ที่
 [`crates/adapters/betfair/examples/betfair_backtest.rs`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/adapters/betfair/examples/betfair_backtest.rs)
 
-## ขั้นตอนถัดไป {#next-steps}
+## ขั้นตอนถัดไป [#next-steps]
 
 - **Strategy**: เปลี่ยน actor เป็น implementation ของ `Strategy` ที่ส่ง order แบบ back/lay ตามสัญญาณ imbalance
   ดูรูปแบบได้จากตัวอย่าง `EmaCross` ใน `crates/trading/src/examples/strategies/ema_cross/strategy.rs`
