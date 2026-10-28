@@ -1,8 +1,13 @@
-//! The same strategy on Bybit testnet (USDT linear perpetual).
+//! The actor + executor design on Bybit testnet (USDT linear perpetual),
+//! with every fill streamed to `fills.jsonl` by a background thread.
 //!
 //! Credentials come from BYBIT_TESTNET_API_KEY / BYBIT_TESTNET_API_SECRET.
 //! Run with: cargo run --release --features live --bin live
-use meanrev::strategy::{MeanReversion, MeanReversionConfig};
+use meanrev::{
+    components::{BandSignalActor, SignalExecutor, SignalExecutorConfig},
+    execution::RiskSettings,
+    exporter::{FillExporter, spawn_jsonl_writer},
+};
 use nautilus_bybit::{
     common::enums::{BybitEnvironment, BybitProductType},
     config::{BybitDataClientConfig, BybitExecutionClientConfig},
@@ -59,22 +64,37 @@ async fn main() -> anyhow::Result<()> {
         .with_delay_post_stop_secs(5)
         .build()?;
 
-    node.add_strategy(MeanReversion::new(MeanReversionConfig {
-        strategy_id: StrategyId::from("MEANREV-001"),
+    let bar_type = BarType::from("BTCUSDT-LINEAR.BYBIT-1-MINUTE-LAST-EXTERNAL");
+    node.add_actor(BandSignalActor::new(
+        "BAND-SIGNAL-001",
+        instrument_id,
+        bar_type,
+        20,  // Bollinger period
+        2.0, // Bollinger k
+        14,  // ATR period
+        1.5, // stop distance in ATRs
+        1.0, // minimum reward in ATRs
+    ))?;
+    node.add_strategy(SignalExecutor::new(SignalExecutorConfig {
+        strategy_id: StrategyId::from("EXECUTOR-001"),
         order_id_tag: "001".to_string(),
         instrument_id,
-        bar_type: BarType::from("BTCUSDT-LINEAR.BYBIT-1-MINUTE-LAST-EXTERNAL"),
-        bb_period: 20,
-        bb_k: 2.0,
-        atr_period: 14,
-        atr_stop: 1.5,
-        min_reward_atr: 1.0,
-        risk_fraction: 0.001,
-        max_notional: 200.0, // USDT; keep testnet orders small
-        cooldown_bars: 30,
-        status_interval_mins: 60,
+        risk: RiskSettings {
+            risk_fraction: 0.001,
+            max_notional: 200.0, // USDT; keep testnet orders small
+        },
+        cooldown_mins: 30,
     }))?;
 
+    let (fill_sink, writer) = spawn_jsonl_writer("fills.jsonl".as_ref(), 10_000)?;
+    node.add_actor(FillExporter::new("FILL-EXPORTER-001", fill_sink))?;
+
     node.run().await?;
+
+    // Disposing retires the exporter and drops its sender, which lets the writer
+    // thread finish. Dropping the node is not enough.
+    node.dispose();
+    let lines = writer.join().expect("writer thread panicked")?;
+    log::info!("Wrote {lines} fills to fills.jsonl");
     Ok(())
 }

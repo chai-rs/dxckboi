@@ -3,22 +3,62 @@ title: "Order และความเสี่ยง"
 description: "bracket order, position sizing ตามความเสี่ยง, ข้อจำกัดของ instrument, denied กับ rejected และการตั้งค่า risk engine"
 ---
 
-หน้านี้อธิบาย method `enter()` ของ strategy และเกราะป้องกันรอบ ๆ มัน ซึ่งเป็นส่วนที่พลาดแล้วเสียเงินจริง
+หน้านี้อธิบาย `enter_bracket()` ใน `src/execution.rs` และเกราะป้องกันรอบ ๆ มัน ซึ่งเป็นส่วนที่พลาดแล้วเสียเงินจริง
+ฟังก์ชันนี้รับ strategy ใดก็ได้ ทั้ง `MeanReversion` และ `SignalExecutor` ในหน้า [Integration](integration.md) เรียกใช้ตัวเดียวกัน
 
-## ภาพรวมของ enter() [#enter]
+## ภาพรวมของ enter_bracket() [#enter]
 
 ```rust
-fn enter(
-    &mut self,
+/// Sizes an entry from account equity and submits it as a bracket order.
+pub fn enter_bracket<S>(
+    strategy: &mut S,
+    instrument_id: InstrumentId,
     side: OrderSide,
     entry: f64,
     take_profit: f64,
     stop_loss: f64,
-) -> anyhow::Result<()> {
-    let id = self.config.instrument_id;
-    let Some(instrument) = self.cache().instrument(&id) else {
-        anyhow::bail!("instrument {id} not in cache");
+    risk: RiskSettings,
+) -> anyhow::Result<()>
+where
+    S: Strategy + StrategyNative + DataActorNative,
+{
+    let Some(instrument) = strategy.cache().instrument(&instrument_id) else {
+        anyhow::bail!("instrument {instrument_id} not in cache");
     };
+    let quote = instrument.quote_currency();
+    let equity = strategy
+        .cache()
+        .account_for_venue(&instrument_id.venue)
+        .and_then(|account| account.balance_total(Some(quote)))
+        .map_or(0.0, |money| money.as_f64());
+
+    let limits = SizeLimits {
+        increment: instrument.size_increment().as_f64(),
+        min_units: instrument.min_quantity().map_or(0.0, |q| q.as_f64()),
+        max_units: instrument
+            .max_quantity()
+            .map_or(f64::INFINITY, |q| q.as_f64()),
+        max_notional: risk.max_notional,
+    };
+    let units = units_for_risk(equity, risk.risk_fraction, entry, stop_loss, limits);
+    if units <= 0.0 {
+        log::warn!("Skipping {side:?}: position size rounds to zero (equity {equity})");
+        return Ok(());
+    }
+
+    let orders = strategy
+        .order()
+        .bracket()
+        .instrument_id(instrument_id)
+        .order_side(side)
+        .quantity(instrument.make_qty(units, Some(true)))
+        .tp_price(instrument.make_price(take_profit))
+        .tp_post_only(false)
+        .sl_trigger_price(instrument.make_price(stop_loss))
+        .call();
+    log::info!("Entering {side:?} {units} @ ~{entry:.5} tp={take_profit:.5} sl={stop_loss:.5}");
+    strategy.submit_order_list(orders, None, None, None)
+}
 ```
 
 ทุกค่าที่ขึ้นกับ venue อ่านจาก cache ตอนส่ง order ไม่ได้เขียนตายตัว: instrument (precision, increment, ขนาดขั้นต่ำ/สูงสุด)
@@ -117,9 +157,20 @@ pub fn units_for_risk(
 2. **ถอยเมื่อถูกปฏิเสธ** เมื่อ order ถูก deny หรือ reject ให้หยุดเข้าเทรดใหม่ไประยะหนึ่ง:
 
 ```rust
+// Denied = stopped by our own risk engine before reaching the venue.
+// Back off instead of resubmitting the same order on every bar.
 fn on_order_denied(&mut self, event: OrderDenied) {
-    self.cooldown_until = self.bars_seen + self.config.cooldown_bars;
+    self.cooldown_until_ns = cooldown_end(self, self.config.cooldown_mins);
     log::warn!("Order {} denied: {}", event.client_order_id, event.reason);
+}
+```
+
+`cooldown_end` อยู่ใน `src/execution.rs` คำนวณจากเวลาของ `self.clock()` จึงให้ผลเดียวกันทั้งใน backtest และ live:
+
+```rust
+/// Clock time plus `mins`, as nanoseconds: the end of a cooldown that starts now.
+pub fn cooldown_end<S: DataActor + DataActorNative>(strategy: &S, mins: u64) -> u64 {
+    strategy.clock().timestamp_ns().as_u64() + mins * 60 * 1_000_000_000
 }
 ```
 

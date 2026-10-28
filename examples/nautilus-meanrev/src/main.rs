@@ -1,9 +1,14 @@
 //! `meanrev run [random]` one backtest with full logging (mean-reverting or random-walk market)
 //! `meanrev sweep` a parameter grid with logging off
+//! `meanrev compare` the single-strategy and actor + executor designs side by side
+//! `meanrev export <file>` one run with every fill written to a JSON-lines file
 use std::time::Instant;
 
 use log::LevelFilter;
-use meanrev::backtest::{Market, Params, run};
+use meanrev::{
+    backtest::{Design, Market, Params, RunOptions, run, run_with},
+    exporter::spawn_jsonl_writer,
+};
 
 const BARS: usize = 30 * 24 * 60; // 30 days of 1-minute bars
 
@@ -17,7 +22,52 @@ fn pnl_total(result: &nautilus_backtest::result::BacktestResult) -> f64 {
 }
 
 fn main() -> anyhow::Result<()> {
+    let base = Params {
+        bb_period: 20,
+        bb_k: 2.0,
+        atr_stop: 1.5,
+    };
     match std::env::args().nth(1).as_deref() {
+        Some("compare") => {
+            println!("design            orders  positions   pnl_total");
+            for design in [Design::SingleStrategy, Design::ActorAndExecutor] {
+                let result = run_with(RunOptions {
+                    params: base,
+                    market: Market::MeanReverting,
+                    bars: BARS,
+                    log_level: LevelFilter::Off,
+                    design,
+                    fill_sink: None,
+                })?;
+                println!(
+                    "{:<16}  {:>6}  {:>9}  {:>10.2}",
+                    format!("{design:?}"),
+                    result.total_orders,
+                    result.total_positions,
+                    pnl_total(&result),
+                );
+            }
+        }
+        Some("export") => {
+            let path = std::env::args()
+                .nth(2)
+                .unwrap_or_else(|| "fills.jsonl".to_string());
+            let (sink, writer) = spawn_jsonl_writer(path.as_ref(), 10_000)?;
+            let result = run_with(RunOptions {
+                params: base,
+                market: Market::MeanReverting,
+                bars: BARS,
+                log_level: LevelFilter::Off,
+                design: Design::ActorAndExecutor,
+                fill_sink: Some(sink),
+            })?;
+            // The engine (and with it the exporter's sender) is gone, so the writer finishes.
+            let lines = writer.join().expect("writer thread panicked")?;
+            println!(
+                "positions={} fills_written={lines} file={path}",
+                result.total_positions
+            );
+        }
         Some("sweep") => {
             println!("market         bb_period  bb_k  atr_stop  positions   pnl_total");
             for market in [Market::MeanReverting, Market::RandomWalk] {

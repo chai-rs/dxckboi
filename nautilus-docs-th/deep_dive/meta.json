@@ -2,12 +2,15 @@
   "title": "Deep Dive: ลงมือสร้างระบบจริง",
   "pages": [
     "index",
+    "architecture",
     "project_setup",
     "data",
     "strategy",
     "orders_and_risk",
     "backtest",
     "testing",
+    "integration",
+    "adapters",
     "live",
     "production"
   ]

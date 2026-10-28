@@ -3,9 +3,15 @@ title: "Deep Dive: จากแนวคิดสู่การใช้งา�
 description: "สร้างระบบเทรดด้วย NautilusTrader และ Rust ตั้งแต่โปรเจกต์ว่าง จนถึง backtest, test และรันบน testnet"
 ---
 
-บทอื่นในเอกสารชุดนี้อธิบายทีละส่วน เช่น actor, order, cache หรือ backtest engine บทนี้นำทุกส่วนมาต่อกันเป็นระบบเดียว
-โดยสร้างโปรเจกต์ Rust จริงตั้งแต่ศูนย์ แล้วพาไปตามลำดับที่ทำงานจริง: ตั้งโปรเจกต์ เตรียมข้อมูล เขียน strategy จัดการ order
-และความเสี่ยง backtest เขียน test แล้วจึงต่อเข้ากับ exchange
+บทอื่นในเอกสารชุดนี้อธิบายทีละส่วน เช่น actor, order, cache หรือ backtest engine บทนี้มีเป้าหมายสองข้อ:
+
+1. **เข้าใจสถาปัตยกรรม** ว่าข้อมูลและคำสั่งเดินผ่าน component ไหนบ้าง ตามลำดับอะไร และการออกแบบนั้นบังคับให้โค้ดของเรา
+   ต้องเขียนอย่างไร
+2. **นำไปใช้และต่อเข้ากับระบบของเรา** แยก logic เป็น component ที่คุยกันผ่าน message bus, ส่ง event ออกไปยังระบบภายนอก,
+   รันกับ exchange จริง และเข้าใจว่า adapter อย่าง Hyperliquid และ Lighter ต่อเข้ากับ node อย่างไร
+
+ทั้งหมดอธิบายผ่านโปรเจกต์ Rust จริงที่สร้างตั้งแต่ศูนย์ ตั้งแต่ตั้งโปรเจกต์ เตรียมข้อมูล เขียน strategy, backtest, test
+แยก component ไปจนถึงรันบน testnet
 
 :::note[บทนี้ไม่ได้แปลจากต้นฉบับ]
 เนื้อหาบท Deep Dive เขียนขึ้นใหม่สำหรับเอกสารฉบับภาษาไทย ไม่มีในเอกสาร NautilusTrader ต้นฉบับ
@@ -64,23 +70,31 @@ nautilus-meanrev/
 │   ├── signal.rs         กฎการเข้าเทรด (pure)
 │   ├── sizing.rs         การคำนวณขนาด position (pure)
 │   ├── data.rs           ตัวสร้างข้อมูล bar สังเคราะห์แบบ deterministic
-│   ├── strategy.rs       strategy MeanReversion
-│   ├── backtest.rs       ประกอบ BacktestEngine
-│   ├── main.rs           CLI: `run` และ `sweep`
+│   ├── execution.rs      ส่ง bracket order ตามความเสี่ยง ใช้ร่วมกันทุก strategy
+│   ├── strategy.rs       MeanReversion: strategy ตัวเดียวทำทุกอย่าง
+│   ├── components.rs     BandSignalActor + SignalExecutor: แบบแยก component
+│   ├── exporter.rs       FillExporter: ส่ง fill ออกนอก node ผ่าน channel
+│   ├── backtest.rs       ประกอบ BacktestEngine ตาม RunOptions
+│   ├── main.rs           CLI: run, sweep, compare, export
 │   └── bin/live.rs       รันบน Bybit testnet (feature `live`)
-└── tests/backtest.rs     integration test ผ่าน engine จริง
+└── tests/
+    ├── backtest.rs       integration test ผ่าน engine จริง
+    └── integration.rs    ความเท่ากันของสองแบบ และการส่ง fill ออก
 ```
 
 ## ลำดับการอ่าน [#reading-order]
 
 | หน้า | เนื้อหา |
 | --- | --- |
+| [เข้าใจสถาปัตยกรรม](architecture.md) | ติดตาม bar และ order ผ่านทุก component, ใครเป็นเจ้าของ state, กฎสำหรับโค้ดของเรา |
 | [ตั้งค่าโปรเจกต์](project_setup.md) | toolchain, การ pin dependency, feature flag และการวางโมดูล |
 | [ข้อมูล](data.md) | bar type, precision, timestamp, price type ที่ risk engine ใช้ได้ และข้อมูลสังเคราะห์ |
 | [เขียน strategy](strategy.md) | โครงสร้าง strategy, indicator, lifecycle และ hook |
 | [Order และความเสี่ยง](orders_and_risk.md) | bracket order, position sizing, ข้อจำกัดของ instrument และ risk engine |
 | [Backtest](backtest.md) | ประกอบ engine, fill/fee model, อ่านผล, parameter sweep และ control market |
 | [Testing](testing.md) | unit test, integration test และการตรวจว่าผลซ้ำได้ |
+| [Apply และ integrate](integration.md) | แยก component ผ่าน message bus, ส่ง event ออก, รับข้อมูลเข้า, หลาย strategy, persistence |
+| [Adapter ทำงานอย่างไร](adapters.md) | ผ่าตัด adapter ของ Hyperliquid และ Lighter: ชั้นต่าง ๆ, trait, การส่ง order, reconciliation |
 | [ไปสู่ live](live.md) | ต่อ Bybit testnet, credential และ reconciliation |
 | [Production checklist](production.md) | สิ่งที่ต้องเตรียมก่อนใช้เงินจริง |
 
@@ -102,3 +116,5 @@ nautilus-meanrev/
 - test ของ position sizing พังเพราะ floating point ([Testing](testing.md#floating-point))
 - ตั้ง log level เป็น `Off` แล้ว log ยังออกมาเต็มจอ เพราะ logger เป็นของทั้ง process ([Backtest](backtest.md#logging))
 - ผล backtest ดีเกินจริง และวิธีพิสูจน์ว่ากำไรมาจากข้อมูล ไม่ใช่จากบั๊ก ([Backtest](backtest.md#control-market))
+- thread ที่เขียนไฟล์ fill ค้างไม่จบ เพราะ engine ไม่ dispose component ให้เอง ([Integration](integration.md#egress-bug))
+- จำนวน fill ไม่เท่ากับจำนวน order เพราะ partial fill เกิดขึ้นแม้ใน backtest ([Integration](integration.md#partial-fills))

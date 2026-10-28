@@ -3,23 +3,29 @@ title: "Backtest: ประกอบ engine และอ่านผล"
 description: "ตั้งค่า venue จำลอง, fill model, fee model, อ่าน BacktestResult, parameter sweep และการใช้ control market พิสูจน์ผล"
 ---
 
-หน้านี้อธิบาย `src/backtest.rs` ซึ่งประกอบ `BacktestEngine` ทั้งตัวไว้ในฟังก์ชันเดียว ทั้ง binary และ test ใช้ฟังก์ชันนี้ร่วมกัน
+หน้านี้อธิบาย `src/backtest.rs` ซึ่งประกอบ `BacktestEngine` ทั้งตัวไว้ใน `run_with(RunOptions)` ทั้ง binary และ test ใช้ฟังก์ชันนี้ร่วมกัน
+`RunOptions` เลือกได้ว่าจะประกอบแบบ strategy ตัวเดียว (`Design::SingleStrategy`) หรือแบบแยก actor กับ executor
+(`Design::ActorAndExecutor`, ดู [Integration](integration.md)) และจะต่อ `FillExporter` หรือไม่ ส่วน `run(..)` เป็นทางลัดของแบบแรก
 จึงมั่นใจได้ว่าสิ่งที่ test ตรวจคือ setup เดียวกับที่ใช้รันจริง
 
 ## ประกอบ engine [#engine]
 
 ```rust
-pub fn run(
-    params: Params,
-    market: Market,
-    bars: usize,
-    log_level: LevelFilter,
-) -> anyhow::Result<BacktestResult> {
+pub fn run_with(options: RunOptions) -> anyhow::Result<BacktestResult> {
+    let RunOptions {
+        params,
+        market,
+        bars,
+        log_level,
+        design,
+        fill_sink,
+    } = options;
     let instrument = InstrumentAny::CurrencyPair(audusd_sim());
     let instrument_id = instrument.id();
     let bar_type = BarType::from("AUD/USD.SIM-1-MINUTE-LAST-EXTERNAL");
 
     let risk = RiskEngineConfig::builder()
+        // At most 10 order submissions per second, and no single order above 2M USD notional.
         .max_order_submit(RateLimit::new(10, DurationNanos::from_secs(1)))
         .max_notional_per_order(AHashMap::from([(instrument_id, Decimal::from(2_000_000))]))
         .build()?;
@@ -49,9 +55,14 @@ pub fn run(
             .build()?,
     )?;
     engine.add_instrument(&instrument)?;
-    // ... add_data, add_strategy ...
+    // ... add_data, then add_actor / add_strategy according to `design` ...
     engine.run(None, None, None, false)?;
-    Ok(engine.get_result())
+let result = engine.get_result();
+// Disposing retires every actor and strategy, dropping what they own (such as the
+// exporter's channel sender). Dropping the engine alone does not: the actor
+// registry is thread-local and outlives it.
+engine.dispose();
+    Ok(result)
 }
 ```
 

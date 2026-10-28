@@ -23,8 +23,13 @@ use nautilus_model::{
 use nautilus_risk::engine::config::RiskEngineConfig;
 use rust_decimal::Decimal;
 
+use std::sync::mpsc::SyncSender;
+
 use crate::{
+    components::{BandSignalActor, SignalExecutor, SignalExecutorConfig},
     data::SyntheticBars,
+    execution::RiskSettings,
+    exporter::{FillExporter, FillRecord},
     strategy::{MeanReversion, MeanReversionConfig},
 };
 
@@ -45,7 +50,27 @@ pub struct Params {
     pub atr_stop: f64,
 }
 
-/// Runs one backtest over `bars` one-minute bars.
+/// How the trading logic is assembled.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Design {
+    /// One `MeanReversion` strategy does everything.
+    SingleStrategy,
+    /// `BandSignalActor` publishes signals, `SignalExecutor` trades them.
+    ActorAndExecutor,
+}
+
+/// Everything that varies between runs.
+pub struct RunOptions {
+    pub params: Params,
+    pub market: Market,
+    pub bars: usize,
+    pub log_level: LevelFilter,
+    pub design: Design,
+    /// When set, a `FillExporter` sends every fill here.
+    pub fill_sink: Option<SyncSender<FillRecord>>,
+}
+
+/// Runs one backtest over `bars` one-minute bars with the single-strategy design.
 ///
 /// The logger is global to the process: the first engine created sets it up,
 /// so `log_level` only takes effect on the first run in a process.
@@ -55,6 +80,26 @@ pub fn run(
     bars: usize,
     log_level: LevelFilter,
 ) -> anyhow::Result<BacktestResult> {
+    run_with(RunOptions {
+        params,
+        market,
+        bars,
+        log_level,
+        design: Design::SingleStrategy,
+        fill_sink: None,
+    })
+}
+
+/// Runs one backtest as described by `options`.
+pub fn run_with(options: RunOptions) -> anyhow::Result<BacktestResult> {
+    let RunOptions {
+        params,
+        market,
+        bars,
+        log_level,
+        design,
+        fill_sink,
+    } = options;
     let instrument = InstrumentAny::CurrencyPair(audusd_sim());
     let instrument_id = instrument.id();
     let bar_type = BarType::from("AUD/USD.SIM-1-MINUTE-LAST-EXTERNAL");
@@ -109,22 +154,59 @@ pub fn run(
     .generate();
     engine.add_data(data, None, true, true)?;
 
-    engine.add_strategy(MeanReversion::new(MeanReversionConfig {
-        strategy_id: StrategyId::from("MEANREV-001"),
-        order_id_tag: "001".to_string(),
-        instrument_id,
-        bar_type,
-        bb_period: params.bb_period,
-        bb_k: params.bb_k,
-        atr_period: 14,
-        atr_stop: params.atr_stop,
-        min_reward_atr: 1.0,
+    const ATR_PERIOD: usize = 14;
+    const MIN_REWARD_ATR: f64 = 1.0;
+    const COOLDOWN_MINS: u64 = 30;
+    let risk = RiskSettings {
         risk_fraction: 0.005,
         max_notional: 1_500_000.0,
-        cooldown_bars: 30,
-        status_interval_mins: 24 * 60,
-    }))?;
+    };
+
+    if let Some(sink) = fill_sink {
+        engine.add_actor(FillExporter::new("FILL-EXPORTER-001", sink))?;
+    }
+    match design {
+        Design::SingleStrategy => engine.add_strategy(MeanReversion::new(MeanReversionConfig {
+            strategy_id: StrategyId::from("MEANREV-001"),
+            order_id_tag: "001".to_string(),
+            instrument_id,
+            bar_type,
+            bb_period: params.bb_period,
+            bb_k: params.bb_k,
+            atr_period: ATR_PERIOD,
+            atr_stop: params.atr_stop,
+            min_reward_atr: MIN_REWARD_ATR,
+            risk_fraction: risk.risk_fraction,
+            max_notional: risk.max_notional,
+            cooldown_mins: COOLDOWN_MINS,
+            status_interval_mins: 24 * 60,
+        }))?,
+        Design::ActorAndExecutor => {
+            engine.add_actor(BandSignalActor::new(
+                "BAND-SIGNAL-001",
+                instrument_id,
+                bar_type,
+                params.bb_period,
+                params.bb_k,
+                ATR_PERIOD,
+                params.atr_stop,
+                MIN_REWARD_ATR,
+            ))?;
+            engine.add_strategy(SignalExecutor::new(SignalExecutorConfig {
+                strategy_id: StrategyId::from("EXECUTOR-001"),
+                order_id_tag: "001".to_string(),
+                instrument_id,
+                risk,
+                cooldown_mins: COOLDOWN_MINS,
+            }))?;
+        }
+    }
 
     engine.run(None, None, None, false)?;
-    Ok(engine.get_result())
+    let result = engine.get_result();
+    // Disposing retires every actor and strategy, dropping what they own (such as the
+    // exporter's channel sender). Dropping the engine alone does not: the actor
+    // registry is thread-local and outlives it.
+    engine.dispose();
+    Ok(result)
 }

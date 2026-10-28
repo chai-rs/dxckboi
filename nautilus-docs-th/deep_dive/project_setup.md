@@ -36,7 +36,11 @@ ahash = "0.8"
 anyhow = "1"
 log = "0.4"
 rust_decimal = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 ```
+
+`serde` และ `serde_json` ใช้กับ custom data (`#[custom_data]` สร้างโค้ดที่อ้างถึงสอง crate นี้) และกับการ export fill เป็น JSON
 
 ทุก crate ต้องชี้ไปที่ `rev` เดียวกัน ถ้าผสมเวอร์ชัน cargo จะ build crate ซ้ำสองชุด แล้ว type อย่าง `InstrumentId`
 จากสองชุดจะเข้ากันไม่ได้ (error ประมาณ "expected `InstrumentId`, found `InstrumentId`")
@@ -89,7 +93,8 @@ required-features = ["live"]
 | ชั้น | ไฟล์ | รู้จัก Nautilus ไหม | test อย่างไร |
 | --- | --- | --- | --- |
 | กฎการเทรด | `signal.rs`, `sizing.rs` | ไม่ (รับ/คืน `f64` และ enum ของเราเอง) | unit test ธรรมดา รันเสร็จในเสี้ยววินาที |
-| เชื่อมกับ runtime | `strategy.rs` | ใช่ | ผ่าน integration test |
+| การส่ง order ที่ใช้ร่วมกัน | `execution.rs` | ใช่ | ผ่าน integration test |
+| เชื่อมกับ runtime | `strategy.rs`, `components.rs`, `exporter.rs` | ใช่ | ผ่าน integration test |
 | ประกอบระบบ | `backtest.rs`, `bin/live.rs` | ใช่ | integration test และการรันจริง |
 
 strategy ที่เขียน logic ทั้งหมดไว้ใน `on_bar` test ได้ทางเดียวคือรัน engine ทั้งตัว ซึ่งช้าและหาสาเหตุยากเมื่อ test พัง
@@ -101,6 +106,8 @@ strategy ที่เขียน logic ทั้งหมดไว้ใน `on
 cargo test --release          # unit test + integration test
 cargo run --release -- run    # backtest หนึ่งรอบพร้อม log
 cargo run --release -- sweep  # parameter sweep แบบไม่มี log
+cargo run --release -- compare           # เทียบแบบ strategy ตัวเดียวกับแบบแยก component
+cargo run --release -- export fills.jsonl  # เขียนทุก fill ลงไฟล์ JSON lines
 ```
 
 ใช้ `--release` เสมอเมื่อรัน backtest เพราะ debug build ของ engine ช้ากว่ามาก build ครั้งแรกใช้เวลาหลายนาที

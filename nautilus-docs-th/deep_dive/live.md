@@ -4,7 +4,9 @@ description: "นำ strategy เดียวกันไปรันกับ e
 ---
 
 strategy ในบทนี้ไม่มีโค้ดส่วนไหนที่รู้ว่ากำลังรันใน backtest หรือ live ทุกอย่างที่ต่างกันอยู่ในส่วนประกอบระบบ
-(`backtest.rs` กับ `bin/live.rs`) หน้านี้นำ `MeanReversion` ตัวเดิมไปรันบน **Bybit testnet** กับ USDT linear perpetual
+(`backtest.rs` กับ `bin/live.rs`) หน้านี้นำชุด component จากหน้า [Integration](integration.md) คือ `BandSignalActor`,
+`SignalExecutor` และ `FillExporter` ไปรันบน **Bybit testnet** กับ USDT linear perpetual
+(`MeanReversion` แบบตัวเดียวก็ใช้แทนได้ด้วย `node.add_strategy(..)` บรรทัดเดียว เพราะผ่าน test ว่าให้ผลเท่ากัน)
 
 :::warning[สถานะของโค้ดในหน้านี้]
 `src/bin/live.rs` compile ผ่านกับ NautilusTrader commit `04f766b4` แต่ไม่ได้รันกับ exchange ระหว่างเขียนบทนี้
@@ -104,23 +106,38 @@ async fn main() -> anyhow::Result<()> {
         .with_delay_post_stop_secs(5)
         .build()?;
 
-    node.add_strategy(MeanReversion::new(MeanReversionConfig {
-        strategy_id: StrategyId::from("MEANREV-001"),
+    let bar_type = BarType::from("BTCUSDT-LINEAR.BYBIT-1-MINUTE-LAST-EXTERNAL");
+    node.add_actor(BandSignalActor::new(
+        "BAND-SIGNAL-001",
+        instrument_id,
+        bar_type,
+        20,  // Bollinger period
+        2.0, // Bollinger k
+        14,  // ATR period
+        1.5, // stop distance in ATRs
+        1.0, // minimum reward in ATRs
+    ))?;
+    node.add_strategy(SignalExecutor::new(SignalExecutorConfig {
+        strategy_id: StrategyId::from("EXECUTOR-001"),
         order_id_tag: "001".to_string(),
         instrument_id,
-        bar_type: BarType::from("BTCUSDT-LINEAR.BYBIT-1-MINUTE-LAST-EXTERNAL"),
-        bb_period: 20,
-        bb_k: 2.0,
-        atr_period: 14,
-        atr_stop: 1.5,
-        min_reward_atr: 1.0,
-        risk_fraction: 0.001,
-        max_notional: 200.0, // USDT; keep testnet orders small
-        cooldown_bars: 30,
-        status_interval_mins: 60,
+        risk: RiskSettings {
+            risk_fraction: 0.001,
+            max_notional: 200.0, // USDT; keep testnet orders small
+        },
+        cooldown_mins: 30,
     }))?;
 
+    let (fill_sink, writer) = spawn_jsonl_writer("fills.jsonl".as_ref(), 10_000)?;
+    node.add_actor(FillExporter::new("FILL-EXPORTER-001", fill_sink))?;
+
     node.run().await?;
+
+    // Disposing retires the exporter and drops its sender, which lets the writer
+    // thread finish. Dropping the node is not enough.
+    node.dispose();
+    let lines = writer.join().expect("writer thread panicked")?;
+    log::info!("Wrote {lines} fills to fills.jsonl");
     Ok(())
 }
 ```
@@ -151,13 +168,13 @@ cache ของ node เก็บไว้ในหน่วยความจ�
 reconciliation เป็น **external order** และถูกมอบให้ strategy ที่ "claim" instrument นั้นไว้ ถ้าไม่มี strategy ใด claim
 order จะไปอยู่กับ strategy ชื่อ `EXTERNAL` ซึ่งเป็นค่า fallback
 
-strategy ในบทนี้ claim instrument ของตัวเองไว้ใน constructor:
+strategy ทั้งสองตัวในบทนี้ (`MeanReversion` และ `SignalExecutor`) claim instrument ของตัวเองไว้ใน constructor:
 
 ```rust
 external_order_instrument_ids: Some(vec![config.instrument_id]),
 ```
 
-ถ้าไม่ claim order ที่ค้างจากรอบก่อนจะไม่ใช่ของ `MEANREV-001` และ `is_busy()` ซึ่งกรองด้วย strategy ID จะมองไม่เห็นมัน
+ถ้าไม่ claim order ที่ค้างจากรอบก่อนจะไม่ใช่ของ `EXECUTOR-001` และ `is_busy()` ซึ่งกรองด้วย strategy ID จะมองไม่เห็นมัน
 strategy อาจส่ง bracket ชุดใหม่ซ้อนกับ take profit/stop loss ชุดเก่าที่ยังทำงานอยู่บน exchange
 ดูกติกาการ claim ทั้งหมดที่ [การสร้าง external order](../concepts/execution/reconciliation.md#external-order-creation)
 

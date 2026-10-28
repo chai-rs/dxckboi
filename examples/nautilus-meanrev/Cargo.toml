@@ -18,6 +18,8 @@ ahash = "0.8"
 anyhow = "1"
 log = "0.4"
 rust_decimal = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 # Live trading only (see src/bin/live.rs).
 nautilus-bybit = { git = "https://github.com/nautechsystems/nautilus_trader", rev = "04f766b4d434d67fc8672026fefa25135bdc01be", default-features = false, optional = true }

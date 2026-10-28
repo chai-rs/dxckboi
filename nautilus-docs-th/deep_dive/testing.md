@@ -24,6 +24,11 @@ test every_entry_is_a_full_bracket ... ok
 test no_profit_without_an_edge ... ok
 test same_inputs_give_same_results ... ok
 test result: ok. 3 passed; 0 failed
+
+test exporter_receives_every_fill ... ok
+test split_design_trades_exactly_like_the_single_strategy ... ok
+test writer_thread_finishes_after_the_run ... ok
+test result: ok. 3 passed; 0 failed
 ```
 
 ## ชั้นที่ 1: unit test ของกฎ [#unit-tests]
@@ -177,6 +182,20 @@ fn no_profit_without_an_edge() {
 - **ปิด log** ด้วย `LevelFilter::Off` ไม่อย่างนั้น output ของ test จะยาวหลายพันบรรทัด
 - **ไม่ assert ตัวเลข PnL ตายตัว** ตัวเลขเปลี่ยนได้เมื่ออัปเกรด Nautilus (เช่น fill model ปรับวิธีคำนวณ)
   test ที่ assert เป็นความสัมพันธ์ (ซ้ำได้, ติดลบ, สัดส่วนของ order) ทนต่อการอัปเกรดกว่า และยังจับบั๊กจริงได้
+
+## Test ของการ integrate [#integration-level-tests]
+
+`tests/integration.rs` ตรวจสิ่งที่เกิดขึ้นเมื่อแยก component และต่อระบบภายนอก ซึ่งอธิบายละเอียดในหน้า
+[Integration](integration.md):
+
+| Test | ยืนยันว่า |
+| --- | --- |
+| `split_design_trades_exactly_like_the_single_strategy` | แยก logic เป็น actor + executor แล้วผลเท่ากับ strategy ตัวเดียวทุกหลัก |
+| `exporter_receives_every_fill` | ทุก fill ออกมาถึงปลายทาง ตรวจด้วยปริมาณซื้อรวมเท่ากับขายรวม ไม่ใช่จำนวน fill |
+| `writer_thread_finishes_after_the_run` | thread ปลายทางจบได้หลัง backtest จบ (ใช้ deadline แทน `join()` เปล่า ๆ เพื่อให้ test fail แทนที่จะค้าง) |
+
+test แบบนี้คือ "ตาข่าย" ของการ refactor และการอัปเกรด ถ้าวันหนึ่ง Nautilus เปลี่ยนลำดับการส่ง message หรือวิธี dispose
+component test ชุดนี้จะบอกก่อนที่ระบบจริงจะเสียหาย
 
 ## Test handler ของ strategy โดยตรง [#handler-tests]
 
