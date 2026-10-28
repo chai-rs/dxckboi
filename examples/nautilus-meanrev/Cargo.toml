@@ -1,0 +1,32 @@
+[package]
+name = "meanrev"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# NautilusTrader crates pinned to the commit the Thai docs were translated from.
+[dependencies]
+nautilus-backtest = { git = "https://github.com/nautechsystems/nautilus_trader", rev = "04f766b4d434d67fc8672026fefa25135bdc01be" }
+nautilus-common = { git = "https://github.com/nautechsystems/nautilus_trader", rev = "04f766b4d434d67fc8672026fefa25135bdc01be" }
+nautilus-core = { git = "https://github.com/nautechsystems/nautilus_trader", rev = "04f766b4d434d67fc8672026fefa25135bdc01be" }
+nautilus-execution = { git = "https://github.com/nautechsystems/nautilus_trader", rev = "04f766b4d434d67fc8672026fefa25135bdc01be" }
+nautilus-indicators = { git = "https://github.com/nautechsystems/nautilus_trader", rev = "04f766b4d434d67fc8672026fefa25135bdc01be" }
+nautilus-model = { git = "https://github.com/nautechsystems/nautilus_trader", rev = "04f766b4d434d67fc8672026fefa25135bdc01be", features = ["test-support"] }
+nautilus-risk = { git = "https://github.com/nautechsystems/nautilus_trader", rev = "04f766b4d434d67fc8672026fefa25135bdc01be" }
+nautilus-trading = { git = "https://github.com/nautechsystems/nautilus_trader", rev = "04f766b4d434d67fc8672026fefa25135bdc01be" }
+ahash = "0.8"
+anyhow = "1"
+log = "0.4"
+rust_decimal = "1"
+
+# Live trading only (see src/bin/live.rs).
+nautilus-bybit = { git = "https://github.com/nautechsystems/nautilus_trader", rev = "04f766b4d434d67fc8672026fefa25135bdc01be", default-features = false, optional = true }
+nautilus-live = { git = "https://github.com/nautechsystems/nautilus_trader", rev = "04f766b4d434d67fc8672026fefa25135bdc01be", default-features = false, features = ["node"], optional = true }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"], optional = true }
+
+[features]
+live = ["dep:nautilus-bybit", "dep:nautilus-live", "dep:tokio"]
+
+[[bin]]
+name = "live"
+required-features = ["live"]

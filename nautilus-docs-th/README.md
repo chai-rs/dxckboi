@@ -26,8 +26,14 @@
   - [เขียน strategy ด้วย Rust](how_to/write_rust_strategy.md)
   - [เขียน actor ด้วย Rust](how_to/write_rust_actor.md)
 - [Tutorials](tutorials/index.md)
+- [Deep Dive: ลงมือสร้างระบบจริง](deep_dive/index.md) (เขียนเพิ่มสำหรับฉบับภาษาไทย ไม่มีในต้นฉบับ)
 - [Integrations](integrations/index.md)
 - [Developer guide](developer_guide/index.md) · [Rust](developer_guide/rust.md)
+
+## บทที่เขียนเพิ่ม
+
+`deep_dive/` เป็นเนื้อหาที่เขียนขึ้นใหม่สำหรับฉบับภาษาไทย ไม่ได้แปลจากต้นฉบับ โค้ดประกอบอยู่ที่
+[`examples/nautilus-meanrev`](../examples/nautilus-meanrev)
 
 ## License
 

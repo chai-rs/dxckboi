@@ -1,0 +1,14 @@
+{
+  "title": "Deep Dive: ลงมือสร้างระบบจริง",
+  "pages": [
+    "index",
+    "project_setup",
+    "data",
+    "strategy",
+    "orders_and_risk",
+    "backtest",
+    "testing",
+    "live",
+    "production"
+  ]
+}

@@ -19,6 +19,7 @@ description: "เอกสาร NautilusTrader ฉบับแปลภาษ�
 - [แนวคิด (Concepts)](concepts/index.md): สถาปัตยกรรม, data, order, execution, backtesting
 - [How-to](how_to/index.md): คู่มือทีละขั้นสำหรับงานเฉพาะ
 - [Tutorials](tutorials/index.md): ตัวอย่าง strategy แบบครบวงจร
+- [Deep Dive: ลงมือสร้างระบบจริง](deep_dive/index.md): สร้างโปรเจกต์ Rust ตั้งแต่ศูนย์จนถึง backtest, test และ testnet (บทที่เขียนเพิ่มสำหรับฉบับภาษาไทย)
 - [Integrations](integrations/index.md): venue และผู้ให้บริการข้อมูลที่รองรับ
 - [Developer guide](developer_guide/index.md): สำหรับผู้พัฒนา NautilusTrader เอง
 
